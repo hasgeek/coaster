@@ -1,0 +1,12 @@
+.DS_Store
+*.pyc
+test.db
+*.wpr
+.project
+.pydevproject
+.settings
+*.egg-info
+.coverage
+docs/_build
+build/
+dist/
