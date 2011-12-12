@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
 from random import randint
 import uuid
 from base64 import urlsafe_b64encode

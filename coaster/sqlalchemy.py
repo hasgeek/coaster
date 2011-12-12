@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
 from sqlalchemy import Column, Integer, DateTime, Unicode, func
 
 class IdMixin(object):
