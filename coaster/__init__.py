@@ -58,12 +58,12 @@ def makename(text, delim=u'-', maxlength=50, filter=None):
     """
     return unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
 
-def configureapp(app)
+def configureapp(app, env)
     """
     Configure an app depending on the situation
     """
     app.config.from_pyfile('settings.py')
-    if environ.get('HGTV_ENV') == 'test':
+    if environ.get(env) == 'test':
         app.config.from_pyfile('testing.py')
-    if environ.get('HGTV_ENV') == 'prod':
+    if environ.get(env) == 'prod':
         app.config.from_pyfile('production.py')
