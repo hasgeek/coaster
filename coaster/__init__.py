@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from os import environ
 from random import randint
 import uuid
 from base64 import urlsafe_b64encode
@@ -56,3 +57,13 @@ def makename(text, delim=u'-', maxlength=50, filter=None):
     u'billion-pageviews'
     """
     return unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+
+def configureapp(app)
+    """
+    Configure an app depending on the situation
+    """
+    app.config.from_pyfile('settings.py')
+    if environ.get('HGTV_ENV') == 'test':
+        app.config.from_pyfile('testing.py')
+    if environ.get('HGTV_ENV') == 'prod':
+        app.config.from_pyfile('production.py')
