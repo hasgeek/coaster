@@ -29,6 +29,13 @@ def newid():
     return urlsafe_b64encode(uuid.uuid4().bytes).rstrip('=')
 
 
+def newsecret():
+    """
+    Make a secret key for email confirmation and all that stuff.
+    """
+    return newid() + newid()
+
+
 def newpin(digits=4):
     """
     Return a random numeric string with the specified number of digits,
