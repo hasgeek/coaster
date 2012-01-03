@@ -2,8 +2,12 @@
 
 from __future__ import absolute_import
 import urlparse
-from flask import request, url_for
+import re
+from flask import request, url_for, json
 
+__jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
+
+#TODO: This needs tests
 def get_next_url(referrer=False, external=False):
     """
     Get the next URL to redirect to. Don't return external URLs unless
@@ -20,3 +24,18 @@ def get_next_url(referrer=False, external=False):
         return next_url or request.referrer or url_for('index')
     else:
         return next_url or url_for('index')
+
+#TODO: This needs tests
+def jsonp(*args, **kw):
+    """
+    Returns a JSON response with a callback wrapper, if asked for.
+    """
+    data = json.dumps(dict(*args, **kw),
+        indent=None if request.is_xhr else 2)
+    callback = request.args.get('callback', request.args.get('jsonp'))
+    if callback and jsoncallback_re.search(callback) is not None:
+        data = u'%s(' % callback + data + u');'
+        mimetype = 'application/javascript'
+    else:
+        mimetype = 'application/json'
+    return Response(data, mimetype=mimetype)
