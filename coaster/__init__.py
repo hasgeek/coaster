@@ -79,9 +79,9 @@ def configureapp(app, env):
         try:
             app.config.from_pyfile('testing.py')
         except:
-            continue
+            pass
     if environ.get(env) == 'prod':
         try:
             app.config.from_pyfile('production.py')
         except:
-            continue
+            pass
