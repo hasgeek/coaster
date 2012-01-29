@@ -9,7 +9,7 @@ import re
 
 # --- Version -----------------------------------------------------------------
 
-__version__ = '0.1'
+__version__ = '0.2'
 
 
 # --- Common delimiters and punctuation ---------------------------------------
@@ -64,6 +64,7 @@ def makename(text, delim=u'-', maxlength=50, filter=None):
     u'billion-pageviews'
     """
     return unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+
 
 def configureapp(app, env):
     """
