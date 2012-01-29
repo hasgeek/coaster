@@ -69,8 +69,19 @@ def configureapp(app, env):
     """
     Configure an app depending on the situation
     """
-    app.config.from_pyfile('settings.py')
+    try:
+        app.config.from_pyfile('settings.py')
+    except IOError:
+        import sys
+        sys.stderr.write("Please create a settings.py file "
+               "folder by copying settings.sample.py")
     if environ.get(env) == 'test':
-        app.config.from_pyfile('testing.py')
+        try:
+            app.config.from_pyfile('testing.py')
+        except:
+            pass
     if environ.get(env) == 'prod':
-        app.config.from_pyfile('production.py')
+        try:
+            app.config.from_pyfile('production.py')
+        except:
+            pass
