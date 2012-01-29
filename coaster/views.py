@@ -3,9 +3,10 @@
 from __future__ import absolute_import
 import urlparse
 import re
-from flask import request, url_for, json
+from flask import request, url_for, json, Response
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
+
 
 #TODO: This needs tests
 def get_next_url(referrer=False, external=False):
@@ -24,6 +25,7 @@ def get_next_url(referrer=False, external=False):
         return next_url or request.referrer or url_for('index')
     else:
         return next_url or url_for('index')
+
 
 #TODO: This needs tests
 def jsonp(*args, **kw):
