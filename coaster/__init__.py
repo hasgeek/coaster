@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from os import environ
-from random import randint
+from random import randint, randrange
 import uuid
-from base64 import urlsafe_b64encode
+from base64 import urlsafe_b64encode, b64encode, b64decode
+import hashlib, binascii
 import re
+
+# Compatibility import
+from coaster.app import configure_app as configureapp
 
 # --- Version -----------------------------------------------------------------
 
@@ -25,6 +28,11 @@ def newid():
     Return a new random id that is exactly 22 characters long. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
     for URL-safe Base64
+
+    >>> len(newid())
+    22
+    >>> newid() == newid()
+    False
     """
     return urlsafe_b64encode(uuid.uuid4().bytes).rstrip('=')
 
@@ -32,6 +40,11 @@ def newid():
 def newsecret():
     """
     Make a secret key for email confirmation and all that stuff.
+
+    >>> len(newsecret())
+    44
+    >>> newsecret() == newsecret()
+    False
     """
     return newid() + newid()
 
@@ -40,58 +53,184 @@ def newpin(digits=4):
     """
     Return a random numeric string with the specified number of digits,
     default 4.
+
+    >>> len(newpin())
+    4
+    >>> len(newpin(5))
+    5
+    >>> isinstance(int(newpin()), int)
+    True
     """
     return (u'%%0%dd' % digits) % randint(0, 10**digits)
 
 
-def makename(text, delim=u'-', maxlength=50, filter=None):
+def _sniplen(text, length):
+    """
+    Cut text at specified length.
+
+    >>> _sniplen('test', 4)
+    'test'
+    >>> _sniplen('test', 10)
+    'test'
+    >>> _sniplen('test', 3)
+    'tes'
+    """
+    if len(text) > length:
+        return text[:length]
+    else:
+        return text
+
+
+def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u"""
-    Generate a Unicode name slug.
+    Generate a Unicode name slug. If a checkused filter is provided, it will
+    be called with the candidate. If it returns True, make_name will add
+    counter numbers starting from 1 until a suitable candidate is found.
 
-    >>> makename('This is a title')
+    >>> make_name('This is a title')
     u'this-is-a-title'
-    >>> makename('Invalid URL/slug here')
+    >>> make_name('Invalid URL/slug here')
     u'invalid-url-slug-here'
-    >>> makename('this.that')
+    >>> make_name('this.that')
     u'this-that'
-    >>> makename("How 'bout this?")
+    >>> make_name("How 'bout this?")
     u'how-bout-this'
-    >>> makename(u"How’s that?")
+    >>> make_name(u"How’s that?")
     u'hows-that'
-    >>> makename(u'K & D')
+    >>> make_name(u'K & D')
     u'k-d'
-    >>> makename('billion+ pageviews')
+    >>> make_name('billion+ pageviews')
     u'billion-pageviews'
+    >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1'])
+    u'candidate2'
+    >>> make_name('Long title, but snipped', maxlength=20)
+    u'long-title-but-snipp'
+    >>> len(make_name('Long title, but snipped', maxlength=20))
+    20
+    >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
+    u'long-cand2'
     """
-    return unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+    name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+    if checkused is None:
+        return _sniplen(name, maxlength)
+    # Check for unique name. Unit test for this is in tests.py
+
+    candidate = _sniplen(name, maxlength)
+    existing = checkused(candidate)
+    counter = 0
+    while existing:
+        counter += 1
+        candidate = _sniplen(name, maxlength-len(unicode(counter))) + unicode(counter)
+        existing = checkused(candidate)
+    return candidate
 
 
-def configureapp(app, env):
+def make_password(password, encoding=u'SSHA'):
     """
-    Configure an app depending on the situation
+    Make a password with PLAIN or SSHA encoding.
+
+    >>> make_password('foo', encoding='PLAIN')
+    u'{PLAIN}foo'
+    >>> make_password(u'bar', encoding='PLAIN')
+    u'{PLAIN}bar'
+    >>> make_password(u're-foo')[:6]
+    u'{SSHA}'
+    >>> make_password('bar-foo')[:6]
+    u'{SSHA}'
+    >>> make_password('foo') == make_password('foo')
+    False
+    >>> check_password(make_password('ascii'), 'ascii')
+    True
+    >>> check_password(make_password('mixed'), u'mixed')
+    True
+    >>> check_password(make_password(u'unicode'), u'unicode')
+    True
     """
-    try:
-        app.config.from_pyfile('settings.py')
-    except IOError:
-        # FIXME: Can we print to sys.stderr in production? Should this go to
-        # logs instead?
-        import sys
-        print >> sys.stderr, ("Please create a settings.py file in the instance "
-                             "folder by customizing settings-sample.py")
+    if encoding not in [u'PLAIN', u'SSHA']:
+        raise ValueError, "Unknown encoding %s" % encoding
+    if encoding == u'PLAIN':
+        if isinstance(password, str):
+            password = unicode(password, 'utf-8')
+        return u"{PLAIN}%s" % password
+    elif encoding == u'SSHA':
+        # SSHA is a modification of the SHA digest scheme with a salt
+        # starting at byte 20 of the base64-encoded string.
+        # Source: http://developer.netscape.com/docs/technote/ldap/pass_sha.html
+        # This implementation is from Zope2's AccessControl.AuthEncoding.
 
-    additional = {
-        'dev': 'development.py',
-        'development': 'development.py',
-        'test': 'testing.py',
-        'testing': 'testing.py',
-        'prod': 'production.py',
-        'production': 'production.py',
-    }.get(environ.get(env))
+        salt = ''
+        for n in range(7):
+            salt += chr(randrange(256))
+        if isinstance(password, unicode):
+            password = password.encode('utf-8')
+        else:
+            password = str(password)
+        return unicode('{SSHA}%s' % b64encode(hashlib.sha1(password+salt).digest() + salt))
 
-    if additional:
+
+def check_password(reference, attempt):
+    """
+    Compare a reference password with the user attempt.
+
+    >>> check_password('{PLAIN}foo', 'foo')
+    True
+    >>> check_password(u'{PLAIN}bar', 'bar')
+    True
+    >>> check_password(u'{UNKNOWN}baz', 'baz')
+    False
+    >>> check_password(u'no-encoding', u'no-encoding')
+    False
+    >>> check_password(u'{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', u're-foo')
+    True
+    >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
+    True
+    """
+    if reference.startswith('{PLAIN}'):
+        if reference[7:] == attempt:
+            return True
+    elif reference.startswith('{SSHA}'):
         try:
-            app.config.from_pyfile(additional)
-        except IOError:
-            import sys
-            print >> sys.stderr, "Unable to locate additional settings file %s" % additional
-            pass
+            ref = b64decode(reference[6:])
+        except TypeError:
+            return False # Not Base64
+        if isinstance(attempt, unicode):
+            attempt = attempt.encode('utf-8')
+        salt = ref[20:]
+        compare = unicode('{SSHA}%s' % b64encode(hashlib.sha1(attempt+salt).digest()+salt))
+        return (compare == reference)
+    return False
+
+
+def format_currency(value, decimals=2):
+    """
+    Return a number suitably formatted for display as currency, with
+    thousands separated by commas and up to two decimal points.
+
+    >>> format_currency(1000)
+    '1,000'
+    >>> format_currency(100)
+    '100'
+    >>> format_currency(999.95)
+    '999.95'
+    >>> format_currency(99.95)
+    '99.95'
+    >>> format_currency(100000)
+    '100,000'
+    >>> format_currency(1000.00)
+    '1,000'
+    >>> format_currency(1000.41)
+    '1,000.41'
+    >>> format_currency(123456789.123456789)
+    '123,456,789.12'
+    """
+    number, decimal = (('%%.%df' % decimals) % value).split('.')
+    parts = []
+    while len(number) > 3:
+        part, number = number[-3:], number[:-3]
+        parts.append(part)
+    parts.append(number)
+    parts.reverse()
+    if decimal == '00':
+        return ','.join(parts)
+    else:
+        return ','.join(parts) + '.' + decimal
