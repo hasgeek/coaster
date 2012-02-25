@@ -5,10 +5,12 @@ from random import randint, randrange
 import uuid
 from base64 import urlsafe_b64encode, b64encode, b64decode
 import hashlib, binascii
+import string
 import re
+from BeautifulSoup import BeautifulSoup, Comment
 
 # Compatibility import
-from coaster.app import configure_app as configureapp
+from coaster.app import configure as configureapp
 
 # --- Version -----------------------------------------------------------------
 
@@ -93,6 +95,8 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u'invalid-url-slug-here'
     >>> make_name('this.that')
     u'this-that'
+    >>> make_name('this:that')
+    u'this-that'
     >>> make_name("How 'bout this?")
     u'how-bout-this'
     >>> make_name(u"How’s that?")
@@ -101,6 +105,14 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u'k-d'
     >>> make_name('billion+ pageviews')
     u'billion-pageviews'
+    >>> make_name(u'हिन्दी slug!') == u'हिन्दी-slug'
+    True
+    >>> make_name(u'__name__', delim=u'_')
+    u'name'
+    >>> make_name(u'how_about_this', delim=u'_')
+    u'how_about_this'
+    >>> make_name(u'and-that', delim=u'_')
+    u'and_that'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1'])
     u'candidate2'
     >>> make_name('Long title, but snipped', maxlength=20)
@@ -113,8 +125,6 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     if checkused is None:
         return _sniplen(name, maxlength)
-    # Check for unique name. Unit test for this is in tests.py
-
     candidate = _sniplen(name, maxlength)
     existing = checkused(candidate)
     counter = 0
@@ -234,3 +244,88 @@ def format_currency(value, decimals=2):
         return ','.join(parts)
     else:
         return ','.join(parts) + '.' + decimal
+
+
+def md5sum(data):
+    """
+    Return md5sum of data as a 32-character string.
+
+    >>> md5sum('random text')
+    'd9b9bec3f4cc5482e7c5ef43143e563a'
+    >>> md5sum(u'random text')
+    'd9b9bec3f4cc5482e7c5ef43143e563a'
+    >>> len(md5sum('random text'))
+    32
+    """
+    return hashlib.md5(data).hexdigest()
+
+
+def get_email_domain(email):
+    """
+    Return the domain component of an email address. Returns None if the
+    provided string cannot be parsed as an email address.
+
+    >>> get_email_domain('jace@pobox.com')
+    'pobox.com'
+    >>> get_email_domain('jace+test@pobox.com')
+    'pobox.com'
+    >>> get_email_domain('foobar')
+    """
+    try:
+        return email.split('@')[1]
+    except IndexError:
+        return None
+
+
+VALID_TAGS = {'strong': [],
+              'em': [],
+              'p': [],
+              'ol': [],
+              'ul': [],
+              'li': [],
+              'br': [],
+              'a': ['href', 'title', 'target']
+              }
+
+
+def sanitize_html(value, valid_tags=VALID_TAGS):
+    """
+    Strips unwanted markup out of HTML.
+    """
+    # TODO: This function needs unit tests.
+    soup = BeautifulSoup(value)
+    comments = soup.findAll(text=lambda text:isinstance(text, Comment))
+    [comment.extract() for comment in comments]
+    # Some markup can be crafted to slip through BeautifulSoup's parser, so
+    # we run this repeatedly until it generates the same output twice.
+    newoutput = soup.renderContents()
+    while 1:
+        oldoutput = newoutput
+        soup = BeautifulSoup(newoutput)
+        for tag in soup.findAll(True):
+            if tag.name not in valid_tags:
+                tag.hidden = True
+            else:
+                tag.attrs = [(attr, value) for attr, value in tag.attrs if attr in valid_tags[tag.name]]
+        newoutput = soup.renderContents()
+        if oldoutput == newoutput:
+            break
+    return unicode(newoutput, 'utf-8')
+
+
+def simplify_text(text):
+    """
+    Simplify text to allow comparison.
+    
+    >>> simplify_text("Awesome Coder wanted at Awesome Company")
+    'awesome coder wanted at awesome company'
+    >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
+    'awesome coder wanted at awesome company'
+    >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ")
+    u'awesome coder wanted at awesome company'
+    """
+    if isinstance(text, unicode):
+        text = unicode(text.encode('utf-8').translate(string.maketrans("",""), string.punctuation).lower(), 'utf-8')
+    else:
+        text = text.translate(string.maketrans("",""), string.punctuation).lower()
+    return " ".join(text.split())

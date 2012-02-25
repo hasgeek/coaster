@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+
 from os import environ
 import sys
 
-def configure_app(app, env):
+def configure(app, env):
     """
-    Configure an app depending on the situation
+    Configure an app depending on the environment.
     """
     try:
         app.config.from_pyfile('settings.py')
