@@ -286,6 +286,8 @@ VALID_TAGS = {'strong': [],
               'ul': [],
               'li': [],
               'br': [],
+              'sup': [],
+              'sub': [],
               'a': ['href', 'title', 'target']
               }
 
