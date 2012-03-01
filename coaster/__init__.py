@@ -298,7 +298,7 @@ def sanitize_html(value, valid_tags=VALID_TAGS):
     """
     # TODO: This function needs unit tests.
     soup = BeautifulSoup(value)
-    comments = soup.findAll(text=lambda text:isinstance(text, Comment))
+    comments = soup.findAll(text=lambda text: isinstance(text, Comment))
     [comment.extract() for comment in comments]
     # Some markup can be crafted to slip through BeautifulSoup's parser, so
     # we run this repeatedly until it generates the same output twice.
@@ -329,7 +329,7 @@ def simplify_text(text):
     u'awesome coder wanted at awesome company'
     """
     if isinstance(text, unicode):
-        text = unicode(text.encode('utf-8').translate(string.maketrans("",""), string.punctuation).lower(), 'utf-8')
+        text = unicode(text.encode('utf-8').translate(string.maketrans("", ""), string.punctuation).lower(), 'utf-8')
     else:
-        text = text.translate(string.maketrans("",""), string.punctuation).lower()
+        text = text.translate(string.maketrans("", ""), string.punctuation).lower()
     return " ".join(text.split())
