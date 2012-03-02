@@ -2,8 +2,9 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode, func
+from sqlalchemy import Column, Integer, DateTime, Unicode
 from datetime import datetime
+
 
 class IdMixin(object):
     id = Column(Integer, primary_key=True)
