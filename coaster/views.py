@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from functools import wraps
 import urlparse
 import re
 from flask import request, url_for, json, Response
@@ -41,3 +42,34 @@ def jsonp(*args, **kw):
     else:
         mimetype = 'application/json'
     return Response(data, mimetype=mimetype)
+
+
+def load_model(model, attributes=None, parameter=None, workflow=False):
+    """
+    Decorator to load a model given a parameter.
+    """
+    if isinstance(model, list):
+        chain = model
+    else:
+        if attributes is None or parameter is None:
+            raise ValueError('attributes and parameter are needed to load a model.')
+        chain = [[model, attributes, parameter]]
+
+    def inner(f):
+        @wraps(f)
+        def decorated_function(**kw):
+            result = {}
+            for model, attributes, parameter in chain:
+                query = model.query
+                for k, v in attributes.items():
+                    query = query.filter_by(**{k: result.get(v, kw.get(v))})
+                item = query.first_or_404()
+                result[parameter] = item
+            if workflow:
+                # Get workflow for the last item in the chain
+                wf = item.workflow()
+                return f(wf)
+            else:
+                return f(**result)
+        return decorated_function
+    return inner
