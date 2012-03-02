@@ -288,7 +288,8 @@ VALID_TAGS = {'strong': [],
               'br': [],
               'sup': [],
               'sub': [],
-              'a': ['href', 'title', 'target']
+              'a': ['href', 'title', 'target'],
+              'blockquote': [],
               }
 
 
@@ -320,7 +321,7 @@ def sanitize_html(value, valid_tags=VALID_TAGS):
 def simplify_text(text):
     """
     Simplify text to allow comparison.
-    
+
     >>> simplify_text("Awesome Coder wanted at Awesome Company")
     'awesome coder wanted at awesome company'
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
