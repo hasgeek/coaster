@@ -1,6 +1,5 @@
 import os
 from setuptools import setup, find_packages
-import coaster
 
 here = os.path.abspath(os.path.dirname(__file__))
 README = unicode(open(os.path.join(here, 'README.rst')).read(), 'utf-8')
@@ -12,7 +11,7 @@ requires = [
     ]
 
 setup(name='coaster',
-      version=coaster.__version__,
+      version='0.2',
       description='Coaster for Flask',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[

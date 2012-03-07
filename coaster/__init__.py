@@ -12,10 +12,6 @@ from BeautifulSoup import BeautifulSoup, Comment
 # Compatibility import
 from coaster.app import configure as configureapp
 
-# --- Version -----------------------------------------------------------------
-
-__version__ = '0.2'
-
 
 # --- Common delimiters and punctuation ---------------------------------------
 
