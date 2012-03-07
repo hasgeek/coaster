@@ -7,7 +7,8 @@ README = unicode(open(os.path.join(here, 'README.rst')).read(), 'utf-8')
 CHANGES = unicode(open(os.path.join(here, 'CHANGES.rst')).read(), 'utf-8')
 
 requires = [
-    'Flask'
+    'Flask',
+    'BeautifulSoup'
     ]
 
 setup(name='coaster',
@@ -25,7 +26,7 @@ setup(name='coaster',
         "Topic :: Software Development :: Libraries",
         ],
       author='Kiran Jonnalagadda',
-      author_email='kiran@hasgeek.in',
+      author_email='kiran@hasgeek.com',
       url='http://github.com/hasgeek/coaster',
       keywords='coaster',
       packages=find_packages(),
