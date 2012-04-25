@@ -48,7 +48,7 @@ def load_model(model, attributes=None, parameter=None, workflow=False):
     """
     Decorator to load a model given a parameter.
     """
-    if isinstance(model, list):
+    if isinstance(model, (list, tuple)):
         chain = model
     else:
         if attributes is None or parameter is None:
@@ -73,3 +73,7 @@ def load_model(model, attributes=None, parameter=None, workflow=False):
                 return f(**result)
         return decorated_function
     return inner
+
+
+def load_models(workflow=False, *args):
+    return load_model(args, workflow=workflow)

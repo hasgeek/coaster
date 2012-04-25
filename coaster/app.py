@@ -3,6 +3,7 @@
 from os import environ
 import sys
 
+
 def configure(app, env):
     """
     Configure an app depending on the environment.
