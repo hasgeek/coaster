@@ -43,3 +43,29 @@ class BaseNameMixin(IdMixin, TimestampMixin):
                 checkused = lambda c: self.__class__.query.filter_by(name=c).first()
             self.name = make_name(self.title, maxlength=250,
                 checkused=checkused)
+
+
+class BaseIdNameMixin(BaseNameMixin):
+    """
+    Base mixin class for named objects with an id tag.
+    """
+
+    url_id_attr = 'id'
+
+    def __init__(self, *args, **kw):
+        super(BaseIdNameMixin, self).__init__(*args, **kw)
+        self.make_id()
+
+    def make_id(self):
+        pass
+
+    def make_name(self):
+        self.name = make_name(self.title, maxlength=250)
+
+    @property
+    def url_id(self):
+        return self.id
+
+    @property
+    def url_name(self):
+        return '%d-%s' % (self.url_id, self.name)

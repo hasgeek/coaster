@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from random import randint, randrange
 import uuid
 from base64 import urlsafe_b64encode, b64encode, b64decode
-import hashlib, binascii
+import hashlib
 import string
 import re
 from BeautifulSoup import BeautifulSoup, Comment
@@ -59,7 +59,7 @@ def newpin(digits=4):
     >>> isinstance(int(newpin()), int)
     True
     """
-    return (u'%%0%dd' % digits) % randint(0, 10**digits)
+    return (u'%%0%dd' % digits) % randint(0, 10 ** digits)
 
 
 def _sniplen(text, length):
@@ -126,7 +126,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     counter = 0
     while existing:
         counter += 1
-        candidate = _sniplen(name, maxlength-len(unicode(counter))) + unicode(counter)
+        candidate = _sniplen(name, maxlength - len(unicode(counter))) + unicode(counter)
         existing = checkused(candidate)
     return candidate
 
@@ -153,7 +153,7 @@ def make_password(password, encoding=u'SSHA'):
     True
     """
     if encoding not in [u'PLAIN', u'SSHA']:
-        raise ValueError, "Unknown encoding %s" % encoding
+        raise ValueError("Unknown encoding %s" % encoding)
     if encoding == u'PLAIN':
         if isinstance(password, str):
             password = unicode(password, 'utf-8')
@@ -171,7 +171,7 @@ def make_password(password, encoding=u'SSHA'):
             password = password.encode('utf-8')
         else:
             password = str(password)
-        return unicode('{SSHA}%s' % b64encode(hashlib.sha1(password+salt).digest() + salt))
+        return unicode('{SSHA}%s' % b64encode(hashlib.sha1(password + salt).digest() + salt))
 
 
 def check_password(reference, attempt):
@@ -198,11 +198,11 @@ def check_password(reference, attempt):
         try:
             ref = b64decode(reference[6:])
         except TypeError:
-            return False # Not Base64
+            return False  # Not Base64
         if isinstance(attempt, unicode):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
-        compare = unicode('{SSHA}%s' % b64encode(hashlib.sha1(attempt+salt).digest()+salt))
+        compare = unicode('{SSHA}%s' % b64encode(hashlib.sha1(attempt + salt).digest() + salt))
         return (compare == reference)
     return False
 

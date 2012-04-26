@@ -5,6 +5,7 @@ from functools import wraps
 import urlparse
 import re
 from flask import request, url_for, json, Response
+import coaster.sqlalchemy
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -44,9 +45,16 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
-def load_model(model, attributes=None, parameter=None, workflow=False):
+def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=False):
     """
-    Decorator to load a model given a parameter.
+    Decorator to load a model given a parameter. load_model recognizes
+    queries to url_name of BaseIdNameMixin instances and will automatically
+    load the model. FIXME: This should be handled by the model, not here.
+
+    If workflow is True, workflow() for the last time in the chain is called and the
+    resulting workflow object is passed instead of any of the requested parameters.
+
+    If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
     """
     if isinstance(model, (list, tuple)):
         chain = model
@@ -62,18 +70,27 @@ def load_model(model, attributes=None, parameter=None, workflow=False):
             for model, attributes, parameter in chain:
                 query = model.query
                 for k, v in attributes.items():
-                    query = query.filter_by(**{k: result.get(v, kw.get(v))})
+                    if k == 'url_name' and hasattr(model, 'url_id_attr'):
+                        query = query.filter_by(**{model.url_id_attr: kw.get(v).split('-')[0]})
+                    else:
+                        query = query.filter_by(**{k: result.get(v, kw.get(v))})
                 item = query.first_or_404()
                 result[parameter] = item
             if workflow:
                 # Get workflow for the last item in the chain
                 wf = item.workflow()
-                return f(wf)
+                if kwargs:
+                    return f(wf, kwargs=kw)
+                else:
+                    return f(wf)
             else:
-                return f(**result)
+                if kwargs:
+                    return f(kwargs=kw, **result)
+                else:
+                    return f(**result)
         return decorated_function
     return inner
 
 
-def load_models(workflow=False, *args):
-    return load_model(args, workflow=workflow)
+def load_models(*args, **kwargs):
+    return load_model(args, workflow=kwargs.get('workflow', False), kwargs=kwargs.get('kwargs', False))
