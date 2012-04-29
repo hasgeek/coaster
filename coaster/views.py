@@ -5,7 +5,6 @@ from functools import wraps
 import urlparse
 import re
 from flask import request, url_for, json, Response
-import coaster.sqlalchemy
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
