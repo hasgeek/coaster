@@ -5,8 +5,16 @@ from functools import wraps
 import urlparse
 import re
 from flask import request, url_for, json, Response
+from werkzeug.routing import BuildError
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
+
+
+def __index_url():
+    try:
+        return url_for('index')
+    except BuildError:
+        return '/'
 
 
 #TODO: This needs tests
@@ -23,9 +31,9 @@ def get_next_url(referrer=False, external=False):
             if urlparse.urlsplit(next_url).hostname != urlparse.urlsplit(request.url).hostname:
                 next_url = ''
     if referrer:
-        return next_url or request.referrer or url_for('index')
+        return next_url or request.referrer or __index_url()
     else:
-        return next_url or url_for('index')
+        return next_url or __index_url()
 
 
 #TODO: This needs tests
