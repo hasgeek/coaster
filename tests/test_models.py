@@ -2,6 +2,7 @@
 
 import unittest
 
+from datetime import datetime
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedNameMixin, BaseIdNameMixin, BaseScopedIdNameMixin
 from sqlalchemy import create_engine, Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym, sessionmaker, scoped_session
@@ -19,6 +20,8 @@ Base = declarative_base(bind=engine)
 class Container(BaseMixin, Base):
     __tablename__ = 'container'
     query = Session.query_property()
+
+    content = Column(Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, Base):
@@ -91,6 +94,20 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(c.id, None)
         self.session.commit()
         self.assertEqual(c.id, 1)
+
+    def test_timestamp(self):
+        now1 = datetime.utcnow()
+        c = self.make_container()
+        self.session.commit()
+        u = c.updated_at
+        now2 = datetime.utcnow()
+        self.assertTrue(now1 < c.created_at)
+        self.assertTrue(now2 > c.created_at)
+        c.content = "updated"
+        self.session.commit()
+        self.assertTrue(c.updated_at > now2)
+        self.assertTrue(c.updated_at > c.created_at)
+        self.assertTrue(c.updated_at > u)
 
     def test_unnamed(self):
         c = self.make_container()
