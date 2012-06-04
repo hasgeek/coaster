@@ -120,7 +120,6 @@ class TestCoasterModels(unittest.TestCase):
     def test_named(self):
         """Named documents have globally unique names."""
         c1 = self.make_container()
-        self.session.add(c1)
         d1 = NamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -135,7 +134,6 @@ class TestCoasterModels(unittest.TestCase):
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
         c1 = self.make_container()
-        self.session.add(c1)
         d1 = ScopedNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -155,7 +153,6 @@ class TestCoasterModels(unittest.TestCase):
     def test_id_named(self):
         """Documents with a global id in the URL"""
         c1 = self.make_container()
-        self.session.add(c1)
         d1 = IdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -175,7 +172,6 @@ class TestCoasterModels(unittest.TestCase):
     def test_scoped_id_named(self):
         """Documents with a container-specifc id in the URL"""
         c1 = self.make_container()
-        self.session.add(c1)
         d1 = ScopedIdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -196,6 +192,26 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d4)
         self.session.commit()
         self.assertEqual(d4.url_name, '3-hello')
+
+    def test_delayed_name(self):
+        c = self.make_container()
+        d1 = NamedDocument(container=c)
+        d1.title = 'Document 1'
+        d1.make_name()
+        self.session.add(d1)
+        d2 = ScopedNamedDocument(container=c)
+        d2.title = 'Document 2'
+        d2.make_name()
+        self.session.add(d2)
+        d3 = IdNamedDocument(container=c)
+        d3.title = 'Document 3'
+        d3.make_name()
+        self.session.add(d3)
+        d4 = ScopedIdNamedDocument(container=c)
+        d4.title = 'Document 4'
+        d4.make_name()
+        self.session.add(d4)
+        self.session.commit()
 
 if __name__ == '__main__':
     unittest.main()

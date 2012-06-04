@@ -90,7 +90,8 @@ class BaseIdNameMixin(IdMixin, TimestampMixin):
         self.make_name()
 
     def make_name(self):
-        self.name = make_name(self.title, maxlength=250)
+        if self.title:
+            self.name = make_name(self.title, maxlength=250)
 
     @property
     def url_id(self):
@@ -135,7 +136,8 @@ class BaseScopedIdNameMixin(IdMixin, TimestampMixin):
                 self.url_id = 1
 
     def make_name(self):
-        self.name = make_name(self.title, maxlength=250)
+        if self.title:
+            self.name = make_name(self.title, maxlength=250)
 
     @property
     def url_name(self):
