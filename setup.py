@@ -11,7 +11,7 @@ requires = [
     ]
 
 setup(name='coaster',
-      version='0.2.1',
+      version='0.2.2',
       description='Coaster for Flask',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
@@ -26,7 +26,7 @@ setup(name='coaster',
         ],
       author='Kiran Jonnalagadda',
       author_email='kiran@hasgeek.com',
-      url='http://github.com/hasgeek/coaster',
+      url='https://github.com/hasgeek/coaster',
       keywords='coaster',
       packages=find_packages(),
       include_package_data=True,

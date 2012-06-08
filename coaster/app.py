@@ -2,6 +2,7 @@
 
 from os import environ
 import sys
+import coaster.logging
 
 
 def configure(app, env):
@@ -30,3 +31,5 @@ def configure(app, env):
             app.config.from_pyfile(additional)
         except IOError:
             print >> sys.stderr, "Unable to locate additional settings file %s" % additional
+
+    coaster.logging.configure(app)
