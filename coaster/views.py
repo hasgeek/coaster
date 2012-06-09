@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import request, url_for, json, Response
+from flask import request, url_for, json, Response, redirect
 from werkzeug.routing import BuildError
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
@@ -78,12 +78,26 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
             result = {}
             for model, attributes, parameter in chain:
                 query = model.query
+                url_check = False
+                url_key = url_name = None
                 for k, v in attributes.items():
                     if k == 'url_name' and hasattr(model, 'url_id_attr'):
-                        query = query.filter_by(**{model.url_id_attr: kw.get(v).split('-')[0]})
+                        url_key = v
+                        url_name = kw.get(url_key)
+                        parts = url_name.split('-')
+                        if request.method == 'GET':
+                            url_check = True
+                        query = query.filter_by(**{model.url_id_attr: parts[0]})
                     else:
                         query = query.filter_by(**{k: result.get(v, kw.get(v))})
                 item = query.first_or_404()
+                if url_check:
+                    if item.url_name != url_name:
+                        # The url_name doesn't match.
+                        # Redirect browser to same page with correct url_name.
+                        view_args = dict(request.view_args)
+                        view_args[url_key] = item.url_name
+                        return redirect(url_for(request.endpoint, **view_args), code=302)
                 result[parameter] = item
             if workflow:
                 # Get workflow for the last item in the chain
