@@ -54,6 +54,7 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
+#TODO: This needs tests
 def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=False):
     """
     Decorator to load a model given a parameter. load_model recognizes
@@ -115,5 +116,6 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
     return inner
 
 
+#TODO: This needs tests
 def load_models(*args, **kwargs):
     return load_model(args, workflow=kwargs.get('workflow', False), kwargs=kwargs.get('kwargs', False))
