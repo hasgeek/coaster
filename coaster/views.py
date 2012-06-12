@@ -17,6 +17,16 @@ def __index_url():
         return '/'
 
 
+def __clean_external_url(url):
+    if url.startswith('http:') or url.startswith('https:') or url.startswith('//'):
+        # Do the domains and ports match?
+        pnext = urlparse.urlsplit(url)
+        preq = urlparse.urlsplit(request.url)
+        if pnext.hostname != preq.hostname or pnext.port != preq.port:
+            return ''
+    return url
+
+
 #TODO: This needs tests
 def get_next_url(referrer=False, external=False):
     """
@@ -25,17 +35,18 @@ def get_next_url(referrer=False, external=False):
     redirector to external URLs.
     """
     next_url = request.args.get('next', '')
-    if not external:
-        if next_url.startswith('http:') or next_url.startswith('https:') or next_url.startswith('//'):
-            # Do the domains and ports match?
-            pnext = urlparse.urlsplit(next_url)
-            preq = urlparse.urlsplit(request.url)
-            if pnext.hostname != preq.hostname or pnext.port != preq.port:
-                next_url = ''
-    if referrer:
-        return next_url or request.referrer or __index_url()
+    if next_url and not external:
+        next_url = __clean_external_url(next_url)
+    if next_url:
+        return next_url
+
+    if referrer and request.referrer:
+        if external:
+            return request.referrer
+        else:
+            return __clean_external_url(request.referrer) or __index_url()
     else:
-        return next_url or __index_url()
+        return __index_url()
 
 
 #TODO: This needs tests
