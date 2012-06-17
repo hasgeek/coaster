@@ -33,7 +33,8 @@ class BaseNameMixin(IdMixin, TimestampMixin):
 
     def __init__(self, *args, **kw):
         super(BaseNameMixin, self).__init__(*args, **kw)
-        self.make_name()
+        if not self.name:
+            self.make_name()
 
     def make_name(self):
         if self.title:
