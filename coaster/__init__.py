@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from datetime import datetime
 from random import randint, randrange
 import uuid
 from base64 import urlsafe_b64encode, b64encode, b64decode
@@ -256,6 +257,13 @@ def md5sum(data):
     32
     """
     return hashlib.md5(data).hexdigest()
+
+
+def parse_isoformat(text):
+    try:
+        return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
 
 
 def get_email_domain(email):
