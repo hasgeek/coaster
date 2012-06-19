@@ -193,6 +193,15 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(d4.url_name, '3-hello')
 
+    def test_scoped_without_parent(self):
+        d1 = ScopedNamedDocument(title=u"Hello", content=u"World")
+        self.session.add(d1)
+        self.assertRaises(IntegrityError, self.session.commit)
+        self.session.rollback()
+        d2 = ScopedIdNamedDocument(title=u"Hello", content=u"World")
+        self.session.add(d2)
+        self.assertRaises(IntegrityError, self.session.commit)
+
     def test_delayed_name(self):
         c = self.make_container()
         d1 = NamedDocument(container=c)

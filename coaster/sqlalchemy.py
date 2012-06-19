@@ -65,7 +65,7 @@ class BaseScopedNameMixin(IdMixin, TimestampMixin):
 
     def __init__(self, *args, **kw):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
-        if not self.name:
+        if self.parent and not self.name:
             self.make_name()
 
     def make_name(self):
@@ -126,7 +126,8 @@ class BaseScopedIdNameMixin(IdMixin, TimestampMixin):
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
-        self.make_id()
+        if self.parent:
+            self.make_id()
         if not self.name:
             self.make_name()
 
