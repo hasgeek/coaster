@@ -266,6 +266,35 @@ def parse_isoformat(text):
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
 
 
+def getbool(value):
+    """
+    Returns a boolean from any of a range of values. Returns None for
+    unrecognized values. Numbers other than 0 and 1 are considered
+    unrecognized.
+
+    >>> getbool(True)
+    True
+    >>> getbool(1)
+    True
+    >>> getbool('1')
+    True
+    >>> getbool('t')
+    True
+    >>> getbool(2)
+    >>> getbool(0)
+    False
+    >>> getbool(False)
+    False
+    >>> getbool('n')
+    False
+    """
+    if value in [True, 1, '1', 't', 'T', 'y', 'Y']:
+        return True
+    elif value in [False, 0, '0', 'f', 'F', 'n', 'N']:
+        return False
+    return None
+
+
 def get_email_domain(email):
     """
     Return the domain component of an email address. Returns None if the
