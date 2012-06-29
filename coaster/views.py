@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import request, url_for, json, Response, redirect
+from flask import request, url_for, json, Response, redirect, abort
 from werkzeug.routing import BuildError
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
@@ -102,7 +102,9 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
                         query = query.filter_by(**{model.url_id_attr: parts[0]})
                     else:
                         query = query.filter_by(**{k: result.get(v, kw.get(v))})
-                item = query.first_or_404()
+                item = query.one()
+                if item is None:
+                    abort(404)
                 if url_check:
                     if item.url_name != url_name:
                         # The url_name doesn't match.
