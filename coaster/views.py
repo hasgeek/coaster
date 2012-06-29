@@ -6,6 +6,7 @@ import urlparse
 import re
 from flask import request, url_for, json, Response, redirect, abort
 from werkzeug.routing import BuildError
+from sqlalchemy.orm.exc import NoResultFound
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -102,8 +103,9 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
                         query = query.filter_by(**{model.url_id_attr: parts[0]})
                     else:
                         query = query.filter_by(**{k: result.get(v, kw.get(v))})
-                item = query.one()
-                if item is None:
+                try:
+                    item = query.one()
+                except NoResultFound:
                     abort(404)
                 if url_check:
                     if item.url_name != url_name:
