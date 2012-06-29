@@ -288,9 +288,10 @@ def getbool(value):
     >>> getbool('n')
     False
     """
-    if value in [True, 1, '1', 't', 'T', 'y', 'Y']:
+    value = str(value).lower()
+    if value in ['1', 't', 'true', 'y', 'yes']:
         return True
-    elif value in [False, 0, '0', 'f', 'F', 'n', 'N']:
+    elif value in ['0', 'f', 'false', 'n', 'no']:
         return False
     return None
 
