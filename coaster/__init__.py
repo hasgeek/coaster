@@ -354,7 +354,7 @@ def sanitize_html(value, valid_tags=VALID_TAGS):
         newoutput = soup.renderContents()
         if oldoutput == newoutput:
             break
-    warn("This method is deprecated. Please use the bleach library", DeprecationWarning)
+    warn("This function is deprecated. Please use the bleach library", DeprecationWarning)
     return unicode(newoutput, 'utf-8')
 
 
