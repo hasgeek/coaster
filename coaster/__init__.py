@@ -324,6 +324,10 @@ VALID_TAGS = {'strong': [],
               'sub': [],
               'a': ['href', 'title', 'target'],
               'blockquote': [],
+              'h3': [],
+              'h4': [],
+              'h5': [],
+              'h6': [],
               }
 
 
