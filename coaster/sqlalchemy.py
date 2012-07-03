@@ -105,7 +105,39 @@ class BaseIdNameMixin(IdMixin, TimestampMixin):
         return '%d-%s' % (self.url_id, self.name)
 
 
-class BaseScopedIdNameMixin(IdMixin, TimestampMixin):
+class BaseScopedIdMixin(IdMixin, TimestampMixin):
+    """
+    Base mixin class for objects with an id that is unique within a parent.
+    Implementations must provide a 'parent' attribute that is either a relationship
+    or a synonym to a relationship referring to the parent object, and must
+    declare a unique constraint between url_id and the parent. Sample use case in Flask::
+
+        class Issue(BaseScopedIdMixin, db.Model):
+            __tablename__ = 'issue'
+            event_id = db.Column(Integer, db.ForeignKey('event.id'))
+            event = db.relationship(Event)
+            parent = db.synonym('event')
+            __table_args__ = (db.UniqueConstraint('url_id', 'event_id'),)
+    """
+    url_id = Column(Integer, nullable=False)
+    url_id_attr = 'url_id'
+
+    def __init__(self, *args, **kw):
+        super(BaseScopedIdMixin, self).__init__(*args, **kw)
+        if self.parent:
+            self.make_id()
+
+    def make_id(self):
+        if not self.url_id:  # Set id only if empty
+            existing = self.__class__.query.filter_by(parent=self.parent).order_by(
+                desc(self.url_id_attr)).limit(1).first()
+            if existing:
+                self.url_id = getattr(existing, self.url_id_attr) + 1
+            else:
+                self.url_id = 1
+
+
+class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
     Base mixin class for named objects with an id tag that is unique within a
     parent. Implementations must provide a 'parent' attribute that is a
@@ -121,8 +153,6 @@ class BaseScopedIdNameMixin(IdMixin, TimestampMixin):
     """
     name = Column(Unicode(250), nullable=False)
     title = Column(Unicode(250), nullable=False)
-    url_id = Column(Integer, nullable=False)
-    url_id_attr = 'url_id'
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
@@ -130,15 +160,6 @@ class BaseScopedIdNameMixin(IdMixin, TimestampMixin):
             self.make_id()
         if not self.name:
             self.make_name()
-
-    def make_id(self):
-        if not self.url_id:  # Set id only if empty
-            existing = self.__class__.query.filter_by(parent=self.parent).order_by(
-                desc(self.url_id_attr)).limit(1).first()
-            if existing:
-                self.url_id = getattr(existing, self.url_id_attr) + 1
-            else:
-                self.url_id = 1
 
     def make_name(self):
         if self.title:

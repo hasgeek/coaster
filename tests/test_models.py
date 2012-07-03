@@ -3,7 +3,8 @@
 import unittest
 
 from datetime import datetime
-from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedNameMixin, BaseIdNameMixin, BaseScopedIdNameMixin
+from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin)
 from sqlalchemy import create_engine, Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym, sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
@@ -61,6 +62,17 @@ class IdNamedDocument(BaseIdNameMixin, Base):
     container = relationship(Container)
 
     content = Column(Unicode(250))
+
+
+class ScopedIdDocument(BaseScopedIdMixin, Base):
+    __tablename__ = 'scoped_id_document'
+    query = Session.query_property()
+    container_id = Column(Integer, ForeignKey('container.id'))
+    container = relationship(Container)
+    parent = synonym('container')
+
+    content = Column(Unicode(250))
+    __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
 
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
@@ -170,8 +182,32 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(d3.url_name, u'3-hello')
 
-    def test_scoped_id_named(self):
+    def test_scoped_id(self):
         """Documents with a container-specifc id in the URL"""
+        c1 = self.make_container()
+        d1 = ScopedIdDocument(content=u"Hello", container=c1)
+        self.session.add(d1)
+        self.session.commit()
+        self.assertEqual(d1.url_id, 1)
+
+        d2 = ScopedIdDocument(content=u"New document", container=c1)
+        self.session.add(d2)
+        self.session.commit()
+        self.assertEqual(d2.url_id, 2)
+
+        c2 = self.make_container()
+        d3 = ScopedIdDocument(content=u"Once More", container=c2)
+        self.session.add(d3)
+        self.session.commit()
+        self.assertEqual(d3.url_id, 1)
+
+        d4 = ScopedIdDocument(content=u"Third", container=c1)
+        self.session.add(d4)
+        self.session.commit()
+        self.assertEqual(d4.url_id, 3)
+
+    def test_scoped_id_named(self):
+        """Documents with a container-specifc id and name in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c1)
         self.session.add(d1)
@@ -194,7 +230,16 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(d4.url_name, u'3-hello')
 
-    def test_scoped_without_parent(self):
+    def test_scoped_id_without_parent(self):
+        d1 = ScopedIdDocument(content=u"Hello")
+        self.session.add(d1)
+        self.assertRaises(IntegrityError, self.session.commit)
+        self.session.rollback()
+        d2 = ScopedIdDocument(content=u"Hello again")
+        self.session.add(d2)
+        self.assertRaises(IntegrityError, self.session.commit)
+
+    def test_scoped_named_without_parent(self):
         d1 = ScopedNamedDocument(title=u"Hello", content=u"World")
         self.session.add(d1)
         self.assertRaises(IntegrityError, self.session.commit)
