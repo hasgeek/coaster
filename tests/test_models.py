@@ -21,6 +21,7 @@ Base = declarative_base(bind=engine)
 
 class Container(BaseMixin, Base):
     __tablename__ = 'container'
+    name = Column(Unicode(80), nullable=True)
     query = Session.query_property()
 
     content = Column(Unicode(250))

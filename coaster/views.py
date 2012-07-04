@@ -66,25 +66,32 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
-#TODO: This needs tests
 def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=False):
     """
     Decorator to load a model given a parameter. load_model recognizes
     queries to url_name of BaseIdNameMixin instances and will automatically
-    load the model. FIXME: This should be handled by the model, not here.
+    load the model. TODO: This should be handled by the model, not here.
 
     If workflow is True, workflow() for the last time in the chain is called and the
     resulting workflow object is passed instead of any of the requested parameters.
 
     If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
     """
-    if isinstance(model, (list, tuple)):
-        chain = model
-    else:
-        if attributes is None or parameter is None:
-            raise ValueError('attributes and parameter are needed to load a model.')
-        chain = [[model, attributes, parameter]]
+    return load_models((model, attributes, parameter), workflow=workflow, kwargs=kwargs)
 
+
+def load_models(*chain, **kwargs):
+    """
+    Decorator to load a chain of models from the given parameters. load_models
+    recognizes queries to url_name of BaseIdNameMixin and BaseScopedIdNameMixin
+    instances and will automatically load the model. TODO: This should be
+    handled by the model, not here.
+
+    If workflow is True, workflow() for the last time in the chain is called and the
+    resulting workflow object is passed instead of any of the requested parameters.
+
+    If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
+    """
     def inner(f):
         @wraps(f)
         def decorated_function(**kw):
@@ -98,11 +105,26 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
                         url_key = v
                         url_name = kw.get(url_key)
                         parts = url_name.split('-')
-                        if request.method == 'GET':
-                            url_check = True
+                        try:
+                            if request.method == 'GET':
+                                url_check = True
+                        except RuntimeError:
+                            # We're not in a Flask request context, so there's no point
+                            # trying to redirect to a correct URL
+                            pass
                         query = query.filter_by(**{model.url_id_attr: parts[0]})
                     else:
-                        query = query.filter_by(**{k: result.get(v, kw.get(v))})
+                        if callable(v):
+                            query = query.filter_by(**{k: v(result, kw)})
+                        else:
+                            if '.' in v:
+                                first, attrs = v.split('.', 1)
+                                val = result.get(first)
+                                for attr in attrs.split('.'):
+                                    val = getattr(val, attr)
+                            else:
+                                val = result.get(v, kw.get(v))
+                            query = query.filter_by(**{k: val})
                 try:
                     item = query.one()
                 except NoResultFound:
@@ -115,22 +137,17 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
                         view_args[url_key] = item.url_name
                         return redirect(url_for(request.endpoint, **view_args), code=302)
                 result[parameter] = item
-            if workflow:
+            if kwargs.get('workflow'):
                 # Get workflow for the last item in the chain
                 wf = item.workflow()
-                if kwargs:
+                if kwargs.get('kwargs'):
                     return f(wf, kwargs=kw)
                 else:
                     return f(wf)
             else:
-                if kwargs:
+                if kwargs.get('kwargs'):
                     return f(kwargs=kw, **result)
                 else:
                     return f(**result)
         return decorated_function
     return inner
-
-
-#TODO: This needs tests
-def load_models(*args, **kwargs):
-    return load_model(args, workflow=kwargs.get('workflow', False), kwargs=kwargs.get('kwargs', False))
