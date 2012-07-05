@@ -1,3 +1,4 @@
+import sys
 import os
 from setuptools import setup, find_packages
 
@@ -9,6 +10,8 @@ requires = [
     'Flask',
     'BeautifulSoup'
     ]
+if sys.version_info[:2] == (2, 6):
+    requires.append('ordereddict')
 
 setup(name='coaster',
       version='0.2.7',
