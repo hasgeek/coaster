@@ -2,13 +2,14 @@
 
 import unittest
 from os import environ
+import os.path
 from flask import Flask
 from coaster.app import _additional_config, configure, load_config_from_file, additional_settings_file
 
 
 class TestCoasterUtils(unittest.TestCase):
     def setUp(self):
-        self.app = Flask(__name__, instance_relative_config=True)
+        self.app = Flask(__name__)
 
     def test_load_config_from_file(self):
         load_config_from_file(self.app, "settings.py")
