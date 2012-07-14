@@ -2,7 +2,6 @@
 
 import unittest
 from os import environ
-import os.path
 from flask import Flask
 from coaster.app import _additional_config, configure, load_config_from_file, additional_settings_file
 
