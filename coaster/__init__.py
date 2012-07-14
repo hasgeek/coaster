@@ -19,7 +19,7 @@ from coaster.app import configure as configureapp
 
 _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
-
+_username_valid_re = re.compile('^[a-z0-9][a-z0-9-]*[a-z0-9]$')
 
 # --- Utilities ---------------------------------------------------------------
 
@@ -374,3 +374,17 @@ def simplify_text(text):
     else:
         text = text.translate(string.maketrans("", ""), string.punctuation).lower()
     return " ".join(text.split())
+
+
+def valid_username(candidate):
+    """
+    Check if a username is valid.
+
+    >>> valid_username('example person')
+    False
+    >>> valid_username('example_person')
+    False
+    >>> valid_username('exampleperson')
+    True
+    """
+    return not _username_valid_re.search(candidate) is None
