@@ -2,7 +2,7 @@
 
 import unittest
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin)
 from sqlalchemy import create_engine, Column, Integer, Unicode, UniqueConstraint, ForeignKey
@@ -184,7 +184,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d3.url_name, u'3-hello')
 
     def test_scoped_id(self):
-        """Documents with a container-specifc id in the URL"""
+        """Documents with a container-specific id in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdDocument(content=u"Hello", container=c1)
         self.session.add(d1)
@@ -208,7 +208,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d4.url_id, 3)
 
     def test_scoped_id_named(self):
-        """Documents with a container-specifc id and name in the URL"""
+        """Documents with a container-specific id and name in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c1)
         self.session.add(d1)
@@ -268,6 +268,23 @@ class TestCoasterModels(unittest.TestCase):
         d4.make_name()
         self.session.add(d4)
         self.session.commit()
+
+    def test_has_timestamps(self):
+        # Confirm that a model with multiple base classes between it and
+        # TimestampMixin still has created_at and updated_at
+        c = self.make_container()
+        d = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c)
+        self.session.add(d)
+        self.session.commit()
+        self.assertTrue(d.created_at is not None)
+        self.assertTrue(d.updated_at is not None)
+        updated_at = d.updated_at
+        self.assertTrue(d.updated_at - d.created_at < timedelta(seconds=1))
+        self.assertTrue(isinstance(d.created_at, datetime))
+        self.assertTrue(isinstance(d.updated_at, datetime))
+        d.title = u"Updated hello"
+        self.session.commit()
+        self.assertTrue(d.updated_at > updated_at)
 
 if __name__ == '__main__':
     unittest.main()

@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import request, url_for, json, Response, redirect, abort
+from flask import request, url_for, json, Response, redirect, abort, g
 from werkzeug.routing import BuildError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -66,7 +66,8 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
-def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=False):
+def load_model(model, attributes=None, parameter=None,
+        workflow=False, kwargs=False, permission=None):
     """
     Decorator to load a model given a parameter. load_model recognizes
     queries to url_name of BaseIdNameMixin instances and will automatically
@@ -77,7 +78,8 @@ def load_model(model, attributes=None, parameter=None, workflow=False, kwargs=Fa
 
     If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
     """
-    return load_models((model, attributes, parameter), workflow=workflow, kwargs=kwargs)
+    return load_models((model, attributes, parameter),
+        workflow=workflow, kwargs=kwargs, permission=permission)
 
 
 def load_models(*chain, **kwargs):
@@ -95,6 +97,8 @@ def load_models(*chain, **kwargs):
     def inner(f):
         @wraps(f)
         def decorated_function(**kw):
+            permissions = None
+            permission_required = kwargs.get('permission')
             result = {}
             for model, attributes, parameter in chain:
                 query = model.query
@@ -129,6 +133,8 @@ def load_models(*chain, **kwargs):
                     item = query.one()
                 except NoResultFound:
                     abort(404)
+                if permission_required:
+                    permissions = item.permissions(g.user, inherited=permissions)
                 if url_check:
                     if item.url_name != url_name:
                         # The url_name doesn't match.
@@ -140,11 +146,15 @@ def load_models(*chain, **kwargs):
             if kwargs.get('workflow'):
                 # Get workflow for the last item in the chain
                 wf = item.workflow()
+                if permission_required and permission_required not in permissions:
+                    abort(403)
                 if kwargs.get('kwargs'):
                     return f(wf, kwargs=kw)
                 else:
                     return f(wf)
             else:
+                if permission_required and permission_required not in permissions:
+                    abort(403)
                 if kwargs.get('kwargs'):
                     return f(kwargs=kw, **result)
                 else:

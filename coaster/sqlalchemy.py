@@ -21,10 +21,17 @@ class BaseMixin(IdMixin, TimestampMixin):
     """
     Base mixin class for all tables that adds id and timestamp columns
     """
-    pass
+    def permissions(self, user, inherited=None):
+        """
+        Return permissions available to the given user on this object.
+        """
+        if inherited is not None:
+            return inherited
+        else:
+            return set()
 
 
-class BaseNameMixin(IdMixin, TimestampMixin):
+class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects
     """
@@ -46,7 +53,7 @@ class BaseNameMixin(IdMixin, TimestampMixin):
                 checkused=checkused)
 
 
-class BaseScopedNameMixin(IdMixin, TimestampMixin):
+class BaseScopedNameMixin(BaseMixin):
     """
     Base mixin class for named objects within containers. When using this,
     you must provide an model-level attribute "parent" that is a synonym for
@@ -78,8 +85,17 @@ class BaseScopedNameMixin(IdMixin, TimestampMixin):
             self.name = make_name(self.title, maxlength=250,
                 checkused=checkused)
 
+    def permissions(self, user, inherited=None):
+        """
+        Permissions for this model, plus permissions inherited from the parent.
+        """
+        if inherited is not None:
+            return inherited | super(BaseScopedNameMixin, self).permissions(user)
+        else:
+            return self.parent.permissions(user) | super(BaseScopedNameMixin, self).permissions(user)
 
-class BaseIdNameMixin(IdMixin, TimestampMixin):
+
+class BaseIdNameMixin(BaseMixin):
     """
     Base mixin class for named objects with an id tag.
     """
@@ -105,7 +121,7 @@ class BaseIdNameMixin(IdMixin, TimestampMixin):
         return '%d-%s' % (self.url_id, self.name)
 
 
-class BaseScopedIdMixin(IdMixin, TimestampMixin):
+class BaseScopedIdMixin(BaseMixin):
     """
     Base mixin class for objects with an id that is unique within a parent.
     Implementations must provide a 'parent' attribute that is either a relationship
@@ -135,6 +151,15 @@ class BaseScopedIdMixin(IdMixin, TimestampMixin):
                 self.url_id = getattr(existing, self.url_id_attr) + 1
             else:
                 self.url_id = 1
+
+    def permissions(self, user, inherited=None):
+        """
+        Permissions for this model, plus permissions inherited from the parent.
+        """
+        if inherited is not None:
+            return inherited | super(BaseScopedIdMixin, self).permissions(user)
+        else:
+            return self.parent.permissions(user) | super(BaseScopedIdMixin, self).permissions(user)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
