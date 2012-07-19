@@ -7,28 +7,50 @@ from datetime import datetime
 
 
 class IdMixin(object):
+    """
+    Provides the :attr:`id` primary key column
+    """
     id = Column(Integer, primary_key=True)
 
 
 class TimestampMixin(object):
+    """
+    Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
+    """
     # We use datetime.utcnow (app-side) instead of func.now() (database-side)
     # because the latter breaks with Flask-Admin.
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
-class BaseMixin(IdMixin, TimestampMixin):
+class PermissionMixin(object):
     """
-    Base mixin class for all tables that adds id and timestamp columns
+    Provides the :meth:`permissions` method used by BaseMixin and derived classes
     """
     def permissions(self, user, inherited=None):
         """
-        Return permissions available to the given user on this object.
+        Return permissions available to the given user on this object
         """
         if inherited is not None:
             return inherited
         else:
             return set()
+
+
+class UrlForMixin(object):
+    """
+    Provides a placeholder :meth:`url_for` method used by BaseMixin-derived classes
+    """
+    def url_for(self, action='view', **kwargs):
+        return None
+
+
+class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
+    """
+    Base mixin class for all tables that adds id and timestamp columns and includes
+    stub :meth:`permissions` and :meth:`url_for` methods
+    """
+    pass
 
 
 class BaseNameMixin(BaseMixin):
