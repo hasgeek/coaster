@@ -21,13 +21,7 @@ def configure(app, env):
     Configure an app depending on the environment.
     """
     warn("This function is deprecated. Please use init_app function", DeprecationWarning)
-    load_config_from_file(app, 'settings.py')
-
-    additional = additional_settings_file(env)
-    if additional:
-        load_config_from_file(app, additional)
-
-    coaster.logging.configure(app)
+    init_app(app, environ.get(env))
 
 
 def init_app(app, env):
@@ -41,13 +35,6 @@ def init_app(app, env):
         load_config_from_file(app, additional)
 
     coaster.logging.configure(app)
-
-def additional_settings_file(env):
-    """
-    Checks to see if the environment has an additional settings file that we
-    need to look for and load as well.
-    """
-    return _additional_config.get(environ.get(env))
 
 
 def load_config_from_file(app, filepath):
