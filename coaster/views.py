@@ -29,6 +29,19 @@ def __clean_external_url(url):
 
 
 #TODO: This needs tests
+def get_current_url():
+    """
+    Return the current URL including the query string as a relative path.
+    """
+    url = url_for(request.endpoint, **request.view_args)
+    query = request.environ.get('QUERY_STRING')
+    if query:
+        return url + '?' + query
+    else:
+        return url
+
+
+#TODO: This needs tests
 def get_next_url(referrer=False, external=False):
     """
     Get the next URL to redirect to. Don't return external URLs unless
