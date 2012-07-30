@@ -1,3 +1,9 @@
+0.3.2
+-----
+
+* New coaster.app.init_app function moves away from passing configuration status
+  in environment variables.
+
 0.3.0
 -----
 
