@@ -3,7 +3,7 @@
 import unittest
 from os import environ
 from flask import Flask
-from coaster.app import _additional_config, configure, load_config_from_file, additional_settings_file
+from coaster.app import _additional_config, configure, load_config_from_file
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -17,10 +17,10 @@ class TestCoasterUtils(unittest.TestCase):
     def test_additional_settings_from_file(self):
         env = 'COASTER_ENV'
         environ[env] = "gibberish"
-        self.assertEqual(additional_settings_file(env), None)
+        self.assertEqual(_additional_config.get(environ[env]), None)
         for k, v in _additional_config.items():
             environ[env] = k
-            self.assertEqual(additional_settings_file(env), v)
+            self.assertEqual(_additional_config.get(environ[env]), v)
 
     def test_configure(self):
         env = 'COASTER_ENV'

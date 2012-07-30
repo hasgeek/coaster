@@ -20,7 +20,7 @@ def configure(app, env):
     """
     Configure an app depending on the environment.
     """
-    warn("This function is deprecated. Please use init_app function", DeprecationWarning)
+    warn("This function is deprecated. Please use the init_app function", DeprecationWarning)
     init_app(app, environ.get(env))
 
 
