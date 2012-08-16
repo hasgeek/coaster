@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import request, url_for, json, Response, redirect, abort, g
+from flask import session, request, url_for, json, Response, redirect, abort, g
 from werkzeug.routing import BuildError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -48,7 +48,7 @@ def get_next_url(referrer=False, external=False):
     explicitly asked for. This is to protect the site from being an unwitting
     redirector to external URLs.
     """
-    next_url = request.args.get('next', '')
+    next_url = session.pop('next', None) or request.args.get('next', '')
     if next_url and not external:
         next_url = __clean_external_url(next_url)
     if next_url:

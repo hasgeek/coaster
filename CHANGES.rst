@@ -1,3 +1,8 @@
+0.3.3
+-----
+
+* coaster.views.get_next_url now looks in the session for the next URL.
+
 0.3.2
 -----
 
