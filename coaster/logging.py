@@ -60,7 +60,7 @@ def configure(app):
         mail_handler = logging.handlers.SMTPHandler(app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
-            'App failure',
+            '%s failure' % app.name,
             credentials=credentials)
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
