@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import session, request, url_for, json, Response, redirect, abort, g
+from flask import session as request_session, request, url_for, json, Response, redirect, abort, g
 from werkzeug.routing import BuildError
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -41,26 +41,37 @@ def get_current_url():
         return url
 
 
+__marker = []
+
+
 #TODO: This needs tests
-def get_next_url(referrer=False, external=False):
+def get_next_url(referrer=False, external=False, session=False, default=__marker):
     """
     Get the next URL to redirect to. Don't return external URLs unless
     explicitly asked for. This is to protect the site from being an unwitting
     redirector to external URLs.
     """
-    next_url = session.pop('next', None) or request.args.get('next', '')
+    if session:
+        next_url = request_session.pop('next', None) or request.args.get('next', '')
+    else:
+        next_url = request.args.get('next', '')
     if next_url and not external:
         next_url = __clean_external_url(next_url)
     if next_url:
         return next_url
 
+    if default is __marker:
+        usedefault = False
+    else:
+        usedefault = True
+
     if referrer and request.referrer:
         if external:
             return request.referrer
         else:
-            return __clean_external_url(request.referrer) or __index_url()
+            return __clean_external_url(request.referrer) or (default if usedefault else __index_url())
     else:
-        return __index_url()
+        return (default if usedefault else __index_url())
 
 
 #TODO: This needs tests
