@@ -159,9 +159,10 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
+                try:
                     g.permissions = permissions
-                else:
-                    g.permissions = []
+                except RuntimeError:
+                    pass
                 if url_check:
                     if item.url_name != url_name:
                         # The url_name doesn't match.
