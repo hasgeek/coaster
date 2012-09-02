@@ -159,6 +159,9 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
+                    g.permissions = permissions
+                else:
+                    g.permissions = []
                 if url_check:
                     if item.url_name != url_name:
                         # The url_name doesn't match.
@@ -166,6 +169,9 @@ def load_models(*chain, **kwargs):
                         view_args = dict(request.view_args)
                         view_args[url_key] = item.url_name
                         return redirect(url_for(request.endpoint, **view_args), code=302)
+                if parameter.startswith('g.'):
+                    parameter = parameter[2:]
+                    setattr(g, parameter, item)
                 result[parameter] = item
             if kwargs.get('workflow'):
                 # Get workflow for the last item in the chain

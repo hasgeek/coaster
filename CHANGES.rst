@@ -6,6 +6,11 @@
 * get_next_url no longer looks in the session by default. Pass session=True to
   look in the session. This was added since popping next from session modifies
   the session.
+* load_models accepts 'g.<name>' notation for parameters to indicate that the
+  parameter should be available as g.<name>. The view function will get called
+  with just <name> as usual.
+* If the view requires permissions, load_models caches available permissions
+  as g.permissions.
 
 0.3.3
 -----
