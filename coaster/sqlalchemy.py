@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from coaster import make_name
 from sqlalchemy import Column, Integer, DateTime, Unicode, desc
+from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
 
 
@@ -10,7 +11,9 @@ class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
     """
-    id = Column(Integer, primary_key=True)
+    @declared_attr
+    def id(cls):
+        return Column(Integer, primary_key=True)
 
 
 class TimestampMixin(object):
@@ -19,8 +22,13 @@ class TimestampMixin(object):
     """
     # We use datetime.utcnow (app-side) instead of func.now() (database-side)
     # because the latter breaks with Flask-Admin.
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    @declared_attr
+    def created_at(cls):
+        return Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    @declared_attr
+    def updated_at(cls):
+        return Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class PermissionMixin(object):
@@ -57,8 +65,13 @@ class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects
     """
-    name = Column(Unicode(250), nullable=False, unique=True)
-    title = Column(Unicode(250), nullable=False)
+    @declared_attr
+    def name(cls):
+        return Column(Unicode(250), nullable=False, unique=True)
+
+    @declared_attr
+    def title(cls):
+        return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseNameMixin, self).__init__(*args, **kw)
@@ -89,8 +102,13 @@ class BaseScopedNameMixin(BaseMixin):
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('name', 'organizer_id'),)
     """
-    name = Column(Unicode(250), nullable=False)
-    title = Column(Unicode(250), nullable=False)
+    @declared_attr
+    def name(cls):
+        return Column(Unicode(250), nullable=False)
+
+    @declared_attr
+    def title(cls):
+        return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
@@ -121,8 +139,14 @@ class BaseIdNameMixin(BaseMixin):
     """
     Base mixin class for named objects with an id tag.
     """
-    name = Column(Unicode(250), nullable=False)
-    title = Column(Unicode(250), nullable=False)
+    @declared_attr
+    def name(cls):
+        return Column(Unicode(250), nullable=False)
+
+    @declared_attr
+    def title(cls):
+        return Column(Unicode(250), nullable=False)
+
     url_id_attr = 'id'
 
     def __init__(self, *args, **kw):
@@ -157,7 +181,10 @@ class BaseScopedIdMixin(BaseMixin):
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('url_id', 'event_id'),)
     """
-    url_id = Column(Integer, nullable=False)
+    @declared_attr
+    def url_id(cls):
+        return Column(Integer, nullable=False)
+
     url_id_attr = 'url_id'
 
     def __init__(self, *args, **kw):
@@ -198,8 +225,13 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('url_id', 'organizer_id'),)
     """
-    name = Column(Unicode(250), nullable=False)
-    title = Column(Unicode(250), nullable=False)
+    @declared_attr
+    def name(cls):
+        return Column(Unicode(250), nullable=False)
+
+    @declared_attr
+    def title(cls):
+        return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
