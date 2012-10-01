@@ -1,7 +1,11 @@
-0.3.5
+0.3.6
 -----
 
 * New SandboxedFlask in coaster.app that uses Jinja's SandboxedEnvironment.
+
+0.3.5
+-----
+
 * load_models now caches data to flask.g
 * SQLAlchemy models now use declared_attr for all columns to work around a
   column duplication bug with joined table inheritance in SQLAlchemy < 0.8.
