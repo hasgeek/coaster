@@ -141,9 +141,10 @@ def load_models(*chain, **kwargs):
                             # trying to redirect to a correct URL
                             pass
                         try:
-                            query = query.filter_by(**{model.url_id_attr: int(parts[0])})
+                            url_id = int(parts[0])
                         except ValueError:
                             abort(404)
+                        query = query.filter_by(**{model.url_id_attr: url_id})
                     else:
                         if callable(v):
                             query = query.filter_by(**{k: v(result, kw)})
