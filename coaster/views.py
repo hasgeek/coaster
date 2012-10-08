@@ -142,7 +142,7 @@ def load_models(*chain, **kwargs):
                             pass
                         try:
                             query = query.filter_by(**{model.url_id_attr: int(parts[0])})
-                        except TypeError:
+                        except ValueError:
                             abort(404)
                     else:
                         if callable(v):
