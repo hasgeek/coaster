@@ -140,7 +140,10 @@ def load_models(*chain, **kwargs):
                             # We're not in a Flask request context, so there's no point
                             # trying to redirect to a correct URL
                             pass
-                        query = query.filter_by(**{model.url_id_attr: parts[0]})
+                        try:
+                            query = query.filter_by(**{model.url_id_attr: int(parts[0])})
+                        except TypeError:
+                            abort(404)
                     else:
                         if callable(v):
                             query = query.filter_by(**{k: v(result, kw)})
