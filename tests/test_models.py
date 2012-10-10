@@ -2,6 +2,7 @@
 
 import unittest
 
+from time import sleep
 from datetime import datetime, timedelta
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin)
@@ -111,13 +112,18 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_timestamp(self):
         now1 = datetime.utcnow()
+        # The db may not store microsecond precision, so sleep at least 1 second
+        # to ensure adequate gap between operations
+        sleep(1)
         c = self.make_container()
         self.session.commit()
         u = c.updated_at
+        sleep(1)
         now2 = datetime.utcnow()
         self.assertTrue(now1 < c.created_at)
         self.assertTrue(now2 > c.created_at)
         c.content = u"updated"
+        sleep(1)
         self.session.commit()
         self.assertTrue(c.updated_at > now2)
         self.assertTrue(c.updated_at > c.created_at)

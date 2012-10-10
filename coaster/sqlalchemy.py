@@ -18,8 +18,6 @@ class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
-    # We use datetime.utcnow (app-side) instead of func.now() (database-side)
-    # because the latter breaks with Flask-Admin.
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=datetime.utcnow, nullable=False)
 
