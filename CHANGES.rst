@@ -1,3 +1,8 @@
+0.3.7
+-----
+
+* Don't use declared_attr for the id, created_at and updated_at columns.
+
 0.3.6
 -----
 

@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode, desc
+from sqlalchemy import Column, Integer, DateTime, Unicode, desc, func
 from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
 
@@ -11,9 +11,7 @@ class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
     """
-    @declared_attr
-    def id(cls):
-        return Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
 
 
 class TimestampMixin(object):
@@ -22,13 +20,8 @@ class TimestampMixin(object):
     """
     # We use datetime.utcnow (app-side) instead of func.now() (database-side)
     # because the latter breaks with Flask-Admin.
-    @declared_attr
-    def created_at(cls):
-        return Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    @declared_attr
-    def updated_at(cls):
-        return Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=datetime.utcnow, nullable=False)
 
 
 class PermissionMixin(object):
