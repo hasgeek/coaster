@@ -90,6 +90,46 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
+def requestargs(*vars):
+    """
+    Decorator that loads parameters from request.args if not specified in the function's keyword arguments.
+    """
+    def inner(f):
+        @wraps(f)
+        def decorated_function(**kw):
+            for arg in vars:
+                if isinstance(arg, (list, tuple)):
+                    name = arg[0]
+                    filt = arg[1]
+                    if len(arg) == 3:
+                        has_default = True
+                        default = arg[3]
+                    else:
+                        has_default = False
+                        default = None
+                else:
+                    name = arg
+                    filt = None
+                    has_default = False
+                    default = None
+
+                if name not in kw:
+                    print name
+                    if name not in request.args:
+                        if has_default:
+                            kw[name] = default
+                        else:
+                            abort(400)
+                    else:
+                        if filt is None:
+                            kw[name] = request.args[name]
+                        else:
+                            kw[name] = filt(request.args[name])
+            return f(**kw)
+        return decorated_function
+    return inner
+
+
 def load_model(model, attributes=None, parameter=None,
         workflow=False, kwargs=False, permission=None):
     """

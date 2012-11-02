@@ -3,6 +3,7 @@
 
 * Don't use declared_attr for the id, created_at and updated_at columns.
 * Rename newid to buid but retain old name for compatibility.
+* New requestargs view wrapper to make working with request.args easier.
 
 0.3.6
 -----
