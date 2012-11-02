@@ -2,6 +2,7 @@
 -----
 
 * Don't use declared_attr for the id, created_at and updated_at columns.
+* Rename newid to buid but retain old name for compatibility.
 
 0.3.6
 -----

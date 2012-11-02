@@ -24,7 +24,7 @@ _username_valid_re = re.compile('^[a-z0-9][a-z0-9-]*[a-z0-9]$')
 
 # --- Utilities ---------------------------------------------------------------
 
-def newid():
+def buid():
     """
     Return a new random id that is exactly 22 characters long. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
@@ -36,6 +36,9 @@ def newid():
     False
     """
     return urlsafe_b64encode(uuid.uuid4().bytes).rstrip('=')
+
+# Retain old name
+newid = buid
 
 
 def newsecret():
