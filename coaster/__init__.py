@@ -339,6 +339,10 @@ VALID_TAGS = {'strong': [],
 def sanitize_html(value, valid_tags=VALID_TAGS):
     """
     Strips unwanted markup out of HTML.
+
+.. deprecated:: 0.2.5
+   Use the bleach library instead.
+
     """
     # TODO: This function needs unit tests.
     soup = BeautifulSoup(value)
