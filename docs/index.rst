@@ -6,6 +6,11 @@
 Welcome to coaster's documentation!
 ===================================
 
+Coaster's Documentation
+***********************
+Coaster contains functions and db models for recurring patterns in Flask apps.
+
+
 .. toctree::
    :maxdepth: 2
 
