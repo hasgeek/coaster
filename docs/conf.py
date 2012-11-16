@@ -13,7 +13,7 @@
 
 import sys, os
 
-sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath('../coaster/'))
 sys.path.append(os.path.abspath('_themes'))
 
 # If extensions (or modules to document with autodoc) are in another directory,

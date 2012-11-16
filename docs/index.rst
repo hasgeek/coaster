@@ -9,12 +9,18 @@ Welcome to coaster's documentation!
 Coaster's Documentation
 ***********************
 Coaster contains functions and db models for recurring patterns in Flask apps.
-
+ :license: BSD, see LICENSE for more details.
 
 .. toctree::
    :maxdepth: 2
 
-.. automodule:: coaster
+.. automodule:: __init__
+   :members: 
+
+.. automodule:: views
+   :members:
+
+.. automodule:: coaster.sqlalchemy
    :members:
 
 Indices and tables
