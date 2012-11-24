@@ -3,25 +3,22 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to coaster's documentation!
-===================================
+Coaster
+^^^^^^^
 
-Coaster's Documentation
-***********************
+
+Coaster documentation
+=====================
+
 Coaster contains functions and db models for recurring patterns in Flask apps.
- :license: BSD, see LICENSE for more details.
+Coaster is available under the BSD license, the same license as Flask.
 
 .. toctree::
    :maxdepth: 2
 
-.. automodule:: __init__
-   :members: 
-
-.. automodule:: views
-   :members:
-
-.. automodule:: coaster.sqlalchemy
-   :members:
+   utils
+   views
+   sqlalchemy
 
 Indices and tables
 ==================
