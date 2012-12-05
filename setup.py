@@ -7,11 +7,12 @@ CHANGES = unicode(open(os.path.join(here, 'CHANGES.rst')).read(), 'utf-8')
 
 requires = [
     'Flask',
-    'BeautifulSoup'
+    'BeautifulSoup',
+    'simplejson'
     ]
 
 setup(name='coaster',
-      version='0.3.7',
+      version='0.3.8',
       description='Coaster for Flask',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[

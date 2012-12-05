@@ -1,3 +1,9 @@
+0.3.8
+-----
+
+* Updated documentation
+* New SQLAlchemy column types and helpers
+
 0.3.7
 -----
 

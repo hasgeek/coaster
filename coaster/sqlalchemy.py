@@ -2,9 +2,18 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode, desc, func
+from sqlalchemy import Column, Integer, DateTime, Unicode, desc, func, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.ext.mutable import Mutable
 from datetime import datetime
+import simplejson
+
+
+__all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
+    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin']
 
 
 class IdMixin(object):
@@ -238,3 +247,61 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @property
     def url_name(self):
         return '%d-%s' % (self.url_id, self.name)
+
+
+# --- Column types ------------------------------------------------------------
+
+__all_columns = ['JsonDict']
+
+
+# Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
+
+class JsonDict(TypeDecorator):
+    """
+    Represents a JSON data structure. Usage::
+
+        column = Column(JsonDict)
+    """
+    impl = TEXT
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = simplejson.dumps(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = simplejson.loads(value, use_decimal=True)
+        return value
+
+
+class MutableDict(Mutable, dict):
+    @classmethod
+    def coerce(cls, key, value):
+        "Convert plain dictionaries to MutableDict."
+
+        if not isinstance(value, MutableDict):
+            if isinstance(value, dict):
+                return MutableDict(value)
+
+            # this call will raise ValueError
+            return Mutable.coerce(key, value)
+        else:
+            return value
+
+    def __setitem__(self, key, value):
+        "Detect dictionary set events and emit change events."
+
+        dict.__setitem__(self, key, value)
+        self.changed()
+
+    def __delitem__(self, key):
+        "Detect dictionary del events and emit change events."
+
+        dict.__delitem__(self, key)
+        self.changed()
+
+MutableDict.associate_with(JsonDict)
+
+
+__all__ = __all_mixins + __all_columns
