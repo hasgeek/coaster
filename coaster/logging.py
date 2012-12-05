@@ -7,6 +7,9 @@ import traceback
 
 
 class LocalVarFormatter(logging.Formatter):
+    """
+    Custom log formatter that logs the contents of local variables in the stack frame.
+    """
     def formatException(self, ei):
         tb = ei[2]
         while 1:
@@ -43,6 +46,19 @@ class LocalVarFormatter(logging.Formatter):
 
 
 def configure(app):
+    """
+    Enables logging for an app using :class:`LocalVarFormatter`.
+
+    This function requires an app that has already been configured
+    (perhaps using :func:`coaster.app.init_app`). It checks for the following
+    configuration parameters:
+
+    * ``LOGFILE``: Name of the file to log to (default ``error.log``)
+    * ``ADMINS``: List of email addresses of admins who will be mailed error reports
+    * ``DEFAULT_MAIL_SENDER``: From address of email. Can be an address or a tuple with name and address
+    * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
+    * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
+    """
     formatter = LocalVarFormatter()
 
     file_handler = logging.FileHandler(app.config.get('LOGFILE', 'error.log'))

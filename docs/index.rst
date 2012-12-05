@@ -17,8 +17,11 @@ Coaster is available under the BSD license, the same license as Flask.
    :maxdepth: 2
 
    utils
+   app
+   logging
    views
    sqlalchemy
+   docflow
 
 Indices and tables
 ==================

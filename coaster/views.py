@@ -50,6 +50,12 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
     Get the next URL to redirect to. Don't return external URLs unless
     explicitly asked for. This is to protect the site from being an unwitting
     redirector to external URLs.
+
+    This function looks for a ``next`` parameter in the request or in the session
+    (depending on whether parameter ``session`` is True). If no ``next`` is present,
+    it checks the referrer (if enabled), and finally returns either the provided
+    default (which can be any value including ``None``) or ``url_for('index')``.
+    If your app does not have a URL endpoint named ``index``, ``/`` is returned.
     """
     if session:
         next_url = request_session.pop('next', None) or request.args.get('next', '')
@@ -133,14 +139,55 @@ def requestargs(*vars):
 def load_model(model, attributes=None, parameter=None,
         workflow=False, kwargs=False, permission=None):
     """
-    Decorator to load a model given a parameter. load_model recognizes
-    queries to url_name of BaseIdNameMixin instances and will automatically
-    load the model. TODO: This should be handled by the model, not here.
+    Decorator to load a model given a query parameter.
 
-    If workflow is True, workflow() for the last time in the chain is called and the
-    resulting workflow object is passed instead of any of the requested parameters.
+    Typical usage::
 
-    If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
+        @app.route('/<profile>')
+        @load_model(Profile, {'name': 'profile'}, 'profileob')
+        def profile_view(profileob):
+            # 'profileob' is now a Profile model instance. The load_model decorator replaced this:
+            # profileob = Profile.query.filter_by(name=profile).first_or_404()
+            return "Hello, %s" % profileob.name
+
+    Using the same name for request and parameter makes code easier to understand::
+
+        @app.route('/<profile>')
+        @load_model(Profile, {'name': 'profile'}, 'profile')
+        def profile_view(profile):
+            return "Hello, %s" % profile.name
+
+    ``load_model`` aborts with a 404 if no instance is found. ``load_model`` also
+    recognizes queries to ``url_name`` of :class:`~coaster.sqlalchemy.BaseIdNameMixin`
+    instances and will automatically load the model. TODO: that should be handled by
+    the model, not here.
+
+    :param model: The SQLAlchemy model to query. Must contain a ``query`` object
+        (which is the default with Flask-SQLAlchemy)
+
+    :param attributes: A dict of attributes (from the URL request) that will be
+        used to query for the object. For each key:value pair, the key is the name of
+        the column on the model and the value is the name of the request parameter that
+        contains the data
+
+    :param parameter: The name of the parameter to the decorated function via which
+        the result is passed. Usually the same as the attribute
+
+    :param workflow: If True, the method ``workflow()`` of the instance is
+        called and the resulting workflow object is passed to the decorated
+        function instead of the instance itself
+
+    :param kwargs: If True, the original request parameters are passed to the decorated
+        function as a ``kwargs`` parameter
+
+    :param permission: If present, ``load_model`` calls the
+        :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` method of the
+        retrieved object with ``g.user`` as a parameter. If ``permission`` is not
+        present in the result, ``load_model`` aborts with a 403. ``g`` is the Flask
+        request context object and you are expected to setup a request environment
+        in which ``g.user`` is the currently logged in user. Flask-Lastuser does this
+        automatically for you
+
     """
     return load_models((model, attributes, parameter),
         workflow=workflow, kwargs=kwargs, permission=permission)
@@ -148,15 +195,29 @@ def load_model(model, attributes=None, parameter=None,
 
 def load_models(*chain, **kwargs):
     """
-    Decorator to load a chain of models from the given parameters. load_models
-    recognizes queries to url_name of BaseIdNameMixin and BaseScopedIdNameMixin
-    instances and will automatically load the model. TODO: This should be
-    handled by the model, not here.
+    Decorator to load a chain of models from the given parameters. This works just like
+    :func:`load_model` with some small differences.
 
-    If workflow is True, workflow() for the last time in the chain is called and the
-    resulting workflow object is passed instead of any of the requested parameters.
+    :param chain: The chain is a list of tuples of (``model``, ``attributes``, ``parameter``).
+        Lists and tuples can be used interchangeably. All retrieved instances are passed as
+        parameters to the decorated function
 
-    If kwargs is True, the request parameters are passed as a 'kwargs' parameter.
+    :param workflow: Like with :func:`load_model`, ``workflow()`` is called on the last
+        instance in the chain, and *only* the resulting workflow object is passed to the
+        decorated function
+
+    :param kwargs: Same as in :func:`load_model`
+
+    :param permission: Same as in :func:`load_model`, except
+        :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
+        in the chain and the retrieved permissions are passed as the second parameter to the
+        next instance in the chain. This allows later instances to revoke permissions granted
+        by earlier instances
+
+    As an example, if a URL represents a hierarchy such as
+    ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions, while
+    the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user owns the page
+    but not the comment posted on it.
     """
     def inner(f):
         @wraps(f)
