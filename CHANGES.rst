@@ -3,6 +3,7 @@
 
 * Updated documentation
 * New SQLAlchemy column types and helpers
+* Use SQL expressions to set url_id in scoped id classes
 
 0.3.7
 -----

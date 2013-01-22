@@ -2,8 +2,8 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode, desc, func, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, DateTime, Unicode, desc
+from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable
@@ -193,13 +193,9 @@ class BaseScopedIdMixin(BaseMixin):
             self.make_id()
 
     def make_id(self):
-        if not self.url_id:  # Set id only if empty
-            existing = self.__class__.query.filter_by(parent=self.parent).order_by(
-                desc(self.url_id_attr)).limit(1).first()
-            if existing:
-                self.url_id = getattr(existing, self.url_id_attr) + 1
-            else:
-                self.url_id = 1
+        if self.url_id is None:  # Set id only if empty
+            self.url_id = select([func.coalesce(func.max(self.__class__.url_id + 1), 1)],
+                self.__class__.parent == self.parent)
 
     def permissions(self, user, inherited=None):
         """

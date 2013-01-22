@@ -194,12 +194,11 @@ class TestCoasterModels(unittest.TestCase):
         c1 = self.make_container()
         d1 = ScopedIdDocument(content=u"Hello", container=c1)
         self.session.add(d1)
-        self.session.commit()
-        self.assertEqual(d1.url_id, 1)
 
         d2 = ScopedIdDocument(content=u"New document", container=c1)
         self.session.add(d2)
         self.session.commit()
+        self.assertEqual(d1.url_id, 1)
         self.assertEqual(d2.url_id, 2)
 
         c2 = self.make_container()
