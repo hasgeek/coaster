@@ -8,7 +8,8 @@ CHANGES = unicode(open(os.path.join(here, 'CHANGES.rst')).read(), 'utf-8')
 requires = [
     'Flask',
     'BeautifulSoup',
-    'simplejson'
+    'simplejson',
+    'webassets',
     ]
 
 setup(name='coaster',

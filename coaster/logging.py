@@ -45,7 +45,7 @@ class LocalVarFormatter(logging.Formatter):
         return s
 
 
-def configure(app):
+def init_app(app):
     """
     Enables logging for an app using :class:`LocalVarFormatter`.
 
@@ -81,3 +81,5 @@ def configure(app):
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
         app.logger.addHandler(mail_handler)
+
+configure = init_app

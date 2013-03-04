@@ -1,5 +1,5 @@
-Docflow
-=======
+Document workflows
+==================
 
 Coaster provides versions of the main Docflow_ classes where workflow
 exceptions map to HTTP 403 Forbidden (via werkzeug.exceptions.Forbidden_).

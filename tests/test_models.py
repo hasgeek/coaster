@@ -291,5 +291,6 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertTrue(d.updated_at > updated_at)
 
+
 if __name__ == '__main__':
     unittest.main()

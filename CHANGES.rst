@@ -1,3 +1,9 @@
+0.3.9
+-----
+
+* New module for asset management, with testcases and documentation
+* coaster.logging.configure is now init_app in keeping with convention
+
 0.3.8
 -----
 

@@ -60,7 +60,7 @@ def configure(app, env):
     """
     Configure an app depending on the environment.
     """
-    warn("This function is deprecated. Please use the init_app function", DeprecationWarning)
+    warn("This function is deprecated. Please use init_app instead", DeprecationWarning)
     init_app(app, environ.get(env))
 
 
@@ -74,7 +74,7 @@ def init_app(app, env):
     if additional:
         load_config_from_file(app, additional)
 
-    coaster.logging.configure(app)
+    coaster.logging.init_app(app)
 
 
 def load_config_from_file(app, filepath):
