@@ -13,7 +13,7 @@ requires = [
     ]
 
 setup(name='coaster',
-      version='0.3.8',
+      version='0.3.9',
       description='Coaster for Flask',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
