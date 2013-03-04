@@ -10,6 +10,7 @@ requires = [
     'BeautifulSoup',
     'simplejson',
     'webassets',
+    'semantic_version',
     ]
 
 setup(name='coaster',
