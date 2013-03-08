@@ -111,7 +111,7 @@ class VersionedAssets(defaultdict):
                         provides = asset.get('provides', [])
                         if isinstance(provides, basestring):
                             provides = [provides]
-                        bundle = asset['bundle']
+                        bundle = asset.get('bundle')
                     else:
                         provides = []
                         requires = []
