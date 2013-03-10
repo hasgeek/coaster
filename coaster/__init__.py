@@ -34,8 +34,10 @@ def buid():
     22
     >>> newid() == newid()
     False
+    >>> isinstance(newid(), unicode)
+    True
     """
-    return urlsafe_b64encode(uuid.uuid4().bytes).rstrip('=')
+    return unicode(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 # Retain old name
 newid = buid
@@ -340,8 +342,8 @@ def sanitize_html(value, valid_tags=VALID_TAGS):
     """
     Strips unwanted markup out of HTML.
 
-.. deprecated:: 0.2.5
-   Use the bleach library instead.
+    .. deprecated:: 0.2.5
+       Use the bleach library instead.
 
     """
     # TODO: This function needs unit tests.
@@ -358,7 +360,7 @@ def sanitize_html(value, valid_tags=VALID_TAGS):
             if tag.name not in valid_tags:
                 tag.hidden = True
             else:
-                tag.attrs = [(attr, value) for attr, value in tag.attrs if attr in valid_tags[tag.name]]
+                tag.attrs = [(a, v) for a, v in tag.attrs if a in valid_tags[tag.name]]
         newoutput = soup.renderContents()
         if oldoutput == newoutput:
             break
