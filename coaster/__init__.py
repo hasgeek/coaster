@@ -12,7 +12,8 @@ from BeautifulSoup import BeautifulSoup, Comment
 from warnings import warn
 
 # Compatibility import
-from coaster.app import configure as configureapp
+from ._version import *
+from .app import configure as configureapp
 
 
 # --- Common delimiters and punctuation ---------------------------------------
