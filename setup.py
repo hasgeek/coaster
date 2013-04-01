@@ -20,6 +20,7 @@ requires = [
     'simplejson',
     'webassets',
     'semantic_version',
+    'pytz',
     ]
 
 setup(name='coaster',

@@ -1,3 +1,8 @@
+0.3.10
+------
+
+* New sorted_timezones function.
+
 0.3.9
 -----
 

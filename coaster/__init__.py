@@ -10,6 +10,7 @@ import string
 import re
 from BeautifulSoup import BeautifulSoup, Comment
 from warnings import warn
+import pytz
 
 # Compatibility import
 from ._version import *
@@ -399,3 +400,30 @@ def valid_username(candidate):
     True
     """
     return not _username_valid_re.search(candidate) is None
+
+
+def sorted_timezones():
+    """
+    Return a list of timezones sorted by offset from UTC.
+    """
+    def hourmin(delta):
+        if delta.days < 0:
+            hours, remaining = divmod(86400 - delta.seconds, 3600)
+        else:
+            hours, remaining = divmod(delta.seconds, 3600)
+        minutes, remaining = divmod(remaining, 60)
+        return hours, minutes
+
+    now = datetime.utcnow()
+    # Make a list of timezones, discarding the US/* zones since they aren't reliable for
+    # DST, and discarding GMT since there's also the equivalent UTC.
+    timezones = [(pytz.timezone(tzname).utcoffset(now), tzname) for tzname in pytz.common_timezones
+        if not tzname.startswith('US/') and tzname != 'GMT']
+    # Sort timezones by offset from UTC.
+    timezones.sort()
+    # Return a list of (timezone, label) with the timezone offset included in the label.
+    return [(name, '%s%s - %s' % (
+            (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
+            '%02d:%02d' % hourmin(delta),
+            name.replace('_', ' ')),
+        ) for delta, name in timezones]
