@@ -1,3 +1,8 @@
+0.3.11
+------
+
+* Bugfix: PermissionMixin.permissions() now checks if parent is not None.
+
 0.3.10
 ------
 
