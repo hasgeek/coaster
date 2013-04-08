@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode, desc
+from sqlalchemy import Column, Integer, DateTime, Unicode
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.ext.declarative import declared_attr
@@ -131,9 +131,10 @@ class BaseScopedNameMixin(BaseMixin):
         """
         if inherited is not None:
             return inherited | super(BaseScopedNameMixin, self).permissions(user)
+        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
+            return self.parent.permissions(user) | super(BaseScopedNameMixin, self).permissions(user)
         else:
-            return (self.parent is not None and self.parent.permissions(user)
-                or set()) | super(BaseScopedNameMixin, self).permissions(user)
+            return super(BaseScopedNameMixin, self).permissions(user)
 
 
 class BaseIdNameMixin(BaseMixin):
