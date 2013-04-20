@@ -398,6 +398,12 @@ def valid_username(candidate):
     False
     >>> valid_username('exampleperson')
     True
+    >>> valid_username('example-person')
+    True
+    >>> valid_username('a')
+    True
+    >>> valid_username('a-') or valid_username('ab-') or valid_username('-a') or valid_username('-ab')
+    False
     """
     return not _username_valid_re.search(candidate) is None
 
