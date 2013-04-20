@@ -21,7 +21,7 @@ from .app import configure as configureapp
 
 _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
-_username_valid_re = re.compile('^[a-z0-9][a-z0-9-]*[a-z0-9]$')
+_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 
 
 # --- Utilities ---------------------------------------------------------------
