@@ -433,3 +433,49 @@ def sorted_timezones():
             '%02d:%02d' % hourmin(delta),
             name.replace('_', ' ')),
         ) for delta, name in timezones]
+
+
+class LabeledEnum(object):
+    """
+    Labeled enumerations. Usage::
+
+        # Declarate an enumeration with values and labels (for UI)
+        class MY_ENUM(LabeledEnum):
+            FIRST = (1, "First")
+            SECOND = (2, "Second")
+
+        # Access values as direct attributes of the enumeration
+        >>> MY_ENUM.FIRST
+        1
+        >>> MY_ENUM.SECOND
+        2
+
+        # Access labels via dictionary lookup on the enumeration
+        >>> MY_ENUM[MY_ENUM.FIRST]
+        'First'
+
+        # Retrieve a full list of values and labels with ``.items()``
+        >>> MY_ENUM.items()
+        [(1, "First"), (2, "Second")]
+    """
+    class __metaclass__(type):
+        """Construct labeled enumeration"""
+        def __new__(cls, name, bases, attrs):
+            labels = {}
+            for key, value in tuple(attrs.items()):
+                if isinstance(value, tuple) and len(value) == 2:
+                    labels[value[0]] = value[1]
+                    attrs[key] = value[0]
+
+            attrs['__labels__'] = labels
+            return type.__new__(cls, name, bases, attrs)
+
+        def __getitem__(cls, key):
+            return cls.__labels__[key]
+
+        def __setitem__(cls, key, value):
+            raise TypeError("LabeledEnum is immutable")
+
+    @classmethod
+    def items(cls):
+        return cls.__labels__.items()

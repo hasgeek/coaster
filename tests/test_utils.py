@@ -1,33 +1,28 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from os import environ
-from flask import Flask
-from coaster.app import _additional_config, configure, load_config_from_file
+from coaster import LabeledEnum
+
+
+class MY_ENUM(LabeledEnum):
+    FIRST = (1, "First")
+    SECOND = (2, "Second")
+    THIRD = (3, "Third")
 
 
 class TestCoasterUtils(unittest.TestCase):
-    def setUp(self):
-        self.app = Flask(__name__)
+    def test_labeled_enum(self):
+        self.assertEqual(MY_ENUM.FIRST, 1)
+        self.assertEqual(MY_ENUM.SECOND, 2)
+        self.assertEqual(MY_ENUM.THIRD, 3)
 
-    def test_load_config_from_file(self):
-        load_config_from_file(self.app, "settings.py")
-        self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
+        print dir(MY_ENUM)
 
-    def test_additional_settings_from_file(self):
-        env = 'COASTER_ENV'
-        environ[env] = "gibberish"
-        self.assertEqual(_additional_config.get(environ[env]), None)
-        for k, v in _additional_config.items():
-            environ[env] = k
-            self.assertEqual(_additional_config.get(environ[env]), v)
+        self.assertEqual(MY_ENUM[MY_ENUM.FIRST], "First")
+        self.assertEqual(MY_ENUM[MY_ENUM.SECOND], "Second")
+        self.assertEqual(MY_ENUM[MY_ENUM.THIRD], "Third")
 
-    def test_configure(self):
-        env = 'COASTER_ENV'
-        environ[env] = "testing"
-        configure(self.app, env)
-        self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
-        self.assertEqual(self.app.config['TEST_KEY'], "test")
+        self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,7 +1,8 @@
 0.3.12
 ------
 
-* Bugfix: Support single-char usernames
+* Bugfix: Support single-char usernames.
+* New feature: Labeled enumerations.
 
 0.3.11
 ------
