@@ -1,2 +1,7 @@
+nose
+coverage
 SQLAlchemy
+webassets
+semantic_version
+pytz
 http://github.com/jace/pydocflow/tarball/master#egg=docflow

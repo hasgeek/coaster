@@ -437,26 +437,32 @@ def sorted_timezones():
 
 class LabeledEnum(object):
     """
-    Labeled enumerations. Usage::
+    Labeled enumerations. Declarate an enumeration with values and labels
+    (for use in UI)::
 
-        # Declarate an enumeration with values and labels (for UI)
-        class MY_ENUM(LabeledEnum):
-            FIRST = (1, "First")
-            SECOND = (2, "Second")
+        >>> class MY_ENUM(LabeledEnum):
+        ...    FIRST = (1, "First")
+        ...    SECOND = (2, "Second")
 
-        # Access values as direct attributes of the enumeration
+    :class:`LabeledEnum` will convert any attribute that is a 2-tuple into
+    a value and label pair. Access values as direct attributes of the enumeration::
+
         >>> MY_ENUM.FIRST
         1
         >>> MY_ENUM.SECOND
         2
 
-        # Access labels via dictionary lookup on the enumeration
+    Access labels via dictionary lookup on the enumeration::
+
         >>> MY_ENUM[MY_ENUM.FIRST]
         'First'
+        >>> MY_ENUM[2]
+        'Second'
 
-        # Retrieve a full list of values and labels with ``.items()``
+    Retrieve a full list of values and labels with ``.items()``::
+
         >>> MY_ENUM.items()
-        [(1, "First"), (2, "Second")]
+        [(1, 'First'), (2, 'Second')]
     """
     class __metaclass__(type):
         """Construct labeled enumeration"""
