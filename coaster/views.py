@@ -170,7 +170,8 @@ def load_model(model, attributes=None, parameter=None,
         contains the data
 
     :param parameter: The name of the parameter to the decorated function via which
-        the result is passed. Usually the same as the attribute
+        the result is passed. Usually the same as the attribute. If the parameter name
+        is prefixed with 'g.', the parameter is also made available as g.<parameter>
 
     :param workflow: If True, the method ``workflow()`` of the instance is
         called and the resulting workflow object is passed to the decorated
@@ -185,8 +186,13 @@ def load_model(model, attributes=None, parameter=None,
         present in the result, ``load_model`` aborts with a 403. ``g`` is the Flask
         request context object and you are expected to setup a request environment
         in which ``g.user`` is the currently logged in user. Flask-Lastuser does this
-        automatically for you
+        automatically for you. The permission may be a string or a list of strings,
+        in which case access is allowed if any of the listed permissions are available
 
+    :param addlperms: Iterable or callable that returns an iterable containing additional
+        permissions available to the user, apart from those granted by the models. In an app
+        that uses Lastuser for authentication, passing ``lastuser.permissions`` will pass
+        through permissions granted via Lastuser
     """
     return load_models((model, attributes, parameter),
         workflow=workflow, kwargs=kwargs, permission=permission)
@@ -195,7 +201,7 @@ def load_model(model, attributes=None, parameter=None,
 def load_models(*chain, **kwargs):
     """
     Decorator to load a chain of models from the given parameters. This works just like
-    :func:`load_model` with some small differences.
+    :func:`load_model` and accepts the same parameters, with some small differences.
 
     :param chain: The chain is a list of tuples of (``model``, ``attributes``, ``parameter``).
         Lists and tuples can be used interchangeably. All retrieved instances are passed as
@@ -204,8 +210,6 @@ def load_models(*chain, **kwargs):
     :param workflow: Like with :func:`load_model`, ``workflow()`` is called on the last
         instance in the chain, and *only* the resulting workflow object is passed to the
         decorated function
-
-    :param kwargs: Same as in :func:`load_model`
 
     :param permission: Same as in :func:`load_model`, except
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
@@ -216,13 +220,17 @@ def load_models(*chain, **kwargs):
     As an example, if a URL represents a hierarchy such as
     ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions, while
     the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user owns the page
-    but not the comment posted on it.
+    but not the comment.
     """
     def inner(f):
         @wraps(f)
         def decorated_function(**kw):
             permissions = None
             permission_required = kwargs.get('permission')
+            if isinstance(permission_required, basestring):
+                permission_required = set([permission_required])
+            elif permission_required is not None:
+                permission_required = set(permission_required)
             result = {}
             for model, attributes, parameter in chain:
                 query = model.query
@@ -263,6 +271,10 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
+                    addlperms = kwargs.get('addlperms', [])
+                    if callable(addlperms):
+                        addlperms = addlperms()
+                    permissions.update(addlperms)
                 try:
                     g.permissions = permissions
                 except RuntimeError:
@@ -281,14 +293,14 @@ def load_models(*chain, **kwargs):
             if kwargs.get('workflow'):
                 # Get workflow for the last item in the chain
                 wf = item.workflow()
-                if permission_required and permission_required not in permissions:
+                if permission_required and not (permission_required & permissions):
                     abort(403)
                 if kwargs.get('kwargs'):
                     return f(wf, kwargs=kw)
                 else:
                     return f(wf)
             else:
-                if permission_required and permission_required not in permissions:
+                if permission_required and not (permission_required & permissions):
                     abort(403)
                 if kwargs.get('kwargs'):
                     return f(kwargs=kw, **result)

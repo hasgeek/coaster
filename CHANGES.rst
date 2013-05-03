@@ -3,6 +3,8 @@
 
 * Bugfix: Support single-char usernames.
 * New feature: Labeled enumerations.
+* Enhancement: load_models allows choice of permissions and takes additional
+  permissions.
 
 0.3.11
 ------
