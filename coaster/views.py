@@ -120,7 +120,6 @@ def requestargs(*vars):
                     default = None
 
                 if name not in kw:
-                    print name
                     if name not in request.args:
                         if has_default:
                             kw[name] = default
