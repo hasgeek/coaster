@@ -11,9 +11,14 @@ class TestAssets(unittest.TestCase):
         self.assets['jquery.js'][Version('1.8.3')] = 'jquery-1.8.3.js'
         self.assets['cdn-jquery.js'][Version('1.8.3')] = {
             'provides': 'jquery.js',
+            'requires': 'jquery-1.8.3.js',
             'bundle': None
             }
         self.assets['jquery.form.js'][Version('2.96.0')] = ('jquery.js', 'jquery.form-2.96.js')
+        self.assets['jquery.form.1.js'][Version('2.96.0')] = {
+            'requires': 'jquery-1.8.3.js',
+            'provides': 'jquery.form-2.96.js',
+        }
         self.assets['old-lib.js'][Version('1.0.0')] = ('jquery.js<1.8.0', 'old-lib-1.0.0.js')
 
     def test_asset_unversioned(self):
@@ -35,6 +40,10 @@ class TestAssets(unittest.TestCase):
     def test_single_requires(self):
         bundle = self.assets.require('jquery.form.js')
         self.assertEqual(bundle.contents, ('jquery-1.8.3.js', 'jquery.form-2.96.js'))
+
+    def test_single_requires_which_is_dict(self):
+        bundle =self.assets.require('jquery.form.1.js')
+        self.assertEqual(bundle.contents, ())
 
     def test_provides_requires(self):
         bundle = self.assets.require('cdn-jquery.js', 'jquery.form.js')

@@ -249,6 +249,10 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(self.child1.permissions(user1, inherited=self.pc.permissions(user1)), set(['view', 'edit']))
         self.assertEqual(self.child1.permissions(user2, inherited=self.pc.permissions(user2)), set(['view']))
 
+    def test_inherited_permissions(self):
+        user = User(username='admin')
+        self.assertEqual(self.pc.permissions(user, inherited=set(['add-video'])), set(['add-video', 'view']))
+
     def test_loadmodel_permissions(self):
         app = Flask(__name__)
         with app.test_request_context():
