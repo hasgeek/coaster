@@ -335,11 +335,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(m1.data['value'], 'bar')
         del m1.data['value']
         self.assertEqual(m1.data, {})
-        try:
-            # Test for line https://github.com/hasgeek/coaster/blob/master/coaster/sqlalchemy.py#L286
-            m2 = MyData(data='NonDict')
-        except ValueError:
-            pass
+        self.assertRaises(ValueError, MyData, data='NonDict')
 
 
 if __name__ == '__main__':
