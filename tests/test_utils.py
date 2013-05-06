@@ -16,7 +16,7 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(MY_ENUM.SECOND, 2)
         self.assertEqual(MY_ENUM.THIRD, 3)
 
-        print dir(MY_ENUM)
+        #print dir(MY_ENUM)
 
         self.assertEqual(MY_ENUM[MY_ENUM.FIRST], "First")
         self.assertEqual(MY_ENUM[MY_ENUM.SECOND], "Second")

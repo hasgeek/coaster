@@ -9,17 +9,13 @@ from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 
 from test_models import (Base, Session, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
-    ScopedIdNamedDocument)
+    ScopedIdNamedDocument, User)
 
 from werkzeug.exceptions import Forbidden, NotFound
 from flask import Flask, g
 
 
 # --- Models ------------------------------------------------------------------
-
-class User(BaseMixin, Base):
-    __tablename__ = 'user'
-    username = Column(Unicode(80), nullable=False)
 
 
 class MiddleContainer(BaseMixin, Base):
