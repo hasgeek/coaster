@@ -136,7 +136,7 @@ def requestargs(*vars):
 
 
 def load_model(model, attributes=None, parameter=None,
-        workflow=False, kwargs=False, permission=None):
+        workflow=False, kwargs=False, permission=None, addlperms=None):
     """
     Decorator to load a model given a query parameter.
 
@@ -195,7 +195,7 @@ def load_model(model, attributes=None, parameter=None,
         through permissions granted via Lastuser
     """
     return load_models((model, attributes, parameter),
-        workflow=workflow, kwargs=kwargs, permission=permission)
+        workflow=workflow, kwargs=kwargs, permission=permission, addlperms=addlperms)
 
 
 def load_models(*chain, **kwargs):
