@@ -3,7 +3,7 @@
 import unittest
 from os import environ
 from flask import Flask
-from coaster.app import _additional_config, configure, load_config_from_file
+from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -28,6 +28,20 @@ class TestCoasterUtils(unittest.TestCase):
         configure(self.app, env)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
+
+    def test_load_config_from_file_IOError(self):
+        app = Flask(__name__)
+        load_config_from_file(app, "notfound.py")
+
+
+class TestSandBoxedFlask(unittest.TestCase):
+    def setUp(self):
+        self.app = SandboxedFlask(__name__)
+
+    def test_sandboxed_flask(self):
+        rv = self.app.create_jinja_environment()
+        self.assertFalse(rv.tests['odd'](4))
+
 
 if __name__ == '__main__':
     unittest.main()
