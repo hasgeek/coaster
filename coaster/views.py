@@ -271,7 +271,7 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
-                    addlperms = kwargs.get('addlperms', [])
+                    addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms()
                     permissions.update(addlperms)
