@@ -45,7 +45,7 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(sanitize_html("<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"), u'Test sanitize_html<p>P</p>')
 
     def test_sorted_timezones(self):
-        self.assertIsInstance(sorted_timezones(), list)
+        self.assertTrue(isinstance(sorted_timezones(), list))
 
 
 if __name__ == '__main__':
