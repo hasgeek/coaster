@@ -117,17 +117,17 @@ def requestargs(*vars):
             ...
 
     requestargs takes a list of parameters to pass to the wrapped function, with
-    an optional filter, useful to convert incoming string request data into integers
-    and other common types. If a required parameter is missing and your function does
+    an optional filter (useful to convert incoming string request data into integers
+    and other common types). If a required parameter is missing and your function does
     not specify a default value, Python will raise TypeError. requestargs recasts this
-    as :exc:`RequestTypeError`, which returns HTTP status 400 Bad Request.
+    as :exc:`RequestTypeError`, which returns HTTP 400 Bad Request.
 
     If the parameter name ends in ``[]``, requestargs will attempt to read a list from
     the incoming data. Filters are applied to each member of the list, not to the whole
     list.
 
-    If the filter raises a ValueError, this is recast as a RequestValueError, which
-    also returns HTTP status 400 Bad Request.
+    If the filter raises a ValueError, this is recast as a :exc:`RequestValueError`,
+    which also returns HTTP 400 Bad Request.
 
     Tests::
 
@@ -154,9 +154,9 @@ def requestargs(*vars):
         ('1', '2', [1, 2])
     """
     def inner(f):
-        namefilt = [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]
         namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
-            for name, filt in namefilt]
+            for name, filt in
+                [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]]
 
         @wraps(f)
         def decorated_function(**kw):
