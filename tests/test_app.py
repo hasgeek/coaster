@@ -2,8 +2,10 @@
 
 import unittest
 from os import environ
+import sys
 from flask import Flask
 from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
+from coaster.logging import init_app
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -28,6 +30,17 @@ class TestCoasterUtils(unittest.TestCase):
         configure(self.app, env)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
+
+    def test_testing_settings_file(self):
+        self.another_app = Flask(__name__)
+        load_config_from_file(self.another_app, "testing.py")
+        init_app(self.another_app)
+        # Get file handler log, figured out by brute forcing
+        r = self.another_app.logger.handlers[1]
+        try:
+            raise
+        except:
+            self.assertTrue(isinstance(r.formatter.formatException(sys.exc_info()), str))
 
     def test_load_config_from_file_IOError(self):
         app = Flask(__name__)

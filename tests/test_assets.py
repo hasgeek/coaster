@@ -42,7 +42,7 @@ class TestAssets(unittest.TestCase):
         self.assertEqual(bundle.contents, ('jquery-1.8.3.js', 'jquery.form-2.96.js'))
 
     def test_single_requires_which_is_dict(self):
-        bundle =self.assets.require('jquery.form.1.js')
+        bundle = self.assets.require('jquery.form.1.js')
         self.assertEqual(bundle.contents, ())
 
     def test_provides_requires(self):

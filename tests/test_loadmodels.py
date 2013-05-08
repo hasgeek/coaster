@@ -92,6 +92,13 @@ def t_id_named_document(container, document):
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
+    (IdNamedDocument, {'url_name': 'document','container': 'container'}, 'document')
+    )
+def t_id_named_document_1(container, document):
+    return document
+
+@load_models(
+    (Container, {'name': 'container'}, 'container'),
     (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document')
     )
 def t_scoped_id_document(container, document):
@@ -216,6 +223,7 @@ class TestLoadModels(unittest.TestCase):
     def test_id_named_document(self):
         self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
         self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
+        print t_id_named_document_1(container=u'c', document='2')
         self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
 
     def test_scoped_id_document(self):
