@@ -220,7 +220,16 @@ def load_models(*chain, **kwargs):
     As an example, if a URL represents a hierarchy such as
     ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions, while
     the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user owns the page
-    but not the comment.
+    but not the comment::
+
+        @app.route('/<page>/<comment>')
+        @load_models(
+            (Page, {'id': 'page'}, 'page'),
+            (Comment, {'id': 'comment', 'page': 'page'}, 'comment'),
+            permission='view')
+        def show_page(page, comment):
+            return render_template('page.html', page, comment)
+
     """
     def inner(f):
         @wraps(f)
