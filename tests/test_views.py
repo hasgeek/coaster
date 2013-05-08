@@ -2,7 +2,6 @@
 
 import unittest
 from flask import Flask, session, request
-from werkzeug.exceptions import ClientDisconnected
 from coaster.app import load_config_from_file
 from coaster.views import get_current_url, get_next_url, jsonp, requestargs
 
@@ -55,10 +54,8 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_requestargs(self):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            print request.args, f()
-            #self.assertEqual(f(p1='2', p2='2'), (1, 3))
+            self.assertEqual(f(), (u'1', 3, [1, 2]))
             
-
 
 if __name__ == '__main__':
     unittest.main()
