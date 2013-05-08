@@ -112,50 +112,69 @@ def requestargs(*vars):
     Decorator that loads parameters from request.values if not specified in the
     function's keyword arguments. Usage::
 
-        @requestargs('param1', ('param2', int), ...)
-        def function(param1, param2=0):
+        @requestargs('param1', ('param2', int), 'param3[]', ...)
+        def function(param1, param2=0, param3=None):
             ...
 
     requestargs takes a list of parameters to pass to the wrapped function, with
-    an optional filter (useful to convert incoming string request data into integers
-    and other common types). If a required parameter is missing and your function does
+    an optional filter, useful to convert incoming string request data into integers
+    and other common types. If a required parameter is missing and your function does
     not specify a default value, Python will raise TypeError. requestargs recasts this
     as :exc:`RequestTypeError`, which returns HTTP status 400 Bad Request.
+
+    If the parameter name ends in ``[]``, requestargs will attempt to read a list from
+    the incoming data. Filters are applied to each member of the list, not to the whole
+    list.
+
+    If the filter raises a ValueError, this is recast as a RequestValueError, which
+    also returns HTTP status 400 Bad Request.
 
     Tests::
 
         >>> from flask import Flask
         >>> app = Flask(__name__)
         >>>
-        >>> @requestargs('p1', ('p2', int))
-        ... def f(p1, p2=None):
-        ...     return p1, p2
+        >>> @requestargs('p1', ('p2', int), ('p3[]', int))
+        ... def f(p1, p2=None, p3=None):
+        ...     return p1, p2, p3
         ...
         >>> f(p1=1)
-        (1, None)
+        (1, None, None)
         >>> f(p1=1, p2=2)
-        (1, 2)
+        (1, 2, None)
         >>> f(p1='a', p2='b')
-        ('a', 'b')
+        ('a', 'b', None)
         >>> with app.test_request_context('/?p2=2'):
         ...     f(p1='1')
         ...
-        ('1', 2)
+        ('1', 2, None)
+        >>> with app.test_request_context('/?p3=1&p3=2'):
+        ...     f(p1='1', p2='2')
+        ...
+        ('1', '2', [1, 2])
     """
     def inner(f):
         namefilt = [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]
+        namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
+            for name, filt in namefilt]
 
         @wraps(f)
         def decorated_function(**kw):
-            for name, filt in namefilt:
+            for name, filt, is_list in namefilt:
                 if name not in kw:
                     try:
                         if name in request.values:
                             if filt is None:
-                                kw[name] = request.values[name]
+                                if is_list:
+                                    kw[name] = request.values.getlist(name)
+                                else:
+                                    kw[name] = request.values[name]
                             else:
                                 try:
-                                    kw[name] = filt(request.values[name])
+                                    if is_list:
+                                        kw[name] = [filt(v) for v in request.values.getlist(name)]
+                                    else:
+                                        kw[name] = filt(request.values[name])
                                 except ValueError, e:
                                     raise RequestValueError(e)
                     except RuntimeError:
