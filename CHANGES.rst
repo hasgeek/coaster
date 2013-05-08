@@ -3,6 +3,10 @@
 
 * Bugfix: Support single-char usernames.
 * New feature: Labeled enumerations.
+* Enhancement: load_models allows choice of permissions and takes additional
+  permissions.
+* Rewrote requestargs view decorator for efficiency and ease of use
+* New render_with view decorator
 
 0.3.11
 ------

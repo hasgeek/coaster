@@ -4,8 +4,10 @@ from __future__ import absolute_import
 from functools import wraps
 import urlparse
 import re
-from flask import session as request_session, request, url_for, json, Response, redirect, abort, g
+from flask import (session as request_session, request, url_for, json, Response,
+    redirect, abort, g, current_app, render_template)
 from werkzeug.routing import BuildError
+from werkzeug.exceptions import BadRequest
 from sqlalchemy.orm.exc import NoResultFound
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
@@ -96,48 +98,99 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
+class RequestTypeError(BadRequest, TypeError):
+    """Exception that combines TypeError with BadRequest. Used by :func:`requestargs`."""
+    pass
+
+
+class RequestValueError(BadRequest, ValueError):
+    """Exception that combines ValueError with BadRequest. Used by :func:`requestargs`."""
+    pass
+
+
 def requestargs(*vars):
     """
-    Decorator that loads parameters from request.args if not specified in the function's keyword arguments.
+    Decorator that loads parameters from request.values if not specified in the
+    function's keyword arguments. Usage::
+
+        @requestargs('param1', ('param2', int), 'param3[]', ...)
+        def function(param1, param2=0, param3=None):
+            ...
+
+    requestargs takes a list of parameters to pass to the wrapped function, with
+    an optional filter (useful to convert incoming string request data into integers
+    and other common types). If a required parameter is missing and your function does
+    not specify a default value, Python will raise TypeError. requestargs recasts this
+    as :exc:`RequestTypeError`, which returns HTTP 400 Bad Request.
+
+    If the parameter name ends in ``[]``, requestargs will attempt to read a list from
+    the incoming data. Filters are applied to each member of the list, not to the whole
+    list.
+
+    If the filter raises a ValueError, this is recast as a :exc:`RequestValueError`,
+    which also returns HTTP 400 Bad Request.
+
+    Tests::
+
+        >>> from flask import Flask
+        >>> app = Flask(__name__)
+        >>>
+        >>> @requestargs('p1', ('p2', int), ('p3[]', int))
+        ... def f(p1, p2=None, p3=None):
+        ...     return p1, p2, p3
+        ...
+        >>> f(p1=1)
+        (1, None, None)
+        >>> f(p1=1, p2=2)
+        (1, 2, None)
+        >>> f(p1='a', p2='b')
+        ('a', 'b', None)
+        >>> with app.test_request_context('/?p2=2'):
+        ...     f(p1='1')
+        ...
+        ('1', 2, None)
+        >>> with app.test_request_context('/?p3=1&p3=2'):
+        ...     f(p1='1', p2='2')
+        ...
+        ('1', '2', [1, 2])
     """
     def inner(f):
+        namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
+            for name, filt in
+                [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]]
+
         @wraps(f)
         def decorated_function(**kw):
-            for arg in vars:
-                if isinstance(arg, (list, tuple)):
-                    name = arg[0]
-                    filt = arg[1]
-                    if len(arg) == 3:
-                        has_default = True
-                        default = arg[3]
-                    else:
-                        has_default = False
-                        default = None
-                else:
-                    name = arg
-                    filt = None
-                    has_default = False
-                    default = None
-
+            for name, filt, is_list in namefilt:
                 if name not in kw:
-                    print name
-                    if name not in request.args:
-                        if has_default:
-                            kw[name] = default
-                        else:
-                            abort(400)
-                    else:
-                        if filt is None:
-                            kw[name] = request.args[name]
-                        else:
-                            kw[name] = filt(request.args[name])
-            return f(**kw)
+                    try:
+                        if name in request.values:
+                            if filt is None:
+                                if is_list:
+                                    kw[name] = request.values.getlist(name)
+                                else:
+                                    kw[name] = request.values[name]
+                            else:
+                                try:
+                                    if is_list:
+                                        kw[name] = [filt(v) for v in request.values.getlist(name)]
+                                    else:
+                                        kw[name] = filt(request.values[name])
+                                except ValueError, e:
+                                    raise RequestValueError(e)
+                    except RuntimeError:
+                        # Not in a request context so no request.args/form.
+                        pass
+            try:
+                return f(**kw)
+            except TypeError, e:
+                raise RequestTypeError(e)
         return decorated_function
     return inner
 
 
 def load_model(model, attributes=None, parameter=None,
-        workflow=False, kwargs=False, permission=None):
+        workflow=False, kwargs=False, permission=None, addlperms=None):
     """
     Decorator to load a model given a query parameter.
 
@@ -171,7 +224,8 @@ def load_model(model, attributes=None, parameter=None,
         contains the data
 
     :param parameter: The name of the parameter to the decorated function via which
-        the result is passed. Usually the same as the attribute
+        the result is passed. Usually the same as the attribute. If the parameter name
+        is prefixed with 'g.', the parameter is also made available as g.<parameter>
 
     :param workflow: If True, the method ``workflow()`` of the instance is
         called and the resulting workflow object is passed to the decorated
@@ -186,17 +240,22 @@ def load_model(model, attributes=None, parameter=None,
         present in the result, ``load_model`` aborts with a 403. ``g`` is the Flask
         request context object and you are expected to setup a request environment
         in which ``g.user`` is the currently logged in user. Flask-Lastuser does this
-        automatically for you
+        automatically for you. The permission may be a string or a list of strings,
+        in which case access is allowed if any of the listed permissions are available
 
+    :param addlperms: Iterable or callable that returns an iterable containing additional
+        permissions available to the user, apart from those granted by the models. In an app
+        that uses Lastuser for authentication, passing ``lastuser.permissions`` will pass
+        through permissions granted via Lastuser
     """
     return load_models((model, attributes, parameter),
-        workflow=workflow, kwargs=kwargs, permission=permission)
+        workflow=workflow, kwargs=kwargs, permission=permission, addlperms=addlperms)
 
 
 def load_models(*chain, **kwargs):
     """
     Decorator to load a chain of models from the given parameters. This works just like
-    :func:`load_model` with some small differences.
+    :func:`load_model` and accepts the same parameters, with some small differences.
 
     :param chain: The chain is a list of tuples of (``model``, ``attributes``, ``parameter``).
         Lists and tuples can be used interchangeably. All retrieved instances are passed as
@@ -205,8 +264,6 @@ def load_models(*chain, **kwargs):
     :param workflow: Like with :func:`load_model`, ``workflow()`` is called on the last
         instance in the chain, and *only* the resulting workflow object is passed to the
         decorated function
-
-    :param kwargs: Same as in :func:`load_model`
 
     :param permission: Same as in :func:`load_model`, except
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
@@ -217,13 +274,26 @@ def load_models(*chain, **kwargs):
     As an example, if a URL represents a hierarchy such as
     ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions, while
     the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user owns the page
-    but not the comment posted on it.
+    but not the comment::
+
+        @app.route('/<page>/<comment>')
+        @load_models(
+            (Page, {'id': 'page'}, 'page'),
+            (Comment, {'id': 'comment', 'page': 'page'}, 'comment'),
+            permission='view')
+        def show_page(page, comment):
+            return render_template('page.html', page, comment)
+
     """
     def inner(f):
         @wraps(f)
         def decorated_function(**kw):
             permissions = None
             permission_required = kwargs.get('permission')
+            if isinstance(permission_required, basestring):
+                permission_required = set([permission_required])
+            elif permission_required is not None:
+                permission_required = set(permission_required)
             result = {}
             for model, attributes, parameter in chain:
                 query = model.query
@@ -264,6 +334,10 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
+                    addlperms = kwargs.get('addlperms') or []
+                    if callable(addlperms):
+                        addlperms = addlperms()
+                    permissions.update(addlperms)
                 try:
                     g.permissions = permissions
                 except RuntimeError:
@@ -282,18 +356,140 @@ def load_models(*chain, **kwargs):
             if kwargs.get('workflow'):
                 # Get workflow for the last item in the chain
                 wf = item.workflow()
-                if permission_required and permission_required not in permissions:
+                if permission_required and not (permission_required & permissions):
                     abort(403)
                 if kwargs.get('kwargs'):
                     return f(wf, kwargs=kw)
                 else:
                     return f(wf)
             else:
-                if permission_required and permission_required not in permissions:
+                if permission_required and not (permission_required & permissions):
                     abort(403)
                 if kwargs.get('kwargs'):
                     return f(kwargs=kw, **result)
                 else:
                     return f(**result)
+        return decorated_function
+    return inner
+
+
+def render_with(template):
+    """
+    Decorator to render the wrapped method with the given template (or dictionary
+    of mimetype keys to templates, where the template is a string name of a template
+    file or a callable that returns a Response). The method's return value must be
+    a dictionary and is passed to the template as parameters. Callable templates get
+    a single parameter with the method's return value. Usage::
+
+        @app.route('/myview')
+        @render_with('myview.html')
+        def myview():
+            return {'data': 'value'}
+
+        @app.route('/otherview')
+        @render_with({
+            'text/html': 'otherview.html',
+            'text/xml': 'otherview.xml'})
+        def otherview():
+            return {'data': 'value'}
+
+    When a mimetype is specified and the template is not a callable, the response is
+    returned with the same mimetype. Callable templates must return Response objects
+    to ensure the correct mimetype is set.
+
+    If the method is called outside a request context, the wrapped method's original
+    return value is returned. This is meant to facilitate testing and should not be
+    used to call the method from within another view handler as the presence of a
+    request context will trigger template rendering.
+
+    Rendering may also be suspended by calling the view handler with ``_render=False``.
+
+    render_with provides a default handler for the ``application/json``, ``text/json``
+    and ``text/x-json`` mimetypes.
+    """
+    templates = {
+        'application/json': jsonp,
+        'text/json': jsonp,
+        'text/x-json': jsonp,
+        }
+    if isinstance(template, basestring):
+        templates['*/*'] = template
+    elif isinstance(template, dict):
+        templates.update(template)
+    else:  # pragma: no cover
+        raise ValueError("Expected string or dict for template")
+
+    def inner(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Check if we need to bypass rendering
+            render = kwargs.pop('_render', True)
+
+            # Get the result
+            result = f(*args, **kwargs)
+
+            # Did the result include status code and headers?
+            if isinstance(result, tuple):
+                resultset = result
+                result = resultset[0]
+                if len(resultset) > 1:
+                    status_code = resultset[1]
+                else:
+                    status_code = None
+                if len(resultset) > 2:
+                    headers = resultset[2]
+                else:
+                    headers = None
+            else:
+                status_code = None
+                headers = None
+
+            # Find a matching mimetype between Accept headers and available templates
+            use_mimetype = None
+            if render:
+                try:
+                    mimetypes = [m.strip() for m in request.headers.get(
+                        'Accept', '').replace(';', ',').split(',') if '/' in m]
+                    use_mimetype = None
+                    for mimetype in mimetypes:
+                        if mimetype in templates:
+                            use_mimetype = mimetype
+                            break
+                    if use_mimetype is None:
+                        if '*/*' in templates:
+                            use_mimetype = '*/*'
+                except RuntimeError:  # Not in a request context
+                    pass
+
+            # Now render the result with the template for the mimetype
+            if use_mimetype is not None:
+                if callable(templates[use_mimetype]):
+                    rendered = templates[use_mimetype](result)
+                    if isinstance(rendered, Response):
+                        if status_code is not None:
+                            rendered.status_code = status_code
+                        if headers is not None:
+                            rendered.headers.update(headers)
+                    else:
+                        rendered = current_app.response_class(
+                            rendered,
+                            status_code=status_code,
+                            headers=headers,
+                            mimetype=use_mimetype)
+                else:
+                    if use_mimetype != '*/*':
+                        rendered = current_app.response_class(
+                            render_template(templates[use_mimetype], **result),
+                            status_code=status_code, headers=headers,
+                            mimetype=use_mimetype)
+                    else:
+                        rendered = render_template(templates[use_mimetype], **result)
+                        if status_code is not None and headers is not None:
+                            rendered = (rendered, status_code, headers)
+                        elif status_code is not None:
+                            rendered = (rendered, status_code)
+                return rendered
+            else:
+                return result
         return decorated_function
     return inner
