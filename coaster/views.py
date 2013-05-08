@@ -6,6 +6,7 @@ import urlparse
 import re
 from flask import session as request_session, request, url_for, json, Response, redirect, abort, g
 from werkzeug.routing import BuildError
+from werkzeug.exceptions import BadRequest
 from sqlalchemy.orm.exc import NoResultFound
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
@@ -96,41 +97,93 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
+class RequestTypeError(BadRequest, TypeError):
+    """Exception that combines TypeError with BadRequest. Used by :func:`requestargs`."""
+    pass
+
+
+class RequestValueError(BadRequest, ValueError):
+    """Exception that combines ValueError with BadRequest. Used by :func:`requestargs`."""
+    pass
+
+
 def requestargs(*vars):
     """
-    Decorator that loads parameters from request.args if not specified in the function's keyword arguments.
+    Decorator that loads parameters from request.values if not specified in the
+    function's keyword arguments. Usage::
+
+        @requestargs('param1', ('param2', int), 'param3[]', ...)
+        def function(param1, param2=0, param3=None):
+            ...
+
+    requestargs takes a list of parameters to pass to the wrapped function, with
+    an optional filter (useful to convert incoming string request data into integers
+    and other common types). If a required parameter is missing and your function does
+    not specify a default value, Python will raise TypeError. requestargs recasts this
+    as :exc:`RequestTypeError`, which returns HTTP 400 Bad Request.
+
+    If the parameter name ends in ``[]``, requestargs will attempt to read a list from
+    the incoming data. Filters are applied to each member of the list, not to the whole
+    list.
+
+    If the filter raises a ValueError, this is recast as a :exc:`RequestValueError`,
+    which also returns HTTP 400 Bad Request.
+
+    Tests::
+
+        >>> from flask import Flask
+        >>> app = Flask(__name__)
+        >>>
+        >>> @requestargs('p1', ('p2', int), ('p3[]', int))
+        ... def f(p1, p2=None, p3=None):
+        ...     return p1, p2, p3
+        ...
+        >>> f(p1=1)
+        (1, None, None)
+        >>> f(p1=1, p2=2)
+        (1, 2, None)
+        >>> f(p1='a', p2='b')
+        ('a', 'b', None)
+        >>> with app.test_request_context('/?p2=2'):
+        ...     f(p1='1')
+        ...
+        ('1', 2, None)
+        >>> with app.test_request_context('/?p3=1&p3=2'):
+        ...     f(p1='1', p2='2')
+        ...
+        ('1', '2', [1, 2])
     """
     def inner(f):
+        namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
+            for name, filt in
+                [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]]
+
         @wraps(f)
         def decorated_function(**kw):
-            for arg in vars:
-                if isinstance(arg, (list, tuple)):
-                    name = arg[0]
-                    filt = arg[1]
-                    if len(arg) == 3:
-                        has_default = True
-                        default = arg[3]
-                    else:
-                        has_default = False
-                        default = None
-                else:
-                    name = arg
-                    filt = None
-                    has_default = False
-                    default = None
-
+            for name, filt, is_list in namefilt:
                 if name not in kw:
-                    if name not in request.args:
-                        if has_default:
-                            kw[name] = default
-                        else:
-                            abort(400)
-                    else:
-                        if filt is None:
-                            kw[name] = request.args[name]
-                        else:
-                            kw[name] = filt(request.args[name])
-            return f(**kw)
+                    try:
+                        if name in request.values:
+                            if filt is None:
+                                if is_list:
+                                    kw[name] = request.values.getlist(name)
+                                else:
+                                    kw[name] = request.values[name]
+                            else:
+                                try:
+                                    if is_list:
+                                        kw[name] = [filt(v) for v in request.values.getlist(name)]
+                                    else:
+                                        kw[name] = filt(request.values[name])
+                                except ValueError, e:
+                                    raise RequestValueError(e)
+                    except RuntimeError:
+                        # Not in a request context so no request.args/form.
+                        pass
+            try:
+                return f(**kw)
+            except TypeError, e:
+                raise RequestTypeError(e)
         return decorated_function
     return inner
 
@@ -280,7 +333,7 @@ def load_models(*chain, **kwargs):
                     abort(404)
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
-                    addlperms = kwargs.get('addlperms', [])
+                    addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms()
                     permissions.update(addlperms)
