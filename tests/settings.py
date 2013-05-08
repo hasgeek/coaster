@@ -8,3 +8,4 @@ MAIL_SERVER = 'smtp.sendgrid.com'
 MAIL_PORT = 587
 MAIL_USERNAME = 'username'
 MAIL_PASSWORD = 'PASSWORD'
+SECRET_KEY = 'd vldvnvnvjn'

@@ -97,6 +97,7 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
 class User(BaseMixin, Base):
     __tablename__ = 'user'
     username = Column(Unicode(80), nullable=False)
+    query = Session.query_property()
 
 
 class MyData(Base):

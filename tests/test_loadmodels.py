@@ -67,6 +67,14 @@ def t_container(container):
 
 
 @load_models(
+    (User, {'username': 'username'}, 'g.user'),
+    (Container, {'name': 'container'}, 'container')
+    )
+def load_user(container, user):
+    return user
+
+
+@load_models(
     (Container, {'name': 'container'}, 'container'),
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
     )
@@ -155,7 +163,6 @@ def t_dotted_document_edit(document, child):
 def t_dotted_document_delete(document, child):
     return child
 
-
 # --- Tests -------------------------------------------------------------------
 
 class TestLoadModels(unittest.TestCase):
@@ -223,7 +230,7 @@ class TestLoadModels(unittest.TestCase):
     def test_id_named_document(self):
         self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
         self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
-        print t_id_named_document_1(container=u'c', document='2')
+        #print t_id_named_document_1(container=u'c', document='2')
         self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
 
     def test_scoped_id_document(self):
@@ -244,6 +251,7 @@ class TestLoadModels(unittest.TestCase):
     def test_dotted_document(self):
         self.assertEqual(t_dotted_document(document=u'parent', child=1), self.child1)
         self.assertEqual(t_dotted_document(document=u'parent', child=2), self.child2)
+        self.assertEqual(t_dotted_document(document=u'parent', child=2, kwargs=2), self.child2)
 
     def test_direct_permissions(self):
         user1 = User(username='foo')
@@ -264,6 +272,17 @@ class TestLoadModels(unittest.TestCase):
             self.assertEqual(t_dotted_document_view(document=u'parent', child=1), self.child1)
             self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
             self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)
+
+    def test_load_user(self):
+        app = Flask(__name__)
+        with app.test_request_context():
+            user = User(username=u'baz')
+            c = Container(name=u'c1')
+            self.session.add(user)
+            self.session.add(c)
+            self.session.commit()
+            self.assertEqual(load_user(username=u'baz', container=u'c1'), g.user)
+
 
 if __name__ == '__main__':
     unittest.main()
