@@ -269,21 +269,23 @@ def load_models(*chain, **kwargs):
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
         in the chain and the retrieved permissions are passed as the second parameter to the
         next instance in the chain. This allows later instances to revoke permissions granted
-        by earlier instances
+        by earlier instances. As an example, if a URL represents a hierarchy such as
+        ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions,
+        while the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user
+        owns the page but not the comment
 
-    As an example, if a URL represents a hierarchy such as
-    ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions, while
-    the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user owns the page
-    but not the comment::
+    In the following example, load_models loads a Folder with a name matching the name in the
+    URL, then loads a Page with a matching name and with the just-loaded Folder as parent.
+    If the Page provides a 'view' permission to the current user (`g.user`), the decorated
+    function is called::
 
-        @app.route('/<page>/<comment>')
+        @app.route('/<folder_name>/<page_name>')
         @load_models(
-            (Page, {'id': 'page'}, 'page'),
-            (Comment, {'id': 'comment', 'page': 'page'}, 'comment'),
+            (Folder, {'name': 'folder_name'}, 'folder'),
+            (Page, {'name': 'page_name', 'parent': 'folder'}, 'page'),
             permission='view')
-        def show_page(page, comment):
-            return render_template('page.html', page, comment)
-
+        def show_page(folder, page):
+            return render_template('page.html', folder=folder, page=page)
     """
     def inner(f):
         @wraps(f)
