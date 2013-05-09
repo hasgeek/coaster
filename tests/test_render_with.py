@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import unittest
 from flask import Flask, Response
 from jinja2 import TemplateNotFound
@@ -25,6 +27,22 @@ def myview():
     'text/plain': viewcallable})
 def otherview():
     return {'data': 'value'}, 201
+
+
+@app.route('/renderedview3')
+@render_with({
+    'text/html': 'renderedview2.html',
+    'text/xml': 'renderedview2.xml',
+    'text/plain': viewcallable})
+def onemoreview():
+    return {'data': 'value'},
+
+
+@app.route('/renderedview4')
+@render_with({
+    'text/plain': viewcallable})
+def view_for_text():
+    return {'data': 'value'}, 201, [("content-type", "text/plain"), ('Referer', 'http://example.com/')]
 
 
 # --- Tests -------------------------------------------------------------------
@@ -68,3 +86,6 @@ class TestLoadModels(unittest.TestCase):
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         self.assertTrue(isinstance(response, Response))
         self.assertEqual(response.data, "{'data': 'value'}")
+        response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
+        self.assertTrue(isinstance(response, Response))
+        print self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])

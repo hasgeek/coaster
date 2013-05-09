@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from flask import Flask, session, request
+from flask import Flask, session
 from coaster.app import load_config_from_file
 from coaster.views import get_current_url, get_next_url, jsonp, requestargs
 
@@ -56,6 +56,9 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
             self.assertEqual(f(), (u'1', 3, [1, 2]))
             
+        with self.app.test_request_context('/?p2=2'):
+            self.assertEqual(f(p1='1'), (u'1', 2, None))
+
 
 if __name__ == '__main__':
     unittest.main()
