@@ -469,8 +469,7 @@ def render_with(template):
                         if status_code is not None:
                             rendered.status_code = status_code
                         if headers is not None:
-                            print dir(rendered.headers)
-                            rendered.headers.update(headers)
+                            rendered.headers.extend(headers)
                     else:
                         rendered = current_app.response_class(
                             rendered,
