@@ -59,19 +59,36 @@ class ChildDocument(BaseScopedIdMixin, Base):
         return perms
 
 
+def return_perms():
+    return set(['view'])
+
+
 # --- load_models decorators --------------------------------------------------
 
-@load_model(Container, {'name': 'container'}, 'container')
-def t_container(container):
+@load_model(Container, {'name': 'container'}, 'container', permission='view', 
+        kwargs=True, addlperms=return_perms)
+def t_container(container, kwargs):
     return container
 
 
 @load_models(
+    (User, {'username': 'name'}, 'u'),
     (User, {'username': 'username'}, 'g.user'),
-    (Container, {'name': 'container'}, 'container')
     )
-def load_user(container, user):
+def load_users(u, user):
     return user
+
+
+# --- App setup ---------------------------------------------------------------
+#app = Flask(__name__)
+
+#@app.route('/', methods=['GET'])
+#@load_models(
+#    (Container, {'name': 'container'}, 'container'),
+#    (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
+#    )
+#def view_t_named_document(container, document):
+#    return "document: %s, container: %s" %(document, container)
 
 
 @load_models(
@@ -97,13 +114,6 @@ def t_scoped_named_document(container, document):
 def t_id_named_document(container, document):
     return document
 
-
-@load_models(
-    (Container, {'name': 'container'}, 'container'),
-    (IdNamedDocument, {'url_name': 'document','container': 'container'}, 'document')
-    )
-def t_id_named_document_1(container, document):
-    return document
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
@@ -217,7 +227,10 @@ class TestLoadModels(unittest.TestCase):
         Base.metadata.drop_all()
 
     def test_container(self):
-        self.assertEqual(t_container(container=u'c'), self.container)
+        app = Flask(__name__)
+        with app.test_request_context():
+            g.user = User(username='test')
+            self.assertEqual(t_container(container=u'c'), self.container)
 
     def test_named_document(self):
         self.assertEqual(t_named_document(container=u'c', document=u'named-document'), self.nd1)
@@ -230,8 +243,10 @@ class TestLoadModels(unittest.TestCase):
     def test_id_named_document(self):
         self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
         self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
-        #print t_id_named_document_1(container=u'c', document='2')
         self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
+        #client = app.test_client()
+        #with app.test_request_context('/'):
+            #print client.get('/')
 
     def test_scoped_id_document(self):
         self.assertEqual(t_scoped_id_document(container=u'c', document=u'1'), self.sid1)
@@ -277,11 +292,15 @@ class TestLoadModels(unittest.TestCase):
         app = Flask(__name__)
         with app.test_request_context():
             user = User(username=u'baz')
-            c = Container(name=u'c1')
+            user1 = User(username=u'bar')
             self.session.add(user)
-            self.session.add(c)
+            self.session.add(user1)
             self.session.commit()
-            self.assertEqual(load_user(username=u'baz', container=u'c1'), g.user)
+            self.assertEqual(load_users(username=u'baz', name=u'bar'), g.user)
+            try:
+                self.assertRaises(load_users(username=u'baz', name=u'boo'), NotFound)
+            except NotFound:
+                pass
 
 
 if __name__ == '__main__':

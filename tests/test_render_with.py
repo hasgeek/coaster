@@ -14,6 +14,14 @@ def viewcallable(data):
     return Response(repr(data), mimetype='text/plain')
 
 
+def anycallable(data):
+    return Response(repr(data), mimetype='*/*')
+
+
+def returns_string(data):
+    return "Not of Response: %s" % repr(data)
+
+
 @app.route('/renderedview1')
 @render_with('renderedview1.html')
 def myview():
@@ -42,7 +50,14 @@ def onemoreview():
 @render_with({
     'text/plain': viewcallable})
 def view_for_text():
-    return {'data': 'value'}, 201, [("content-type", "text/plain"), ('Referer', 'http://example.com/')]
+    return {'data': 'value'}, 201, {'Referrer': 'http://example.com'}
+
+
+@app.route('/renderedview5')
+@render_with({
+    'text/plain': returns_string})
+def view_for_star():
+    return {'data': 'value'}, 201
 
 
 # --- Tests -------------------------------------------------------------------
@@ -88,4 +103,11 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(response.data, "{'data': 'value'}")
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
         self.assertTrue(isinstance(response, Response))
-        print self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
+        resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
+        self.assertEqual(resp.headers['Referrer'], "http://example.com")
+        #resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
+        #self.assertEqual(resp.status_code, 201)
+
+
+if __name__ == "__main__":
+    unittest.main()

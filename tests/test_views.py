@@ -3,7 +3,7 @@
 import unittest
 from flask import Flask, session
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs
+from coaster.views import get_current_url, get_next_url, jsonp, requestargs, RequestTypeError
 
 
 def index():
@@ -16,6 +16,11 @@ def external():
 
 @requestargs('p1', ('p2', int), ('p3[]', int))
 def f(p1, p2=None, p3=None):
+    return p1, p2, p3
+
+
+@requestargs('p1', ('p2', int), ('p3[]'))
+def f1(p1, p2=None, p3=None):
     return p1, p2, p3
 
 
@@ -58,6 +63,12 @@ class TestCoasterViews(unittest.TestCase):
             
         with self.app.test_request_context('/?p2=2'):
             self.assertEqual(f(p1='1'), (u'1', 2, None))
+
+        with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+            self.assertEqual(f1(), (u'1', 3, [u'1', u'2']))
+
+        with self.app.test_request_context('/?p2=2&p4=4'):
+            self.assertRaises(RequestTypeError, f, p4='4')
 
 
 if __name__ == '__main__':

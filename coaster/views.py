@@ -303,7 +303,7 @@ def load_models(*chain, **kwargs):
                     if k == 'url_name' and hasattr(model, 'url_id_attr'):
                         url_key = v
                         url_name = kw.get(url_key)
-                        parts = url_name.split('-') 
+                        parts = url_name.split('-')
                         try:
                             if request.method == 'GET':
                                 url_check = True
