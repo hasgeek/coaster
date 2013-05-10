@@ -65,7 +65,7 @@ def return_perms():
 
 # --- load_models decorators --------------------------------------------------
 
-@load_model(Container, {'name': 'container'}, 'container', permission='view', 
+@load_model(Container, {'name': 'container'}, 'container', permission='view',
         kwargs=True, addlperms=return_perms)
 def t_container(container, kwargs):
     return container
@@ -77,18 +77,6 @@ def t_container(container, kwargs):
     )
 def load_users(u, user):
     return user
-
-
-# --- App setup ---------------------------------------------------------------
-#app = Flask(__name__)
-
-#@app.route('/', methods=['GET'])
-#@load_models(
-#    (Container, {'name': 'container'}, 'container'),
-#    (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
-#    )
-#def view_t_named_document(container, document):
-#    return "document: %s, container: %s" %(document, container)
 
 
 @load_models(
@@ -173,6 +161,7 @@ def t_dotted_document_edit(document, child):
 def t_dotted_document_delete(document, child):
     return child
 
+
 # --- Tests -------------------------------------------------------------------
 
 class TestLoadModels(unittest.TestCase):
@@ -244,9 +233,6 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
         self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
         self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
-        #client = app.test_client()
-        #with app.test_request_context('/'):
-            #print client.get('/')
 
     def test_scoped_id_document(self):
         self.assertEqual(t_scoped_id_document(container=u'c', document=u'1'), self.sid1)
@@ -297,10 +283,7 @@ class TestLoadModels(unittest.TestCase):
             self.session.add(user1)
             self.session.commit()
             self.assertEqual(load_users(username=u'baz', name=u'bar'), g.user)
-            try:
-                self.assertRaises(load_users(username=u'baz', name=u'boo'), NotFound)
-            except NotFound:
-                pass
+            self.assertRaises(NotFound, load_users, username=u'baz', name=u'boo')
 
 
 if __name__ == '__main__':
