@@ -70,13 +70,15 @@ def return_siteadmin_perms():
 def t_container(container, kwargs):
     return container
 
-# Container is odd model here because to test passing `g.user` as parameter, I need
-# to have one more model, so using Container
+
+@load_model(User, {'username': 'username'}, 'g.user')
+def t_load_user_to_g(user):
+    return user
+
+
 @load_models(
-    (Container, {'name': 'container_name'}, 'container'),
-    (User, {'username': 'username'}, 'g.user')
-    )
-def t_load_user_to_g(container, user):
+    (User, {'username': 'username'}, 'g.user'))
+def t_single_model_in_loadmodels(user):
     return user
 
 
@@ -211,14 +213,14 @@ class TestLoadModels(unittest.TestCase):
         self.child2 = ChildDocument(parent=self.pc.middle)
         self.session.add(self.child2)
         self.session.commit()
+        self.app = Flask(__name__)
 
     def tearDown(self):
         self.session.rollback()
         Base.metadata.drop_all()
 
     def test_container(self):
-        app = Flask(__name__)
-        with app.test_request_context():
+        with self.app.test_request_context():
             g.user = User(username='test')
             self.assertEqual(t_container(container=u'c'), self.container)
 
@@ -267,22 +269,26 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(self.pc.permissions(user, inherited=set(['add-video'])), set(['add-video', 'view']))
 
     def test_loadmodel_permissions(self):
-        app = Flask(__name__)
-        with app.test_request_context():
+        with self.app.test_request_context():
             g.user = User(username='foo')
             self.assertEqual(t_dotted_document_view(document=u'parent', child=1), self.child1)
             self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
             self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)
 
     def test_load_user_to_g(self):
-        app = Flask(__name__)
-        with app.test_request_context():
+        with self.app.test_request_context():
             user = User(username=u'baz')
             self.session.add(user)
             self.session.commit()
-            self.assertEqual(t_load_user_to_g(username=u'baz', container_name=u'c'), g.user)
-            self.assertRaises(NotFound, t_load_user_to_g, username=u'boo', container_name=u'c')
+            self.assertEqual(t_load_user_to_g(username=u'baz'), g.user)
+            self.assertRaises(NotFound, t_load_user_to_g, username=u'boo')
 
+    def test_single_model_in_loadmodels(self):
+        with self.app.test_request_context():
+            user = User(username=u'user1')
+            self.session.add(user)
+            self.session.commit()
+            self.assertEqual(t_single_model_in_loadmodels(username=u'user1'), g.user)
 
 if __name__ == '__main__':
     unittest.main()
