@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from flask import Flask, session
+from flask import Flask, session, json
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs, RequestTypeError
+from coaster.views import get_current_url, get_next_url, jsonp, requestargs, RequestTypeError, BadRequest
 
 
 def index():
@@ -49,18 +49,31 @@ class TestCoasterViews(unittest.TestCase):
             self.assertEqual(get_next_url(session=True), '/external')
 
     def test_jsonp(self):
-        with self.app.test_request_context('/?callback=http://example.com'):
-            r = jsonp(lang='en-us', query='python')
-            self.assertEqual(r.headers['Content-Type'], 'application/json')
-
         with self.app.test_request_context('/?callback=callback'):
-            r = jsonp(lang='en-us', query='python')
-            self.assertEqual(r.headers['Content-Type'], 'application/javascript')
+            kwargs = {'lang': 'en-us', 'query': 'python'}
+            r = jsonp(**kwargs)
+            response = 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % ('lang', kwargs['lang'], 'query', kwargs['query'])
+            self.assertEqual(response, r.response[0])
+
+        with self.app.test_request_context('/'):
+            param1, param2 = 1, 2
+            r = jsonp(param1=param1, param2=param2)
+            resp = json.loads(r.response[0])
+            self.assertEqual(resp['param1'], param1)
+            self.assertEqual(resp['param2'], param2)
+            r = jsonp({'param1': param1, 'param2': param2})
+            resp = json.loads(r.response[0])
+            self.assertEqual(resp['param1'], param1)
+            self.assertEqual(resp['param2'], param2)
+            r = jsonp([('param1', param1), ('param2', param2)])
+            resp = json.loads(r.response[0])
+            self.assertEqual(resp['param1'], param1)
+            self.assertEqual(resp['param2'], param2)
 
     def test_requestargs(self):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
             self.assertEqual(f(), (u'1', 3, [1, 2]))
-            
+
         with self.app.test_request_context('/?p2=2'):
             self.assertEqual(f(p1='1'), (u'1', 2, None))
 
@@ -68,7 +81,8 @@ class TestCoasterViews(unittest.TestCase):
             self.assertEqual(f1(), (u'1', 3, [u'1', u'2']))
 
         with self.app.test_request_context('/?p2=2&p4=4'):
-            self.assertRaises(RequestTypeError, f, p4='4')
+            self.assertRaises(TypeError, f, p4='4')
+            self.assertRaises(BadRequest, f, p4='4')
 
 
 if __name__ == '__main__':

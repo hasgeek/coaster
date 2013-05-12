@@ -59,23 +59,24 @@ class ChildDocument(BaseScopedIdMixin, Base):
         return perms
 
 
-def return_perms():
-    return set(['view'])
+def return_siteadmin_perms():
+    return set(['siteadmin'])
 
 
 # --- load_models decorators --------------------------------------------------
 
-@load_model(Container, {'name': 'container'}, 'container', permission='view',
-        kwargs=True, addlperms=return_perms)
+@load_model(Container, {'name': 'container'}, 'container', permission='siteadmin',
+        kwargs=True, addlperms=return_siteadmin_perms)
 def t_container(container, kwargs):
     return container
 
-
+# Container is odd model here because to test passing `g.user` as parameter, I need
+# to have one more model, so using Container
 @load_models(
-    (User, {'username': 'name'}, 'u'),
-    (User, {'username': 'username'}, 'g.user'),
+    (Container, {'name': 'container_name'}, 'container'),
+    (User, {'username': 'username'}, 'g.user')
     )
-def load_users(u, user):
+def t_load_user_to_g(container, user):
     return user
 
 
@@ -252,7 +253,6 @@ class TestLoadModels(unittest.TestCase):
     def test_dotted_document(self):
         self.assertEqual(t_dotted_document(document=u'parent', child=1), self.child1)
         self.assertEqual(t_dotted_document(document=u'parent', child=2), self.child2)
-        self.assertEqual(t_dotted_document(document=u'parent', child=2, kwargs=2), self.child2)
 
     def test_direct_permissions(self):
         user1 = User(username='foo')
@@ -274,16 +274,14 @@ class TestLoadModels(unittest.TestCase):
             self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
             self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)
 
-    def test_load_user(self):
+    def test_load_user_to_g(self):
         app = Flask(__name__)
         with app.test_request_context():
             user = User(username=u'baz')
-            user1 = User(username=u'bar')
             self.session.add(user)
-            self.session.add(user1)
             self.session.commit()
-            self.assertEqual(load_users(username=u'baz', name=u'bar'), g.user)
-            self.assertRaises(NotFound, load_users, username=u'baz', name=u'boo')
+            self.assertEqual(t_load_user_to_g(username=u'baz', container_name=u'c'), g.user)
+            self.assertRaises(NotFound, t_load_user_to_g, username=u'boo', container_name=u'c')
 
 
 if __name__ == '__main__':

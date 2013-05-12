@@ -19,7 +19,7 @@ Base = declarative_base(bind=engine)
 
 
 # --- Models ------------------------------------------------------------------
-class Table(Base):
+class BaseContainer(Base):
     __tablename__ = 'base_container'
     id = Column(Integer, primary_key=True)
     name = Column(Unicode(80), nullable=True)
@@ -168,7 +168,10 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d2)
         self.session.commit()
         self.assertEqual(d2.name, u'hello1')
-        self.assertEqual(d2.make_name(), None)
+        # check make_name() modified `name` parameter or not, since `name` value already exists.
+        name = d2.name
+        d2.make_name()
+        self.assertEqual(d2.name, name)
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
@@ -193,7 +196,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(d3.name, u'hello')
 
-        c3 = Table()
+        c3 = BaseContainer()
         self.session.add(c3)
         d4 = ScopedNamedDocument(title=u"Hello", container=c3)
         self.session.commit()

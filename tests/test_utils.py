@@ -29,7 +29,7 @@ class TestCoasterUtils(unittest.TestCase):
         except TypeError:
             pass
 
-    def test_make_password(self):
+    def test_unlisted_make_password_encoding(self):
         self.assertRaises(ValueError, make_password, password='password', encoding=u'DES')
 
     def test_check_password(self):
@@ -39,9 +39,9 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(parse_isoformat("1882-12-11T00:00:00.1234Z"), datetime.datetime(1882, 12, 11, 0, 0, 0, 123400))
         self.assertEqual(parse_isoformat("1882-12-11T00:00:00Z"), datetime.datetime(1882, 12, 11, 0, 0))
 
-    def test_sanitize_time(self):
-        html = """<html><head><title>Test sanitize_html</title></head><body><!-- Body Comment-->Body</body></html>"""
-        self.assertEqual(sanitize_html(html), u'Test sanitize_htmlBody')
+    def test_sanitize_html(self):
+        html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
+        self.assertEqual(sanitize_html(html), u'Test sanitize_htmlBodyalert("foo");')
         self.assertEqual(sanitize_html("<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"), u'Test sanitize_html<p>P</p>')
 
     def test_sorted_timezones(self):
