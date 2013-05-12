@@ -30,6 +30,8 @@ class TestCoasterUtils(unittest.TestCase):
             pass
 
     def test_unlisted_make_password_encoding(self):
+        """This test is to check unsupported password encryption. Mainly to cover https://github.com/hasgeek/coaster/blob/master/coaster/__init__.py#L166
+        """
         self.assertRaises(ValueError, make_password, password='password', encoding=u'DES')
 
     def test_check_password(self):
