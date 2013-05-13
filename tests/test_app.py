@@ -44,7 +44,7 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_load_config_from_file_IOError(self):
         app = Flask(__name__)
-        load_config_from_file(app, "notfound.py")
+        self.assertFalse(load_config_from_file(app, "notfound.py"))
 
 class TestSandBoxedFlask(unittest.TestCase):
     def setUp(self):
