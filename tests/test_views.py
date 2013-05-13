@@ -53,7 +53,7 @@ class TestCoasterViews(unittest.TestCase):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
             response = 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % ('lang', kwargs['lang'], 'query', kwargs['query'])
-            self.assertEqual(response, r.response[0])
+            self.assertEqual(response, r.data)
 
         with self.app.test_request_context('/'):
             param1, param2 = 1, 2

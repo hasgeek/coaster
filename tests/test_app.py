@@ -39,12 +39,12 @@ class TestCoasterUtils(unittest.TestCase):
             try:
                 raise
             except:
-                handler.formatter.formatException(sys.exc_info())
+                formatter = handler.formatter
+                formatter.formatException(sys.exc_info())
 
     def test_load_config_from_file_IOError(self):
         app = Flask(__name__)
         load_config_from_file(app, "notfound.py")
-
 
 class TestSandBoxedFlask(unittest.TestCase):
     def setUp(self):

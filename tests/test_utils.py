@@ -30,12 +30,13 @@ class TestCoasterUtils(unittest.TestCase):
             pass
 
     def test_unlisted_make_password_encoding(self):
-        """This test is to check unsupported password encryption. Mainly to cover https://github.com/hasgeek/coaster/blob/master/coaster/__init__.py#L166
+        """Test for unsupported password encryption schemes.
         """
         self.assertRaises(ValueError, make_password, password='password', encoding=u'DES')
 
     def test_check_password(self):
         self.assertFalse(check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword'))
+        self.assertTrue(check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword'))
 
     def test_parse_isoformat(self):
         self.assertEqual(parse_isoformat("1882-12-11T00:00:00.1234Z"), datetime.datetime(1882, 12, 11, 0, 0, 0, 123400))

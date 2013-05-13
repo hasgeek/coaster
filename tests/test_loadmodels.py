@@ -280,6 +280,7 @@ class TestLoadModels(unittest.TestCase):
             user = User(username=u'baz')
             self.session.add(user)
             self.session.commit()
+            self.assertFalse(hasattr(g, 'user'))
             self.assertEqual(t_load_user_to_g(username=u'baz'), g.user)
             self.assertRaises(NotFound, t_load_user_to_g, username=u'boo')
 

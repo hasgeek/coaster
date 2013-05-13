@@ -103,7 +103,7 @@ class User(BaseMixin, Base):
 class MyData(Base):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
-    data = Column(MutableDict.as_mutable(JsonDict))
+    data = Column(JsonDict)
 
 # -- Tests --------------------------------------------------------------------
 
@@ -330,7 +330,7 @@ class TestCoasterModels(unittest.TestCase):
         d = UnnamedDocument(content=u"hello")
         self.assertEqual(d.url_for(), None)
 
-    def test_mutable_dict(self):
+    def test_jsondict(self):
         m1 = MyData(data={'value': 'foo'})
         self.session.add(m1)
         self.session.commit()

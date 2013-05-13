@@ -11,7 +11,7 @@ class TestAssets(unittest.TestCase):
         self.assets['jquery.js'][Version('1.8.3')] = 'jquery-1.8.3.js'
         self.assets['jquery.some.js'][Version('1.8.3')] = {
             'provides': 'jquery.js',
-            'requires': 'jquery-1.8.3.js',
+            'requires': 'jquery.js',
             'bundle': None
             }
         self.assets['jquery.form.js'][Version('2.96.0')] = ('jquery.js', 'jquery.form-2.96.js')
@@ -47,7 +47,7 @@ class TestAssets(unittest.TestCase):
 
     def test_provides_requires(self):
         bundle = self.assets.require('jquery.some.js', 'jquery.form.js')
-        self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
+        self.assertEqual(bundle.contents, ('jquery-1.8.3.js', 'jquery.form-2.96.js'))
 
     def test_version_copies(self):
         # First asset will load highest available version of the requirement, which conflicts
