@@ -46,6 +46,7 @@ class TestCoasterUtils(unittest.TestCase):
         app = Flask(__name__)
         self.assertFalse(load_config_from_file(app, "notfound.py"))
 
+
 class TestSandBoxedFlask(unittest.TestCase):
     def setUp(self):
         self.app = SandboxedFlask(__name__)
