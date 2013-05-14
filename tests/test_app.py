@@ -5,7 +5,7 @@ from os import environ
 import sys
 from flask import Flask
 from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
-from coaster.logging import init_app
+from coaster.logging import init_app, LocalVarFormatter
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -40,7 +40,8 @@ class TestCoasterUtils(unittest.TestCase):
                 raise
             except:
                 formatter = handler.formatter
-                formatter.formatException(sys.exc_info())
+                if isinstance(formatter, LocalVarFormatter):
+                    formatter.formatException(sys.exc_info())
 
     def test_load_config_from_file_IOError(self):
         app = Flask(__name__)
