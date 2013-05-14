@@ -80,7 +80,9 @@ def init_app(app, env):
 def load_config_from_file(app, filepath):
     try:
         app.config.from_pyfile(filepath)
+        return True
     except IOError:
         # TODO: Can we print to sys.stderr in production? Should this go to
         # logs instead?
         print >> sys.stderr, "Did not find settings file %s" % filepath
+        return False
