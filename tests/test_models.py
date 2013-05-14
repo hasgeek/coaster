@@ -5,7 +5,7 @@ import unittest
 from time import sleep
 from datetime import datetime, timedelta
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, MutableDict, JsonDict)
 from sqlalchemy import create_engine, Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym, sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
@@ -19,6 +19,12 @@ Base = declarative_base(bind=engine)
 
 
 # --- Models ------------------------------------------------------------------
+class BaseContainer(Base):
+    __tablename__ = 'base_container'
+    id = Column(Integer, primary_key=True)
+    name = Column(Unicode(80), nullable=True)
+    query = Session.query_property()
+
 
 class Container(BaseMixin, Base):
     __tablename__ = 'container'
@@ -88,7 +94,19 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
     __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
 
 
+class User(BaseMixin, Base):
+    __tablename__ = 'user'
+    username = Column(Unicode(80), nullable=False)
+    query = Session.query_property()
+
+
+class MyData(Base):
+    __tablename__ = 'my_data'
+    id = Column(Integer, primary_key=True)
+    data = Column(JsonDict)
+
 # -- Tests --------------------------------------------------------------------
+
 
 class TestCoasterModels(unittest.TestCase):
     def setUp(self):
@@ -150,14 +168,22 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d2)
         self.session.commit()
         self.assertEqual(d2.name, u'hello1')
+        # check make_name() modified `name` parameter or not, since `name` value already exists.
+        name = d2.name
+        d2.make_name()
+        self.assertEqual(d2.name, name)
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
         c1 = self.make_container()
         d1 = ScopedNamedDocument(title=u"Hello", content=u"World", container=c1)
+        u = User(username="foo")
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(d1.name, u'hello')
+        self.assertEqual(d1.make_name(), None)
+        self.assertEqual(d1.permissions(user=u), set([]))
+        self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
 
         d2 = ScopedNamedDocument(title=u"Hello", content=u"Again", container=c1)
         self.session.add(d2)
@@ -169,6 +195,12 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d3)
         self.session.commit()
         self.assertEqual(d3.name, u'hello')
+
+        c3 = BaseContainer()
+        self.session.add(c3)
+        d4 = ScopedNamedDocument(title=u"Hello", container=c3)
+        self.session.commit()
+        self.assertEqual(d4.permissions(user=u), set([]))
 
     def test_id_named(self):
         """Documents with a global id in the URL"""
@@ -193,7 +225,10 @@ class TestCoasterModels(unittest.TestCase):
         """Documents with a container-specific id in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdDocument(content=u"Hello", container=c1)
+        u = User(username="foo")
         self.session.add(d1)
+        self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
+        self.assertEqual(d1.permissions(user=u), set([]))
 
         d2 = ScopedIdDocument(content=u"New document", container=c1)
         self.session.add(d2)
@@ -290,6 +325,21 @@ class TestCoasterModels(unittest.TestCase):
         d.title = u"Updated hello"
         self.session.commit()
         self.assertTrue(d.updated_at > updated_at)
+
+    def test_url_for(self):
+        d = UnnamedDocument(content=u"hello")
+        self.assertEqual(d.url_for(), None)
+
+    def test_jsondict(self):
+        m1 = MyData(data={'value': 'foo'})
+        self.session.add(m1)
+        self.session.commit()
+        #Test for __setitem__
+        m1.data['value'] = 'bar'
+        self.assertEqual(m1.data['value'], 'bar')
+        del m1.data['value']
+        self.assertEqual(m1.data, {})
+        self.assertRaises(ValueError, MyData, data='NonDict')
 
 
 if __name__ == '__main__':

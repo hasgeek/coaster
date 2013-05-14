@@ -9,17 +9,13 @@ from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 
 from test_models import (Base, Session, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
-    ScopedIdNamedDocument)
+    ScopedIdNamedDocument, User)
 
 from werkzeug.exceptions import Forbidden, NotFound
 from flask import Flask, g
 
 
 # --- Models ------------------------------------------------------------------
-
-class User(BaseMixin, Base):
-    __tablename__ = 'user'
-    username = Column(Unicode(80), nullable=False)
 
 
 class MiddleContainer(BaseMixin, Base):
@@ -63,11 +59,27 @@ class ChildDocument(BaseScopedIdMixin, Base):
         return perms
 
 
+def return_siteadmin_perms():
+    return set(['siteadmin'])
+
+
 # --- load_models decorators --------------------------------------------------
 
-@load_model(Container, {'name': 'container'}, 'container')
-def t_container(container):
+@load_model(Container, {'name': 'container'}, 'container', permission='siteadmin',
+        kwargs=True, addlperms=return_siteadmin_perms)
+def t_container(container, kwargs):
     return container
+
+
+@load_model(User, {'username': 'username'}, 'g.user')
+def t_load_user_to_g(user):
+    return user
+
+
+@load_models(
+    (User, {'username': 'username'}, 'g.user'))
+def t_single_model_in_loadmodels(user):
+    return user
 
 
 @load_models(
@@ -201,13 +213,16 @@ class TestLoadModels(unittest.TestCase):
         self.child2 = ChildDocument(parent=self.pc.middle)
         self.session.add(self.child2)
         self.session.commit()
+        self.app = Flask(__name__)
 
     def tearDown(self):
         self.session.rollback()
         Base.metadata.drop_all()
 
     def test_container(self):
-        self.assertEqual(t_container(container=u'c'), self.container)
+        with self.app.test_request_context():
+            g.user = User(username='test')
+            self.assertEqual(t_container(container=u'c'), self.container)
 
     def test_named_document(self):
         self.assertEqual(t_named_document(container=u'c', document=u'named-document'), self.nd1)
@@ -249,13 +264,32 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(self.child1.permissions(user1, inherited=self.pc.permissions(user1)), set(['view', 'edit']))
         self.assertEqual(self.child1.permissions(user2, inherited=self.pc.permissions(user2)), set(['view']))
 
+    def test_inherited_permissions(self):
+        user = User(username='admin')
+        self.assertEqual(self.pc.permissions(user, inherited=set(['add-video'])), set(['add-video', 'view']))
+
     def test_loadmodel_permissions(self):
-        app = Flask(__name__)
-        with app.test_request_context():
+        with self.app.test_request_context():
             g.user = User(username='foo')
             self.assertEqual(t_dotted_document_view(document=u'parent', child=1), self.child1)
             self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
             self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)
+
+    def test_load_user_to_g(self):
+        with self.app.test_request_context():
+            user = User(username=u'baz')
+            self.session.add(user)
+            self.session.commit()
+            self.assertFalse(hasattr(g, 'user'))
+            self.assertEqual(t_load_user_to_g(username=u'baz'), g.user)
+            self.assertRaises(NotFound, t_load_user_to_g, username=u'boo')
+
+    def test_single_model_in_loadmodels(self):
+        with self.app.test_request_context():
+            user = User(username=u'user1')
+            self.session.add(user)
+            self.session.commit()
+            self.assertEqual(t_single_model_in_loadmodels(username=u'user1'), g.user)
 
 if __name__ == '__main__':
     unittest.main()
