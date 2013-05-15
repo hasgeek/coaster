@@ -7,13 +7,15 @@ import uuid
 from base64 import urlsafe_b64encode, b64encode, b64decode
 import hashlib
 import string
+import unicodedata
 import re
-from BeautifulSoup import BeautifulSoup, Comment
 from warnings import warn
+from BeautifulSoup import BeautifulSoup, Comment
 import pytz
 
-# Compatibility import
 from ._version import *
+
+# Compatibility import
 from .app import configure as configureapp
 
 
@@ -21,6 +23,7 @@ from .app import configure as configureapp
 
 _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
+_diacritics_re = re.compile(u'[\u0300-\u036F]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 
 
@@ -119,6 +122,8 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u'how_about_this'
     >>> make_name(u'and-that', delim=u'_')
     u'and_that'
+    >>> make_name(u'Umlauts in Mötörhead')
+    u'umlauts-in-motorhead'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1'])
     u'candidate2'
     >>> make_name('Long title, but snipped', maxlength=20)
@@ -129,6 +134,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u'long-cand2'
     """
     name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+    name = _diacritics_re.sub('', unicodedata.normalize('NFD', name))
     if checkused is None:
         return _sniplen(name, maxlength)
     candidate = _sniplen(name, maxlength)
