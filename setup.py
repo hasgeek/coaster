@@ -21,6 +21,7 @@ requires = [
     'webassets',
     'semantic_version',
     'pytz',
+    'markdown',
     ]
 
 setup(name='coaster',
