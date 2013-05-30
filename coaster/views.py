@@ -8,7 +8,6 @@ from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template)
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import BadRequest
-from sqlalchemy.orm.exc import NoResultFound
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -30,7 +29,6 @@ def __clean_external_url(url):
     return url
 
 
-#TODO: This needs tests
 def get_current_url():
     """
     Return the current URL including the query string as a relative path.
@@ -46,7 +44,6 @@ def get_current_url():
 __marker = []
 
 
-#TODO: This needs tests
 def get_next_url(referrer=False, external=False, session=False, default=__marker):
     """
     Get the next URL to redirect to. Don't return external URLs unless
@@ -82,7 +79,6 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
         return (default if usedefault else __index_url())
 
 
-#TODO: This needs tests
 def jsonp(*args, **kw):
     """
     Returns a JSON response with a callback wrapper, if asked for.
@@ -297,43 +293,56 @@ def load_models(*chain, **kwargs):
             elif permission_required is not None:
                 permission_required = set(permission_required)
             result = {}
-            for model, attributes, parameter in chain:
-                query = model.query
-                url_check = False
-                url_key = url_name = None
-                for k, v in attributes.items():
-                    if k == 'url_name' and hasattr(model, 'url_id_attr'):
-                        url_key = v
-                        url_name = kw.get(url_key)
-                        parts = url_name.split('-')
-                        try:
-                            if request.method == 'GET':
-                                url_check = True
-                        except RuntimeError:
-                            # We're not in a Flask request context, so there's no point
-                            # trying to redirect to a correct URL
-                            pass
-                        try:
-                            url_id = int(parts[0])
-                        except ValueError:
-                            abort(404)
-                        query = query.filter_by(**{model.url_id_attr: url_id})
-                    else:
-                        if callable(v):
-                            query = query.filter_by(**{k: v(result, kw)})
+            for models, attributes, parameter in chain:
+                if not isinstance(models, (list, tuple)):
+                    models = (models,)
+                item = None
+                for model in models:
+                    query = model.query
+                    url_check = False
+                    url_key = url_name = None
+                    for k, v in attributes.items():
+                        if k == 'url_name' and hasattr(model, 'url_id_attr'):
+                            url_key = v
+                            url_name = kw.get(url_key)
+                            parts = url_name.split('-')
+                            try:
+                                if request.method == 'GET':
+                                    url_check = True
+                            except RuntimeError:
+                                # We're not in a Flask request context, so there's no point
+                                # trying to redirect to a correct URL
+                                pass
+                            try:
+                                url_id = int(parts[0])
+                            except ValueError:
+                                abort(404)
+                            query = query.filter_by(**{model.url_id_attr: url_id})
                         else:
-                            if '.' in v:
-                                first, attrs = v.split('.', 1)
-                                val = result.get(first)
-                                for attr in attrs.split('.'):
-                                    val = getattr(val, attr)
+                            if callable(v):
+                                query = query.filter_by(**{k: v(result, kw)})
                             else:
-                                val = result.get(v, kw.get(v))
-                            query = query.filter_by(**{k: val})
-                try:
-                    item = query.one()
-                except NoResultFound:
+                                if '.' in v:
+                                    first, attrs = v.split('.', 1)
+                                    val = result.get(first)
+                                    for attr in attrs.split('.'):
+                                        val = getattr(val, attr)
+                                else:
+                                    val = result.get(v, kw.get(v))
+                                query = query.filter_by(**{k: val})
+                    item = query.first()
+                    if item is not None:
+                        # We found it, so don't look in additional models
+                        break
+                if item is None:
                     abort(404)
+
+                if hasattr(item, 'redirect_view_args'):
+                    # This item is a redirect object. Redirect to destination
+                    view_args = dict(request.view_args)
+                    view_args.update(item.redirect_view_args())
+                    return redirect(url_for(request.endpoint, **view_args), code=302)
+
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
                     addlperms = kwargs.get('addlperms') or []

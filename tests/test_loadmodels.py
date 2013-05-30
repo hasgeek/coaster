@@ -59,6 +59,19 @@ class ChildDocument(BaseScopedIdMixin, Base):
         return perms
 
 
+class RedirectDocument(BaseNameMixin, Base):
+    __tablename__ = 'redirect_document'
+    query = Session.query_property()
+    container_id = Column(None, ForeignKey('container.id'))
+    container = relationship(Container)
+
+    target_id = Column(None, ForeignKey('named_document.id'))
+    target = relationship(NamedDocument)
+
+    def redirect_view_args(self):
+        return {'document': self.target.name}
+
+
 def return_siteadmin_perms():
     return set(['siteadmin'])
 
@@ -87,6 +100,14 @@ def t_single_model_in_loadmodels(user):
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
     )
 def t_named_document(container, document):
+    return document
+
+
+@load_models(
+    (Container, {'name': 'container'}, 'container'),
+    ((NamedDocument, RedirectDocument), {'name': 'document', 'container': 'container'}, 'document')
+    )
+def t_redirect_document(container, document):
     return document
 
 
@@ -180,6 +201,9 @@ class TestLoadModels(unittest.TestCase):
         self.nd2 = NamedDocument(container=c, title=u"Another Named Document")
         self.session.add(self.nd2)
         self.session.commit()
+        self.rd1 = RedirectDocument(container=c, title=u"Redirect Document", target=self.nd1)
+        self.session.add(self.rd1)
+        self.session.commit()
         self.snd1 = ScopedNamedDocument(container=c, title=u"Scoped Named Document")
         self.session.add(self.snd1)
         self.session.commit()
@@ -214,6 +238,7 @@ class TestLoadModels(unittest.TestCase):
         self.session.add(self.child2)
         self.session.commit()
         self.app = Flask(__name__)
+        self.app.add_url_rule('/<container>/<document>', 'redirect_document', t_redirect_document)
 
     def tearDown(self):
         self.session.rollback()
@@ -227,6 +252,16 @@ class TestLoadModels(unittest.TestCase):
     def test_named_document(self):
         self.assertEqual(t_named_document(container=u'c', document=u'named-document'), self.nd1)
         self.assertEqual(t_named_document(container=u'c', document=u'another-named-document'), self.nd2)
+
+    def test_redirect_document(self):
+        with self.app.test_request_context('/c/named-document'):
+            self.assertEqual(t_redirect_document(container=u'c', document=u'named-document'), self.nd1)
+        with self.app.test_request_context('/c/another-named-document'):
+            self.assertEqual(t_redirect_document(container=u'c', document=u'another-named-document'), self.nd2)
+        with self.app.test_request_context('/c/redirect-document'):
+            response = t_redirect_document(container=u'c', document=u'redirect-document')
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.headers['Location'], '/c/named-document')
 
     def test_scoped_named_document(self):
         self.assertEqual(t_scoped_named_document(container=u'c', document=u'scoped-named-document'), self.snd1)
