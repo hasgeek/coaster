@@ -316,10 +316,10 @@ def get_email_domain(email):
     Return the domain component of an email address. Returns None if the
     provided string cannot be parsed as an email address.
 
-    >>> get_email_domain('jace@pobox.com')
-    'pobox.com'
-    >>> get_email_domain('jace+test@pobox.com')
-    'pobox.com'
+    >>> get_email_domain('test@example.com')
+    'example.com'
+    >>> get_email_domain('test+trailing@example.com')
+    'example.com'
     >>> get_email_domain('foobar')
     """
     try:
