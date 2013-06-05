@@ -55,7 +55,7 @@ def init_app(app):
 
     * ``LOGFILE``: Name of the file to log to (default ``error.log``)
     * ``ADMINS``: List of email addresses of admins who will be mailed error reports
-    * ``DEFAULT_MAIL_SENDER``: From address of email. Can be an address or a tuple with name and address
+    * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
     """
@@ -66,7 +66,10 @@ def init_app(app):
     file_handler.setLevel(logging.WARNING)
     app.logger.addHandler(file_handler)
     if app.config.get('ADMINS'):
-        mail_sender = app.config.get('DEFAULT_MAIL_SENDER', 'logs@example.com')
+        # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail
+        # DEFAULT_MAIL_SENDER is the old setting. We look for both
+        mail_sender = app.config.get('MAIL_DEFAULT_SENDER') or app.config.get(
+            'DEFAULT_MAIL_SENDER', 'logs@example.com')
         if isinstance(mail_sender, (list, tuple)):
             mail_sender = mail_sender[1]  # Get email from (name, email)
         if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD'):
