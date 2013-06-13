@@ -4,8 +4,11 @@ from os import environ
 import sys
 from warnings import warn
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
-from flask import Flask, url_for, get_flashed_messages
-from flask.helpers import _tojson_filter
+from flask import Flask, url_for, get_flashed_messages, request, session, g
+try:
+    from flask.helpers import _tojson_filter
+except ImportError:
+    from flask.json import tojson_filter as _tojson_filter
 import coaster.logging
 
 __all__ = ['SandboxedFlask', 'init_app']
@@ -50,7 +53,14 @@ class SandboxedFlask(Flask):
         rv = SandboxedEnvironment(self, **options)
         rv.globals.update(
             url_for=url_for,
-            get_flashed_messages=get_flashed_messages
+            get_flashed_messages=get_flashed_messages,
+            config=self.config,  # FIXME: Sandboxed templates shouldn't access full config
+            # request, session and g are normally added with the
+            # context processor for efficiency reasons but for imported
+            # templates we also want the proxies in there.
+            request=request,
+            session=session,
+            g=g  # FIXME: Similarly with g: no access for sandboxed templates
         )
         rv.filters['tojson'] = _tojson_filter
         return rv
