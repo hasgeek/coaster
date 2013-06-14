@@ -8,8 +8,9 @@
 * Rewrote requestargs view decorator for efficiency and ease of use
 * New render_with view decorator
 * New gfm module for GitHub Flavoured Markdown
-* load_models now supports "redirect" models.
+* load_models now supports "redirect" models
 * Logging now looks for MAIL_DEFAULT_SENDER before DEFAULT_MAIL_SENDER
+* Compatibility with Flask 0.10 for SandboxedFlask
 
 0.3.11
 ------
