@@ -1,3 +1,8 @@
+0.3.13
+------
+
+* short_title method in BaseScopedNameMixin
+
 0.3.12
 ------
 

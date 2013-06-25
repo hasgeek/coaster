@@ -29,6 +29,7 @@ class BaseContainer(Base):
 class Container(BaseMixin, Base):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
+    title = Column(Unicode(80), nullable=True)
     query = Session.query_property()
 
     content = Column(Unicode(250))
@@ -201,6 +202,16 @@ class TestCoasterModels(unittest.TestCase):
         d4 = ScopedNamedDocument(title=u"Hello", container=c3)
         self.session.commit()
         self.assertEqual(d4.permissions(user=u), set([]))
+
+    def test_scoped_named_short_title(self):
+        """Test the short_title method of BaseScopedNameMixin."""
+        c1 = self.make_container()
+        d1 = ScopedNamedDocument(title=u"Hello", content=u"World", container=c1)
+        self.assertEqual(d1.short_title(), u"Hello")
+
+        c1.title = u"Container"
+        d1.title = u"Container Contained"
+        self.assertEqual(d1.short_title(), u"Contained")
 
     def test_id_named(self):
         """Documents with a global id in the URL"""

@@ -125,6 +125,12 @@ class BaseScopedNameMixin(BaseMixin):
             self.name = make_name(self.title, maxlength=250,
                 checkused=checkused)
 
+    def short_title(self):
+        if self.title and self.parent is not None and hasattr(self.parent, 'title') and self.parent.title:
+            if self.title.startswith(self.parent.title):
+                return self.title[len(self.parent.title):].strip()
+        return self.title
+
     def permissions(self, user, inherited=None):
         """
         Permissions for this model, plus permissions inherited from the parent.
