@@ -2,6 +2,7 @@
 ------
 
 * short_title method in BaseScopedNameMixin
+* assets.require now raises AssetNotFound on missing assets.
 
 0.3.12
 ------

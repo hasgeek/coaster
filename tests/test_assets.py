@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from coaster.assets import Version, VersionedAssets
+from coaster.assets import Version, VersionedAssets, AssetNotFound
 
 
 class TestAssets(unittest.TestCase):
@@ -33,9 +33,8 @@ class TestAssets(unittest.TestCase):
         bundle = self.assets.require('jquery.js>=1.8.0')
         self.assertEqual(bundle.contents, ('jquery-1.8.3.js',))
 
-    def test_dummy_bundle(self):
-        bundle = self.assets.require('cdn-jquery.js')
-        self.assertEqual(bundle.contents, ())
+    def test_missing_asset(self):
+        self.assertRaises(AssetNotFound, self.assets.require, 'missing.js')
 
     def test_single_requires(self):
         bundle = self.assets.require('jquery.form.js')

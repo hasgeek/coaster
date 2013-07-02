@@ -22,6 +22,11 @@ def split_namespec(namespec):
     return name, spec
 
 
+class AssetNotFound(Exception):
+    """No asset with this name"""
+    pass
+
+
 class VersionedAssets(defaultdict):
     """
     Semantic-versioned assets. To use, initialize a container for your assets::
@@ -137,6 +142,8 @@ class VersionedAssets(defaultdict):
                         asset_versions[req_name] = req_version
                     if bundle is not None:
                         bundles.append((name, version, bundle))
+            else:
+                raise AssetNotFound(namespec)
         return bundles
 
     def require(self, *namespecs):
@@ -144,4 +151,4 @@ class VersionedAssets(defaultdict):
         blacklist = set([n[1:] for n in namespecs if n.startswith('!')])
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
         return Bundle(*[bundle for name, version, bundle
-            in self._require_recursive(*not_blacklist)if name not in blacklist])
+            in self._require_recursive(*not_blacklist) if name not in blacklist])
