@@ -20,6 +20,7 @@ Coaster is available under the BSD license, the same license as Flask.
    assets
    views
    sqlalchemy
+   db
    gfm
    app
    logging

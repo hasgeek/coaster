@@ -1,8 +1,9 @@
 0.3.13
 ------
 
-* short_title method in BaseScopedNameMixin
+* short_title method in BaseScopedNameMixin.
 * assets.require now raises AssetNotFound on missing assets.
+* New: coaster.db.db is an instance of Flask-SQLAlchemy.
 
 0.3.12
 ------
