@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from coaster.manage import init_manager, create, drop, set_alembic_revision
+from coaster.manage import init_manager, create, set_alembic_revision
 import coaster
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask import Flask
@@ -18,9 +18,6 @@ class TestManagePy(unittest.TestCase):
 
     def test_db_create(self):
         create('dev')
-    
-    def test_db_drop(self):
-        drop('dev')
 
     def test_set_alembic_revision(self):
         set_alembic_revision(path='tests/alembic')
