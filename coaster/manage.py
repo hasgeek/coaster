@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import os
 from sys import stdout
 
 import flask
@@ -32,7 +31,7 @@ class InitedMigrations(ManageMigrations):
 
 
 @manager.option('-p', '--path', default='alembic', help="Alembic path [default 'alembic']")
-def set_alembic_revision(path=os.path.abspath('.')):
+def set_alembic_revision(path=None):
     """Create/Update alembic table to latest revision number
     """
     config = Config()
@@ -48,10 +47,13 @@ def set_alembic_revision(path=os.path.abspath('.')):
             item.version_num = head
         else:
             item = alembic_version.insert().values(version_num=head)
+            item.compile()
+            conn = manager.db.engine.connect()
+            conn.execute(item)
         manager.db.session.commit()
         stdout.write("alembic head is set to %s \n" % head)
-    except CommandError:
-        pass
+    except CommandError, e:
+        stdout.write(e.message)
 
 
 @database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")

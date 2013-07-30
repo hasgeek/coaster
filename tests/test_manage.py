@@ -18,13 +18,11 @@ class TestManagePy(unittest.TestCase):
 
     def test_db_create(self):
         create('dev')
-        #command.run()
-        #self.assertEqual(self.manage._commands, ['showurls', 'set_alembic_version', 'shell', 'migrate', 'db', 'clean'])
-
+    
     def test_db_drop(self):
         drop('dev')
 
-    def set_alembic_revision(self):
+    def test_set_alembic_revision(self):
         set_alembic_revision(path='tests/alembic')
 
 if __name__ == '__main__':
