@@ -321,10 +321,16 @@ def get_email_domain(email):
     >>> get_email_domain('test+trailing@example.com')
     'example.com'
     >>> get_email_domain('foobar')
+    >>> get_email_domain('foo@bar@baz')
+    >>> get_email_domain('foobar@')
+    >>> get_email_domain('@foobar')
     """
     try:
-        return email.split('@')[1]
-    except IndexError:
+        username, domain = email.split('@')
+        if not username:
+            return None
+        return domain or None
+    except ValueError:
         return None
 
 
