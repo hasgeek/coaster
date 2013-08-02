@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from sqlalchemy import Column, ForeignKey, Unicode
+from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 
 from coaster.views import load_model, load_models
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
+from coaster.db import db
 
-from test_models import (Base, Session, Container, NamedDocument,
+from test_models import (Base, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
     ScopedIdNamedDocument, User)
 
@@ -20,14 +21,12 @@ from flask import Flask, g
 
 class MiddleContainer(BaseMixin, Base):
     __tablename__ = 'middle_container'
-    query = Session.query_property()
 
 
 class ParentDocument(BaseNameMixin, Base):
     __tablename__ = 'parent_document'
     middle_id = Column(None, ForeignKey('middle_container.id'))
     middle = relationship(MiddleContainer, uselist=False)
-    query = Session.query_property()
 
     def __init__(self, **kwargs):
         super(ParentDocument, self).__init__(**kwargs)
@@ -46,7 +45,6 @@ class ChildDocument(BaseScopedIdMixin, Base):
     __tablename__ = 'child_document'
     parent_id = Column(None, ForeignKey('middle_container.id'))
     parent = relationship(MiddleContainer, backref='children')
-    query = Session.query_property()
 
     def permissions(self, user, inherited=None):
         if inherited is None:
@@ -61,7 +59,6 @@ class ChildDocument(BaseScopedIdMixin, Base):
 
 class RedirectDocument(BaseNameMixin, Base):
     __tablename__ = 'redirect_document'
-    query = Session.query_property()
     container_id = Column(None, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -190,8 +187,8 @@ def t_dotted_document_delete(document, child):
 
 class TestLoadModels(unittest.TestCase):
     def setUp(self):
-        Base.metadata.create_all()
-        self.session = Session()
+        db.create_all()
+        self.session = db.session
         c = Container(name=u'c')
         self.session.add(c)
         self.container = c
@@ -242,7 +239,7 @@ class TestLoadModels(unittest.TestCase):
 
     def tearDown(self):
         self.session.rollback()
-        Base.metadata.drop_all()
+        db.drop_all()
 
     def test_container(self):
         with self.app.test_request_context():

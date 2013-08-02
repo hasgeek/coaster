@@ -4,18 +4,20 @@ import unittest
 
 from time import sleep
 from datetime import datetime, timedelta
+from flask import Flask
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, MutableDict, JsonDict)
-from sqlalchemy import create_engine, Column, Integer, Unicode, UniqueConstraint, ForeignKey
-from sqlalchemy.orm import relationship, synonym, sessionmaker, scoped_session
-from sqlalchemy.ext.declarative import declarative_base
+from coaster.db import db
+from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
+from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 
-engine = create_engine('sqlite://')
-Session = scoped_session(sessionmaker(autocommit=False,
-              autoflush=False,
-              bind=engine))
-Base = declarative_base(bind=engine)
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+db.init_app(app)
+db.app = app
+Base = db.Model
 
 
 # --- Models ------------------------------------------------------------------
@@ -23,21 +25,21 @@ class BaseContainer(Base):
     __tablename__ = 'base_container'
     id = Column(Integer, primary_key=True)
     name = Column(Unicode(80), nullable=True)
-    query = Session.query_property()
+#    query = Session.query_property()
 
 
 class Container(BaseMixin, Base):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
     title = Column(Unicode(80), nullable=True)
-    query = Session.query_property()
+#    query = Session.query_property()
 
     content = Column(Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, Base):
     __tablename__ = 'unnamed_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -46,7 +48,7 @@ class UnnamedDocument(BaseMixin, Base):
 
 class NamedDocument(BaseNameMixin, Base):
     __tablename__ = 'named_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -55,7 +57,7 @@ class NamedDocument(BaseNameMixin, Base):
 
 class ScopedNamedDocument(BaseScopedNameMixin, Base):
     __tablename__ = 'scoped_named_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -66,7 +68,7 @@ class ScopedNamedDocument(BaseScopedNameMixin, Base):
 
 class IdNamedDocument(BaseIdNameMixin, Base):
     __tablename__ = 'id_named_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -75,7 +77,7 @@ class IdNamedDocument(BaseIdNameMixin, Base):
 
 class ScopedIdDocument(BaseScopedIdMixin, Base):
     __tablename__ = 'scoped_id_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -86,7 +88,7 @@ class ScopedIdDocument(BaseScopedIdMixin, Base):
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
     __tablename__ = 'scoped_id_named_document'
-    query = Session.query_property()
+#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -98,7 +100,7 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
 class User(BaseMixin, Base):
     __tablename__ = 'user'
     username = Column(Unicode(80), nullable=False)
-    query = Session.query_property()
+#    query = Session.query_property()
 
 
 class MyData(Base):
@@ -111,12 +113,12 @@ class MyData(Base):
 
 class TestCoasterModels(unittest.TestCase):
     def setUp(self):
-        Base.metadata.create_all()
-        self.session = Session()
+        db.create_all()
+        self.session = db.session
 
     def tearDown(self):
         self.session.rollback()
-        Base.metadata.drop_all()
+        db.drop_all()
 
     def make_container(self):
         c = Container()
