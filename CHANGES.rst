@@ -1,6 +1,8 @@
 0.3.14
 ------
 
+* Bugfix: make get_email_domain somewhat more reliable.
+* Switch to using coaster.db in tests.
 
 0.3.13
 ------

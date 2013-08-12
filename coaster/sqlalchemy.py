@@ -20,6 +20,8 @@ class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
     """
+    #: Database identity for this model, used for foreign key
+    #: references from other models
     id = Column(Integer, primary_key=True)
 
 
@@ -27,7 +29,9 @@ class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
+    #: Timestamp for when this instance was created, in UTC
     created_at = Column(DateTime, default=func.now(), nullable=False)
+    #: Timestamp for when this instance was last updated (via the app), in UTC
     updated_at = Column(DateTime, default=func.now(), onupdate=datetime.utcnow, nullable=False)
 
 
@@ -50,6 +54,9 @@ class UrlForMixin(object):
     Provides a placeholder :meth:`url_for` method used by BaseMixin-derived classes
     """
     def url_for(self, action='view', **kwargs):
+        """
+        Return public URL to this instance for a given action (default 'view')
+        """
         return None
 
 
@@ -67,10 +74,12 @@ class BaseNameMixin(BaseMixin):
     """
     @declared_attr
     def name(cls):
+        """The URL name of this object, unique across all instances of this model"""
         return Column(Unicode(250), nullable=False, unique=True)
 
     @declared_attr
     def title(cls):
+        """The title of this object"""
         return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
@@ -79,6 +88,11 @@ class BaseNameMixin(BaseMixin):
             self.make_name()
 
     def make_name(self):
+        """
+        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
+        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 1
+        until an available name is found.
+        """
         if self.title:
             if self.id:
                 checkused = lambda c: self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).first()
@@ -104,10 +118,12 @@ class BaseScopedNameMixin(BaseMixin):
     """
     @declared_attr
     def name(cls):
+        """The URL name of this object, unique within a parent container"""
         return Column(Unicode(250), nullable=False)
 
     @declared_attr
     def title(cls):
+        """The title of this object"""
         return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
@@ -116,6 +132,11 @@ class BaseScopedNameMixin(BaseMixin):
             self.make_name()
 
     def make_name(self):
+        """
+        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
+        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 1
+        until an available name is found.
+        """
         if self.title:
             if self.id:
                 checkused = lambda c: self.__class__.query.filter(self.__class__.id != self.id).filter_by(
@@ -126,6 +147,9 @@ class BaseScopedNameMixin(BaseMixin):
                 checkused=checkused)
 
     def short_title(self):
+        """
+        Generates an abbreviated title by subtracting the parent's title from this instance's title.
+        """
         if self.title and self.parent is not None and hasattr(self.parent, 'title') and self.parent.title:
             if self.title.startswith(self.parent.title):
                 return self.title[len(self.parent.title):].strip()
@@ -149,12 +173,15 @@ class BaseIdNameMixin(BaseMixin):
     """
     @declared_attr
     def name(cls):
+        """The URL name of this object, non-unique"""
         return Column(Unicode(250), nullable=False)
 
     @declared_attr
     def title(cls):
+        """The title of this object"""
         return Column(Unicode(250), nullable=False)
 
+    #: The attribute containing id numbers used in the URL in id-name syntax, for external reference
     url_id_attr = 'id'
 
     def __init__(self, *args, **kw):
@@ -163,15 +190,18 @@ class BaseIdNameMixin(BaseMixin):
             self.make_name()
 
     def make_name(self):
+        """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
             self.name = make_name(self.title, maxlength=250)
 
     @property
     def url_id(self):
+        """Return the URL id"""
         return self.id
 
     @property
     def url_name(self):
+        """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
         return '%d-%s' % (self.url_id, self.name)
 
 
@@ -191,8 +221,10 @@ class BaseScopedIdMixin(BaseMixin):
     """
     @declared_attr
     def url_id(cls):
+        """Contains an id number that is unique within the parent container"""
         return Column(Integer, nullable=False)
 
+    #: The attribute containing the url id value, for external reference
     url_id_attr = 'url_id'
 
     def __init__(self, *args, **kw):
@@ -201,6 +233,7 @@ class BaseScopedIdMixin(BaseMixin):
             self.make_id()
 
     def make_id(self):
+        """Create a new URL id that is unique to the parent container"""
         if self.url_id is None:  # Set id only if empty
             self.url_id = select([func.coalesce(func.max(self.__class__.url_id + 1), 1)],
                 self.__class__.parent == self.parent)
@@ -231,10 +264,12 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
     @declared_attr
     def name(cls):
+        """The URL name of this instance, non-unique"""
         return Column(Unicode(250), nullable=False)
 
     @declared_attr
     def title(cls):
+        """The title of this instance"""
         return Column(Unicode(250), nullable=False)
 
     def __init__(self, *args, **kw):
@@ -245,11 +280,13 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def make_name(self):
+        """Autogenerates a title from the name"""
         if self.title:
             self.name = make_name(self.title, maxlength=250)
 
     @property
     def url_name(self):
+        """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
         return '%d-%s' % (self.url_id, self.name)
 
 
@@ -266,6 +303,7 @@ class JsonDict(TypeDecorator):
 
         column = Column(JsonDict)
     """
+
     impl = TEXT
 
     def process_bind_param(self, value, dialect):
