@@ -13,10 +13,6 @@ class TestManagePy(unittest.TestCase):
         self.app.config.from_pyfile('development.py')
         self.db = SQLAlchemy(self.app)
 
-        class Test(self.db.Model):
-            __table__ = "test"
-            name = self.db.Column(self.db.Unicode(32))
-        self.Test = Test
         self.manage = init_manager(self.app, self.db, self.init_for)
 
     def init_for(self, env):
