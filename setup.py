@@ -22,7 +22,7 @@ requires = [
     'semantic_version',
     'pytz',
     'markdown',
-    'alembic'
+    'Flask-Alembic'
     ]
 
 setup(name='coaster',
@@ -47,6 +47,6 @@ setup(name='coaster',
     include_package_data=True,
     zip_safe=True,
     test_suite='tests',
-    install_requires=requires,#'http://github.com/mtai/python-gearman/tarball/master#egg=gearman-2.0.0beta'
-    dependency_link=['https://github.com/jace/flask-alembic/archive/master.zip#egg=flask-alembic']
+    install_requires=requires,
+    dependency_links=['https://github.com/jace/flask-alembic/archive/master.zip#egg=Flask-Alembic-0.1']
     )

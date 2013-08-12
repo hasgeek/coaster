@@ -1,8 +1,8 @@
 manage.py
 =========
 
-Coaster provides manage.py for all HasGeek App. To use in
-your Flask app create `manage.py` in base directory::
+Coaster provides a Flask-Script-based manage.py with common management functions.
+To use in your Flask app, create a ``manage.py`` with this boilerplate::
 
 	from coaster import init_manager
 	from hgapp	 import app, db, init_for

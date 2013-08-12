@@ -17,7 +17,6 @@ from ._version import *
 
 # Compatibility import
 from .app import configure as configureapp
-from .manage import init_manager
 
 
 # --- Common delimiters and punctuation ---------------------------------------
