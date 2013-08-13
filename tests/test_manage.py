@@ -10,7 +10,7 @@ from flask import Flask
 class TestManagePy(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
-        self.app.config.from_pyfile('development.py')
+        self.app.config.from_pyfile('settings.py')
         self.db = SQLAlchemy(self.app)
 
         self.manage = init_manager(self.app, self.db, self.init_for)
