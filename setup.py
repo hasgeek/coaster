@@ -22,6 +22,7 @@ requires = [
     'semantic_version',
     'pytz',
     'markdown',
+    'Flask-Alembic'
     ]
 
 setup(name='coaster',
@@ -47,4 +48,5 @@ setup(name='coaster',
     zip_safe=True,
     test_suite='tests',
     install_requires=requires,
+    dependency_links=['https://github.com/jace/flask-alembic/archive/master.zip#egg=Flask-Alembic-0.1']
     )

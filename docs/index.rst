@@ -25,6 +25,7 @@ Coaster is available under the BSD license, the same license as Flask.
    app
    logging
    docflow
+   manage
 
 Indices and tables
 ==================
