@@ -6,7 +6,9 @@ from sqlalchemy import Column, Integer, DateTime, Unicode
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.ext.mutable import Mutable
+from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from flask import Markup
+from .gfm import markdown
 from datetime import datetime
 import simplejson
 
@@ -292,7 +294,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
 # --- Column types ------------------------------------------------------------
 
-__all_columns = ['JsonDict']
+__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn']
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
@@ -344,6 +346,38 @@ class MutableDict(Mutable, dict):
         self.changed()
 
 MutableDict.associate_with(JsonDict)
+
+class MarkdownComposite(MutableComposite):
+    """
+    """
+    def __init__(self, text, html=None):
+        self.text = text
+
+    def __setattr__(self, key, value):
+        if key == 'text':
+            self._html = markdown(value)
+        object.__setattr__(self, key, value)
+        self.changed()
+
+    def __composite_values__(self):
+        return (self.text, self._html)
+
+    def __str__(self):
+        return self.text
+
+    def __html__(self):
+        return self.html
+
+    @property
+    def html(self):
+        return Markup(self._html or self.text)
+
+
+def MarkdownColumn(db, col_name):
+    return db.composite(MarkdownComposite,
+             db.Column(col_name + '_text', db.UnicodeText),
+             db.Column(col_name + '_html', db.UnicodeText)
+    )
 
 
 __all__ = __all_mixins + __all_columns
