@@ -373,10 +373,10 @@ class MarkdownComposite(MutableComposite):
         return Markup(self._html or self.text)
 
 
-def MarkdownColumn(db, col_name):
+def MarkdownColumn(db, col_name, **kwargs):
     return db.composite(MarkdownComposite,
-             db.Column(col_name + '_text', db.UnicodeText),
-             db.Column(col_name + '_html', db.UnicodeText)
+             db.Column(col_name + '_text', db.UnicodeText, **kwargs),
+             db.Column(col_name + '_html', db.UnicodeText, **kwargs)
     )
 
 
