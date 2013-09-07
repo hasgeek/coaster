@@ -68,8 +68,8 @@ def drop(env):
 @database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
 def create(env):
     "Creates database tables from sqlalchemy models"
-    manager.db.engine.echo = True
     manager.init_for(env)
+    manager.db.engine.echo = True
     manager.db.create_all()
     set_alembic_revision()
 
