@@ -435,8 +435,9 @@ def sorted_timezones():
     now = datetime.utcnow()
     # Make a list of timezones, discarding the US/* zones since they aren't reliable for
     # DST, and discarding GMT since there's also the equivalent UTC.
-    timezones = [(pytz.timezone(tzname).utcoffset(now), tzname) for tzname in pytz.common_timezones
-        if not tzname.startswith('US/') and tzname != 'GMT']
+    timezones = [(pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname) for tzname in pytz.common_timezones
+        if not tzname.startswith('US/') and tzname not in ('GMT', 'UTC')]
+    timezones.append((pytz.timezone('UTC').utcoffset(now), 'UTC'))
     # Sort timezones by offset from UTC.
     timezones.sort()
     # Return a list of (timezone, label) with the timezone offset included in the label.
