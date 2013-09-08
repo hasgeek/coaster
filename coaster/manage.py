@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from sys import stdout
-import os
-import argparse
 
 import flask
 from alembic.config import Config
