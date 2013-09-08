@@ -5,6 +5,7 @@ from coaster import make_name
 from sqlalchemy import Column, Integer, DateTime, Unicode
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
+from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from flask import Markup
@@ -347,6 +348,7 @@ class MutableDict(Mutable, dict):
 
 MutableDict.associate_with(JsonDict)
 
+
 class MarkdownComposite(MutableComposite):
     """
     """
@@ -373,11 +375,11 @@ class MarkdownComposite(MutableComposite):
         return Markup(self._html or self.text)
 
 
-def MarkdownColumn(db, col_name, **kwargs):
-    return db.composite(MarkdownComposite,
-             db.Column(col_name + '_text', db.UnicodeText, **kwargs),
-             db.Column(col_name + '_html', db.UnicodeText, **kwargs)
-    )
+def MarkdownColumn(col_name, **kwargs):
+    return composite(MarkdownComposite,
+        Column(col_name + '_text', db.UnicodeText, **kwargs),
+        Column(col_name + '_html', db.UnicodeText, **kwargs)
+        )
 
 
 __all__ = __all_mixins + __all_columns
