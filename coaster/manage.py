@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from sys import stdout
+import os
+import argparse
 
 import flask
 from alembic.config import Config
@@ -80,6 +82,11 @@ def shell(env, no_ipython=False, no_bpython=False):
         manager.init_for(env)
         return dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
     Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
+
+
+@manager.option('-e', '--env', default='dev', help="Plain python shell environment [default dev]")
+def plainshell(env):
+    return shell(env, no_ipython=True, no_bpython=True)
 
 
 def init_manager(app, db, init_for, **kwargs):
