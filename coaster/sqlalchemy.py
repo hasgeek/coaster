@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 from coaster import make_name
-from sqlalchemy import Column, Integer, DateTime, Unicode
+from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -377,8 +377,8 @@ class MarkdownComposite(MutableComposite):
 
 def MarkdownColumn(col_name, **kwargs):
     return composite(MarkdownComposite,
-        Column(col_name + '_text', db.UnicodeText, **kwargs),
-        Column(col_name + '_html', db.UnicodeText, **kwargs)
+        Column(col_name + '_text', UnicodeText, **kwargs),
+        Column(col_name + '_html', UnicodeText, **kwargs)
         )
 
 

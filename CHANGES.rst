@@ -3,6 +3,7 @@
 
 * Bugfix: make get_email_domain somewhat more reliable.
 * Switch to using coaster.db in tests.
+* New: MarkdownColumn composite column for Markdown content.
 
 0.3.13
 ------
@@ -18,12 +19,12 @@
 * New feature: Labeled enumerations.
 * Enhancement: load_models allows choice of permissions and takes additional
   permissions.
-* Rewrote requestargs view decorator for efficiency and ease of use
-* New render_with view decorator
-* New gfm module for GitHub Flavoured Markdown
-* load_models now supports "redirect" models
-* Logging now looks for MAIL_DEFAULT_SENDER before DEFAULT_MAIL_SENDER
-* Compatibility with Flask 0.10 for SandboxedFlask
+* Rewrote requestargs view decorator for efficiency and ease of use.
+* New render_with view decorator.
+* New gfm module for GitHub Flavoured Markdown.
+* load_models now supports "redirect" models.
+* Logging now looks for MAIL_DEFAULT_SENDER before DEFAULT_MAIL_SENDER.
+* Compatibility with Flask 0.10 for SandboxedFlask.
 
 0.3.11
 ------
