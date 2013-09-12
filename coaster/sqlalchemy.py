@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from coaster import make_name
+from datetime import datetime
+import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import TypeDecorator, TEXT
@@ -9,9 +10,8 @@ from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from flask import Markup
+from .utils import make_name
 from .gfm import markdown
-from datetime import datetime
-import simplejson
 
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',

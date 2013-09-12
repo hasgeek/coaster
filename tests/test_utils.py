@@ -2,7 +2,7 @@
 
 import datetime
 import unittest
-from coaster import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones
+from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones
 
 
 class MY_ENUM(LabeledEnum):

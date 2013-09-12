@@ -8,7 +8,7 @@ install:
 # command to run tests
 script: nosetests 
 before_script:
-  - psql -c 'create database coaster;' -U postgres
+  - psql -c 'create database coaster_test;' -U postgres
 notifications:
   email: false
   irc: "irc.freenode.net#hasgeek-dev"

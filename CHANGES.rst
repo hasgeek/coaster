@@ -1,6 +1,7 @@
-0.3.14
-------
+0.4.0
+-----
 
+* Moved utility functions into coaster.utils
 * Bugfix: make get_email_domain somewhat more reliable.
 * Switch to using coaster.db in tests.
 * New: MarkdownColumn composite column for Markdown content.
