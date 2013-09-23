@@ -6,7 +6,9 @@ from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, MutableDict, JsonDict)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, MutableDict, JsonDict,
+    MarkdownColumn, MarkdownComposite)
+from coaster.gfm import markdown
 from coaster.db import db
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym
@@ -107,6 +109,16 @@ class MyData(Base):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
+
+class MarkdownData(Base):
+    __tablename__ = 'md_data'
+    id = Column(Integer, primary_key=True)
+    value = MarkdownColumn('value', nullable=False)
+
+    def __init__(self, **kwargs):
+        kwargs['value'] = MarkdownComposite(kwargs.get('value', ''))
+        super(MarkdownData, self).__init__(**kwargs)
+
 
 # -- Tests --------------------------------------------------------------------
 
@@ -353,6 +365,16 @@ class TestCoasterModels(unittest.TestCase):
         del m1.data['value']
         self.assertEqual(m1.data, {})
         self.assertRaises(ValueError, MyData, data='NonDict')
+
+    def test_markdown_column(self):
+        text = """# this is going to be h1.\n- Now a list. \n- 1\n- 2\n- 3"""
+        data = MarkdownData(value=text)
+        self.session.add(data)
+        self.session.commit()
+        self.assertEqual(data.value.html, markdown(text))
+        self.assertEqual(data.value.text, text)
+        self.assertEqual(data.value.__str__(), text)
+        self.assertEqual(data.value.__html__(), markdown(text))
 
 
 if __name__ == '__main__':
