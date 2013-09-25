@@ -1,10 +1,17 @@
 0.4.0
 -----
 
-* Moved utility functions into coaster.utils
+* Moved utility functions into coaster.utils.
 * Bugfix: make get_email_domain somewhat more reliable.
-* Switch to using coaster.db in tests.
+* Switched to using coaster.db in tests.
 * New: MarkdownColumn composite column for Markdown content.
+* Changed: JsonDict column will use PostgreSQL's native JSON type if
+  the server is PostgreSQL >= 9.2.
+* TimestampMixin now uses datetime.utcnow instead of func.now because
+  the now() function in PostgreSQL returns local time with timezone,
+  not UTC time, and discards the timezone component if the column
+  doesn't store them. This made timestamps local, not in UTC.
+* Database tests are now run against both SQLite3 and PostgreSQL.
 
 0.3.13
 ------

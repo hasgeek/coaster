@@ -5,7 +5,7 @@ from datetime import datetime
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
-from sqlalchemy.types import TypeDecorator, TEXT
+from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
@@ -33,9 +33,9 @@ class TimestampMixin(object):
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
     #: Timestamp for when this instance was created, in UTC
-    created_at = Column(DateTime, default=func.now(), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     #: Timestamp for when this instance was last updated (via the app), in UTC
-    updated_at = Column(DateTime, default=func.now(), onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class PermissionMixin(object):
@@ -298,6 +298,13 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 __all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn']
 
 
+class PostgresJSON(UserDefinedType):
+    """The PostgreSQL JSON type."""
+
+    def get_col_spec(self):
+        return "JSON"
+
+
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
 
 class JsonDict(TypeDecorator):
@@ -309,13 +316,29 @@ class JsonDict(TypeDecorator):
 
     impl = TEXT
 
+    def _has_json(self, dialect):
+        if dialect.name == 'postgresql':
+            version = dialect.server_version_info
+            if (version[0] == 9 and version[1] >= 2) or version[0] > 9:
+                return True
+        return False
+
+    def load_dialect_impl(self, dialect):
+        if self._has_json(dialect):
+            return dialect.type_descriptor(PostgresJSON)
+        return dialect.type_descriptor(self.impl)
+
     def process_bind_param(self, value, dialect):
         if value is not None:
             value = simplejson.dumps(value)
         return value
 
     def process_result_value(self, value, dialect):
-        if value is not None:
+        if value is not None and isinstance(value, basestring):
+            # Psycopg2 >= 2.5 will auto-decode JSON columns, so
+            # we only attempt decoding if the value is a string.
+            # Since this column stores dicts only, processed values
+            # can never be strings.
             value = simplejson.loads(value, use_decimal=True)
         return value
 

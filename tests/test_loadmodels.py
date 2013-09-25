@@ -8,7 +8,7 @@ from coaster.views import load_model, load_models
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.db import db
 
-from test_models import (Base, Container, NamedDocument,
+from test_models import (app1, app2, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
     ScopedIdNamedDocument, User)
 
@@ -19,11 +19,11 @@ from flask import Flask, g
 # --- Models ------------------------------------------------------------------
 
 
-class MiddleContainer(BaseMixin, Base):
+class MiddleContainer(BaseMixin, db.Model):
     __tablename__ = 'middle_container'
 
 
-class ParentDocument(BaseNameMixin, Base):
+class ParentDocument(BaseNameMixin, db.Model):
     __tablename__ = 'parent_document'
     middle_id = Column(None, ForeignKey('middle_container.id'))
     middle = relationship(MiddleContainer, uselist=False)
@@ -41,7 +41,7 @@ class ParentDocument(BaseNameMixin, Base):
         return perms
 
 
-class ChildDocument(BaseScopedIdMixin, Base):
+class ChildDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'child_document'
     parent_id = Column(None, ForeignKey('middle_container.id'))
     parent = relationship(MiddleContainer, backref='children')
@@ -57,7 +57,7 @@ class ChildDocument(BaseScopedIdMixin, Base):
         return perms
 
 
-class RedirectDocument(BaseNameMixin, Base):
+class RedirectDocument(BaseNameMixin, db.Model):
     __tablename__ = 'redirect_document'
     container_id = Column(None, ForeignKey('container.id'))
     container = relationship(Container)
@@ -186,7 +186,12 @@ def t_dotted_document_delete(document, child):
 # --- Tests -------------------------------------------------------------------
 
 class TestLoadModels(unittest.TestCase):
+    app = app1
+
     def setUp(self):
+        self.ctx = self.app.test_request_context()
+        self.ctx.push()
+
         db.create_all()
         self.session = db.session
         c = Container(name=u'c')
@@ -240,6 +245,7 @@ class TestLoadModels(unittest.TestCase):
     def tearDown(self):
         self.session.rollback()
         db.drop_all()
+        self.ctx.pop()
 
     def test_container(self):
         with self.app.test_request_context():
@@ -322,6 +328,11 @@ class TestLoadModels(unittest.TestCase):
             self.session.add(user)
             self.session.commit()
             self.assertEqual(t_single_model_in_loadmodels(username=u'user1'), g.user)
+
+
+class TestLoadModels2(TestLoadModels):
+    app = app2
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,58 +6,54 @@ from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, MutableDict, JsonDict)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict)
 from coaster.db import db
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-db.init_app(app)
-db.app = app
-Base = db.Model
+app1 = Flask(__name__)
+app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+app2 = Flask(__name__)
+app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://:@localhost:5432/coaster_test'
+db.init_app(app1)
+db.init_app(app2)
 
 
 # --- Models ------------------------------------------------------------------
-class BaseContainer(Base):
+class BaseContainer(db.Model):
     __tablename__ = 'base_container'
     id = Column(Integer, primary_key=True)
     name = Column(Unicode(80), nullable=True)
-#    query = Session.query_property()
 
 
-class Container(BaseMixin, Base):
+class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
     title = Column(Unicode(80), nullable=True)
-#    query = Session.query_property()
 
     content = Column(Unicode(250))
 
 
-class UnnamedDocument(BaseMixin, Base):
+class UnnamedDocument(BaseMixin, db.Model):
     __tablename__ = 'unnamed_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
     content = Column(Unicode(250))
 
 
-class NamedDocument(BaseNameMixin, Base):
+class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
     content = Column(Unicode(250))
 
 
-class ScopedNamedDocument(BaseScopedNameMixin, Base):
+class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -66,18 +62,16 @@ class ScopedNamedDocument(BaseScopedNameMixin, Base):
     __table_args__ = (UniqueConstraint('name', 'container_id'),)
 
 
-class IdNamedDocument(BaseIdNameMixin, Base):
+class IdNamedDocument(BaseIdNameMixin, db.Model):
     __tablename__ = 'id_named_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
     content = Column(Unicode(250))
 
 
-class ScopedIdDocument(BaseScopedIdMixin, Base):
+class ScopedIdDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'scoped_id_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -86,9 +80,8 @@ class ScopedIdDocument(BaseScopedIdMixin, Base):
     __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
 
 
-class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
+class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
     __tablename__ = 'scoped_id_named_document'
-#    query = Session.query_property()
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -97,13 +90,12 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, Base):
     __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
 
 
-class User(BaseMixin, Base):
+class User(BaseMixin, db.Model):
     __tablename__ = 'user'
     username = Column(Unicode(80), nullable=False)
-#    query = Session.query_property()
 
 
-class MyData(Base):
+class MyData(db.Model):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
@@ -112,13 +104,18 @@ class MyData(Base):
 
 
 class TestCoasterModels(unittest.TestCase):
+    app = app1
+
     def setUp(self):
+        self.ctx = self.app.test_request_context()
+        self.ctx.push()
         db.create_all()
         self.session = db.session
 
     def tearDown(self):
         self.session.rollback()
         db.drop_all()
+        self.ctx.pop()
 
     def make_container(self):
         c = Container()
@@ -353,6 +350,10 @@ class TestCoasterModels(unittest.TestCase):
         del m1.data['value']
         self.assertEqual(m1.data, {})
         self.assertRaises(ValueError, MyData, data='NonDict')
+
+
+class TestCoasterModels2(TestCoasterModels):
+    app = app2
 
 
 if __name__ == '__main__':
