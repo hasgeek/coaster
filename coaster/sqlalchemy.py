@@ -376,7 +376,11 @@ class MarkdownComposite(MutableComposite):
     """
     """
     def __init__(self, text, html=None):
-        self.text = text
+        if html is None:
+            self.text = text  # This will regenerate HTML
+        else:
+            object.__setattr__(self, 'text', text)
+            object.__setattr__(self, '_html', html)
 
     def __setattr__(self, key, value):
         if key == 'text':
@@ -391,7 +395,7 @@ class MarkdownComposite(MutableComposite):
         return self.text
 
     def __html__(self):
-        return self.html
+        return self._html
 
     @property
     def html(self):
