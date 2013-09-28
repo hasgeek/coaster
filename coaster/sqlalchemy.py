@@ -380,7 +380,7 @@ class MarkdownComposite(MutableComposite):
 
     def __setattr__(self, key, value):
         if key == 'text':
-            self._html = markdown(value)
+            object.__setattr__(self, '_html', markdown(value))
         object.__setattr__(self, key, value)
         self.changed()
 
@@ -395,13 +395,13 @@ class MarkdownComposite(MutableComposite):
 
     @property
     def html(self):
-        return Markup(self._html or self.text)
+        return Markup(self._html)
 
 
-def MarkdownColumn(col_name, **kwargs):
+def MarkdownColumn(name, **kwargs):
     return composite(MarkdownComposite,
-        Column(col_name + '_text', UnicodeText, **kwargs),
-        Column(col_name + '_html', UnicodeText, **kwargs)
+        Column(name + '_text', UnicodeText, **kwargs),
+        Column(name + '_html', UnicodeText, **kwargs)
         )
 
 
