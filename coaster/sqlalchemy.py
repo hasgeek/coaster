@@ -395,11 +395,11 @@ class MarkdownComposite(MutableComposite):
         return self.text
 
     def __html__(self):
-        return self._html
+        return self._html or u''
 
     @property
     def html(self):
-        return Markup(self._html)
+        return Markup(self._html or u'')
 
 
 def MarkdownColumn(name, **kwargs):
