@@ -112,4 +112,6 @@ def markdown(text):
     Return Markdown rendered text using GitHub Flavoured Markdown,
     with HTML escaped and syntax-highlighting enabled.
     """
+    if text is None:
+        return None
     return markdown_convert(gfm(text))
