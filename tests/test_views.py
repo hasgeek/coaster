@@ -83,7 +83,3 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?p2=2&p4=4'):
             self.assertRaises(TypeError, f, p4='4')
             self.assertRaises(BadRequest, f, p4='4')
-
-
-if __name__ == '__main__':
-    unittest.main()

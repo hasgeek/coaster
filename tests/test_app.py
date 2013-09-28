@@ -62,7 +62,3 @@ class TestSandBoxedFlask(unittest.TestCase):
 
         obj = Test("Name", "secret")
         self.assertEqual(template.render(obj=obj), "%s, " % (obj.name))
-
-
-if __name__ == '__main__':
-    unittest.main()

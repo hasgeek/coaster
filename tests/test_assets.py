@@ -63,7 +63,3 @@ class TestAssets(unittest.TestCase):
         self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
         bundle = self.assets.require('jquery.form.js', '!jquery.js')
         self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
-
-
-if __name__ == '__main__':
-    unittest.main()

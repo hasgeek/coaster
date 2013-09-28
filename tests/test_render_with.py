@@ -107,7 +107,3 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(resp.headers['Referrer'], "http://example.com")
         #resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
         #self.assertEqual(resp.status_code, 201)
-
-
-if __name__ == "__main__":
-    unittest.main()

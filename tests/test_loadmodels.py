@@ -332,7 +332,3 @@ class TestLoadModels(unittest.TestCase):
 
 class TestLoadModels2(TestLoadModels):
     app = app2
-
-
-if __name__ == '__main__':
-    unittest.main()

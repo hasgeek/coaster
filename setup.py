@@ -22,6 +22,7 @@ requires = [
     'semantic_version',
     'pytz',
     'markdown',
+    'Pygments',
     ]
 
 setup(name='coaster',

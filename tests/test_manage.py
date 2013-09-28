@@ -24,6 +24,3 @@ class TestManagePy(unittest.TestCase):
 
     def test_set_alembic_revision(self):
         set_alembic_revision(path='tests/alembic')
-
-if __name__ == '__main__':
-    unittest.main()

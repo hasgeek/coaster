@@ -58,10 +58,34 @@ def remove_inline_code_blocks(markdown_source):
     return (markdown_source, original_blocks)
 
 
+CODEPATTERN_RE = re.compile('^```(.*?)\n(.*?)^```$', re.MULTILINE | re.UNICODE | re.DOTALL)
+ITALICSPATTERN_RE = re.compile(r'^(?! {4}|\t).*\w+(?<!_)_\w+_\w[\w_]*', re.MULTILINE | re.UNICODE)
+NAKEDURL_RE = re.compile("""
+(^|\s) # start of string or has whitespace before it
+(https?://[:/.?=&;a-zA-Z0-9_-]+) # the URL itself, http or https only
+(\s|$) # trailing whitespace or end of string
+""", re.VERBOSE | re.MULTILINE | re.UNICODE)
+NEWLINE_RE = re.compile(r'^[\w\<][^\n]*(\n+)', re.MULTILINE | re.UNICODE)
+
+
 def gfm(text):
     """
     Prepare text for rendering by a regular Markdown processor.
     """
+    def indent_code(matchobj):
+        syntax = matchobj.group(1)
+        code = matchobj.group(2)
+        if syntax:
+            result = '    :::' + syntax + '\n'
+        else:
+            result = ''
+        # The last line will be blank since it had the closing "```". Discard it
+        # when indenting the lines.
+        return result + '\n'.join(['    ' + line for line in code.split('\n')[:-1]])
+
+    # Render GitHub-style ```code blocks``` into Markdown-style 4-space indented blocks
+    text = CODEPATTERN_RE.sub(indent_code, text)
+
     text, code_blocks = remove_pre_blocks(text)
     text, inline_blocks = remove_inline_code_blocks(text)
 
@@ -75,19 +99,11 @@ def gfm(text):
         return s.replace('_', '\_')
 
     # fix italics for code blocks
-    pattern = re.compile(r'^(?! {4}|\t).*\w+(?<!_)_\w+_\w[\w_]*', re.MULTILINE | re.UNICODE)
-    text = re.sub(pattern, italic_callback, text)
+    text = ITALICSPATTERN_RE.sub(italic_callback, text)
 
     # linkify naked URLs
-    regex_string = """
-(^|\s) # start of string or has whitespace before it
-(https?://[:/.?=&;a-zA-Z0-9_-]+) # the URL itself, http or https only
-(\s|$) # trailing whitespace or end of string
-"""
-    pattern = re.compile(regex_string, re.VERBOSE | re.MULTILINE | re.UNICODE)
-
     # wrap the URL in brackets: http://foo -> [http://foo](http://foo)
-    text = re.sub(pattern, r'\1[\2](\2)\3', text)
+    text = NAKEDURL_RE.sub(r'\1[\2](\2)\3', text)
 
     # In very clear cases, let newlines become <br /> tags.
     def newline_callback(matchobj):
@@ -96,8 +112,7 @@ def gfm(text):
         else:
             return matchobj.group(0)
 
-    pattern = re.compile(r'^[\w\<][^\n]*(\n+)', re.MULTILINE | re.UNICODE)
-    text = re.sub(pattern, newline_callback, text)
+    text = NEWLINE_RE.sub(newline_callback, text)
 
     # now restore removed code blocks
     removed_blocks = code_blocks + inline_blocks

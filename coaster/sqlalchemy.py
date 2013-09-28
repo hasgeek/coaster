@@ -298,7 +298,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 __all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn']
 
 
-class PostgresJSON(UserDefinedType):
+class JsonType(UserDefinedType):
     """The PostgreSQL JSON type."""
 
     def get_col_spec(self):
@@ -325,7 +325,7 @@ class JsonDict(TypeDecorator):
 
     def load_dialect_impl(self, dialect):
         if self._has_json(dialect):
-            return dialect.type_descriptor(PostgresJSON)
+            return dialect.type_descriptor(JsonType)
         return dialect.type_descriptor(self.impl)
 
     def process_bind_param(self, value, dialect):
@@ -374,6 +374,7 @@ MutableDict.associate_with(JsonDict)
 
 class MarkdownComposite(MutableComposite):
     """
+    Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
     """
     def __init__(self, text, html=None):
         if html is None:
@@ -382,24 +383,55 @@ class MarkdownComposite(MutableComposite):
             object.__setattr__(self, 'text', text)
             object.__setattr__(self, '_html', html)
 
+    # If the text value is set, regenerate HTML, then notify parents of the change
     def __setattr__(self, key, value):
         if key == 'text':
             object.__setattr__(self, '_html', markdown(value))
         object.__setattr__(self, key, value)
         self.changed()
 
+    # Return column values for SQLAlchemy to insert into the database
     def __composite_values__(self):
         return (self.text, self._html)
 
+    # Return a string representation of the text
     def __str__(self):
-        return self.text
+        return str(self.text)
 
+    # Return a unicode representation of the text
+    def __unicode__(self):
+        return unicode(self.text)
+
+    # Return a HTML representation of the text
     def __html__(self):
         return self._html or u''
 
+    # Return a Markup string of the HTML
     @property
     def html(self):
         return Markup(self._html or u'')
+
+    # Compare text value
+    def __eq__(self, other):
+        return (self.text == other.text) if isinstance(other, MarkdownComposite) else (self.text == other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    # Return state for pickling
+    def __getstate__(self):
+        return (self.text, self._html)
+
+    # Set state from pickle
+    def __setstate__(self, state):
+        object.__setattr__(self, 'text', state[0])
+        object.__setattr__(self, '_html', state[1])
+        self.changed()
+
+    # Allow a composite column to be assigned a string value
+    @classmethod
+    def coerce(cls, key, value):
+        return cls(value)
 
 
 def MarkdownColumn(name, **kwargs):

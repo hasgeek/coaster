@@ -49,7 +49,3 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_sorted_timezones(self):
         self.assertTrue(isinstance(sorted_timezones(), list))
-
-
-if __name__ == '__main__':
-    unittest.main()
