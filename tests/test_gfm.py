@@ -2,7 +2,7 @@ import unittest
 from coaster.gfm import gfm, markdown
 
 
-class TestLoadModels(unittest.TestCase):
+class TestMarkdown(unittest.TestCase):
     def test_single_underscores(self):
         """Don't touch single underscores inside words."""
         self.assertEqual(
@@ -129,6 +129,26 @@ class TestLoadModels(unittest.TestCase):
             gfm("```python\nprint 'Hello'\n```"),
             "    :::python\n    print 'Hello'"
             )
+        # Embedded in some text
+        self.assertEqual(gfm(
+            "Some code:\n"
+            "\n"
+            "```python\n"
+            "print 'Hello world'\n"
+            "for x in range(10):\n"
+            "    print x\n"
+            "```\n"
+            "\n"
+            "Works?"),
+
+            "Some code:\n"
+            "\n"
+            "    :::python\n"
+            "    print 'Hello world'\n"
+            "    for x in range(10):\n"
+            "        print x\n"
+            "\n"
+            "Works?")
 
     def test_markdown(self):
         """Markdown rendering"""
