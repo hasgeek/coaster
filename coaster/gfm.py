@@ -83,6 +83,10 @@ def gfm(text):
         # when indenting the lines.
         return result + '\n'.join(['    ' + line for line in code.split('\n')[:-1]])
 
+    use_crlf = text.find('\r') != -1
+    if use_crlf:
+        text = text.replace('\r\n', '\n')
+
     # Render GitHub-style ```code blocks``` into Markdown-style 4-space indented blocks
     text = CODEPATTERN_RE.sub(indent_code, text)
 
@@ -118,6 +122,9 @@ def gfm(text):
     removed_blocks = code_blocks + inline_blocks
     for removed_block in removed_blocks:
         text = text.replace('{placeholder}', removed_block, 1)
+
+    if use_crlf:
+        text = text.replace('\n', '\r\n')
 
     return text
 

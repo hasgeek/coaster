@@ -150,6 +150,27 @@ class TestMarkdown(unittest.TestCase):
             "\n"
             "Works?")
 
+        # Embedded in some text, with \r\n line endings
+        self.assertEqual(gfm(
+            "Some code:\r\n"
+            "\r\n"
+            "```python\r\n"
+            "print 'Hello world'\r\n"
+            "for x in range(10):\r\n"
+            "    print x\r\n"
+            "```\r\n"
+            "\r\n"
+            "Works?"),
+
+            "Some code:\r\n"
+            "\r\n"
+            "    :::python\r\n"
+            "    print 'Hello world'\r\n"
+            "    for x in range(10):\r\n"
+            "        print x\r\n"
+            "\r\n"
+            "Works?")
+
     def test_markdown(self):
         """Markdown rendering"""
         self.assertEqual(markdown('hello'), '<p>hello</p>')
