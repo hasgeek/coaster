@@ -306,6 +306,13 @@ class TestLoadModels(unittest.TestCase):
         user = User(username='admin')
         self.assertEqual(self.pc.permissions(user, inherited=set(['add-video'])), set(['add-video', 'view']))
 
+    def test_unmutated_inherited_permissions(self):
+        """The inherited permission set should not be mutated by a permission check"""
+        user = User(username='admin')
+        inherited=set(['add-video'])
+        self.assertEqual(self.pc.permissions(user, inherited=inherited), set(['add-video', 'view']))
+        self.assertEqual(inherited, set(['add-video']))
+
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():
             g.user = User(username='foo')
