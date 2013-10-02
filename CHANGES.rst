@@ -12,6 +12,7 @@
   not UTC time, and discards the timezone component if the column
   doesn't store them. This made timestamps local, not in UTC.
 * Database tests are now run against both SQLite3 and PostgreSQL.
+* Bugfix: PermissionMixin was mutating inherited permissions.
 
 0.3.13
 ------

@@ -47,7 +47,7 @@ class PermissionMixin(object):
         Return permissions available to the given user on this object
         """
         if inherited is not None:
-            return inherited
+            return set(inherited)
         else:
             return set()
 
