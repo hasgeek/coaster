@@ -9,4 +9,4 @@ Coaster: common patterns for Flask apps
    :alt: Coverage status
 
 Coaster contains functions and db models for recurring patterns in Flask
-apps.
+apps. Documentation at http://coaster.readthedocs.org/
