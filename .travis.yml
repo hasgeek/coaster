@@ -8,7 +8,7 @@ install:
 # command to run tests
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
-script: nosetests 
+script: coverage run `which nosetests`
 after_success:
   - coveralls
 notifications:
