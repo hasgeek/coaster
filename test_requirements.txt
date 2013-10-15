@@ -1,5 +1,6 @@
 nose
 coverage
+coveralls
 SQLAlchemy
 webassets
 semantic_version
