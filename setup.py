@@ -23,6 +23,7 @@ requires = [
     'pytz',
     'markdown',
     'Pygments',
+    'Flask-Script==0.5.3'
     ]
 
 setup(name='coaster',
