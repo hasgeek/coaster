@@ -13,6 +13,7 @@
   doesn't store them. This made timestamps local, not in UTC.
 * Database tests are now run against both SQLite3 and PostgreSQL.
 * Bugfix: PermissionMixin was mutating inherited permissions.
+* Bugfix: render_with no longer attempts to render pre-rendered responses.
 
 0.3.13
 ------
