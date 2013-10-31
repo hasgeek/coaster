@@ -8,6 +8,7 @@ from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template)
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import BadRequest
+from werkzeug.wrappers import Response as WerkzeugResponse
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -404,6 +405,16 @@ def render_with(template):
         def otherview():
             return {'data': 'value'}
 
+        @app.route('/404view')
+        @render_with('myview.html')
+        def myview():
+            return {'error': '404 Not Found'}, 404
+
+        @app.route('/headerview')
+        @render_with('myview.html')
+        def myview():
+            return {'data': 'value'}, 200, {'X-Header': 'Header value'}
+
     When a mimetype is specified and the template is not a callable, the response is
     returned with the same mimetype. Callable templates must return Response objects
     to ensure the correct mimetype is set.
@@ -438,6 +449,10 @@ def render_with(template):
 
             # Get the result
             result = f(*args, **kwargs)
+
+            # Is the result a Response object? Don't attempt rendering
+            if isinstance(result, (Response, WerkzeugResponse, current_app.response_class)):
+                return result
 
             # Did the result include status code and headers?
             if isinstance(result, tuple):
