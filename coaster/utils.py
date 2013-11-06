@@ -456,7 +456,7 @@ def sorted_timezones():
 
 def namespace_from_url(url):
     """
-    Given a url, return a string that uniquely identifies the namespace, based on it's hostname.
+    Construct a dotted namespace string from a URL.
     """
     namespace = urlparse(url).hostname.split('.')
     namespace.reverse()
