@@ -459,11 +459,11 @@ def namespace_from_url(url):
     Construct a dotted namespace string from a URL.
     """
     namespace = urlparse(url).hostname.split('.')
+    if namespace[len(namespace) - 1] == '':
+        namespace.pop()
     namespace.reverse()
-    try:
-        namespace.remove('www')
-    except ValueError:
-        pass
+    if namespace[len(namespace) - 1] == 'www':
+        namespace.pop()
     return '.'.join(namespace)
 
 
