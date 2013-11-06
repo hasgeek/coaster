@@ -169,28 +169,23 @@ class TestCoasterModels(unittest.TestCase):
         d2 = NamedDocument(title=u"Hello", content=u"Again", container=c2)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, u'hello1')
-        # check make_name() modified `name` parameter or not, since `name` value already exists.
-        name = d2.name
-        d2.make_name()
-        self.assertEqual(d2.name, name)
+        self.assertEqual(d2.name, u'hello2')
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
         c1 = self.make_container()
         d1 = ScopedNamedDocument(title=u"Hello", content=u"World", container=c1)
-        u = User(username="foo")
+        u = User(username=u'foo')
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(d1.name, u'hello')
-        self.assertEqual(d1.make_name(), None)
         self.assertEqual(d1.permissions(user=u), set([]))
         self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
 
         d2 = ScopedNamedDocument(title=u"Hello", content=u"Again", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, u'hello1')
+        self.assertEqual(d2.name, u'hello2')
 
         c2 = self.make_container()
         d3 = ScopedNamedDocument(title=u"Hello", content=u"Once More", container=c2)
@@ -320,6 +315,17 @@ class TestCoasterModels(unittest.TestCase):
         d4.make_name()
         self.session.add(d4)
         self.session.commit()
+
+    def test_reserved_name(self):
+        c = self.make_container()
+        d1 = NamedDocument(container=c, title=u"New")
+        d1.make_name(reserved=['new'])
+        self.assertEqual(d1.name, 'new2')
+        d2 = ScopedNamedDocument(container=c, title=u"New")
+        d2.make_name(reserved=['new'])
+        self.assertEqual(d2.name, 'new2')
+        self.session.add(d2)
+
 
     def test_has_timestamps(self):
         # Confirm that a model with multiple base classes between it and

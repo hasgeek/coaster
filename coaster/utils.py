@@ -89,11 +89,16 @@ def _sniplen(text, length):
         return text
 
 
-def make_name(text, delim=u'-', maxlength=50, checkused=None):
+def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     u"""
     Generate a Unicode name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
-    counter numbers starting from 1 until a suitable candidate is found.
+    counter numbers starting from 2 until a suitable candidate is found.
+
+    :param string delim: Delimiter between words, default '-'
+    :param int maxlength: Maximum length of name, default 50
+    :param checkused: Function to check if a generated name is available for use
+    :param int counter: Starting position for name counter
 
     >>> make_name('This is a title')
     u'this-is-a-title'
@@ -121,8 +126,12 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
     u'and_that'
     >>> make_name(u'Umlauts in Mötörhead')
     u'umlauts-in-motorhead'
-    >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1'])
+    >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
     u'candidate2'
+    >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
+    u'candidate1'
+    >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'], counter=1)
+    u'candidate3'
     >>> make_name('Long title, but snipped', maxlength=20)
     u'long-title-but-snipp'
     >>> len(make_name('Long title, but snipped', maxlength=20))
@@ -136,10 +145,9 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None):
         return _sniplen(name, maxlength)
     candidate = _sniplen(name, maxlength)
     existing = checkused(candidate)
-    counter = 0
     while existing:
-        counter += 1
         candidate = _sniplen(name, maxlength - len(unicode(counter))) + unicode(counter)
+        counter += 1
         existing = checkused(candidate)
     return candidate
 

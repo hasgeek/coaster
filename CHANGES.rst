@@ -14,6 +14,8 @@
 * Database tests are now run against both SQLite3 and PostgreSQL.
 * Bugfix: PermissionMixin was mutating inherited permissions.
 * Bugfix: render_with no longer attempts to render pre-rendered responses.
+* utils.make_name now takes caller-specified counter numbers.
+* sqlalchemy.BaseNameMixin and BaseScopedNameMixin.make_name now take a reserved names list.
 
 0.3.13
 ------

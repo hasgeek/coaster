@@ -90,19 +90,21 @@ class BaseNameMixin(BaseMixin):
         if not self.name:
             self.make_name()
 
-    def make_name(self):
+    def make_name(self, reserved=[]):
         """
         Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
-        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 1
+        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2
         until an available name is found.
+
+        :param reserved: List or set of reserved names unavailable for use
         """
         if self.title:
             if self.id:
-                checkused = lambda c: self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).first()
+                checkused = lambda c: bool(c in reserved or
+                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).count())
             else:
-                checkused = lambda c: self.__class__.query.filter_by(name=c).first()
-            self.name = make_name(self.title, maxlength=250,
-                checkused=checkused)
+                checkused = lambda c: bool(c in reserved or self.__class__.query.filter_by(name=c).count())
+            self.name = make_name(self.title, maxlength=250, checkused=checkused)
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -134,20 +136,21 @@ class BaseScopedNameMixin(BaseMixin):
         if self.parent and not self.name:
             self.make_name()
 
-    def make_name(self):
+    def make_name(self, reserved=[]):
         """
         Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
-        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 1
+        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2
         until an available name is found.
         """
         if self.title:
             if self.id:
-                checkused = lambda c: self.__class__.query.filter(self.__class__.id != self.id).filter_by(
-                    name=c, parent=self.parent).first()
+                checkused = lambda c: bool(c in reserved or
+                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(
+                    name=c, parent=self.parent).first())
             else:
-                checkused = lambda c: self.__class__.query.filter_by(name=c, parent=self.parent).first()
-            self.name = make_name(self.title, maxlength=250,
-                checkused=checkused)
+                checkused = lambda c: bool(c in reserved or
+                    self.__class__.query.filter_by(name=c, parent=self.parent).first())
+            self.name = make_name(self.title, maxlength=250, checkused=checkused)
 
     def short_title(self):
         """
