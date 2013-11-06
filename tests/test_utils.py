@@ -2,7 +2,7 @@
 
 import datetime
 import unittest
-from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones
+from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url
 
 
 class MY_ENUM(LabeledEnum):
@@ -49,3 +49,8 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_sorted_timezones(self):
         self.assertTrue(isinstance(sorted_timezones(), list))
+
+    def test_namespace_from_url(self):
+        self.assertEqual(namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github')
+        self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'), u'com.hasgeek.funnel')
+        self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
