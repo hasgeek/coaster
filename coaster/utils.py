@@ -12,6 +12,7 @@ import re
 from warnings import warn
 from BeautifulSoup import BeautifulSoup, Comment
 import pytz
+import urlparse
 
 from ._version import *
 
@@ -451,6 +452,19 @@ def sorted_timezones():
             '%02d:%02d' % hourmin(delta),
             name.replace('_', ' ')),
         ) for delta, name in timezones]
+
+
+def namespace_from_url(url):
+    """
+    Given a url, return a string that uniquely identifies the namespace, based on it's hostname.
+    """
+    namespace = urlparse(url).hostname.split('.')
+    namespace.reverse()
+    try:
+        namespace.remove('www')
+    except ValueError:
+        pass
+    return '.'.join(namespace)
 
 
 class LabeledEnum(object):
