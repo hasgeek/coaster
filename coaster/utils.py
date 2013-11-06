@@ -12,7 +12,7 @@ import re
 from warnings import warn
 from BeautifulSoup import BeautifulSoup, Comment
 import pytz
-import urlparse
+from urlparse import urlparse
 
 from ._version import *
 
