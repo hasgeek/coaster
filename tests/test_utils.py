@@ -54,3 +54,5 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github')
         self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'), u'com.hasgeek.funnel')
         self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
+        self.assertEqual(namespace_from_url(u'www.hasgeek.com'), None)
+        self.assertEqual(namespace_from_url(u'This is an invalid url'), None)
