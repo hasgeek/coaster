@@ -12,6 +12,7 @@ import re
 from warnings import warn
 from BeautifulSoup import BeautifulSoup, Comment
 import pytz
+from urlparse import urlparse
 
 from ._version import *
 
@@ -22,6 +23,7 @@ _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
 _diacritics_re = re.compile(u'[\u0300-\u036F]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
+_ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -451,6 +453,24 @@ def sorted_timezones():
             '%02d:%02d' % hourmin(delta),
             name.replace('_', ' ')),
         ) for delta, name in timezones]
+
+
+def namespace_from_url(url):
+    """
+    Construct a dotted namespace string from a URL.
+    """
+    parsed = urlparse(url)
+    if parsed.hostname is None or parsed.hostname in ['localhost', 'localhost.localdomain'] or (
+            _ipv4_re.search(parsed.hostname)):
+        return None
+
+    namespace = parsed.hostname.split('.')
+    namespace.reverse()
+    if namespace and not namespace[0]:
+        namespace.pop(0)
+    if namespace and namespace[-1] == 'www':
+        namespace.pop(-1)
+    return '.'.join(namespace)
 
 
 class LabeledEnum(object):
