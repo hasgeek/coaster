@@ -52,7 +52,14 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_namespace_from_url(self):
         self.assertEqual(namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github')
-        self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'), u'com.hasgeek.funnel')
+        self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'),
+            u'com.hasgeek.funnel')
         self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
-        self.assertEqual(namespace_from_url(u'www.hasgeek.com'), None)
+        # Strings that look like domain names are considered
+        self.assertEqual(namespace_from_url(u'www.hasgeek.com'), 'com.hasgeek')
         self.assertEqual(namespace_from_url(u'This is an invalid url'), None)
+        # IP addresses are rejected
+        self.assertEqual(namespace_from_url('127.0.0.1'), None)
+        # Return string type is the input type
+        self.assertTrue(isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), unicode))
+        self.assertTrue(isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str))

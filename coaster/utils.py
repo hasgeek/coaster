@@ -23,6 +23,7 @@ _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
 _diacritics_re = re.compile(u'[\u0300-\u036F]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
+_ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -458,9 +459,14 @@ def namespace_from_url(url):
     """
     Construct a dotted namespace string from a URL.
     """
-    if urlparse(url).hostname is None:
+    if not '//' in url:
+        url = '//' + url
+    parsed = urlparse(url)
+    if parsed.hostname is None or parsed.hostname in ['localhost', 'localhost.localdomain'] or (
+            _ipv4_re.search(parsed.hostname)):
         return None
-    namespace = urlparse(url).hostname.split('.')
+
+    namespace = parsed.hostname.split('.')
     namespace.reverse()
     if namespace and not namespace[0]:
         namespace.pop(0)
