@@ -458,12 +458,14 @@ def namespace_from_url(url):
     """
     Construct a dotted namespace string from a URL.
     """
+    if urlparse(url).hostname is None:
+        return None
     namespace = urlparse(url).hostname.split('.')
-    if namespace[len(namespace) - 1] == '':
-        namespace.pop()
     namespace.reverse()
-    if namespace[len(namespace) - 1] == 'www':
-        namespace.pop()
+    if namespace and not namespace[0]:
+        namespace.pop(0)
+    if namespace and namespace[-1] == 'www':
+        namespace.pop(-1)
     return '.'.join(namespace)
 
 
