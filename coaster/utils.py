@@ -459,8 +459,6 @@ def namespace_from_url(url):
     """
     Construct a dotted namespace string from a URL.
     """
-    if not '//' in url:
-        url = '//' + url
     parsed = urlparse(url)
     if parsed.hostname is None or parsed.hostname in ['localhost', 'localhost.localdomain'] or (
             _ipv4_re.search(parsed.hostname)):
