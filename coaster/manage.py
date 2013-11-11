@@ -74,6 +74,17 @@ def create(env):
     set_alembic_revision()
 
 
+@manager.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
+def sync_resources(env):
+    "Syncs resources for the client on Lastuser server"
+    manager.init_for(env)
+    print "Syncing resources with Lastuser..."
+    result = manager.app.lastuser.sync_resources()
+    if 'error' in result:
+        print "Error: " + result['error']
+    else:
+        print "Resources synced."
+
 @manager.shell
 def _make_context():
     manager.init_for('prod')
