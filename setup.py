@@ -18,7 +18,7 @@ requires = [
     'Flask',
     'BeautifulSoup',
     'simplejson',
-    'webassets',
+    'Flask-Assets',
     'semantic_version',
     'pytz',
     'markdown',
