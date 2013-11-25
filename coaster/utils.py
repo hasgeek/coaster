@@ -318,6 +318,20 @@ def getbool(value):
     return None
 
 
+def nullint(value):
+    """
+    Return int(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to an integer.
+
+    >>> nullint('10')
+    10
+    >>> nullint('') is None
+    True
+    """
+    if value:
+        return int(value)
+
+
 def get_email_domain(email):
     """
     Return the domain component of an email address. Returns None if the

@@ -16,6 +16,7 @@
 * Bugfix: render_with no longer attempts to render pre-rendered responses.
 * utils.make_name now takes caller-specified counter numbers.
 * sqlalchemy.BaseNameMixin and BaseScopedNameMixin.make_name now take a reserved names list.
+* New: utils.nullint for returning int or None.
 
 0.3.13
 ------
