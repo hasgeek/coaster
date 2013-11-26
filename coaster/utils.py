@@ -332,6 +332,20 @@ def nullint(value):
         return int(value)
 
 
+def nullstr(value):
+    """
+    Return str(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to a string.
+
+    >>> nullstr(10)
+    '10'
+    >>> nullstr('') is None
+    True
+    """
+    if value:
+        return unicode(value)
+
+
 def get_email_domain(email):
     """
     Return the domain component of an email address. Returns None if the
