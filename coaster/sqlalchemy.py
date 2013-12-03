@@ -28,6 +28,12 @@ class IdMixin(object):
     id = Column(Integer, primary_key=True)
 
 
+timestamp_columns = (
+    Column('created_at', DateTime, default=datetime.utcnow, nullable=False),
+    Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False),
+    )
+
+
 class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
