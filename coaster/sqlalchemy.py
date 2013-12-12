@@ -125,7 +125,7 @@ class BaseScopedNameMixin(BaseMixin):
             organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
-            __table_args__ = (db.UniqueConstraint('name', 'organizer_id'),)
+            __table_args__ = (db.UniqueConstraint('organizer_id', 'name'),)
     """
     @declared_attr
     def name(cls):
@@ -229,7 +229,7 @@ class BaseScopedIdMixin(BaseMixin):
             event_id = db.Column(Integer, db.ForeignKey('event.id'))
             event = db.relationship(Event)
             parent = db.synonym('event')
-            __table_args__ = (db.UniqueConstraint('url_id', 'event_id'),)
+            __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
     @declared_attr
     def url_id(cls):
@@ -272,7 +272,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
-            __table_args__ = (db.UniqueConstraint('url_id', 'organizer_id'),)
+            __table_args__ = (db.UniqueConstraint('organizer_id', 'url_id'),)
     """
     @declared_attr
     def name(cls):
