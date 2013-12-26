@@ -30,7 +30,6 @@ class InitedMigrations(ManageMigrations):
         super(InitedMigrations, self).run(args[1:])
 
 
-@manager.option('-p', '--path', default='alembic', help="Alembic path [default 'alembic']")
 def set_alembic_revision(path=None):
     """Create/Update alembic table to latest revision number
     """
