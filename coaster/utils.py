@@ -343,6 +343,20 @@ def nullstr(value):
     True
     """
     if value:
+        return str(value)
+
+
+def nullunicode(value):
+    """
+    Return unicode(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to a string.
+
+    >>> nullunicode(10)
+    u'10'
+    >>> nullunicode('') is None
+    True
+    """
+    if value:
         return unicode(value)
 
 
