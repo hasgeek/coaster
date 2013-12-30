@@ -1,3 +1,4 @@
+import sys
 import os
 import re
 from setuptools import setup, find_packages
@@ -24,6 +25,10 @@ requires = [
     'markdown',
     'Pygments',
     ]
+
+if sys.version_info[0:2] < (2, 7):
+    requires.append('ordereddict')
+
 
 setup(name='coaster',
     version=version,
