@@ -94,5 +94,5 @@ def load_config_from_file(app, filepath):
     except IOError:
         # TODO: Can we print to sys.stderr in production? Should this go to
         # logs instead?
-        print >> sys.stderr, "Did not find settings file %s" % filepath
+        print >> sys.stderr, "Did not find settings file %s for additional settings, skipping it" % filepath
         return False
