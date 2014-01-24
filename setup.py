@@ -1,3 +1,4 @@
+import sys
 import os
 import re
 from setuptools import setup, find_packages
@@ -18,12 +19,16 @@ requires = [
     'Flask',
     'BeautifulSoup',
     'simplejson',
-    'webassets',
+    'Flask-Assets',
     'semantic_version',
     'pytz',
     'markdown',
     'Pygments',
     ]
+
+if sys.version_info[0:2] < (2, 7):
+    requires.append('ordereddict')
+
 
 setup(name='coaster',
     version=version,

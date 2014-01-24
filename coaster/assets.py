@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 # Version is not used here but is made available for others to import from
 from semantic_version import Version, Spec
-from webassets import Bundle
+from flask.ext.assets import Bundle
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 

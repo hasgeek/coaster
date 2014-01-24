@@ -14,6 +14,11 @@ from BeautifulSoup import BeautifulSoup, Comment
 import pytz
 from urlparse import urlparse
 
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 from ._version import *
 
 
@@ -318,6 +323,48 @@ def getbool(value):
     return None
 
 
+def nullint(value):
+    """
+    Return int(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to an integer.
+
+    >>> nullint('10')
+    10
+    >>> nullint('') is None
+    True
+    """
+    if value:
+        return int(value)
+
+
+def nullstr(value):
+    """
+    Return str(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to a string.
+
+    >>> nullstr(10)
+    '10'
+    >>> nullstr('') is None
+    True
+    """
+    if value:
+        return str(value)
+
+
+def nullunicode(value):
+    """
+    Return unicode(value) if bool(value) is not False. Return None otherwise.
+    Useful for coercing optional values to a string.
+
+    >>> nullunicode(10)
+    u'10'
+    >>> nullunicode('') is None
+    True
+    """
+    if value:
+        return unicode(value)
+
+
 def get_email_domain(email):
     """
     Return the domain component of an email address. Returns None if the
@@ -480,6 +527,7 @@ class LabeledEnum(object):
 
         >>> class MY_ENUM(LabeledEnum):
         ...    FIRST = (1, "First")
+        ...    THIRD = (3, "Third")
         ...    SECOND = (2, "Second")
 
     :class:`LabeledEnum` will convert any attribute that is a 2-tuple into
@@ -489,6 +537,8 @@ class LabeledEnum(object):
         1
         >>> MY_ENUM.SECOND
         2
+        >>> MY_ENUM.THIRD
+        3
 
     Access labels via dictionary lookup on the enumeration::
 
@@ -497,10 +547,12 @@ class LabeledEnum(object):
         >>> MY_ENUM[2]
         'Second'
 
-    Retrieve a full list of values and labels with ``.items()``::
+    Retrieve a full list of values and labels with ``.items()``. Items are always
+    sorted by value regardless of the original definition order (since Python
+    doesn't provide a way to preserve that order)::
 
         >>> MY_ENUM.items()
-        [(1, 'First'), (2, 'Second')]
+        [(1, 'First'), (2, 'Second'), (3, 'Third')]
     """
     class __metaclass__(type):
         """Construct labeled enumeration"""
@@ -511,7 +563,8 @@ class LabeledEnum(object):
                     labels[value[0]] = value[1]
                     attrs[key] = value[0]
 
-            attrs['__labels__'] = labels
+            sorted_labels = OrderedDict(sorted(labels.items()))
+            attrs['__labels__'] = sorted_labels
             return type.__new__(cls, name, bases, attrs)
 
         def __getitem__(cls, key):
