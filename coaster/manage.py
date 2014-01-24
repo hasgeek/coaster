@@ -78,11 +78,19 @@ def sync_resources(env):
     "Syncs resources for the client on Lastuser server"
     manager.init_for(env)
     print "Syncing resources with Lastuser..."
-    result = manager.app.lastuser.sync_resources()
-    if 'error' in result:
-        print "Error: " + result['error']
-    else:
-        print "Resources synced."
+    resources = manager.app.lastuser.sync_resources()['results']
+
+    for rname, resource in resources.iteritems():
+        if resource['status'] == 'error':
+            print "Error for %s: %s" % (rname, resource['error'])
+        else:
+            print "Resource %s %s..." % (rname, resource['status'])
+            for aname, action in resource['actions'].iteritems():
+                if action['status'] == 'error':
+                    print "\tError for %s/%s: %s" % (rname, aname, action['error'])
+                else:
+                    print "\tAction %s/%s %s..." % (rname, aname, resource['status'])
+    print "Resources synced..."
 
 @manager.shell
 def _make_context():
