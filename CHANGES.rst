@@ -1,6 +1,8 @@
 0.4.1
 -----
 
+* views.get_next_url now considers subdomains as non-external.
+
 0.4.0
 -----
 
