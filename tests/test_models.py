@@ -11,6 +11,7 @@ from coaster.db import db
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import MultipleResultsFound
 
 
 app1 = Flask(__name__)
@@ -349,15 +350,26 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d.url_for(), None)
 
     def test_jsondict(self):
-        m1 = MyData(data={'value': 'foo'})
+        m1 = MyData(data={u'value': u'foo'})
         self.session.add(m1)
         self.session.commit()
         #Test for __setitem__
-        m1.data['value'] = 'bar'
-        self.assertEqual(m1.data['value'], 'bar')
-        del m1.data['value']
+        m1.data[u'value'] = u'bar'
+        self.assertEqual(m1.data[u'value'], u'bar')
+        del m1.data[u'value']
         self.assertEqual(m1.data, {})
-        self.assertRaises(ValueError, MyData, data='NonDict')
+        self.assertRaises(ValueError, MyData, data=u'NonDict')
+
+    def test_query(self):
+        c1 = Container(name=u'c1')
+        self.session.add(c1)
+        c2 = Container(name=u'c2')
+        self.session.add(c2)
+        self.session.commit()
+
+        self.assertEqual(Container.query.filter_by(name=u'c1').one_or_none(), c1)
+        self.assertEqual(Container.query.filter_by(name=u'c3').one_or_none(), None)
+        self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
 
 
 class TestCoasterModels2(TestCoasterModels):

@@ -7,9 +7,11 @@ from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from flask import Markup
+from flask.ext.sqlalchemy import BaseQuery
 from .utils import make_name
 from .gfm import markdown
 
@@ -17,6 +19,22 @@ from .gfm import markdown
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
     'BaseScopedIdMixin', 'BaseScopedIdNameMixin']
+
+
+class Query(BaseQuery):
+    """
+    Extends flask.ext.sqlalchemy.BaseQuery to add additional helper methods.
+    """
+
+    def one_or_none(self):
+        """
+        Like :meth:`one` but returns None if no results are found. Raises an exception
+        if multiple results are found.
+        """
+        try:
+            return self.one()
+        except NoResultFound:
+            return None
 
 
 class IdMixin(object):
@@ -74,7 +92,7 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
     """
-    pass
+    query_class = Query
 
 
 class BaseNameMixin(BaseMixin):
