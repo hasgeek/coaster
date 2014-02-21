@@ -29,7 +29,6 @@ requires = [
     'sqlalchemy',
     'Flask-SQLAlchemy',
     'Flask-Script==0.5.3',
-    'Flask-Alembic',
     ]
 
 if sys.version_info[0:2] < (2, 7):
@@ -59,7 +58,4 @@ setup(name='coaster',
     zip_safe=True,
     test_suite='tests',
     install_requires=requires,
-    dependency_links=[
-        "https://github.com/jace/flask-alembic/archive/master.zip#egg=Flask-Alembic-0.1",
-        ]
     )
