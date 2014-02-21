@@ -3,6 +3,7 @@
 
 * views.get_next_url now considers subdomains as non-external.
 * sqlalchemy.BaseMixin now provides a new query class with ``one_or_none``
+* Coaster now requires all dependencies used by submodules. They are no longer optional.
 
 0.4.0
 -----
