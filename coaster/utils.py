@@ -546,6 +546,8 @@ class LabeledEnum(object):
         'First'
         >>> MY_ENUM[2]
         'Second'
+        >>> MY_ENUM.get(3)
+        'Third'
 
     Retrieve a full list of values and labels with ``.items()``. Items are always
     sorted by value regardless of the original definition order (since Python
@@ -572,6 +574,9 @@ class LabeledEnum(object):
 
         def __setitem__(cls, key, value):
             raise TypeError("LabeledEnum is immutable")
+
+        def get(cls, key, default=None):
+            return cls.__labels__.get(key, default)
 
     @classmethod
     def items(cls):
