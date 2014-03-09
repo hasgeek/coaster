@@ -60,7 +60,7 @@ def drop(env):
     "Drops database tables"
     manager.init_for(env)
     manager.db.engine.echo = True
-    if prompt_bool("Are you sure you want to lose all your data?"):
+    if prompt_bool("Are you sure you want to lose all your data"):
         manager.db.drop_all()
 
 
