@@ -1,6 +1,8 @@
 0.4.2
 -----
 
+* NameTitle namedtuple and support in LabeledEnum for (value, name, title)
+
 0.4.1
 -----
 

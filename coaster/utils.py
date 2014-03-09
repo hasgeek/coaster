@@ -14,6 +14,7 @@ from BeautifulSoup import BeautifulSoup, Comment
 import pytz
 from urlparse import urlparse
 
+from collections import namedtuple
 try:
     from collections import OrderedDict
 except ImportError:
@@ -520,6 +521,9 @@ def namespace_from_url(url):
     return '.'.join(namespace)
 
 
+NameTitle = namedtuple('NameTitle', ['name', 'title'])
+
+
 class LabeledEnum(object):
     """
     Labeled enumerations. Declarate an enumeration with values and labels
@@ -548,6 +552,8 @@ class LabeledEnum(object):
         'Second'
         >>> MY_ENUM.get(3)
         'Third'
+        >>> MY_ENUM.get(4) is None
+        True
 
     Retrieve a full list of values and labels with ``.items()``. Items are always
     sorted by value regardless of the original definition order (since Python
@@ -555,15 +561,36 @@ class LabeledEnum(object):
 
         >>> MY_ENUM.items()
         [(1, 'First'), (2, 'Second'), (3, 'Third')]
+
+    Three value tuples are assumed to be (value, name, title) and the name and
+    title are converted into NameTitle(name, title):
+
+        >>> class NAME_ENUM(LabeledEnum):
+        ...    FIRST = (1, 'first', "First")
+        ...    THIRD = (3, 'third', "Third")
+        ...    SECOND = (2, 'second', "Second")
+
+        >>> NAME_ENUM.FIRST
+        1
+        >>> NAME_ENUM[NAME_ENUM.FIRST]
+        NameTitle(name='first', title='First')
+        >>> NAME_ENUM[NAME_ENUM.SECOND].name
+        'second'
+        >>> NAME_ENUM[NAME_ENUM.THIRD].title
+        'Third'
     """
     class __metaclass__(type):
         """Construct labeled enumeration"""
         def __new__(cls, name, bases, attrs):
             labels = {}
             for key, value in tuple(attrs.items()):
-                if isinstance(value, tuple) and len(value) == 2:
-                    labels[value[0]] = value[1]
-                    attrs[key] = value[0]
+                if isinstance(value, tuple):
+                    if len(value) == 2:
+                        labels[value[0]] = value[1]
+                        attrs[key] = value[0]
+                    elif len(value) == 3:
+                        labels[value[0]] = NameTitle(value[1], value[2])
+                        attrs[key] = value[0]
 
             sorted_labels = OrderedDict(sorted(labels.items()))
             attrs['__labels__'] = sorted_labels
