@@ -73,10 +73,17 @@ def create(env):
     set_alembic_revision()
 
 
-@manager.shell
-def _make_context():
-    manager.init_for('prod')
-    return dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+@manager.option('-e', '--env', default='dev', help="shell environment [default dev]")
+def shell(env, no_ipython=False, no_bpython=False):
+    def _make_context():
+        manager.init_for(env)
+        return dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+    Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
+
+
+@manager.option('-e', '--env', default='dev', help="Plain python shell environment [default dev]")
+def plainshell(env):
+    return shell(env, no_ipython=True, no_bpython=True)
 
 
 def init_manager(app, db, init_for, **kwargs):
@@ -91,5 +98,4 @@ def init_manager(app, db, init_for, **kwargs):
     manager.add_command("clean", Clean())
     manager.add_command("showurls", ShowUrls())
     manager.add_command("migrate", InitedMigrations())
-    manager.add_command("shell", Shell(make_context=_make_context))
     return manager
