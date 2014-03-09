@@ -1,7 +1,7 @@
 import sys
 import os
 import re
-from setuptools import setup, find_packages
+from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 README = unicode(open(os.path.join(here, 'README.rst')).read(), 'utf-8')
@@ -17,6 +17,7 @@ else:
 
 requires = [
     'Flask',
+    'werkzeug',
     'BeautifulSoup',
     'simplejson',
     'Flask-Assets',
@@ -24,6 +25,10 @@ requires = [
     'pytz',
     'markdown',
     'Pygments',
+    'docflow',
+    'sqlalchemy',
+    'Flask-SQLAlchemy',
+    'Flask-Script==0.5.3',
     ]
 
 if sys.version_info[0:2] < (2, 7):
@@ -48,7 +53,7 @@ setup(name='coaster',
     author_email='kiran@hasgeek.com',
     url='https://github.com/hasgeek/coaster',
     keywords='coaster',
-    packages=find_packages(),
+    packages=['coaster'],
     include_package_data=True,
     zip_safe=True,
     test_suite='tests',

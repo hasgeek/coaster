@@ -1,5 +1,15 @@
+0.4.2
+-----
+
+* NameTitle namedtuple and support in LabeledEnum for (value, name, title)
+
 0.4.1
 -----
+
+* views.get_next_url now considers subdomains as non-external.
+* sqlalchemy.BaseMixin now provides a new query class with ``one_or_none``
+* Coaster now requires all dependencies used by submodules. They are no longer optional.
+* LabeledEnums now have a .get method to emulate dictionaries.
 
 0.4.0
 -----

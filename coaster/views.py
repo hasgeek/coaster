@@ -17,15 +17,20 @@ def __index_url():
     try:
         return url_for('index')
     except BuildError:
-        return '/'
+        try:
+            return request.script_root
+        except RuntimeError:
+            return '/'
 
 
 def __clean_external_url(url):
-    if url.startswith('http:') or url.startswith('https:') or url.startswith('//'):
+    if url.startswith('http://') or url.startswith('https://') or url.startswith('//'):
         # Do the domains and ports match?
         pnext = urlparse.urlsplit(url)
         preq = urlparse.urlsplit(request.url)
-        if pnext.hostname != preq.hostname or pnext.port != preq.port:
+        if pnext.port != preq.port:
+            return ''
+        if not (pnext.hostname == preq.hostname or pnext.hostname.endswith('.' + preq.hostname)):
             return ''
     return url
 
@@ -49,7 +54,7 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
     """
     Get the next URL to redirect to. Don't return external URLs unless
     explicitly asked for. This is to protect the site from being an unwitting
-    redirector to external URLs.
+    redirector to external URLs. Subdomains are okay, however.
 
     This function looks for a ``next`` parameter in the request or in the session
     (depending on whether parameter ``session`` is True). If no ``next`` is present,
