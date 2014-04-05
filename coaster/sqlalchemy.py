@@ -6,7 +6,7 @@ import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite
+from sqlalchemy.orm import composite, deferred
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
@@ -455,16 +455,20 @@ class MarkdownComposite(MutableComposite):
         object.__setattr__(self, '_html', state[1])
         self.changed()
 
+    def __nonzero__(self):
+        return bool(self.text)
+
     # Allow a composite column to be assigned a string value
     @classmethod
     def coerce(cls, key, value):
         return cls(value)
 
 
-def MarkdownColumn(name, **kwargs):
+def MarkdownColumn(name, deferred=False, group=None, **kwargs):
     return composite(MarkdownComposite,
         Column(name + '_text', UnicodeText, **kwargs),
-        Column(name + '_html', UnicodeText, **kwargs)
+        Column(name + '_html', UnicodeText, **kwargs),
+        deferred=deferred, group=group or name
         )
 
 
