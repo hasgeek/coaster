@@ -458,6 +458,8 @@ class MarkdownComposite(MutableComposite):
     def __nonzero__(self):
         return bool(self.text)
 
+    __bool__ = __nonzero__
+
     # Allow a composite column to be assigned a string value
     @classmethod
     def coerce(cls, key, value):
