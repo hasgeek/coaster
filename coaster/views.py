@@ -353,7 +353,7 @@ def load_models(*chain, **kwargs):
                     permissions = item.permissions(g.user, inherited=permissions)
                     addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
-                        addlperms = addlperms()
+                        addlperms = addlperms() or []
                     permissions.update(addlperms)
                 try:
                     g.permissions = permissions
