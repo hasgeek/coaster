@@ -36,9 +36,9 @@ _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0
 
 def buid():
     """
-    Return a new random id that is exactly 22 characters long. See
+    Return a new random id that is exactly 22 characters long,
+    by encoding a UUID4 in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    for URL-safe Base64
 
     >>> len(newid())
     22
@@ -56,6 +56,7 @@ newid = buid
 def newsecret():
     """
     Make a secret key for email confirmation and all that stuff.
+    44 characters long.
 
     >>> len(newsecret())
     44
