@@ -5,6 +5,7 @@ from collections import defaultdict
 # Version is not used here but is made available for others to import from
 from semantic_version import Version, Spec
 from flask.ext.assets import Bundle
+from webassets.filter import Filter, register_filter
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 
@@ -152,3 +153,21 @@ class VersionedAssets(defaultdict):
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
         return Bundle(*[bundle for name, version, bundle
             in self._require_recursive(*not_blacklist) if name not in blacklist])
+
+
+class UglipyJS(Filter):
+    """
+    Minifies Javascript using UgliPyJS, the Python wrapper for UglifyJS.
+    """
+
+    name = 'uglipyjs'
+
+    def setup(self):
+        import uglipyjs
+        self.uglipyjs = uglipyjs
+
+    def output(self, _in, out, **kw):
+        out.write(self.uglipyjs.compile(_in.read()))
+
+
+register_filter(UglipyJS)

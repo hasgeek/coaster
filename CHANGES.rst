@@ -2,6 +2,7 @@
 -----
 
 * NameTitle namedtuple and support in LabeledEnum for (value, name, title)
+* Provide UglifyJS minifier to webassets via the UglipyJS wrapper
 
 0.4.1
 -----

@@ -26,9 +26,13 @@ requires = [
     'markdown',
     'Pygments',
     'docflow',
-    'sqlalchemy',
+    'SQLAlchemy',
     'Flask-SQLAlchemy',
     'Flask-Script==0.5.3',
+    'webassets',
+    'Flask-Assets',
+    'PyExecJS',
+    'UgliPyJS',
     ]
 
 if sys.version_info[0:2] < (2, 7):
