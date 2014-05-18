@@ -81,23 +81,6 @@ def newpin(digits=4):
     return (u'%%0%dd' % digits) % randint(0, 10 ** digits)
 
 
-def _sniplen(text, length):
-    """
-    Cut text at specified length.
-
-    >>> _sniplen('test', 4)
-    'test'
-    >>> _sniplen('test', 10)
-    'test'
-    >>> _sniplen('test', 3)
-    'tes'
-    """
-    if len(text) > length:
-        return text[:length]
-    else:
-        return text
-
-
 def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     u"""
     Generate a Unicode name slug. If a checkused filter is provided, it will
@@ -151,11 +134,11 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = _diacritics_re.sub('', unicodedata.normalize('NFD', name))
     if checkused is None:
-        return _sniplen(name, maxlength)
-    candidate = _sniplen(name, maxlength)
+        return name[:maxlength]
+    candidate = name[:maxlength]
     existing = checkused(candidate)
     while existing:
-        candidate = _sniplen(name, maxlength - len(unicode(counter))) + unicode(counter)
+        candidate = name[:maxlength - len(unicode(counter))] + unicode(counter)
         counter += 1
         existing = checkused(candidate)
     return candidate
