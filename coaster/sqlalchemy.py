@@ -6,7 +6,7 @@ import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite, deferred
+from sqlalchemy.orm import composite
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
@@ -174,7 +174,7 @@ class BaseScopedNameMixin(BaseMixin):
             else:
                 checkused = lambda c: bool(c in reserved or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
-            self.name = make_name(self.title, maxlength=250, checkused=checkused)
+            self.name = make_name(self.short_title(), maxlength=250, checkused=checkused)
 
     def short_title(self):
         """
