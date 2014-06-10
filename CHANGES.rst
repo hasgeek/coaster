@@ -1,8 +1,14 @@
+0.4.3
+-----
+
+* Initial work on Fluentd logging.
+
 0.4.2
 -----
 
-* NameTitle namedtuple and support in LabeledEnum for (value, name, title)
-* Provide UglifyJS minifier to webassets via the UglipyJS wrapper
+* NameTitle namedtuple and support in LabeledEnum for (value, name, title).
+* Provide UglifyJS minifier to webassets via the UglipyJS wrapper.
+* BaseScopedNameMixin's make_title now uses short_title as source.
 
 0.4.1
 -----

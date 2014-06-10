@@ -58,6 +58,7 @@ def init_app(app):
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
+    * ``FLUENTD_SERVER``: If specified, will enable logging to fluentd
     """
     formatter = LocalVarFormatter()
 
