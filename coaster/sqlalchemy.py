@@ -128,7 +128,7 @@ class BaseNameMixin(BaseMixin):
                     self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).count())
             else:
                 checkused = lambda c: bool(c in reserved or self.__class__.query.filter_by(name=c).count())
-            self.name = make_name(self.title, maxlength=250, checkused=checkused)
+            self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -174,7 +174,7 @@ class BaseScopedNameMixin(BaseMixin):
             else:
                 checkused = lambda c: bool(c in reserved or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
-            self.name = make_name(self.short_title(), maxlength=250, checkused=checkused)
+            self.name = unicode(make_name(self.short_title(), maxlength=250, checkused=checkused))
 
     def short_title(self):
         """
@@ -222,7 +222,7 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
-            self.name = make_name(self.title, maxlength=250)
+            self.name = unicode(make_name(self.title, maxlength=250))
 
     @property
     def url_id(self):
@@ -312,7 +312,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = make_name(self.title, maxlength=250)
+            self.name = unicode(make_name(self.title, maxlength=250))
 
     @property
     def url_name(self):

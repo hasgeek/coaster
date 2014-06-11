@@ -7,7 +7,6 @@ import uuid
 from base64 import urlsafe_b64encode, b64encode, b64decode
 import hashlib
 import string
-import unicodedata
 import re
 from warnings import warn
 from urlparse import urlparse
@@ -21,6 +20,7 @@ except ImportError:
 from BeautifulSoup import BeautifulSoup, Comment
 import pytz
 import tldextract
+from unidecode import unidecode
 
 from ._version import *
 
@@ -29,7 +29,6 @@ from ._version import *
 
 _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
-_diacritics_re = re.compile(u'[\u0300-\u036F]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 
@@ -85,7 +84,7 @@ def newpin(digits=4):
 
 def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     u"""
-    Generate a Unicode name slug. If a checkused filter is provided, it will
+    Generate an ASCII name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
     counter numbers starting from 2 until a suitable candidate is found.
 
@@ -95,52 +94,56 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     :param int counter: Starting position for name counter
 
     >>> make_name('This is a title')
-    u'this-is-a-title'
+    'this-is-a-title'
     >>> make_name('Invalid URL/slug here')
-    u'invalid-url-slug-here'
+    'invalid-url-slug-here'
     >>> make_name('this.that')
-    u'this-that'
+    'this-that'
     >>> make_name('this:that')
-    u'this-that'
+    'this-that'
     >>> make_name("How 'bout this?")
-    u'how-bout-this'
+    'how-bout-this'
     >>> make_name(u"How’s that?")
-    u'hows-that'
+    'hows-that'
     >>> make_name(u'K & D')
-    u'k-d'
+    'k-d'
     >>> make_name('billion+ pageviews')
-    u'billion-pageviews'
-    >>> make_name(u'हिन्दी slug!') == u'हिन्दी-slug'
-    True
+    'billion-pageviews'
+    >>> make_name(u'हिन्दी slug!')
+    'hindii-slug'
     >>> make_name(u'__name__', delim=u'_')
-    u'name'
+    'name'
     >>> make_name(u'how_about_this', delim=u'_')
-    u'how_about_this'
+    'how_about_this'
     >>> make_name(u'and-that', delim=u'_')
-    u'and_that'
+    'and_that'
     >>> make_name(u'Umlauts in Mötörhead')
-    u'umlauts-in-motorhead'
+    'umlauts-in-motorhead'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
-    u'candidate2'
+    'candidate2'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
-    u'candidate1'
+    'candidate1'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'], counter=1)
-    u'candidate3'
+    'candidate3'
     >>> make_name('Long title, but snipped', maxlength=20)
-    u'long-title-but-snipp'
+    'long-title-but-snipp'
     >>> len(make_name('Long title, but snipped', maxlength=20))
     20
     >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
-    u'long-cand2'
+    'long-cand2'
+    >>> make_name(u'Lǝnkǝran')
+    'lankaran'
+    >>> make_name(u'example@example.com')
+    'example-example-com'
     """
     name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
-    name = _diacritics_re.sub('', unicodedata.normalize('NFD', name))
+    name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
     if checkused is None:
         return name[:maxlength]
     candidate = name[:maxlength]
     existing = checkused(candidate)
     while existing:
-        candidate = name[:maxlength - len(unicode(counter))] + unicode(counter)
+        candidate = name[:maxlength - len(str(counter))] + str(counter)
         counter += 1
         existing = checkused(candidate)
     return candidate

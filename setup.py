@@ -34,6 +34,7 @@ requires = [
     'PyExecJS',
     'UgliPyJS',
     'tldextract',
+    'unidecode',
     ]
 
 if sys.version_info[0:2] < (2, 7):

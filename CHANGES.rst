@@ -2,7 +2,8 @@
 -----
 
 * Initial work on Fluentd logging.
-* New util: base_domain_matches compares if two domains have the same base domain
+* New util: base_domain_matches compares if two domains have the same base domain.
+* utils.make_name now returns ASCII slugs instead of Unicode slugs.
 
 0.4.2
 -----
