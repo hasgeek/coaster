@@ -2,6 +2,7 @@
 -----
 
 * Initial work on Fluentd logging.
+* New util: base_domain_matches compares if two domains have the same base domain
 
 0.4.2
 -----

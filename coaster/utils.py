@@ -10,8 +10,6 @@ import string
 import unicodedata
 import re
 from warnings import warn
-from BeautifulSoup import BeautifulSoup, Comment
-import pytz
 from urlparse import urlparse
 
 from collections import namedtuple
@@ -19,6 +17,10 @@ try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
+
+from BeautifulSoup import BeautifulSoup, Comment
+import pytz
+import tldextract
 
 from ._version import *
 
@@ -503,6 +505,30 @@ def namespace_from_url(url):
     if namespace and namespace[-1] == 'www':
         namespace.pop(-1)
     return '.'.join(namespace)
+
+
+def base_domain_matches(d1, d2):
+    """
+    Check if two domains have the same base domain, using the Public Suffix List.
+    >>> base_domain_matches('https://hasjob.co', 'hasjob.co')
+    True
+    >>> base_domain_matches('hasgeek.hasjob.co', 'hasjob.co')
+    True
+    >>> base_domain_matches('hasgeek.com', 'hasjob.co')
+    False
+    >>> base_domain_matches('static.hasgeek.co.in', 'hasgeek.com')
+    False
+    >>> base_domain_matches('static.hasgeek.co.in', 'hasgeek.co.in')
+    True
+    >>> base_domain_matches('example@example.com', 'example.com')
+    True
+    """
+    r1 = tldextract.extract(d1)
+    r2 = tldextract.extract(d2)
+    if r1.domain == r2.domain and r1.suffix == r2.suffix:
+        return True
+    else:
+        return False
 
 
 NameTitle = namedtuple('NameTitle', ['name', 'title'])

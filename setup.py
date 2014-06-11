@@ -33,6 +33,7 @@ requires = [
     'Flask-Assets',
     'PyExecJS',
     'UgliPyJS',
+    'tldextract',
     ]
 
 if sys.version_info[0:2] < (2, 7):
