@@ -76,10 +76,13 @@ def newpin(digits=4):
     4
     >>> len(newpin(5))
     5
-    >>> isinstance(int(newpin()), int)
+    >>> newpin().isdigit()
     True
     """
-    return (u'%%0%dd' % digits) % randint(0, 10 ** digits)
+    randnum = randint(0, 10 ** digits)
+    while len(str(randnum)) > digits:
+        randnum = randint(0, 10 ** digits)
+    return (u'%%0%dd' % digits) % randnum
 
 
 def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
