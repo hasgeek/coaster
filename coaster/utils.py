@@ -516,6 +516,7 @@ def namespace_from_url(url):
 def base_domain_matches(d1, d2):
     """
     Check if two domains have the same base domain, using the Public Suffix List.
+
     >>> base_domain_matches('https://hasjob.co', 'hasjob.co')
     True
     >>> base_domain_matches('hasgeek.hasjob.co', 'hasjob.co')
@@ -535,6 +536,24 @@ def base_domain_matches(d1, d2):
         return True
     else:
         return False
+
+
+def domain_namespace_match(domain, namespace):
+    """
+    Checks if namespace is related to the domain because the base domain matches.
+
+    >>> domain_namespace_match('hasgeek.com', 'com.hasgeek')
+    True
+    >>> domain_namespace_match('funnel.hasgeek.com', 'com.hasgeek.funnel')
+    True
+    >>> domain_namespace_match('app.hasgeek.com', 'com.hasgeek.peopleflow')
+    True
+    >>> domain_namespace_match('app.hasgeek.in', 'com.hasgeek.peopleflow')
+    False
+    >>> domain_namespace_match('peopleflow.local', 'local.peopleflow')
+    True
+    """
+    return base_domain_matches(domain, ".".join(namespace.split(".")[::-1]))
 
 
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
