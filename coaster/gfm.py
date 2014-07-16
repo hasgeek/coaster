@@ -154,7 +154,7 @@ def gfm(text):
     return text
 
 
-def markdown(text, html=False):
+def markdown(text, html=False, valid_tags=GFM_TAGS):
     """
     Return Markdown rendered text using GitHub Flavoured Markdown,
     with HTML escaped and syntax-highlighting enabled.
@@ -162,6 +162,6 @@ def markdown(text, html=False):
     if text is None:
         return None
     if html:
-        return Markup(sanitize_html(markdown_convert_html(gfm(text)), valid_tags=GFM_TAGS))
+        return Markup(sanitize_html(markdown_convert_html(gfm(text)), valid_tags=valid_tags))
     else:
         return Markup(markdown_convert_text(gfm(text)))
