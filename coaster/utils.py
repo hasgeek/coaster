@@ -8,7 +8,6 @@ from base64 import urlsafe_b64encode, b64encode, b64decode
 import hashlib
 import string
 import re
-from warnings import warn
 from urlparse import urlparse
 
 from collections import namedtuple
@@ -17,10 +16,10 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-from BeautifulSoup import BeautifulSoup, Comment
 import pytz
 import tldextract
 from unidecode import unidecode
+import bleach
 
 from ._version import *
 
@@ -381,52 +380,44 @@ def get_email_domain(email):
         return None
 
 
-VALID_TAGS = {'strong': [],
-              'em': [],
-              'p': [],
-              'ol': [],
-              'ul': [],
-              'li': [],
-              'br': [],
-              'sup': [],
-              'sub': [],
-              'a': ['href', 'title', 'target'],
-              'blockquote': [],
-              'h3': [],
-              'h4': [],
-              'h5': [],
-              'h6': [],
-              }
+VALID_TAGS = {
+    'a': ['href', 'title', 'target', 'rel'],
+    'abbr': ['title'],
+    'b': [],
+    'br': [],
+    'blockquote': [],
+    'cite': [],
+    'code': [],
+    'dd': [],
+    'del': [],
+    'dl': [],
+    'dt': [],
+    'em': [],
+    'h3': [],
+    'h4': [],
+    'h5': [],
+    'h6': [],
+    'hr': [],
+    'i': [],
+    'img': ['src', 'width', 'height', 'align', 'alt'],
+    'ins': [],
+    'li': ['start'],
+    'mark': [],
+    'p': [],
+    'pre': [],
+    'ol': [],
+    'strong': [],
+    'sup': [],
+    'sub': [],
+    'ul': [],
+    }
 
 
 def sanitize_html(value, valid_tags=VALID_TAGS):
     """
     Strips unwanted markup out of HTML.
-
-    .. deprecated:: 0.2.5
-       Use the bleach library instead.
-
     """
-    # TODO: This function needs unit tests.
-    soup = BeautifulSoup(value)
-    comments = soup.findAll(text=lambda text: isinstance(text, Comment))
-    [comment.extract() for comment in comments]
-    # Some markup can be crafted to slip through BeautifulSoup's parser, so
-    # we run this repeatedly until it generates the same output twice.
-    newoutput = soup.renderContents()
-    while 1:
-        oldoutput = newoutput
-        soup = BeautifulSoup(newoutput)
-        for tag in soup.findAll(True):
-            if tag.name not in valid_tags:
-                tag.hidden = True
-            else:
-                tag.attrs = [(a, v) for a, v in tag.attrs if a in valid_tags[tag.name]]
-        newoutput = soup.renderContents()
-        if oldoutput == newoutput:
-            break
-    warn("This function is deprecated. Please use the bleach library", DeprecationWarning)
-    return unicode(newoutput, 'utf-8')
+    return bleach.clean(value, tags=VALID_TAGS.keys(), attributes=VALID_TAGS)
 
 
 def simplify_text(text):

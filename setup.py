@@ -17,13 +17,15 @@ else:
 
 requires = [
     'Flask',
+    'markupsafe',
     'werkzeug',
-    'BeautifulSoup',
     'simplejson',
     'Flask-Assets',
     'semantic_version',
     'pytz',
-    'markdown',
+    'markdown>=2.4.1',
+    'markdown-checklist',
+    'bleach',
     'Pygments',
     'docflow',
     'SQLAlchemy',

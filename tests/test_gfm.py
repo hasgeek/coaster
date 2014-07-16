@@ -175,6 +175,14 @@ class TestMarkdown(unittest.TestCase):
         """Markdown rendering"""
         self.assertEqual(markdown('hello'), '<p>hello</p>')
 
+    def test_text_markdown(self):
+        """Markdown rendering with HTML disabled (default)"""
+        self.assertEqual(markdown('hello <del>there</del>'), '<p>hello &lt;del&gt;there&lt;/del&gt;</p>')
+
+    def test_html_markdown(self):
+        """Markdown rendering with HTML enabled"""
+        self.assertEqual(markdown('hello <del>there</del>', html=True), '<p>hello <del>there</del></p>')
+
     def test_empty_markdown(self):
         """Don't choke on None"""
         self.assertEqual(markdown(None), None)

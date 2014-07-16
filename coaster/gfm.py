@@ -10,14 +10,39 @@ This is a Python port of GitHub code, taken from
 https://gist.github.com/Wilfred/901706
 """
 
+from markupsafe import Markup
 from markdown import Markdown
 import re
+from .utils import sanitize_html, VALID_TAGS
 
 __all__ = ['gfm', 'markdown']
 
-markdown_convert = Markdown(safe_mode='escape', output_format='html5',
+GFM_TAGS = dict(VALID_TAGS)
+# For syntax highlighting:
+GFM_TAGS['pre'] = ['class']
+GFM_TAGS['span'] = ['class']
+# For tables:
+GFM_TAGS['table'] = ['class', 'align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width']
+GFM_TAGS['caption'] = []
+GFM_TAGS['col'] = ['align', 'char', 'charoff']
+GFM_TAGS['colgroup'] = ['align', 'span', 'cols', 'char', 'charoff', 'width']
+GFM_TAGS['tbody'] = ['align', 'char', 'charoff', 'valign']
+GFM_TAGS['td'] = ['align', 'char', 'charoff', 'colspan', 'rowspan', 'valign']
+GFM_TAGS['tfoot'] = ['align', 'char', 'charoff', 'valign']
+GFM_TAGS['th'] = ['align', 'char', 'charoff', 'colspan', 'rowspan', 'valign']
+GFM_TAGS['thead'] = ['align', 'char', 'charoff', 'valign']
+GFM_TAGS['tr'] = ['align', 'char', 'charoff', 'valign']
+
+markdown_convert_text = Markdown(safe_mode='escape', output_format='html5',
     enable_attributes=False,
-    extensions=['codehilite'],
+    extensions=['codehilite', 'smarty', 'markdown_checklist.extension'],
+    extension_configs={'codehilite': {'css_class': 'syntax'}}
+    ).convert
+
+
+markdown_convert_html = Markdown(safe_mode=False, output_format='html5',
+    enable_attributes=True,
+    extensions=['codehilite', 'smarty', 'markdown_checklist.extension'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
 
@@ -129,11 +154,14 @@ def gfm(text):
     return text
 
 
-def markdown(text):
+def markdown(text, html=False):
     """
     Return Markdown rendered text using GitHub Flavoured Markdown,
     with HTML escaped and syntax-highlighting enabled.
     """
     if text is None:
         return None
-    return markdown_convert(gfm(text))
+    if html:
+        return Markup(sanitize_html(markdown_convert_html(gfm(text)), valid_tags=GFM_TAGS))
+    else:
+        return Markup(markdown_convert_text(gfm(text)))

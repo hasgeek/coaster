@@ -5,6 +5,7 @@
 * New util: base_domain_matches compares if two domains have the same base domain.
 * utils.make_name now returns ASCII slugs instead of Unicode slugs.
 * New: domain_namespace_match function.
+* coaster.gfm.markdown now supports optional HTML markup.
 
 0.4.2
 -----
