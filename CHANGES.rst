@@ -6,6 +6,7 @@
 * utils.make_name now returns ASCII slugs instead of Unicode slugs.
 * New: domain_namespace_match function.
 * coaster.gfm.markdown now supports optional HTML markup.
+* Deprecated sqlalchemy.timestamp_columns, introducing make_timestamp_columns.
 
 0.4.2
 -----
