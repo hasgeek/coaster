@@ -109,6 +109,9 @@ class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects
     """
+    #: Prevent use of these reserved names
+    reserved_names = []
+
     @declared_attr
     def name(cls):
         """The URL name of this object, unique across all instances of this model"""
@@ -134,10 +137,11 @@ class BaseNameMixin(BaseMixin):
         """
         if self.title:
             if self.id:
-                checkused = lambda c: bool(c in reserved or
+                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).count())
             else:
-                checkused = lambda c: bool(c in reserved or self.__class__.query.filter_by(name=c).count())
+                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
+                    self.__class__.query.filter_by(name=c).count())
             self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
 
 
@@ -155,6 +159,9 @@ class BaseScopedNameMixin(BaseMixin):
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('organizer_id', 'name'),)
     """
+    #: Prevent use of these reserved names
+    reserved_names = []
+
     @declared_attr
     def name(cls):
         """The URL name of this object, unique within a parent container"""
@@ -178,11 +185,11 @@ class BaseScopedNameMixin(BaseMixin):
         """
         if self.title:
             if self.id:
-                checkused = lambda c: bool(c in reserved or
+                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter(self.__class__.id != self.id).filter_by(
                     name=c, parent=self.parent).first())
             else:
-                checkused = lambda c: bool(c in reserved or
+                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
             self.name = unicode(make_name(self.short_title(), maxlength=250, checkused=checkused))
 

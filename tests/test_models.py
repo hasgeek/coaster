@@ -47,6 +47,7 @@ class UnnamedDocument(BaseMixin, db.Model):
 
 class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
+    reserved_names = ['new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -55,12 +56,13 @@ class NamedDocument(BaseNameMixin, db.Model):
 
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
+    reserved_names = ['new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
 
     content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('name', 'container_id'),)
+    __table_args__ = (UniqueConstraint('container_id', 'name'),)
 
 
 class IdNamedDocument(BaseIdNameMixin, db.Model):
@@ -78,7 +80,7 @@ class ScopedIdDocument(BaseScopedIdMixin, db.Model):
     parent = synonym('container')
 
     content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
+    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
 
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
@@ -88,7 +90,7 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
     parent = synonym('container')
 
     content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('url_id', 'container_id'),)
+    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
 
 
 class User(BaseMixin, db.Model):
@@ -161,6 +163,7 @@ class TestCoasterModels(unittest.TestCase):
     def test_named(self):
         """Named documents have globally unique names."""
         c1 = self.make_container()
+        # XXX: We don't know why, but this raises a non-Unicode string warning
         d1 = NamedDocument(title=u"Hello", content=u"World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -297,35 +300,28 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d2)
         self.assertRaises(IntegrityError, self.session.commit)
 
-    def test_delayed_name(self):
-        c = self.make_container()
-        d1 = NamedDocument(container=c)
-        d1.title = u'Document 1'
-        d1.make_name()
-        self.session.add(d1)
-        d2 = ScopedNamedDocument(container=c)
-        d2.title = u'Document 2'
-        d2.make_name()
-        self.session.add(d2)
-        d3 = IdNamedDocument(container=c)
-        d3.title = u'Document 3'
-        d3.make_name()
-        self.session.add(d3)
-        d4 = ScopedIdNamedDocument(container=c)
-        d4.title = u'Document 4'
-        d4.make_name()
-        self.session.add(d4)
-        self.session.commit()
-
     def test_reserved_name(self):
         c = self.make_container()
         d1 = NamedDocument(container=c, title=u"New")
-        d1.make_name(reserved=['new'])
-        self.assertEqual(d1.name, 'new2')
+        # 'new' is reserved in the class definition. Also reserve new2 here and
+        # confirm we get new3 for the name
+        d1.make_name(reserved=['new2'])
+        self.assertEqual(d1.name, 'new3')
         d2 = ScopedNamedDocument(container=c, title=u"New")
-        d2.make_name(reserved=['new'])
-        self.assertEqual(d2.name, 'new2')
+        # 'new' is reserved in the class definition. Also reserve new2 here and
+        # confirm we get new3 for the name
+        d2.make_name(reserved=['new2'])
+        self.assertEqual(d2.name, 'new3')
+
+        # Now test again after adding to session. Results should be identical
+        self.session.add(d1)
         self.session.add(d2)
+        self.session.commit()
+
+        d1.make_name(reserved=['new2'])
+        self.assertEqual(d1.name, 'new3')
+        d2.make_name(reserved=['new2'])
+        self.assertEqual(d2.name, 'new3')
 
 
     def test_has_timestamps(self):
