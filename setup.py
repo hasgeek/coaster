@@ -37,6 +37,7 @@ requires = [
     'UgliPyJS',
     'tldextract',
     'unidecode',
+    'py-bcrypt',
     ]
 
 if sys.version_info[0:2] < (2, 7):

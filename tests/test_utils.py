@@ -37,6 +37,8 @@ class TestCoasterUtils(unittest.TestCase):
     def test_check_password(self):
         self.assertFalse(check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword'))
         self.assertTrue(check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword'))
+        self.assertTrue(check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test'))
+        self.assertTrue(check_password(u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi', u'test'))
 
     def test_parse_isoformat(self):
         self.assertEqual(parse_isoformat("1882-12-11T00:00:00.1234Z"), datetime.datetime(1882, 12, 11, 0, 0, 0, 123400))

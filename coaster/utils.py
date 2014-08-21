@@ -16,6 +16,7 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
+import bcrypt
 import pytz
 import tldextract
 from unidecode import unidecode
@@ -151,18 +152,22 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     return candidate
 
 
-def make_password(password, encoding=u'SSHA'):
+def make_password(password, encoding=u'BCRYPT'):
     """
-    Make a password with PLAIN or SSHA encoding.
+    Make a password with PLAIN, SSHA or BCRYPT (default) encoding.
 
     >>> make_password('foo', encoding='PLAIN')
     u'{PLAIN}foo'
     >>> make_password(u'bar', encoding='PLAIN')
     u'{PLAIN}bar'
-    >>> make_password(u're-foo')[:6]
+    >>> make_password(u're-foo', encoding='SSHA')[:6]
     u'{SSHA}'
-    >>> make_password('bar-foo')[:6]
+    >>> make_password('bar-foo', encoding='SSHA')[:6]
     u'{SSHA}'
+    >>> make_password(u're-foo')[:8]
+    u'{BCRYPT}'
+    >>> make_password('bar-foo')[:8]
+    u'{BCRYPT}'
     >>> make_password('foo') == make_password('foo')
     False
     >>> check_password(make_password('ascii'), 'ascii')
@@ -172,7 +177,7 @@ def make_password(password, encoding=u'SSHA'):
     >>> check_password(make_password(u'unicode'), u'unicode')
     True
     """
-    if encoding not in [u'PLAIN', u'SSHA']:
+    if encoding not in [u'PLAIN', u'SSHA', u'BCRYPT']:
         raise ValueError("Unknown encoding %s" % encoding)
     if encoding == u'PLAIN':
         if isinstance(password, str):
@@ -191,7 +196,12 @@ def make_password(password, encoding=u'SSHA'):
             password = password.encode('utf-8')
         else:
             password = str(password)
-        return unicode('{SSHA}%s' % b64encode(hashlib.sha1(password + salt).digest() + salt))
+        return u'{SSHA}%s' % b64encode(hashlib.sha1(password + salt).digest() + salt)
+    elif encoding == u'BCRYPT':
+        # BCRYPT is the recommended hash for secure passwords
+        return u'{BCRYPT}%s' % bcrypt.hashpw(
+            password.encode('utf-8') if isinstance(password, unicode) else password,
+            bcrypt.gensalt())
 
 
 def check_password(reference, attempt):
@@ -211,10 +221,10 @@ def check_password(reference, attempt):
     >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
     True
     """
-    if reference.startswith('{PLAIN}'):
+    if reference.startswith(u'{PLAIN}'):
         if reference[7:] == attempt:
             return True
-    elif reference.startswith('{SSHA}'):
+    elif reference.startswith(u'{SSHA}'):
         try:
             ref = b64decode(reference[6:])
         except TypeError:
@@ -224,6 +234,10 @@ def check_password(reference, attempt):
         salt = ref[20:]
         compare = unicode('{SSHA}%s' % b64encode(hashlib.sha1(attempt + salt).digest() + salt))
         return (compare == reference)
+    elif reference.startswith(u'{BCRYPT}'):
+        return bcrypt.hashpw(
+            attempt.encode('utf-8') if isinstance(attempt, unicode) else attempt,
+            reference[8:]) == reference[8:]
     return False
 
 
@@ -233,35 +247,37 @@ def format_currency(value, decimals=2):
     thousands separated by commas and up to two decimal points.
 
     >>> format_currency(1000)
-    '1,000'
+    u'1,000'
     >>> format_currency(100)
-    '100'
+    u'100'
     >>> format_currency(999.95)
-    '999.95'
+    u'999.95'
     >>> format_currency(99.95)
-    '99.95'
+    u'99.95'
     >>> format_currency(100000)
-    '100,000'
+    u'100,000'
     >>> format_currency(1000.00)
-    '1,000'
+    u'1,000'
     >>> format_currency(1000.41)
-    '1,000.41'
+    u'1,000.41'
     >>> format_currency(23.21, decimals=3)
-    '23.210'
+    u'23.210'
+    >>> format_currency(1000, decimals=3)
+    u'1,000'
     >>> format_currency(123456789.123456789)
-    '123,456,789.12'
+    u'123,456,789.12'
     """
-    number, decimal = (('%%.%df' % decimals) % value).split('.')
+    number, decimal = ((u'%%.%df' % decimals) % value).split(u'.')
     parts = []
     while len(number) > 3:
         part, number = number[-3:], number[:-3]
         parts.append(part)
     parts.append(number)
     parts.reverse()
-    if decimal == '00':
-        return ','.join(parts)
+    if int(decimal) == 0:
+        return u','.join(parts)
     else:
-        return ','.join(parts) + '.' + decimal
+        return u','.join(parts) + u'.' + decimal
 
 
 def md5sum(data):
@@ -413,11 +429,11 @@ VALID_TAGS = {
     }
 
 
-def sanitize_html(value, valid_tags=VALID_TAGS):
+def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):
     """
     Strips unwanted markup out of HTML.
     """
-    return bleach.clean(value, tags=VALID_TAGS.keys(), attributes=VALID_TAGS)
+    return bleach.clean(value, tags=VALID_TAGS.keys(), attributes=VALID_TAGS, strip=strip)
 
 
 def simplify_text(text):
