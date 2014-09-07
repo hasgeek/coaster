@@ -167,7 +167,7 @@ class UglipyJS(Filter):
         self.uglipyjs = uglipyjs
 
     def output(self, _in, out, **kw):
-        out.write(self.uglipyjs.compile(_in.read()))
+        out.write(unicode(self.uglipyjs.compile(_in.read()), 'utf-8'))
 
 
 register_filter(UglipyJS)
