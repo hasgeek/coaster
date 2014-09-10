@@ -487,21 +487,27 @@ def sorted_timezones():
         return hours, minutes
 
     now = datetime.utcnow()
-    # Make a list of timezones, discarding the US/* zones since they aren't reliable for
-    # DST, and discarding GMT since there's also the equivalent UTC.
+    # Make a list of country code mappings
+    timezone_country = {}
+    for countrycode in pytz.country_timezones:
+        for timezone in pytz.country_timezones[countrycode]:
+            timezone_country[timezone] = countrycode
+
+    # Make a list of timezones, discarding the US/* and Canada/* zones since they aren't reliable for
+    # DST, and discarding UTC and GMT since timezones in that zone have their own names
     timezones = [(pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname) for tzname in pytz.common_timezones
-        if not tzname.startswith('US/') and tzname not in ('GMT', 'UTC')]
-    timezones.append((pytz.timezone('UTC').utcoffset(now), 'UTC'))
-    # Sort timezones by offset from UTC.
-    timezones.sort()
-    # Return a list of (timezone, label) with the timezone offset included in the label.
-    return [(name, '%s%s - %s (%s)' % (
+        if not tzname.startswith('US/') and not tzname.startswith('Canada/') and tzname not in ('GMT', 'UTC')]
+    # Sort timezones by offset from UTC and their human-readable name
+    presorted = [(delta, '%s%s - %s: %s (%s)' % (
             (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
             '%02d:%02d' % hourmin(delta),
+            pytz.country_names[timezone_country[name]],
             name.replace('_', ' '),
-            pytz.timezone(name).tzname(now, is_dst=False) if name != 'UTC' else pytz.timezone(name).tzname(now)),
-        ) for delta, name in timezones]
-
+            pytz.timezone(name).tzname(now, is_dst=False)),
+        name) for delta, name in timezones]
+    presorted.sort()
+    # Return a list of (timezone, label) with the timezone offset included in the label.
+    return [(name, label) for (delta, label, name) in presorted]
 
 def namespace_from_url(url):
     """

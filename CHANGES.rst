@@ -7,6 +7,7 @@
 * New: domain_namespace_match function.
 * coaster.gfm.markdown now supports optional HTML markup.
 * Deprecated sqlalchemy.timestamp_columns, introducing make_timestamp_columns.
+* sorted_timezones now includes both country name and timezone name.
 
 0.4.2
 -----
