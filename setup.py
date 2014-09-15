@@ -24,7 +24,6 @@ requires = [
     'semantic_version',
     'pytz',
     'markdown>=2.4.1',
-    'markdown-checklist',
     'bleach',
     'Pygments',
     'docflow',

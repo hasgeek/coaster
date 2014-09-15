@@ -35,14 +35,14 @@ GFM_TAGS['tr'] = ['align', 'char', 'charoff', 'valign']
 
 markdown_convert_text = Markdown(safe_mode='escape', output_format='html5',
     enable_attributes=False,
-    extensions=['codehilite', 'smarty', 'markdown_checklist.extension'],
+    extensions=['codehilite', 'smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
 
 
 markdown_convert_html = Markdown(safe_mode=False, output_format='html5',
     enable_attributes=True,
-    extensions=['codehilite', 'smarty', 'markdown_checklist.extension'],
+    extensions=['codehilite', 'smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
 
