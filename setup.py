@@ -39,9 +39,6 @@ requires = [
     'py-bcrypt',
     ]
 
-if sys.version_info[0:2] < (2, 7):
-    requires.append('ordereddict')
-
 
 setup(name='coaster',
     version=version,
@@ -49,7 +46,6 @@ setup(name='coaster',
     long_description=README + '\n\n' + CHANGES,
     classifiers=[
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",

@@ -17,7 +17,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
 app2 = Flask(__name__)
-app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://:@localhost:5432/coaster_test'
+app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://:@localhost:5432/coaster_test'
 db.init_app(app1)
 db.init_app(app2)
 

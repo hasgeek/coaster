@@ -10,11 +10,7 @@ import string
 import re
 from urlparse import urlparse
 
-from collections import namedtuple
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+from collections import namedtuple, OrderedDict
 
 import bcrypt
 import pytz
