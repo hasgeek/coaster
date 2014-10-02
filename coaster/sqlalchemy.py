@@ -36,6 +36,9 @@ class Query(BaseQuery):
         except NoResultFound:
             return None
 
+    def notempty(self):
+        return self.session.query(self.exists()).first()[0]
+
 
 class IdMixin(object):
     """

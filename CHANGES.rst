@@ -8,6 +8,7 @@
 * coaster.gfm.markdown now supports optional HTML markup.
 * Deprecated sqlalchemy.timestamp_columns, introducing make_timestamp_columns.
 * sorted_timezones now includes both country name and timezone name.
+* Base query now has a notempty() method that is more efficient than bool(count()).
 
 0.4.2
 -----
