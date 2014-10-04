@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+import six
 from datetime import datetime
 from random import randint, randrange
 import uuid
@@ -569,7 +570,31 @@ def domain_namespace_match(domain, namespace):
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 
-class LabeledEnum(object):
+class _LabeledEnumMeta(type):
+    """Construct labeled enumeration"""
+    def __new__(cls, name, bases, attrs):
+        labels = {}
+        for key, value in tuple(attrs.items()):
+            if isinstance(value, tuple):
+                if len(value) == 2:
+                    labels[value[0]] = value[1]
+                    attrs[key] = value[0]
+                elif len(value) == 3:
+                    labels[value[0]] = NameTitle(value[1], value[2])
+                    attrs[key] = value[0]
+
+        sorted_labels = OrderedDict(sorted(labels.items()))
+        attrs['__labels__'] = sorted_labels
+        return type.__new__(cls, name, bases, attrs)
+
+    def __getitem__(cls, key):
+        return cls.__labels__[key]
+
+    def __setitem__(cls, key, value):
+        raise TypeError("LabeledEnum is immutable")
+
+
+class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     """
     Labeled enumerations. Declarate an enumeration with values and labels
     (for use in UI)::
@@ -631,36 +656,17 @@ class LabeledEnum(object):
         >>> NAME_ENUM.value_for('second')
         2
     """
-    class __metaclass__(type):
-        """Construct labeled enumeration"""
-        def __new__(cls, name, bases, attrs):
-            labels = {}
-            for key, value in tuple(attrs.items()):
-                if isinstance(value, tuple):
-                    if len(value) == 2:
-                        labels[value[0]] = value[1]
-                        attrs[key] = value[0]
-                    elif len(value) == 3:
-                        labels[value[0]] = NameTitle(value[1], value[2])
-                        attrs[key] = value[0]
 
-            sorted_labels = OrderedDict(sorted(labels.items()))
-            attrs['__labels__'] = sorted_labels
-            return type.__new__(cls, name, bases, attrs)
+    @classmethod
+    def get(cls, key, default=None):
+        return cls.__labels__.get(key, default)
 
-        def __getitem__(cls, key):
-            return cls.__labels__[key]
+    @classmethod
+    def items(cls):
+        return cls.__labels__.items()
 
-        def __setitem__(cls, key, value):
-            raise TypeError("LabeledEnum is immutable")
-
-        def get(cls, key, default=None):
-            return cls.__labels__.get(key, default)
-
-        def items(cls):
-            return cls.__labels__.items()
-
-        def value_for(cls, name):
-            for key, value in cls.__labels__.items():
-                if isinstance(value, NameTitle) and value.name == name:
-                    return key
+    @classmethod
+    def value_for(cls, name):
+        for key, value in cls.__labels__.items():
+            if isinstance(value, NameTitle) and value.name == name:
+                return key

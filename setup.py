@@ -16,6 +16,7 @@ else:
 
 
 requires = [
+    'six',
     'Flask',
     'markupsafe',
     'werkzeug',
