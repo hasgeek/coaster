@@ -141,10 +141,10 @@ class BaseNameMixin(BaseMixin):
         if self.title:
             if self.id:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).count())
+                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
             else:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter_by(name=c).count())
+                    self.__class__.query.filter_by(name=c).notempty())
             self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
 
 
