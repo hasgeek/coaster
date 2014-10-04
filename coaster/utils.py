@@ -608,7 +608,7 @@ class LabeledEnum(object):
         [(1, 'First'), (2, 'Second'), (3, 'Third')]
 
     Three value tuples are assumed to be (value, name, title) and the name and
-    title are converted into NameTitle(name, title):
+    title are converted into NameTitle(name, title)::
 
         >>> class NAME_ENUM(LabeledEnum):
         ...    FIRST = (1, 'first', "First")
@@ -623,6 +623,13 @@ class LabeledEnum(object):
         'second'
         >>> NAME_ENUM[NAME_ENUM.THIRD].title
         'Third'
+
+    Given a name, the value can be looked up::
+
+        >>> NAME_ENUM.value_for('first')
+        1
+        >>> NAME_ENUM.value_for('second')
+        2
     """
     class __metaclass__(type):
         """Construct labeled enumeration"""
@@ -650,6 +657,10 @@ class LabeledEnum(object):
         def get(cls, key, default=None):
             return cls.__labels__.get(key, default)
 
-    @classmethod
-    def items(cls):
-        return cls.__labels__.items()
+        def items(cls):
+            return cls.__labels__.items()
+
+        def value_for(cls, name):
+            for key, value in cls.__labels__.items():
+                if isinstance(value, NameTitle) and value.name == name:
+                    return key
