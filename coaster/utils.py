@@ -543,10 +543,9 @@ def base_domain_matches(d1, d2):
     """
     r1 = tldextract.extract(d1)
     r2 = tldextract.extract(d2)
-    if r1.domain == r2.domain and r1.suffix == r2.suffix:
-        return True
-    else:
-        return False
+    # r1 and r2 contain subdomain, domain and suffix.
+    # We want to confirm that domain and suffix match.
+    return r1.domain == r2.domain and r1.suffix == r2.suffix
 
 
 def domain_namespace_match(domain, namespace):
