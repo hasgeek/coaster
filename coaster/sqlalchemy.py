@@ -145,7 +145,8 @@ class BaseNameMixin(BaseMixin):
             else:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c).notempty())
-            self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
+            with self.__class__.query.session.no_autoflush:
+                self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -194,7 +195,8 @@ class BaseScopedNameMixin(BaseMixin):
             else:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
-            self.name = unicode(make_name(self.short_title(), maxlength=250, checkused=checkused))
+            with self.__class__.query.session.no_autoflush:
+                self.name = unicode(make_name(self.short_title(), maxlength=250, checkused=checkused))
 
     def short_title(self):
         """
