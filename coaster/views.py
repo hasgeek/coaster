@@ -17,9 +17,9 @@ def __index_url():
     try:
         return url_for('index')
     except BuildError:
-        try:
+        if request:
             return request.script_root
-        except RuntimeError:
+        else:
             return '/'
 
 
@@ -165,24 +165,20 @@ def requestargs(*vars):
         def decorated_function(**kw):
             for name, filt, is_list in namefilt:
                 if name not in kw:
-                    try:
-                        if name in request.values:
-                            if filt is None:
-                                if is_list:
-                                    kw[name] = request.values.getlist(name)
-                                else:
-                                    kw[name] = request.values[name]
+                    if request and name in request.values:
+                        if filt is None:
+                            if is_list:
+                                kw[name] = request.values.getlist(name)
                             else:
-                                try:
-                                    if is_list:
-                                        kw[name] = [filt(v) for v in request.values.getlist(name)]
-                                    else:
-                                        kw[name] = filt(request.values[name])
-                                except ValueError, e:
-                                    raise RequestValueError(e)
-                    except RuntimeError:
-                        # Not in a request context so no request.args/form.
-                        pass
+                                kw[name] = request.values[name]
+                        else:
+                            try:
+                                if is_list:
+                                    kw[name] = [filt(v) for v in request.values.getlist(name)]
+                                else:
+                                    kw[name] = filt(request.values[name])
+                            except ValueError, e:
+                                raise RequestValueError(e)
             try:
                 return f(**kw)
             except TypeError, e:
@@ -312,13 +308,8 @@ def load_models(*chain, **kwargs):
                             url_key = v
                             url_name = kw.get(url_key)
                             parts = url_name.split('-')
-                            try:
-                                if request.method == 'GET':
-                                    url_check = True
-                            except RuntimeError:
-                                # We're not in a Flask request context, so there's no point
-                                # trying to redirect to a correct URL
-                                pass
+                            if request and request.method == 'GET':
+                                url_check = True
                             try:
                                 url_id = int(parts[0])
                             except ValueError:
@@ -355,10 +346,8 @@ def load_models(*chain, **kwargs):
                     if callable(addlperms):
                         addlperms = addlperms() or []
                     permissions.update(addlperms)
-                try:
+                if g:
                     g.permissions = permissions
-                except RuntimeError:
-                    pass
                 if url_check:
                     if item.url_name != url_name:
                         # The url_name doesn't match.
@@ -485,20 +474,17 @@ def render_with(template, json=True):
 
             # Find a matching mimetype between Accept headers and available templates
             use_mimetype = None
-            if render:
-                try:
-                    mimetypes = [m.strip() for m in request.headers.get(
-                        'Accept', '').replace(';', ',').split(',') if '/' in m]
-                    use_mimetype = None
-                    for mimetype in mimetypes:
-                        if mimetype in templates:
-                            use_mimetype = mimetype
-                            break
-                    if use_mimetype is None:
-                        if '*/*' in templates:
-                            use_mimetype = '*/*'
-                except RuntimeError:  # Not in a request context
-                    pass
+            if render and request:
+                mimetypes = [m.strip() for m in request.headers.get(
+                    'Accept', '').replace(';', ',').split(',') if '/' in m]
+                use_mimetype = None
+                for mimetype in mimetypes:
+                    if mimetype in templates:
+                        use_mimetype = mimetype
+                        break
+                if use_mimetype is None:
+                    if '*/*' in templates:
+                        use_mimetype = '*/*'
 
             # Now render the result with the template for the mimetype
             if use_mimetype is not None:
