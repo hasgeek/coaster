@@ -2,7 +2,7 @@
 
 import datetime
 import unittest
-from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url
+from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url, deobfuscate_email
 
 
 class MY_ENUM(LabeledEnum):
@@ -64,3 +64,25 @@ class TestCoasterUtils(unittest.TestCase):
         # Return string type is the input type
         self.assertTrue(isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), unicode))
         self.assertTrue(isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str))
+
+    def test_deobfuscate_email(self):
+        input = """
+        test at example dot com
+        test@example dot com
+        test at example.com
+        test[at]example[dot]com
+        test{at}example(dot)com
+        For real, mail me at hahaha at example dot com.
+        Laughing at polka-dot commercials
+        Quick attack. Organize resistance.
+        We are at lunch. Come over.
+        """
+        output = """
+        test@example.com
+        test@example.com
+        test@example.com
+        test@example.com
+        test@example.com
+        For real, mail me@hahaha@example.com.Laughing@polka.commercials
+        Quick attack.Organize resistance.We are@lunch.Come over."""
+        self.assertEqual(deobfuscate_email(input), output)

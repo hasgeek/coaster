@@ -9,6 +9,7 @@
 * Deprecated sqlalchemy.timestamp_columns, introducing make_timestamp_columns.
 * sorted_timezones now includes both country name and timezone name.
 * Base query now has a notempty() method that is more efficient than bool(count()).
+* New util: deobfuscate_email deobfuscates common email obfuscation patterns.
 
 0.4.2
 -----

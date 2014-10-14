@@ -19,6 +19,13 @@ import tldextract
 from unidecode import unidecode
 import bleach
 
+if six.PY3:
+    from html import unescape
+else:
+    import HTMLParser
+    unescape = HTMLParser.HTMLParser().unescape
+    del HTMLParser
+
 from ._version import *
 
 
@@ -431,6 +438,32 @@ def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):
     Strips unwanted markup out of HTML.
     """
     return bleach.clean(value, tags=VALID_TAGS.keys(), attributes=VALID_TAGS, strip=strip)
+
+
+# Based on http://jasonpriem.org/obfuscation-decoder/
+_deobfuscate_dot1_re = re.compile(r'\W*\.\W*|\W+dot\W+|\W+d0t\W+', re.U | re.I)
+_deobfuscate_dot2_re = re.compile(r'([a-z0-9])DOT([a-z0-9])')
+_deobfuscate_dot3_re = re.compile(r'([A-Z0-9])dot([A-Z0-9])')
+_deobfuscate_at1_re = re.compile(r'\W*@\W*|\W+at\W+', re.U | re.I)
+_deobfuscate_at2_re = re.compile(r'([a-z0-9])AT([a-z0-9])')
+_deobfuscate_at3_re = re.compile(r'([A-Z0-9])at([A-Z0-9])')
+
+
+def deobfuscate_email(text):
+    """
+    Deobfuscate email addresses in provided text
+    """
+    text = unescape(text)
+    # Find the "dot"
+    text = _deobfuscate_dot1_re.sub('.', text)
+    text = _deobfuscate_dot2_re.sub(r'\1.\2', text)
+    text = _deobfuscate_dot3_re.sub(r'\1.\2', text)
+    # Find the "at"
+    text = _deobfuscate_at1_re.sub('@', text)
+    text = _deobfuscate_at2_re.sub(r'\1@\2', text)
+    text = _deobfuscate_at3_re.sub(r'\1@\2', text)
+
+    return text
 
 
 def simplify_text(text):
