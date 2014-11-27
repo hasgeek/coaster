@@ -54,8 +54,14 @@ class NamedDocument(BaseNameMixin, db.Model):
     content = Column(Unicode(250))
 
 
-class NamedDocumentBlank(NamedDocument):
-    __name_blank_allowed = True
+class NamedDocumentBlank(BaseNameMixin, db.Model):
+    __tablename__ = 'named_document_blank'
+    __name_blank_allowed__ = True
+    reserved_names = ['new']
+    container_id = Column(Integer, ForeignKey('container.id'))
+    container = relationship(Container)
+
+    content = Column(Unicode(250))
 
 
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
