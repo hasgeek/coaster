@@ -111,10 +111,26 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
 class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects
+
+    .. versionchanged:: 0.5.0
+        If you used BaseNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
+    #: Allow blank names after all?
     __name_blank_allowed__ = False
+    #: How long should names and titles be?
     __name_length__ = __title_length__ = 250
 
     @declared_attr
@@ -163,14 +179,30 @@ class BaseScopedNameMixin(BaseMixin):
 
         class Event(BaseScopedNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
+            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('organizer_id', 'name'),)
+
+    .. versionchanged:: 0.5.0
+        If you used BaseScopedNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
+    #: Allow blank names after all?
     __name_blank_allowed__ = False
+    #: How long should names and titles be?
     __name_length__ = __title_length__ = 250
 
     @declared_attr
@@ -232,8 +264,24 @@ class BaseScopedNameMixin(BaseMixin):
 class BaseIdNameMixin(BaseMixin):
     """
     Base mixin class for named objects with an id tag.
+
+    .. versionchanged:: 0.5.0
+        If you used BaseIdNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
+    #: Allow blank names after all?
     __name_blank_allowed__ = False
+    #: How long should names and titles be?
     __name_length__ = __title_length__ = 250
 
     @declared_attr
@@ -282,10 +330,11 @@ class BaseScopedIdMixin(BaseMixin):
 
         class Issue(BaseScopedIdMixin, db.Model):
             __tablename__ = 'issue'
-            event_id = db.Column(Integer, db.ForeignKey('event.id'))
+            event_id = db.Column(None, db.ForeignKey('event.id'))
             event = db.relationship(Event)
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
+
     """
     @declared_attr
     def url_id(cls):
@@ -325,12 +374,28 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
         class Event(BaseScopedIdNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
+            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('organizer_id', 'url_id'),)
+
+    .. versionchanged:: 0.5.0
+        If you used BaseScopedIdNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
+    #: Allow blank names after all?
     __name_blank_allowed__ = False
+    #: How long should names and titles be?
     __name_length__ = __title_length__ = 250
 
     @declared_attr
