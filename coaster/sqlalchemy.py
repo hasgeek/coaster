@@ -37,6 +37,11 @@ class Query(BaseQuery):
             return None
 
     def notempty(self):
+        """
+        Returns the equivalent of ``bool(query.count())`` but using an efficient
+        SQL EXISTS function, so the database stops counting after the first result
+        is found.
+        """
         return self.session.query(self.exists()).first()[0]
 
 
