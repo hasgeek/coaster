@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 from datetime import datetime
 import simplejson
-from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText
+from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -111,19 +111,40 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
 class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects
+
+    .. versionchanged:: 0.5.0
+        If you used BaseNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
+    #: Allow blank names after all?
+    __name_blank_allowed__ = False
+    #: How long should names and titles be?
+    __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this object, unique across all instances of this model"""
-        return Column(Unicode(250), nullable=False, unique=True)
+        if cls.__name_blank_allowed__:
+            return Column(Unicode(cls.__name_length__), nullable=False, unique=True)
+        else:
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False, unique=True)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(250), nullable=False)
+        return Column(Unicode(cls.__title_length__), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseNameMixin, self).__init__(*args, **kw)
@@ -146,7 +167,7 @@ class BaseNameMixin(BaseMixin):
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c).notempty())
             with self.__class__.query.session.no_autoflush:
-                self.name = unicode(make_name(self.title, maxlength=250, checkused=checkused))
+                self.name = unicode(make_name(self.title, maxlength=self.__name_length__, checkused=checkused))
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -158,23 +179,44 @@ class BaseScopedNameMixin(BaseMixin):
 
         class Event(BaseScopedNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
+            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('organizer_id', 'name'),)
+
+    .. versionchanged:: 0.5.0
+        If you used BaseScopedNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
+    #: Allow blank names after all?
+    __name_blank_allowed__ = False
+    #: How long should names and titles be?
+    __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this object, unique within a parent container"""
-        return Column(Unicode(250), nullable=False)
+        if cls.__name_blank_allowed__:
+            return Column(Unicode(cls.__name_length__), nullable=False)
+        else:
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(250), nullable=False)
+        return Column(Unicode(cls.__title_length__), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
@@ -196,7 +238,7 @@ class BaseScopedNameMixin(BaseMixin):
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
             with self.__class__.query.session.no_autoflush:
-                self.name = unicode(make_name(self.short_title(), maxlength=250, checkused=checkused))
+                self.name = unicode(make_name(self.short_title(), maxlength=self.__name_length__, checkused=checkused))
 
     def short_title(self):
         """
@@ -222,16 +264,38 @@ class BaseScopedNameMixin(BaseMixin):
 class BaseIdNameMixin(BaseMixin):
     """
     Base mixin class for named objects with an id tag.
+
+    .. versionchanged:: 0.5.0
+        If you used BaseIdNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
+    #: Allow blank names after all?
+    __name_blank_allowed__ = False
+    #: How long should names and titles be?
+    __name_length__ = __title_length__ = 250
+
     @declared_attr
     def name(cls):
         """The URL name of this object, non-unique"""
-        return Column(Unicode(250), nullable=False)
+        if cls.__name_blank_allowed__:
+            return Column(Unicode(cls.__name_length__), nullable=False)
+        else:
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(250), nullable=False)
+        return Column(Unicode(cls.__title_length__), nullable=False)
 
     #: The attribute containing id numbers used in the URL in id-name syntax, for external reference
     url_id_attr = 'id'
@@ -244,7 +308,7 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
-            self.name = unicode(make_name(self.title, maxlength=250))
+            self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
     @property
     def url_id(self):
@@ -266,10 +330,11 @@ class BaseScopedIdMixin(BaseMixin):
 
         class Issue(BaseScopedIdMixin, db.Model):
             __tablename__ = 'issue'
-            event_id = db.Column(Integer, db.ForeignKey('event.id'))
+            event_id = db.Column(None, db.ForeignKey('event.id'))
             event = db.relationship(Event)
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
+
     """
     @declared_attr
     def url_id(cls):
@@ -309,20 +374,42 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
         class Event(BaseScopedIdNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(db.Integer, db.ForeignKey('organizer.id'))
+            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
             organizer = db.relationship(Organizer)
             parent = db.synonym('organizer')
             __table_args__ = (db.UniqueConstraint('organizer_id', 'url_id'),)
+
+    .. versionchanged:: 0.5.0
+        If you used BaseScopedIdNameMixin in your app before Coaster 0.5.0:
+        :attr:`name` can no longer be a blank string in addition to being
+        non-null. This is configurable and enforced with a SQL CHECK constraint,
+        which needs a database migration:
+
+    ::
+
+        for tablename in ['named_table1', 'named_table2', ...]:
+            # Drop CHECK constraint first in case it was already present
+            op.drop_constraint(tablename + '_name_check', tablename)
+            # Create CHECK constraint
+            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
     """
+    #: Allow blank names after all?
+    __name_blank_allowed__ = False
+    #: How long should names and titles be?
+    __name_length__ = __title_length__ = 250
+
     @declared_attr
     def name(cls):
         """The URL name of this instance, non-unique"""
-        return Column(Unicode(250), nullable=False)
+        if cls.__name_blank_allowed__:
+            return Column(Unicode(cls.__name_length__), nullable=False)
+        else:
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this instance"""
-        return Column(Unicode(250), nullable=False)
+        return Column(Unicode(cls.__title_length__), nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
@@ -334,7 +421,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = unicode(make_name(self.title, maxlength=250))
+            self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
     @property
     def url_name(self):

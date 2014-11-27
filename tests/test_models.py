@@ -54,6 +54,16 @@ class NamedDocument(BaseNameMixin, db.Model):
     content = Column(Unicode(250))
 
 
+class NamedDocumentBlank(BaseNameMixin, db.Model):
+    __tablename__ = 'named_document_blank'
+    __name_blank_allowed__ = True
+    reserved_names = ['new']
+    container_id = Column(Integer, ForeignKey('container.id'))
+    container = relationship(Container)
+
+    content = Column(Unicode(250))
+
+
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
@@ -174,6 +184,24 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d2)
         self.session.commit()
         self.assertEqual(d2.name, u'hello2')
+
+    # TODO: Versions of this test are required for BaseNameMixin,
+    # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
+    # since they replicate code without sharing it. Only BaseNameMixin
+    # is tested here.
+    def test_named_blank_disallowed(self):
+        c1 = self.make_container()
+        d1 = NamedDocument(title=u"Index", name=u"", container=c1)
+        d1.name = u""  # BaseNameMixin will always try to set a name. Explicitly blank it.
+        self.session.add(d1)
+        self.assertRaises(IntegrityError, self.session.commit)
+
+    def test_named_blank_allowed(self):
+        c1 = self.make_container()
+        d1 = NamedDocumentBlank(title=u"Index", name=u"", container=c1)
+        d1.name = u""  # BaseNameMixin will always try to set a name. Explicitly blank it.
+        self.session.add(d1)
+        self.assertEqual(d1.name, u"")
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
