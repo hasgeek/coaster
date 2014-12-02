@@ -238,7 +238,7 @@ class BaseScopedNameMixin(BaseMixin):
             if self.id:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter(self.__class__.id != self.id).filter_by(
-                    name=c, parent=self.parent).first())
+                        name=c, parent=self.parent).first())
             else:
                 checkused = lambda c: bool(c in reserved or c in self.reserved_names or
                     self.__class__.query.filter_by(name=c, parent=self.parent).first())
@@ -251,7 +251,9 @@ class BaseScopedNameMixin(BaseMixin):
         """
         if self.title and self.parent is not None and hasattr(self.parent, 'title') and self.parent.title:
             if self.title.startswith(self.parent.title):
-                return self.title[len(self.parent.title):].strip()
+                short = self.title[len(self.parent.title):].strip()
+                if short:
+                    return short
         return self.title
 
     def permissions(self, user, inherited=None):
