@@ -26,7 +26,7 @@ else:
     unescape = HTMLParser.HTMLParser().unescape
     del HTMLParser
 
-from ._version import *
+from ._version import *  # NOQA
 
 
 # --- Common delimiters and punctuation ---------------------------------------

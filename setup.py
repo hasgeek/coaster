@@ -1,4 +1,3 @@
-import sys
 import os
 import re
 from setuptools import setup
@@ -27,7 +26,7 @@ requires = [
     'markdown>=2.4.1',
     'bleach',
     'Pygments',
-    'docflow',
+    'docflow>=0.3.2',
     'SQLAlchemy',
     'Flask-SQLAlchemy',
     'Flask-Script==0.5.3',
