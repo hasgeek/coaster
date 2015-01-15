@@ -448,6 +448,13 @@ class JsonType(UserDefinedType):
         return "JSON"
 
 
+class JsonbType(UserDefinedType):
+    """The PostgreSQL JSONB type."""
+
+    def get_col_spec(self):
+        return "JSONB"
+
+
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
 
 class JsonDict(TypeDecorator):
@@ -459,16 +466,13 @@ class JsonDict(TypeDecorator):
 
     impl = TEXT
 
-    def _has_json(self, dialect):
-        if dialect.name == 'postgresql':
-            version = dialect.server_version_info
-            if (version[0] == 9 and version[1] >= 2) or version[0] > 9:
-                return True
-        return False
-
     def load_dialect_impl(self, dialect):
-        if self._has_json(dialect):
-            return dialect.type_descriptor(JsonType)
+        if dialect.name == 'postgresql':
+            version = tuple(dialect.server_version_info[:2])
+            if version in [(9, 2), (9, 3)]:
+                return dialect.type_descriptor(JsonType)
+            elif version >= (9, 4):
+                return dialect.type_descriptor(JsonbType)
         return dialect.type_descriptor(self.impl)
 
     def process_bind_param(self, value, dialect):
