@@ -438,7 +438,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
 # --- Column types ------------------------------------------------------------
 
-__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn']
+__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'CoordinatesColumn']
 
 
 class JsonType(UserDefinedType):
@@ -592,6 +592,33 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
         )
+
+
+class Coordinates(object):
+    def __init__(self, longitude, latitude):
+        self.longitude = longitude
+        self.latitude = latitude
+
+    def __composite_values__(self):
+        return self.longitude, self.latitude
+
+    def __repr__(self):
+        return "Point(longitude=%r, latitude=%r)" % (self.longitude, self.latitude)
+
+    def __eq__(self, other):
+        return isinstance(other, Point) and other.longitude == self.longitude and other.latitude == self.latitude
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+def CoordinatesColumn(name="", deferred=False, group=None, **kwargs):
+    name = name + '_' if name else ''
+    return composite(Coordinates,
+        Column(name + 'longitude', Numeric, **kwargs),
+        Column(name + 'latitude', Numeric, **kwargs),
+        deferred=deferred, group=group or name or 'coordinates'
+    )
 
 
 __all__ = __all_mixins + __all_columns
