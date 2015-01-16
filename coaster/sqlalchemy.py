@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 from datetime import datetime
 import simplejson
-from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint
+from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
