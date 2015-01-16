@@ -438,7 +438,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
 # --- Column types ------------------------------------------------------------
 
-__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'CoordinatesColumn']
+__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'LongitudeLatitude', 'LongitudeLatitudeColumns']
 
 
 class JsonType(UserDefinedType):
@@ -594,8 +594,8 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         )
 
 
-class Coordinates(object):
-    def __init__(self, longitude, latitude):
+class LongitudeLatitude(MutableComposite):
+    def __init__(self, longitude=None, latitude=None):
         self.longitude = longitude
         self.latitude = latitude
 
@@ -603,21 +603,37 @@ class Coordinates(object):
         return self.longitude, self.latitude
 
     def __repr__(self):
-        return "Point(longitude=%r, latitude=%r)" % (self.longitude, self.latitude)
+        return "LongitudeLatitude(longitude=%r, latitude=%r)" % (self.longitude, self.latitude)
 
     def __eq__(self, other):
-        return isinstance(other, Point) and other.longitude == self.longitude and other.latitude == self.latitude
+        if isinstance(other, (tuple, list)):
+            other = LongitudeLatitude(*other)
+        return isinstance(other, LongitudeLatitude) and other.longitude == self.longitude and other.latitude == self.latitude
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    # Return state for pickling
+    def __getstate__(self):
+        return (self.longitude, self.latitude)
 
-def CoordinatesColumn(name="", deferred=False, group=None, **kwargs):
+    # Set state from pickle
+    def __setstate__(self, state):
+        object.__setattr__(self, 'longitude', state[0])
+        object.__setattr__(self, 'latitude', state[1])
+        self.changed()
+
+    @classmethod
+    def coerce(cls, key, value):
+        return cls(*value)
+
+
+def LongitudeLatitudeColumns(name='', deferred=False, group=None, **kwargs):
     name = name + '_' if name else ''
-    return composite(Coordinates,
+    return composite(LongitudeLatitude,
         Column(name + 'longitude', Numeric, **kwargs),
         Column(name + 'latitude', Numeric, **kwargs),
-        deferred=deferred, group=group or name or 'coordinates'
+        deferred=deferred, group=group or name or 'longitudelatitude'
     )
 
 
