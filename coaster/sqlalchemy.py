@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 from datetime import datetime
 import simplejson
-from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint
+from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -18,7 +18,7 @@ from .gfm import markdown
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin']
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin']
 
 
 class Query(BaseQuery):
@@ -434,6 +434,24 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def url_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
         return '%d-%s' % (self.url_id, self.name)
+
+
+class CoordinatesMixin(object):
+    """
+    Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand :attr:`coordinates`
+    property that returns both.
+    """
+
+    latitude = Column(Numeric)
+    longitude = Column(Numeric)
+
+    @property
+    def coordinates(self):
+        return self.latitude, self.longitude
+
+    @coordinates.setter
+    def coordinates(self, value):
+        self.latitude, self.longitude = value
 
 
 # --- Column types ------------------------------------------------------------
