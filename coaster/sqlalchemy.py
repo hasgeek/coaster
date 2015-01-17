@@ -18,7 +18,7 @@ from .gfm import markdown
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin']
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin']
 
 
 class Query(BaseQuery):
@@ -436,9 +436,27 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return '%d-%s' % (self.url_id, self.name)
 
 
+class CoordinatesMixin(object):
+    """
+    Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand :attr:`coordinates`
+    property that returns both.
+    """
+
+    latitude = Column(Numeric)
+    longitude = Column(Numeric)
+
+    @property
+    def coordinates(self):
+        return self.latitude, self.longitude
+
+    @coordinates.setter
+    def coordinates(self, value):
+        self.latitude, self.longitude = value
+
+
 # --- Column types ------------------------------------------------------------
 
-__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'LongitudeLatitude', 'LongitudeLatitudeColumns']
+__all_columns = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn']
 
 
 class JsonType(UserDefinedType):
@@ -592,49 +610,6 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
         )
-
-
-class LongitudeLatitude(MutableComposite):
-    def __init__(self, longitude=None, latitude=None):
-        self.longitude = longitude
-        self.latitude = latitude
-
-    def __composite_values__(self):
-        return self.longitude, self.latitude
-
-    def __repr__(self):
-        return "LongitudeLatitude(longitude=%r, latitude=%r)" % (self.longitude, self.latitude)
-
-    def __eq__(self, other):
-        if isinstance(other, (tuple, list)):
-            other = LongitudeLatitude(*other)
-        return isinstance(other, LongitudeLatitude) and other.longitude == self.longitude and other.latitude == self.latitude
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    # Return state for pickling
-    def __getstate__(self):
-        return (self.longitude, self.latitude)
-
-    # Set state from pickle
-    def __setstate__(self, state):
-        object.__setattr__(self, 'longitude', state[0])
-        object.__setattr__(self, 'latitude', state[1])
-        self.changed()
-
-    @classmethod
-    def coerce(cls, key, value):
-        return cls(*value)
-
-
-def LongitudeLatitudeColumns(name='', deferred=False, group=None, **kwargs):
-    name = name + '_' if name else ''
-    return composite(LongitudeLatitude,
-        Column(name + 'longitude', Numeric, **kwargs),
-        Column(name + 'latitude', Numeric, **kwargs),
-        deferred=deferred, group=group or name or 'longitudelatitude'
-    )
 
 
 __all__ = __all_mixins + __all_columns

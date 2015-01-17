@@ -3,6 +3,7 @@
 * Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version
   number since this is a non-breaking incompatible change.
 * JsonDict now uses JSONB on PostgreSQL 9.4.
+* New CoordinatesMixin adds latitude and longitude columns.
 
 0.4.3
 -----

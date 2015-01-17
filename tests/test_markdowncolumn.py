@@ -73,7 +73,6 @@ class TestMarkdownColumn(unittest.TestCase):
         self.assertEqual(data.value.__str__(), text)
         self.assertEqual(data.value.__html__(), real_html)
 
-
     def test_raw_value(self):
         text = u"This is the text"
         data = MarkdownData()
