@@ -24,6 +24,7 @@ requires = [
     'semantic_version',
     'pytz',
     'markdown>=2.4.1',
+    'html5lib',
     'bleach',
     'Pygments',
     'docflow>=0.3.2',
@@ -37,6 +38,7 @@ requires = [
     'tldextract',
     'unidecode',
     'py-bcrypt',
+    'nltk',
     ]
 
 
