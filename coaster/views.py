@@ -37,8 +37,14 @@ def __clean_external_url(url):
 
 def get_current_url():
     """
-    Return the current URL including the query string as a relative path.
+    Return the current URL including the query string as a relative path. If the app uses subdomains,
+    return an absolute path
     """
+    if current_app.config.get('SERVER_NAME') and (
+            # Check current hostname against server name, ignoring port numbers, if any (split on ':')
+            request.environ['HTTP_HOST'].split(':', 1)[0] != current_app.config['SERVER_NAME'].split(':', 1)[0]):
+        return request.url
+
     url = url_for(request.endpoint, **request.view_args)
     query = request.environ.get('QUERY_STRING')
     if query:

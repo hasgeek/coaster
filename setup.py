@@ -38,7 +38,7 @@ requires = [
     'tldextract',
     'unidecode',
     'py-bcrypt',
-    'nltk',
+    'nltk>=3.0',
     ]
 
 

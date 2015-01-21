@@ -3,7 +3,7 @@
 import unittest
 from flask import Flask, session, json
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs, RequestTypeError, BadRequest
+from coaster.views import get_current_url, get_next_url, jsonp, requestargs, BadRequest
 
 
 def index():
@@ -12,6 +12,10 @@ def index():
 
 def external():
     return "external"
+
+
+def somewhere():
+    return "somewhere"
 
 
 @requestargs('p1', ('p2', int), ('p3[]', int))
@@ -30,6 +34,7 @@ class TestCoasterViews(unittest.TestCase):
         load_config_from_file(self.app, "settings.py")
         self.app.add_url_rule('/', 'index', index)
         self.app.add_url_rule('/', 'external', external)
+        self.app.add_url_rule('/somewhere', 'somewhere', )
 
     def test_get_current_url(self):
         with self.app.test_request_context('/'):
@@ -38,12 +43,20 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?q=hasgeek'):
             self.assertEqual(get_current_url(), '/?q=hasgeek')
 
+        self.app.config['SERVER_NAME'] = 'example.com'
+
+        with self.app.test_request_context('/somewhere', environ_overrides={'HTTP_HOST': 'example.com'}):
+            self.assertEqual(get_current_url(), '/somewhere')
+
+        with self.app.test_request_context('/somewhere', environ_overrides={'HTTP_HOST': 'sub.example.com'}):
+            self.assertEqual(get_current_url(), 'http://sub.example.com/somewhere')
+
     def test_get_next_url(self):
         with self.app.test_request_context('/?next=http://example.com'):
             self.assertEqual(get_next_url(external=True), 'http://example.com')
             self.assertEqual(get_next_url(), '/')
             self.assertEqual(get_next_url(default=()), ())
-        
+
         with self.app.test_request_context('/'):
             session['next'] = '/external'
             self.assertEqual(get_next_url(session=True), '/external')
