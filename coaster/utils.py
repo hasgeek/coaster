@@ -664,6 +664,10 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
         >>> MY_ENUM.items()
         [(1, 'First'), (2, 'Second'), (3, 'Third')]
+        >>> MY_ENUM.keys()
+        [1, 2, 3]
+        >>> MY_ENUM.values()
+        ['First', 'Second', 'Third']
 
     Three value tuples are assumed to be (value, name, title) and the name and
     title are converted into NameTitle(name, title)::
@@ -693,6 +697,14 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     @classmethod
     def get(cls, key, default=None):
         return cls.__labels__.get(key, default)
+
+    @classmethod
+    def keys(cls):
+        return cls.__labels__.keys()
+
+    @classmethod
+    def values(cls):
+        return cls.__labels__.values()
 
     @classmethod
     def items(cls):

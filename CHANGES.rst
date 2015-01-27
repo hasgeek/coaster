@@ -1,10 +1,11 @@
 0.5.0
 -----
-* Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version
+* Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version.
   number since this is a non-breaking incompatible change.
 * JsonDict now uses JSONB on PostgreSQL 9.4.
 * New CoordinatesMixin adds latitude and longitude columns.
-* Rudimentary NLP methods
+* Rudimentary NLP methods.
+* LabeledEnum now has keys() and values() methods as well.
 
 0.4.3
 -----
