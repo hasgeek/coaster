@@ -49,6 +49,7 @@ class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
     """
+    query_class = Query
     #: Database identity for this model, used for foreign key
     #: references from other models
     id = Column(Integer, primary_key=True)
@@ -74,6 +75,7 @@ class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
+    query_class = Query
     #: Timestamp for when this instance was created, in UTC
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     #: Timestamp for when this instance was last updated (via the app), in UTC
@@ -110,7 +112,7 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
     """
-    query_class = Query
+    pass
 
 
 class BaseNameMixin(BaseMixin):
@@ -516,6 +518,12 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
                 return MutableDict(value)
+            elif isinstance(value, basestring):
+                # Assume JSON string
+                if value:
+                    return MutableDict(simplejson.loads(value, use_decimal=True))
+                else:
+                    return MutableDict()  # Empty value is an empty dict
 
             # this call will raise ValueError
             return Mutable.coerce(key, value)

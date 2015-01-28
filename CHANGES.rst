@@ -6,6 +6,8 @@
 * New CoordinatesMixin adds latitude and longitude columns.
 * Rudimentary NLP methods.
 * LabeledEnum now has keys() and values() methods as well.
+* Move the query class to IdMixin and TimestampMixin as they are used
+  independently of BaseMixin.
 
 0.4.3
 -----
