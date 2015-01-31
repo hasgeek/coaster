@@ -618,8 +618,8 @@ class _LabeledEnumMeta(type):
 
         if '__order__' in attrs:
             sorted_labels = OrderedDict()
-            for key in attrs['__order__']:
-                sorted_labels[key[0]] = labels.pop(key[0])
+            for value in attrs['__order__']:
+                sorted_labels[value[0]] = labels.pop(value[0])
             for key, value in sorted(labels.items()):  # Left over items after processing the list in __order__
                 sorted_labels[key] = value
         else:
@@ -676,8 +676,8 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         >>> MY_ENUM.values()
         ['First', 'Second', 'Third']
 
-    However, if you really want manual sorting, add a __order__ key. Anything not in it will
-    be sorted by value as usual:
+    However, if you really want manual sorting, add an __order__ list. Anything not in it will
+    be sorted by value as usual::
 
         >>> class RSVP(LabeledEnum):
         ...     RSVP_Y = ('Y', "Yes")
@@ -691,8 +691,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
 
     Three value tuples are assumed to be (value, name, title) and the name and
-    title are converted into NameTitle(name, title) (the __order__ tuple is
-    ignored)::
+    title are converted into NameTitle(name, title)::
 
         >>> class NAME_ENUM(LabeledEnum):
         ...     FIRST = (1, 'first', "First")
