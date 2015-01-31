@@ -608,7 +608,7 @@ class _LabeledEnumMeta(type):
     def __new__(cls, name, bases, attrs):
         labels = {}
         for key, value in tuple(attrs.items()):
-            if isinstance(value, tuple):
+            if key != '__order__' and isinstance(value, tuple):
                 if len(value) == 2:
                     labels[value[0]] = value[1]
                     attrs[key] = value[0]
@@ -616,7 +616,14 @@ class _LabeledEnumMeta(type):
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = value[0]
 
-        sorted_labels = OrderedDict(sorted(labels.items()))
+        if '__order__' in attrs:
+            sorted_labels = OrderedDict()
+            for key in attrs['__order__']:
+                sorted_labels[key[0]] = labels.pop(key[0])
+            for key, value in sorted(labels.items()):  # Left over items after processing the list in __order__
+                sorted_labels[key] = value
+        else:
+            sorted_labels = OrderedDict(sorted(labels.items()))
         attrs['__labels__'] = sorted_labels
         return type.__new__(cls, name, bases, attrs)
 
@@ -633,9 +640,9 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     (for use in UI)::
 
         >>> class MY_ENUM(LabeledEnum):
-        ...    FIRST = (1, "First")
-        ...    THIRD = (3, "Third")
-        ...    SECOND = (2, "Second")
+        ...     FIRST = (1, "First")
+        ...     THIRD = (3, "Third")
+        ...     SECOND = (2, "Second")
 
     :class:`LabeledEnum` will convert any attribute that is a 2-tuple into
     a value and label pair. Access values as direct attributes of the enumeration::
@@ -658,9 +665,9 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         >>> MY_ENUM.get(4) is None
         True
 
-    Retrieve a full list of values and labels with ``.items()``. Items are always
-    sorted by value regardless of the original definition order (since Python
-    doesn't provide a way to preserve that order)::
+    Retrieve a full list of values and labels with ``.items()``. Items are
+    sorted by value regardless of the original definition order since Python
+    doesn't provide a way to preserve that order::
 
         >>> MY_ENUM.items()
         [(1, 'First'), (2, 'Second'), (3, 'Third')]
@@ -669,13 +676,28 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         >>> MY_ENUM.values()
         ['First', 'Second', 'Third']
 
+    However, if you really want manual sorting, add a __order__ key. Anything not in it will
+    be sorted by value as usual:
+
+        >>> class RSVP(LabeledEnum):
+        ...     RSVP_Y = ('Y', "Yes")
+        ...     RSVP_N = ('N', "No")
+        ...     RSVP_M = ('M', "Maybe")
+        ...     RSVP_B = ('U', "Unknown")
+        ...     RSVP_A = ('A', "Awaiting")
+        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M)
+
+        >>> RSVP.items()
+        [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
+
     Three value tuples are assumed to be (value, name, title) and the name and
-    title are converted into NameTitle(name, title)::
+    title are converted into NameTitle(name, title) (the __order__ tuple is
+    ignored)::
 
         >>> class NAME_ENUM(LabeledEnum):
-        ...    FIRST = (1, 'first', "First")
-        ...    THIRD = (3, 'third', "Third")
-        ...    SECOND = (2, 'second', "Second")
+        ...     FIRST = (1, 'first', "First")
+        ...     THIRD = (3, 'third', "Third")
+        ...     SECOND = (2, 'second', "Second")
 
         >>> NAME_ENUM.FIRST
         1

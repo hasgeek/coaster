@@ -8,6 +8,7 @@
 * LabeledEnum now has keys() and values() methods as well.
 * Move the query class to IdMixin and TimestampMixin as they are used
   independently of BaseMixin.
+* LabeledEnum now takes an ``__order__`` specification.
 
 0.4.3
 -----
