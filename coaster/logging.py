@@ -69,13 +69,13 @@ def init_app(app):
     if app.config.get('FLUENTD_SERVER_HOST'):
         fluent_handler = handler.FluentHandler('coaster.app', host=app.config.get('FLUENTD_SERVER_HOST'),
             port=app.config.get('FLUENTD_SERVER_PORT', 24224), verbose=True)
-        fluent_handler.setLevel(logging.INFO)
+        fluent_handler.setLevel(logging.DEBUG)
         app.logger.addHandler(fluent_handler)
 
     # File log handler
     file_handler = logging.FileHandler(app.config.get('LOGFILE', 'error.log'))
     file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.WARNING)
     app.logger.addHandler(file_handler)
 
     if app.config.get('ADMINS'):
