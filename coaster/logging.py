@@ -4,6 +4,7 @@ from __future__ import absolute_import
 import logging.handlers
 import cStringIO
 import traceback
+from fluent import handler
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -58,14 +59,25 @@ def init_app(app):
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
-    * ``FLUENTD_SERVER``: If specified, will enable logging to fluentd
+    * ``FLUENTD_SERVER_HOST``: If specified, will enable logging to fluentd
+    * ``FLUENTD_SERVER_PORT``: If specified, will enable logging to fluentd (default ``24224``)
+
     """
     formatter = LocalVarFormatter()
 
+    # Fluentd log handler
+    if app.config.get('FLUENTD_SERVER_HOST'):
+        fluent_handler = handler.FluentHandler('coaster.app', host=app.config.get('FLUENTD_SERVER_HOST'),
+            port=app.config.get('FLUENTD_SERVER_PORT', 24224), verbose=True)
+        fluent_handler.setLevel(logging.INFO)
+        app.logger.addHandler(fluent_handler)
+
+    # File log handler
     file_handler = logging.FileHandler(app.config.get('LOGFILE', 'error.log'))
     file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.WARNING)
+    file_handler.setLevel(logging.INFO)
     app.logger.addHandler(file_handler)
+
     if app.config.get('ADMINS'):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail
         # DEFAULT_MAIL_SENDER is the old setting. We look for both
