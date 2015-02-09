@@ -61,13 +61,14 @@ def init_app(app):
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
     * ``FLUENTD_SERVER_HOST``: If specified, will enable logging to fluentd
     * ``FLUENTD_SERVER_PORT``: If specified, will enable logging to fluentd (default ``24224``)
+    * ``FLUENTD_TAG``: Required. Tag with which logs are sent to fluentd
 
     """
     formatter = LocalVarFormatter()
 
     # Fluentd log handler
     if app.config.get('FLUENTD_SERVER_HOST'):
-        fluent_handler = handler.FluentHandler('coaster.app', host=app.config.get('FLUENTD_SERVER_HOST'),
+        fluent_handler = handler.FluentHandler(app.config.get('FLUENTD_TAG', "coaster.app"), host=app.config.get('FLUENTD_SERVER_HOST'),
             port=app.config.get('FLUENTD_SERVER_PORT', 24224), verbose=True)
         fluent_handler.setLevel(logging.DEBUG)
         app.logger.addHandler(fluent_handler)
