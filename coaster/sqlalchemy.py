@@ -44,6 +44,14 @@ class Query(BaseQuery):
         """
         return self.session.query(self.exists()).first()[0]
 
+    def isempty(self):
+        """
+        Returns the equivalent of ``not bool(query.count())`` but using an efficient
+        SQL EXISTS function, so the database stops counting after the first result
+        is found.
+        """
+        return not self.session.query(self.exists()).first()[0]
+
 
 class IdMixin(object):
     """
@@ -497,7 +505,7 @@ class JsonDict(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = simplejson.dumps(value)
+            value = simplejson.dumps(value, default=lambda o: unicode(o))
         return value
 
     def process_result_value(self, value, dialect):
