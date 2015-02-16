@@ -9,6 +9,7 @@
 * Move the query class to IdMixin and TimestampMixin as they are used
   independently of BaseMixin.
 * LabeledEnum now takes an ``__order__`` specification.
+* New word_count util returns word count for HTML documents.
 
 0.4.3
 -----
