@@ -36,6 +36,7 @@ _strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
+_tag_re = re.compile('<.*?>')
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -513,13 +514,15 @@ def text_blocks(html_text, skip_pre=True):
 
 def word_count(text, html=True):
     """
-    Return the count of words in the given text. If the text is HTML (default True), tags are stripped before counting.
-
-    This version is fairly inefficient because of the dependence on :func:`text_blocks`, which is optimised to preserve
-    block boundaries for sentence tokenizers. An optimised version will simply extract the content of all tags.
+    Return the count of words in the given text. If the text is HTML (default True),
+    tags are stripped before counting. Handles punctuation and bad formatting like.this
+    when counting words, but assumes conventions for Latin script languages. May not
+    be reliable for other languages.
     """
     if html:
-        text = '\n'.join(text_blocks(text))
+        text = _tag_re.sub(' ', text)
+    text = _strip_re.sub('', text)
+    text = _punctuation_re.sub(' ', text)
     return len(text.split())
 
 
