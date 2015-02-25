@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from Flask import current_app
 import logging.handlers
 import cStringIO
 import traceback
+import requests
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -45,6 +47,45 @@ class LocalVarFormatter(logging.Formatter):
         return s
 
 
+class SMSHandler(logging.Handler):
+    """
+    Custom logging handler to send SMSes to admins
+    """
+    def __init__(self, exotel_sid, exotel_token, twilio_sid, twilio_token, phonenumbers):
+            logging.Handler.__init__(self)
+            self.phonenumbers = phonenumbers
+            self.exotel_sid = exotel_sid
+            self.exotel_token = exotel_token
+            self.twilio_sid = twilio_sid
+            self.twilio_token = twilio_token
+
+    def emit(self, record):
+        if(True):  # TODO: If no errors in the last 5 minutes
+            for phonenumber in self.phonenumbers:
+                self.sendsms(phonenumber, 'Error in {name}. Please check your email for details'.format(name=current_app.name))
+
+    def sendsms(self, number, message):
+        try:
+            if number.startswith('+91'):  # Indian
+                requests.post('https://twilix.exotel.in/v1/Accounts/{sid}/Sms/send.json'.format(sid=self.exotel_sid),
+                        auth=(self.exotel_sid, self.exotel_token),
+                        data={
+                            'From': current_app.config.get('SMS_EXOTEL_FROM'),
+                            'To': number,
+                            'Body': message
+                        })
+            else:
+                requests.post('https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(sid=self.twilio_sid),
+                        auth=(self.twilio_sid, self.twilio_token),
+                        data={
+                            'From': current_app.config.get('SMS_TWILIO_FROM'),
+                            'To': number,
+                            'Body': message
+                        })
+        except:
+            pass
+
+
 def init_app(app):
     """
     Enables logging for an app using :class:`LocalVarFormatter`.
@@ -66,6 +107,22 @@ def init_app(app):
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.WARNING)
     app.logger.addHandler(file_handler)
+
+    if app.config.get('ADMIN_NUMBERS'):
+        if (app.config.get('SMS_EXOTEL_SID') and app.config.get('SMS_EXOTEL_TOKEN') and app.config.get('SMS_TWILIO_SID') and app.config.get('SMS_TWILIO_TOKEN')):
+            exotel_sid = current_app.config['SMS_EXOTEL_SID']
+            exotel_token = current_app.config['SMS_EXOTEL_TOKEN']
+            twilio_sid = current_app.config['SMS_TWILIO_SID']
+            twilio_token = current_app.config['SMS_TWILIO_TOKEN']
+
+            # A little trickery because directly creating
+            # an SMSHandler object didn't work
+            logging.handlers.SMSHandler = SMSHandler
+
+            sms_handler = logging.handlers.SMSHandler(exotel_sid=exotel_sid, exotel_token=exotel_token, twilio_sid=twilio_sid, twilio_token=twilio_token, phonenumbers=app.config['ADMIN_NUMBERS'])
+            sms_handler.setLevel(logging.ERROR)
+            app.logger.addHandler(sms_handler)
+
     if app.config.get('ADMINS'):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail
         # DEFAULT_MAIL_SENDER is the old setting. We look for both
