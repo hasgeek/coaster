@@ -70,12 +70,15 @@ class SMSHandler(logging.Handler):
             self.twilio_from = twilio_from
 
     def emit(self, record):
-        if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
+        # TODO Find linenumber and function name from exception's log record
+        # if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
+        if ((datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
             for phonenumber in self.phonenumbers:
                 self.sendsms(phonenumber, 'Error in {name}. Please check your email for details'.format(name=self.app_name))
-            error_throttle_timestamp['funcName'] = record.funcName
-            error_throttle_timestamp['lineno'] = record.lineno
+            # error_throttle_timestamp['funcName'] = record.funcName
+            # error_throttle_timestamp['lineno'] = record.lineno
             error_throttle_timestamp['timestamp'] = datetime.now()
+            print error_throttle_timestamp
 
     def sendsms(self, number, message):
         try:
