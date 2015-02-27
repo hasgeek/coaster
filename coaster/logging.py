@@ -8,11 +8,7 @@ import traceback
 import requests
 
 # global var as lazy in-memory cache
-error_throttle_timestamp = {
-    'funcName': '',
-    'lineno': '',
-    'timestamp': datetime(2003, 8, 4, 12, 30, 45)  # A long, long time ago... I can still remember. How that music used to make me smile.
-}
+error_throttle_timestamp = {'timestamp': None}
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -72,31 +68,31 @@ class SMSHandler(logging.Handler):
     def emit(self, record):
         # TODO Find linenumber and function name from exception's log record
         # if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
-        if ((datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
+        if not error_throttle_timestamp['timestamp'] or (
+                (datetime.utcnow() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
             for phonenumber in self.phonenumbers:
                 self.sendsms(phonenumber, 'Error in {name}. Please check your email for details'.format(name=self.app_name))
             # error_throttle_timestamp['funcName'] = record.funcName
             # error_throttle_timestamp['lineno'] = record.lineno
-            error_throttle_timestamp['timestamp'] = datetime.now()
-            print error_throttle_timestamp
+            error_throttle_timestamp['timestamp'] = datetime.utcnow()
 
     def sendsms(self, number, message):
         try:
             if number.startswith('+91'):  # Indian
                 requests.post('https://twilix.exotel.in/v1/Accounts/{sid}/Sms/send.json'.format(sid=self.exotel_sid),
-                        auth=(self.exotel_sid, self.exotel_token),
-                        data={
-                            'From': self.exotel_from,
-                            'To': number,
-                            'Body': message
+                    auth=(self.exotel_sid, self.exotel_token),
+                    data={
+                        'From': self.exotel_from,
+                        'To': number,
+                        'Body': message
                         })
             else:
                 requests.post('https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(sid=self.twilio_sid),
-                        auth=(self.twilio_sid, self.twilio_token),
-                        data={
-                            'From': self.twilio_from,
-                            'To': number,
-                            'Body': message
+                    auth=(self.twilio_sid, self.twilio_token),
+                    data={
+                        'From': self.twilio_from,
+                        'To': number,
+                        'Body': message
                         })
         except:
             pass
@@ -115,7 +111,14 @@ def init_app(app):
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
-    * ``FLUENTD_SERVER``: If specified, will enable logging to fluentd
+    * ``FLUENTD_SERVER``: If specified, will enable logging to fluentd (pending)
+    * ``ADMIN_NUMBERS``: List of mobile numbers of admin to send SMS alerts. Requires the following values too
+    * ``SMS_EXOTEL_SID``: Exotel SID for Indian numbers
+    * ``SMS_EXOTEL_TOKEN``: Exotel token
+    * ``SMS_EXOTEL_FROM``: Exotel sender's number
+    * ``SMS_TWILIO_SID``: Twilio SID for non-Indian numbers
+    * ``SMS_TWILIO_TOKEN``: Twilio token
+    * ``SMS_TWILIO_FROM``: Twilio sender's number
     """
     formatter = LocalVarFormatter()
 
@@ -125,19 +128,22 @@ def init_app(app):
     app.logger.addHandler(file_handler)
 
     if app.config.get('ADMIN_NUMBERS'):
-        if (app.config.get('SMS_EXOTEL_SID') and app.config.get('SMS_EXOTEL_TOKEN') and app.config.get('SMS_EXOTEL_FROM') and app.config.get('SMS_TWILIO_SID') and app.config.get('SMS_TWILIO_TOKEN') and app.config.get('SMS_TWILIO_FROM')):
-            exotel_sid = app.config['SMS_EXOTEL_SID']
-            exotel_token = app.config['SMS_EXOTEL_TOKEN']
-            exotel_from = app.config['SMS_EXOTEL_FROM']
-            twilio_sid = app.config['SMS_TWILIO_SID']
-            twilio_token = app.config['SMS_TWILIO_TOKEN']
-            twilio_from = app.config['SMS_TWILIO_FROM']
+        if all(key in app.config for key in ['SMS_EXOTEL_SID', 'SMS_EXOTEL_TOKEN', 'SMS_EXOTEL_FROM',
+                'SMS_TWILIO_SID', 'SMS_TWILIO_TOKEN', 'SMS_TWILIO_FROM']):
 
             # A little trickery because directly creating
             # an SMSHandler object didn't work
             logging.handlers.SMSHandler = SMSHandler
 
-            sms_handler = logging.handlers.SMSHandler(app_name=app.name, exotel_sid=exotel_sid, exotel_token=exotel_token, exotel_from=exotel_from, twilio_sid=twilio_sid, twilio_token=twilio_token, twilio_from=twilio_from, phonenumbers=app.config['ADMIN_NUMBERS'])
+            sms_handler = logging.handlers.SMSHandler(
+                app_name=app.name,
+                exotel_sid=app.config['SMS_EXOTEL_SID'],
+                exotel_token=app.config['SMS_EXOTEL_TOKEN'],
+                exotel_from=app.config['SMS_EXOTEL_FROM'],
+                twilio_sid=app.config['SMS_TWILIO_SID'],
+                twilio_token=app.config['SMS_TWILIO_TOKEN'],
+                twilio_from=app.config['SMS_TWILIO_FROM'],
+                phonenumbers=app.config['ADMIN_NUMBERS'])
             sms_handler.setLevel(logging.ERROR)
             app.logger.addHandler(sms_handler)
 
@@ -161,4 +167,5 @@ def init_app(app):
         mail_handler.setLevel(logging.ERROR)
         app.logger.addHandler(mail_handler)
 
+# Legacy name
 configure = init_app
