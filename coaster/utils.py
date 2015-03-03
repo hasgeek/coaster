@@ -402,7 +402,7 @@ def get_email_domain(email):
         return None
 
 
-_tsquery_tokens_re = re.compile(r'(:\*|&|!|\||AND|OR|NOT|-|\(|\))', re.U)
+_tsquery_tokens_re = re.compile(r'(:\*|\*|&|!|\||AND|OR|NOT|-|\(|\))', re.U)
 _whitespace_re = re.compile('\s+', re.U)
 
 
@@ -434,8 +434,18 @@ def for_tsquery(text):
     "'Ruby'&('Python'|'JavaScript')&'Golang'"
     >>> for_tsquery("Ruby (Python OR JavaScript) NOT Golang")
     "'Ruby'&('Python'|'JavaScript')&!'Golang'"
+    >>> for_tsquery("Java*")
+    "'Java':*"
+    >>> for_tsquery("Java**")
+    "'Java':*"
+    >>> for_tsquery("Android || Python")
+    "'Android'|'Python'"
+    >>> for_tsquery("Missing (bracket")
+    "'Missing'&('bracket')"
+    >>> for_tsquery("Extra bracket)")
+    "('Extra bracket')"
     """
-    tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!'}.get(t, t)
+    tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}.get(t, t)
         for t in _tsquery_tokens_re.split(_whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ')))]
     for counter in range(len(tokens)):
         if tokens[counter] not in ('&', '|', '!', ':*', '(', ')', ' '):
@@ -443,15 +453,41 @@ def for_tsquery(text):
     tokens = [t for t in tokens if t not in ('', ' ', "''")]
     if not tokens:
         return ''
-    if tokens[0] in ('&', '|'):
-        tokens.pop(0)  # Can't start with a binary operator
-    for counter in range(1, len(tokens)):
-        if tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|', '(', '&('):
-            tokens[counter] = '&!'
-        elif tokens[counter] == '(' and tokens[counter - 1] not in ('&', '|', '!', '&!'):
-            tokens[counter] = '&('
-        elif tokens[counter].startswith("'") and tokens[counter - 1] not in ('&', '|', '!', '(', '&!', '&('):
-            tokens[counter] = '&' + tokens[counter]
+    while tokens[0] in ('&', '|', ':*', ')'):
+        tokens.pop(0)  # Can't start with a binary or suffix operator
+    while tokens[-1] in ('&', '|', '!', '('):
+        tokens.pop(-1)  # Can't end with a binary or prefix operator
+    if not tokens:
+        return ''  # Did we just eliminate all tokens?
+    counterlength = len(tokens)
+    counter = 1
+    while counter < counterlength:
+        if tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|', '('):
+            tokens.insert(counter, '&')
+            counter += 1
+            counterlength += 1
+        elif tokens[counter] == '(' and tokens[counter - 1] not in ('&', '|', '!'):
+            tokens.insert(counter, '&')
+            counter += 1
+            counterlength += 1
+        elif tokens[counter].startswith("'") and tokens[counter - 1] not in ('&', '|', '!', '('):
+            tokens.insert(counter, '&')
+            counter += 1
+            counterlength += 1
+        elif (
+                tokens[counter] in ('&', '|') and tokens[counter - 1] in ('&', '|')) or (
+                tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|')) or (
+                tokens[counter] == ':*' and not tokens[counter - 1].startswith("'")):
+            # Invalid token: is a dupe or follows a token it shouldn't follow
+            tokens.pop(counter)
+            counter -= 1
+            counterlength -= 1
+        counter += 1
+    missing_brackets = sum([1 if t == '(' else -1 for t in tokens if t in ('(', ')')])
+    if missing_brackets > 0:
+        tokens.append(')' * missing_brackets)
+    elif missing_brackets < 0:
+        tokens.insert(0, '(' * -missing_brackets)
     return ''.join(tokens)
 
 
