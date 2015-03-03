@@ -402,6 +402,59 @@ def get_email_domain(email):
         return None
 
 
+_tsquery_tokens_re = re.compile(r'(:\*|&|!|\||AND|OR|NOT|-|\(|\))', re.U)
+_whitespace_re = re.compile('\s+', re.U)
+
+
+def for_tsquery(text):
+    """
+    Tokenize text into a valid PostgreSQL to_tsquery query.
+
+    >>> for_tsquery(" ")
+    ''
+    >>> for_tsquery("This is a test")
+    "'This is a test'"
+    >>> for_tsquery('Match "this AND phrase"')
+    "'Match this'&'phrase'"
+    >>> for_tsquery('Match "this & phrase"')
+    "'Match this'&'phrase'"
+    >>> for_tsquery("This NOT that")
+    "'This'&!'that'"
+    >>> for_tsquery("This & NOT that")
+    "'This'&!'that'"
+    >>> for_tsquery("This > that")
+    "'This > that'"
+    >>> for_tsquery("Ruby AND (Python OR JavaScript)")
+    "'Ruby'&('Python'|'JavaScript')"
+    >>> for_tsquery("Ruby AND NOT (Python OR JavaScript)")
+    "'Ruby'&!('Python'|'JavaScript')"
+    >>> for_tsquery("Ruby NOT (Python OR JavaScript)")
+    "'Ruby'&!('Python'|'JavaScript')"
+    >>> for_tsquery("Ruby (Python OR JavaScript) Golang")
+    "'Ruby'&('Python'|'JavaScript')&'Golang'"
+    >>> for_tsquery("Ruby (Python OR JavaScript) NOT Golang")
+    "'Ruby'&('Python'|'JavaScript')&!'Golang'"
+    """
+    tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!'}.get(t, t)
+        for t in _tsquery_tokens_re.split(_whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ')))]
+    for counter in range(len(tokens)):
+        if tokens[counter] not in ('&', '|', '!', ':*', '(', ')', ' '):
+            tokens[counter] = "'" + tokens[counter].strip() + "'"
+    tokens = [t for t in tokens if t not in ('', ' ', "''")]
+    if not tokens:
+        return ''
+    if tokens[0] in ('&', '|'):
+        tokens.pop(0)  # Can't start with a binary operator
+    for counter in range(1, len(tokens)):
+        if tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|', '(', '&('):
+            tokens[counter] = '&!'
+        elif tokens[counter] == '(' and tokens[counter - 1] not in ('&', '|', '!', '&!'):
+            tokens[counter] = '&('
+        elif tokens[counter].startswith("'") and tokens[counter - 1] not in ('&', '|', '!', '(', '&!', '&('):
+            tokens[counter] = '&' + tokens[counter]
+    return ''.join(tokens)
+
+
 VALID_TAGS = {
     'a': ['href', 'title', 'target', 'rel'],
     'abbr': ['title'],

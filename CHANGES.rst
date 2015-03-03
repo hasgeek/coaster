@@ -10,6 +10,7 @@
   independently of BaseMixin.
 * LabeledEnum now takes an ``__order__`` specification.
 * New word_count util returns word count for HTML documents.
+* New for_tsquery formats text queries to PostgreSQL to_tsquery parameters.
 
 0.4.3
 -----
