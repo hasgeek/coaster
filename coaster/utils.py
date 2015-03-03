@@ -444,6 +444,16 @@ def for_tsquery(text):
     "'Missing'&('bracket')"
     >>> for_tsquery("Extra bracket)")
     "('Extra bracket')"
+    >>> for_tsquery("Android (Python ())")
+    "'Android'&('Python')"
+    >>> for_tsquery("Android (Python !())")
+    "'Android'&('Python')"
+    >>> for_tsquery("()")
+    ''
+    >>> for_tsquery("() Python")
+    "'Python'"
+    >>> for_tsquery("!() Python")
+    "'Python'"
     """
     tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}.get(t, t)
         for t in _tsquery_tokens_re.split(_whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ')))]
@@ -453,12 +463,6 @@ def for_tsquery(text):
     tokens = [t for t in tokens if t not in ('', ' ', "''")]
     if not tokens:
         return ''
-    while tokens[0] in ('&', '|', ':*', ')'):
-        tokens.pop(0)  # Can't start with a binary or suffix operator
-    while tokens[-1] in ('&', '|', '!', '('):
-        tokens.pop(-1)  # Can't end with a binary or prefix operator
-    if not tokens:
-        return ''  # Did we just eliminate all tokens?
     counterlength = len(tokens)
     counter = 1
     while counter < counterlength:
@@ -470,6 +474,26 @@ def for_tsquery(text):
             tokens.insert(counter, '&')
             counter += 1
             counterlength += 1
+        elif tokens[counter] == ')' and tokens[counter - 1] == '(':
+            # Empty ()
+            tokens.pop(counter)
+            tokens.pop(counter - 1)
+            counter -= 2
+            counterlength -= 2
+            # Pop the join with previous segment too
+            if tokens and tokens[counter] in ('&', '|'):
+                tokens.pop(counter)
+                counter -= 1
+                counterlength -= 1
+            elif tokens and counter == 0 and tokens[counter] == '!':
+                tokens.pop(counter)
+                counter -= 1
+                counterlength -= 1
+            elif tokens and counter > 0 and tokens[counter - 1:counter + 1] in (['&', '!'], ['|', '!']):
+                tokens.pop(counter)
+                tokens.pop(counter - 1)
+                counter -= 2
+                counterlength -= 2
         elif tokens[counter].startswith("'") and tokens[counter - 1] not in ('&', '|', '!', '('):
             tokens.insert(counter, '&')
             counter += 1
@@ -483,6 +507,14 @@ def for_tsquery(text):
             counter -= 1
             counterlength -= 1
         counter += 1
+    if tokens:
+        while tokens[0] in ('&', '|', ':*', ')'):
+            tokens.pop(0)  # Can't start with a binary or suffix operator
+    if tokens:
+        while tokens[-1] in ('&', '|', '!', '('):
+            tokens.pop(-1)  # Can't end with a binary or prefix operator
+    if not tokens:
+        return ''  # Did we just eliminate all tokens?
     missing_brackets = sum([1 if t == '(' else -1 for t in tokens if t in ('(', ')')])
     if missing_brackets > 0:
         tokens.append(')' * missing_brackets)
