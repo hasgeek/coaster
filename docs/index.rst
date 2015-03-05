@@ -22,7 +22,7 @@ Coaster is available under the BSD license, the same license as Flask.
    sqlalchemy
    db
    gfm
-   logging
+   logger
    docflow
    app
    manage
