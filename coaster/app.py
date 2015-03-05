@@ -9,7 +9,7 @@ try:
     from flask.helpers import _tojson_filter
 except ImportError:
     from flask.json import tojson_filter as _tojson_filter
-import coaster.logging
+import coaster.logger
 
 __all__ = ['SandboxedFlask', 'init_app']
 
@@ -84,7 +84,7 @@ def init_app(app, env):
     if additional:
         load_config_from_file(app, additional)
 
-    coaster.logging.init_app(app)
+    coaster.logger.init_app(app)
 
 
 def load_config_from_file(app, filepath):

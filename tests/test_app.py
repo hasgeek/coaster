@@ -5,7 +5,7 @@ from os import environ
 import sys
 from flask import Flask
 from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
-from coaster.logging import init_app, LocalVarFormatter
+from coaster.logger import init_app, LocalVarFormatter
 
 
 class TestCoasterUtils(unittest.TestCase):
