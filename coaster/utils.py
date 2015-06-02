@@ -507,9 +507,8 @@ def for_tsquery(text):
             counter -= 1
             counterlength -= 1
         counter += 1
-    if tokens:
-        while tokens[0] in ('&', '|', ':*', ')'):
-            tokens.pop(0)  # Can't start with a binary or suffix operator
+    while tokens and tokens[0] in ('&', '|', ':*', ')', '!'):
+        tokens.pop(0)  # Can't start with a binary or suffix operator
     if tokens:
         while tokens[-1] in ('&', '|', '!', '('):
             tokens.pop(-1)  # Can't end with a binary or prefix operator
