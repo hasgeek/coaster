@@ -454,6 +454,8 @@ def for_tsquery(text):
     "'Python'"
     >>> for_tsquery("!() Python")
     "'Python'"
+    >>> for_tsquery("*")
+    ''
     """
     tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}.get(t, t)
         for t in _tsquery_tokens_re.split(_whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ')))]
@@ -507,7 +509,7 @@ def for_tsquery(text):
             counter -= 1
             counterlength -= 1
         counter += 1
-    while tokens and tokens[0] in ('&', '|', ':*', ')', '!'):
+    while tokens and tokens[0] in ('&', '|', ':*', ')', '!', '*'):
         tokens.pop(0)  # Can't start with a binary or suffix operator
     if tokens:
         while tokens[-1] in ('&', '|', '!', '('):
