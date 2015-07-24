@@ -649,7 +649,7 @@ def word_count(text, html=True):
 
 
 # Based on http://jasonpriem.org/obfuscation-decoder/
-_deobfuscate_dot1_re = re.compile(r'\W*\.\W*|\W+dot\W+|\W+d0t\W+', re.U | re.I)
+_deobfuscate_dot1_re = re.compile(r'\W+\.\W+|\W+dot\W+|\W+d0t\W+', re.U | re.I)
 _deobfuscate_dot2_re = re.compile(r'([a-z0-9])DOT([a-z0-9])')
 _deobfuscate_dot3_re = re.compile(r'([A-Z0-9])dot([A-Z0-9])')
 _deobfuscate_at1_re = re.compile(r'\W*@\W*|\W+at\W+', re.U | re.I)
@@ -662,6 +662,7 @@ def deobfuscate_email(text):
     Deobfuscate email addresses in provided text
     """
     text = unescape(text)
+    text = sanitize_html(text, strip=False)
     # Find the "dot"
     text = _deobfuscate_dot1_re.sub('.', text)
     text = _deobfuscate_dot2_re.sub(r'\1.\2', text)
