@@ -662,7 +662,6 @@ def deobfuscate_email(text):
     Deobfuscate email addresses in provided text
     """
     text = unescape(text)
-    text = sanitize_html(text, strip=False)
     # Find the "dot"
     text = _deobfuscate_dot1_re.sub('.', text)
     text = _deobfuscate_dot2_re.sub(r'\1.\2', text)
