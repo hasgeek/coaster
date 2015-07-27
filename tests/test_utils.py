@@ -66,14 +66,32 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertTrue(isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str))
 
     def test_deobfuscate_email(self):
-        self.assertEqual(deobfuscate_email('test at example dot com'), 'test@example.com')
-        self.assertEqual(deobfuscate_email('test@example dot com'), 'test@example.com')
-        self.assertEqual(deobfuscate_email('test at example.com'), 'test@example.com')
-        self.assertEqual(deobfuscate_email('test[at]example[dot]com'), 'test@example.com')
-        self.assertEqual(deobfuscate_email('test{at}example(dot)com'), 'test@example.com')
-        self.assertEqual(deobfuscate_email('mail me at hahaha at example dot com'), 'mail me@hahaha@example.com')
-        self.assertEqual(deobfuscate_email('Laughing at polka-dot commercials'), 'Laughing@polka.commercials')
-        self.assertEqual(deobfuscate_email('Quick attack. Organize resistance.'), 'Quick attack. Organize resistance.')
-        self.assertEqual(deobfuscate_email('We are at lunch. Come over.'), 'We are@lunch. Come over.')
-        self.assertEqual(deobfuscate_email('<li>and at scale.</li>'), '<li>and@scale.</li>')
-        self.assertEqual(deobfuscate_email('<test@example.com>'), '&lt;test@example.com&gt;')
+        input = """
+        test at example dot com
+        test@example dot com
+        test at example.com
+        test[at]example[dot]com
+        test{at}example(dot)com
+        For real, mail me at hahaha at example dot com.
+        Laughing at polka-dot commercials
+        Quick attack. Organize resistance.
+        We are at lunch. Come over.
+        <li>and at scale.</li>
+        <a href="mailto:test@example.com">this</a>
+        <test@example.com>
+        """
+        output = """
+        test@example.com
+        test@example.com
+        test@example.com
+        test@example.com
+        test@example.com
+        For real, mail me@hahaha@example.com.
+        Laughing@polka.commercials
+        Quick attack. Organize resistance.
+        We are@lunch. Come over.
+        <li>and@scale.</li>
+        <a href="mailto:test@example.com">this</a>
+        <test@example.com>
+        """
+        self.assertEqual(deobfuscate_email(input), output)
