@@ -76,6 +76,9 @@ class TestCoasterUtils(unittest.TestCase):
         Laughing at polka-dot commercials
         Quick attack. Organize resistance.
         We are at lunch. Come over.
+        <li>and at scale.</li>
+        <a href="mailto:test@example.com">this</a>
+        <test@example.com>
         """
         output = """
         test@example.com
@@ -83,6 +86,12 @@ class TestCoasterUtils(unittest.TestCase):
         test@example.com
         test@example.com
         test@example.com
-        For real, mail me@hahaha@example.com.Laughing@polka.commercials
-        Quick attack.Organize resistance.We are@lunch.Come over."""
+        For real, mail me@hahaha@example.com.
+        Laughing@polka.commercials
+        Quick attack. Organize resistance.
+        We are@lunch. Come over.
+        <li>and@scale.</li>
+        <a href="mailto:test@example.com">this</a>
+        <test@example.com>
+        """
         self.assertEqual(deobfuscate_email(input), output)
