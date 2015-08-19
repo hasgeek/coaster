@@ -1,3 +1,4 @@
 SQLAlchemy
-BeautifulSoup
 http://github.com/jace/pydocflow/tarball/master#egg=docflow
+html2text
+beautifulsoup4

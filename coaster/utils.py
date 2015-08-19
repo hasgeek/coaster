@@ -19,6 +19,8 @@ import tldextract
 from unidecode import unidecode
 import html5lib
 import bleach
+from bs4 import BeautifulSoup
+from html2text import html2text
 
 if six.PY3:
     from html import unescape
@@ -944,3 +946,22 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         for key, value in cls.__labels__.items():
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+
+
+def html_to_markdown(html, text_links=False):
+    """ Converts html to markdown.
+        Options:
+        - text_links: converts anchor tags to plain text.
+          This is useful in cases where link-wrapping can consume the closing parentheses.
+          Eg: <a href='https://hasjob.co'>hasjob</a> -> 'hasjob - https://hasjob.co'
+    """
+    html_content = html
+    if text_links:
+        soup = BeautifulSoup(html, "html5lib")
+        if text_links:
+            anchor_tags = soup.find_all('a')
+            for a in anchor_tags:
+                a.insert_before(a.text + " - " + a.attrs.get('href'))
+                a.decompose()
+            html_content = unicode(soup)
+    return html2text(html_content)
