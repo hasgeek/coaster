@@ -2,7 +2,7 @@
 
 import datetime
 import unittest
-from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url, deobfuscate_email, html_to_markdown
+from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url, deobfuscate_email, html_to_text
 
 
 class MY_ENUM(LabeledEnum):
@@ -96,9 +96,12 @@ class TestCoasterUtils(unittest.TestCase):
         """
         self.assertEqual(deobfuscate_email(input), output)
 
-    def test_html_to_markdown(self):
-        input_html = "<strong><a href='https://hasjob.co'>Hasjob</a></strong>"
-        markdown = u'**[Hasjob](https://hasjob.co)**\n\n'
-        markdown_with_hyphenated_links = u'**Hasjob - https://hasjob.co**\n\n'
-        self.assertEqual(html_to_markdown(input_html), markdown)
-        self.assertEqual(html_to_markdown(input_html, text_links=True), markdown_with_hyphenated_links)
+    def test_html_to_text(self):
+        html_link = u"<strong><a href='https://hasjob.co'>Hasjob</a></strong>"
+        unsafe_link = u"<strong><a href='https://example.com?x=1&amp;y=bangalore '>Hasjob</a></strong>"
+        markdown_link = u'**[Hasjob](https://hasjob.co)**\n\n'
+        formatted_link = u'**Hasjob - https://hasjob.co**\n\n'
+        encoded_link = u'**Hasjob - https://example.com?x=1&y=bangalore%20**\n\n'
+        self.assertEqual(html_to_text(html_link), markdown_link)
+        self.assertEqual(html_to_text(html_link, format_link="{text} - {href}"), formatted_link)
+        self.assertEqual(html_to_text(unsafe_link, format_link="{text} - {href}"), encoded_link)

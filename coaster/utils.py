@@ -10,7 +10,7 @@ import hashlib
 import string
 import re
 from urlparse import urlparse
-
+import urllib
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -948,20 +948,17 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
                 return key
 
 
-def html_to_markdown(html, text_links=False):
-    """ Converts html to markdown.
-        Options:
-        - text_links: converts anchor tags to plain text.
-          This is useful in cases where link-wrapping can consume the closing parentheses.
-          Eg: <a href='https://hasjob.co'>hasjob</a> -> 'hasjob - https://hasjob.co'
+def html_to_text(html, format_link=False):
+    """ Converts html to markdown formatted text
+    Options:
+    format_link - format links with the specified format
+    Eg: html_to_text("<a href='https://hasjob.co'>Hasjob</a>", "{text} - {href}") -> 'Hasjob - https://hasjob.co'
     """
-    html_content = html
-    if text_links:
-        soup = BeautifulSoup(html, "html5lib")
-        if text_links:
-            anchor_tags = soup.find_all('a')
-            for a in anchor_tags:
-                a.insert_before(a.text + " - " + a.attrs.get('href'))
-                a.decompose()
-            html_content = unicode(soup)
-    return html2text(html_content)
+    soup = BeautifulSoup(html, "html5lib")
+    for a in soup.find_all('a'):
+        # encode the spaces in anchor tags.
+        a['href'] = a.attrs.get('href').replace(" ", "%20")
+        if format_link:
+            a.insert_before(format_link.format(text=a.text, href=a.attrs.get('href')))
+            a.decompose()
+    return html2text(unicode(soup))
