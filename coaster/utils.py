@@ -10,7 +10,7 @@ import hashlib
 import string
 import re
 from urlparse import urlparse
-
+import urllib
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -19,6 +19,8 @@ import tldextract
 from unidecode import unidecode
 import html5lib
 import bleach
+from bs4 import BeautifulSoup
+from html2text import html2text
 
 if six.PY3:
     from html import unescape
@@ -944,3 +946,19 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         for key, value in cls.__labels__.items():
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+
+
+def html_to_text(html, format_link=False):
+    """ Converts html to markdown formatted text
+    Options:
+    format_link - format links with the specified format
+    Eg: html_to_text("<a href='https://hasjob.co'>Hasjob</a>", "{text} - {href}") -> 'Hasjob - https://hasjob.co'
+    """
+    soup = BeautifulSoup(html, "html5lib")
+    for a in soup.find_all('a'):
+        # encode the spaces in anchor tags.
+        a['href'] = a.attrs.get('href').replace(" ", "%20")
+        if format_link:
+            a.insert_before(format_link.format(text=a.text, href=a.attrs.get('href')))
+            a.decompose()
+    return html2text(unicode(soup))
