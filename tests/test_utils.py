@@ -105,3 +105,4 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(html_to_text(html_link), markdown_link)
         self.assertEqual(html_to_text(html_link, format_link="{text} - {href}"), formatted_link)
         self.assertEqual(html_to_text(unsafe_link, format_link="{text} - {href}"), encoded_link)
+        self.assertEqual(html_to_text(u"<a>Hasjob</a>", format_link="{text} - {href}"), u'Hasjob\n\n')
