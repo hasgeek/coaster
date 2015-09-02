@@ -39,6 +39,8 @@ requires = [
     'unidecode',
     'py-bcrypt',
     'nltk>=3.0',
+    'html2text',
+    'beautifulsoup4',
     ]
 
 
