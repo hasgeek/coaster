@@ -29,7 +29,6 @@ requires = [
     'unidecode',
     'tldextract',
     'Pygments',
-    'beautifulsoup4',
     'bleach',
     'html5lib',
     'markdown>=2.4.1',
