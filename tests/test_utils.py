@@ -67,33 +67,33 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_deobfuscate_email(self):
         input = """
-        test at example dot com
-        test@example dot com
-        test at example.com
-        test[at]example[dot]com
-        test{at}example(dot)com
-        For real, mail me at hahaha at example dot com.
-        Laughing at polka-dot commercials
-        Quick attack. Organize resistance.
-        We are at lunch. Come over.
-        <li>and at scale.</li>
-        <a href="mailto:test@example.com">this</a>
-        <test@example.com>
-        """
+            test at example dot com
+            test@example dot com
+            test at example.com
+            test[at]example[dot]com
+            test{at}example(dot)com
+            For real, mail me at hahaha at example dot com.
+            Laughing at polka-dot commercials
+            Quick attack. Organize resistance.
+            We are at lunch. Come over.
+            <li>and at scale.</li>
+            <a href="mailto:test@example.com">this</a>
+            <test@example.com>
+            """
         output = """
-        test@example.com
-        test@example.com
-        test@example.com
-        test@example.com
-        test@example.com
-        For real, mail me@hahaha@example.com.
-        Laughing@polka.commercials
-        Quick attack. Organize resistance.
-        We are@lunch. Come over.
-        <li>and@scale.</li>
-        <a href="mailto:test@example.com">this</a>
-        <test@example.com>
-        """
+            test@example.com
+            test@example.com
+            test@example.com
+            test@example.com
+            test@example.com
+            For real, mail me@hahaha@example.com.
+            Laughing@polka.commercials
+            Quick attack. Organize resistance.
+            We are@lunch. Come over.
+            <li>and@scale.</li>
+            <a href="mailto:test@example.com">this</a>
+            <test@example.com>
+            """
         self.assertEqual(deobfuscate_email(input), output)
 
     def test_html_to_text(self):
