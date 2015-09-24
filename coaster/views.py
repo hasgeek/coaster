@@ -441,7 +441,7 @@ def render_with(template, json=True):
             'text/x-json': jsonp,
             }
     else:
-        template = {}
+        templates = {}
     if isinstance(template, basestring):
         templates['*/*'] = template
     elif isinstance(template, dict):
