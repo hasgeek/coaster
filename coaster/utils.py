@@ -949,14 +949,15 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
 
 def html_to_text(html, format_link=False):
-    """ Converts html to markdown formatted text
+    """
+    Converts html to markdown formatted text
     Options:
     format_link - format links with the specified format.
     Eg: html_to_text("<a href='https://hasjob.co'>Hasjob</a>", "{text} - {href}") -> 'Hasjob - https://hasjob.co'
     """
-    soup = BeautifulSoup(html, "html5lib")
-    for a in soup.find_all('a'):
-        if format_link:
+    if format_link:
+        soup = BeautifulSoup(html, "html5lib")
+        for a in soup.find_all('a'):
             if a.attrs.get('href'):
                 # encode the spaces in anchor tags
                 a.insert_before(format_link.format(text=a.text, href=a.attrs.get('href').replace(" ", "%20")))
@@ -964,4 +965,5 @@ def html_to_text(html, format_link=False):
                 # sometimes people use anchor tags without hrefs
                 a.insert_before(a.text)
             a.decompose()
-    return html2text(unicode(soup))
+        html = unicode(soup)
+    return html2text(html)
