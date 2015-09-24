@@ -101,8 +101,8 @@ class TestCoasterUtils(unittest.TestCase):
         unsafe_link = u"<strong><a href='https://hasjob.co/?l=bangalore&c=programming '>Hasjob</a></strong>"
         markdown_link = u'**[Hasjob](https://hasjob.co)**\n\n'
         formatted_link = u'**Hasjob - https://hasjob.co**\n\n'
-        encoded_link = u'**Hasjob - https://hasjob.co/?l=bangalore&amp;c=programming%20**\n\n'
+        space_encoded_link = u'**Hasjob - https://hasjob.co/?l=bangalore&amp;c=programming%20**\n\n'
         self.assertEqual(html_to_text(html_link), markdown_link)
         self.assertEqual(html_to_text(html_link, format_link="{text} - {href}"), formatted_link)
-        self.assertEqual(html_to_text(unsafe_link, format_link="{text} - {href}"), encoded_link)
+        self.assertEqual(html_to_text(unsafe_link, format_link="{text} - {href}"), space_encoded_link)
         self.assertEqual(html_to_text(u"<a>Hasjob</a>", format_link="{text} - {href}"), u'Hasjob\n\n')
