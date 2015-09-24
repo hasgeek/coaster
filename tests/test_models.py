@@ -47,7 +47,7 @@ class UnnamedDocument(BaseMixin, db.Model):
 
 class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
-    reserved_names = ['new']
+    reserved_names = [u'new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -57,7 +57,7 @@ class NamedDocument(BaseNameMixin, db.Model):
 class NamedDocumentBlank(BaseNameMixin, db.Model):
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
-    reserved_names = ['new']
+    reserved_names = [u'new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -66,7 +66,7 @@ class NamedDocumentBlank(BaseNameMixin, db.Model):
 
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
-    reserved_names = ['new']
+    reserved_names = [u'new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -114,9 +114,7 @@ class MyData(db.Model):
     data = Column(JsonDict)
 
 
-
 # -- Tests --------------------------------------------------------------------
-
 
 class TestCoasterModels(unittest.TestCase):
     app = app1
@@ -333,24 +331,23 @@ class TestCoasterModels(unittest.TestCase):
         d1 = NamedDocument(container=c, title=u"New")
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
-        d1.make_name(reserved=['new2'])
-        self.assertEqual(d1.name, 'new3')
+        d1.make_name(reserved=[u'new2'])
+        self.assertEqual(d1.name, u'new3')
         d2 = ScopedNamedDocument(container=c, title=u"New")
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
-        d2.make_name(reserved=['new2'])
-        self.assertEqual(d2.name, 'new3')
+        d2.make_name(reserved=[u'new2'])
+        self.assertEqual(d2.name, u'new3')
 
         # Now test again after adding to session. Results should be identical
         self.session.add(d1)
         self.session.add(d2)
         self.session.commit()
 
-        d1.make_name(reserved=['new2'])
-        self.assertEqual(d1.name, 'new3')
-        d2.make_name(reserved=['new2'])
-        self.assertEqual(d2.name, 'new3')
-
+        d1.make_name(reserved=[u'new2'])
+        self.assertEqual(d1.name, u'new3')
+        d2.make_name(reserved=[u'new2'])
+        self.assertEqual(d2.name, u'new3')
 
     def test_has_timestamps(self):
         # Confirm that a model with multiple base classes between it and

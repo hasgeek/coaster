@@ -112,21 +112,21 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name("How 'bout this?")
     'how-bout-this'
     >>> make_name(u"How’s that?")
-    'hows-that'
+    u'hows-that'
     >>> make_name(u'K & D')
-    'k-d'
+    u'k-d'
     >>> make_name('billion+ pageviews')
     'billion-pageviews'
     >>> make_name(u'हिन्दी slug!')
-    'hindii-slug'
+    u'hindii-slug'
     >>> make_name(u'__name__', delim=u'_')
-    'name'
+    u'name'
     >>> make_name(u'how_about_this', delim=u'_')
-    'how_about_this'
+    u'how_about_this'
     >>> make_name(u'and-that', delim=u'_')
-    'and_that'
+    u'and_that'
     >>> make_name(u'Umlauts in Mötörhead')
-    'umlauts-in-motorhead'
+    u'umlauts-in-motorhead'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
     'candidate2'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
@@ -140,12 +140,15 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
     >>> make_name(u'Lǝnkǝran')
-    'lankaran'
+    u'lankaran'
     >>> make_name(u'example@example.com')
-    'example-example-com'
+    u'example-example-com'
     """
     name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
+    if isinstance(text, unicode):
+        # Unidecode returns str. Restore to a unicode string if original was unicode
+        name = unicode(name)
     if checkused is None:
         return name[:maxlength]
     candidate = name[:maxlength]
