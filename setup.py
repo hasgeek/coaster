@@ -21,7 +21,6 @@ requires = [
     'Flask-Assets',
     'webassets',
     'Flask-Script==0.5.3',
-    'Flask-Assets',
     'Flask-SQLAlchemy',
     'SQLAlchemy',
     'docflow>=0.3.2',
