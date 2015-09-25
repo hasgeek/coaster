@@ -166,6 +166,24 @@ class BaseNameMixin(BaseMixin):
         if not self.name:
             self.make_name()
 
+    @classmethod
+    def get(cls, name):
+        """Get an instance matching the name"""
+        return cls.query.filter_by(name=name).one_or_none()
+
+    @classmethod
+    def upsert(cls, name, **fields):
+        """Insert or update an instance"""
+        instance = cls.get(name)
+        if instance:
+            for f in fields:
+                if hasattr(instance, f):
+                    setattr(instance, f, fields[f])
+        else:
+            instance = cls(name=name, **fields)
+            cls.query.session.add(instance)
+        return instance
+
     def make_name(self, reserved=[]):
         """
         Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
@@ -237,6 +255,24 @@ class BaseScopedNameMixin(BaseMixin):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
         if self.parent and not self.name:
             self.make_name()
+
+    @classmethod
+    def get(cls, parent, name):
+        """Get an instance matching the parent and name"""
+        return cls.query.filter_by(parent=parent, name=name).one_or_none()
+
+    @classmethod
+    def upsert(cls, parent, name, **fields):
+        """Insert or update an instance"""
+        instance = cls.get(parent, name)
+        if instance:
+            for f in fields:
+                if hasattr(instance, f):
+                    setattr(instance, f, fields[f])
+        else:
+            instance = cls(parent=parent, name=name, **fields)
+            cls.query.session.add(instance)
+        return instance
 
     def make_name(self, reserved=[]):
         """
@@ -366,6 +402,24 @@ class BaseScopedIdMixin(BaseMixin):
         if self.parent:
             self.make_id()
 
+    @classmethod
+    def get(cls, parent, url_id):
+        """Get an instance matching the parent and url_id"""
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
+
+    @classmethod
+    def upsert(cls, parent, url_id, **fields):
+        """Insert or update an instance"""
+        instance = cls.get(parent, url_id)
+        if instance:
+            for f in fields:
+                if hasattr(instance, f):
+                    setattr(instance, f, fields[f])
+        else:
+            instance = cls(parent=parent, url_id=url_id, **fields)
+            cls.query.session.add(instance)
+        return instance
+
     def make_id(self):
         """Create a new URL id that is unique to the parent container"""
         if self.url_id is None:  # Set id only if empty
@@ -434,6 +488,24 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_id()
         if not self.name:
             self.make_name()
+
+    @classmethod
+    def get(cls, parent, url_id):
+        """Get an instance matching the parent and name"""
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
+
+    @classmethod
+    def upsert(cls, parent, url_id, **fields):
+        """Insert or update an instance"""
+        instance = cls.get(parent, url_id)
+        if instance:
+            for f in fields:
+                if hasattr(instance, f):
+                    setattr(instance, f, fields[f])
+        else:
+            instance = cls(parent=parent, url_id=url_id, **fields)
+            cls.query.session.add(instance)
+        return instance
 
     def make_name(self):
         """Autogenerates a title from the name"""
