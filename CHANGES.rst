@@ -1,7 +1,3 @@
-0.6.0
------
-* New: get and upsert in Base(Scoped)NameMixin.
-
 0.5.0
 -----
 * Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version.
@@ -15,6 +11,7 @@
 * LabeledEnum now takes an ``__order__`` specification.
 * New word_count util returns word count for HTML documents.
 * New for_tsquery formats text queries to PostgreSQL to_tsquery parameters.
+* New: get and upsert in Base(Scoped)NameMixin.
 
 0.4.3
 -----
