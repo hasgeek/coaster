@@ -1,3 +1,7 @@
+0.6.0
+-----
+* New: get and upsert in Base(Scoped)NameMixin.
+
 0.5.0
 -----
 * Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version.
