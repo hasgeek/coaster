@@ -187,13 +187,17 @@ class TestCoasterModels(unittest.TestCase):
         # test insert in BaseNameMixin's upsert
         d3 = NamedDocument.upsert(u'hello3', title=u'hello3', content=u'hello3')
         self.session.commit()
-        self.assertEqual(NamedDocument.get(u'hello3'), d3)
+        d3_persisted = NamedDocument.get(u'hello3')
+        self.assertEqual(d3_persisted, d3)
+        self.assertEqual(d3_persisted.content, u'hello3')
 
         # test update in BaseNameMixin's upsert
-        d4 = NamedDocument.upsert(u'hello3', title=u'hello4')
+        d4 = NamedDocument.upsert(u'hello3', title=u'hello4', content=u'hello4')
         d4.make_name()
         self.session.commit()
-        self.assertEqual(NamedDocument.get(u'hello4'), d4)
+        d4_persisted = NamedDocument.get(u'hello4')
+        self.assertEqual(d4_persisted, d4)
+        self.assertEqual(d4_persisted.content, u'hello4')
 
         with self.assertRaises(TypeError) as insert_error:
             NamedDocument.upsert(u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
@@ -256,13 +260,17 @@ class TestCoasterModels(unittest.TestCase):
         # test insert in BaseScopedNameMixin's upsert
         d4 = ScopedNamedDocument.upsert(c1, u'hello4', title=u'Hello 4', content=u'scoped named doc')
         self.session.commit()
-        self.assertEqual(ScopedNamedDocument.get(c1, u'hello4'), d4)
+        d4_persisted = ScopedNamedDocument.get(c1, u'hello4')
+        self.assertEqual(d4_persisted, d4)
+        self.assertEqual(d4_persisted.content, u'scoped named doc')
 
         # test update in BaseScopedNameMixin's upsert
-        d5 = ScopedNamedDocument.upsert(c1, u'hello4', container=c2, title=u'Hello5')
+        d5 = ScopedNamedDocument.upsert(c1, u'hello4', container=c2, title=u'Hello5', content=u'scoped named doc')
         d5.make_name()
         self.session.commit()
-        self.assertEqual(ScopedNamedDocument.get(c2, u'hello5'), d5)
+        d5_persisted = ScopedNamedDocument.get(c2, u'hello5')
+        self.assertEqual(d5_persisted, d5)
+        self.assertEqual(d5_persisted.content, u'scoped named doc')
 
         with self.assertRaises(TypeError) as insert_error:
             ScopedNamedDocument.upsert(c1, u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
