@@ -392,6 +392,47 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(Container.query.filter_by(name=u'c3').one_or_none(), None)
         self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
 
+    def test_get(self):
+        # test get for BaseNameMixin
+        nd1 = NamedDocument(title=u'nd1')
+        nd1.make_name()
+        self.session.add(nd1)
+        self.session.commit()
+        self.assertEqual(NamedDocument.get(u'nd1'), nd1)
+
+        # test get for BaseScopedNameMixin
+        c1 = self.make_container()
+        snd1 = ScopedNamedDocument(title=u'snd1', content=u'scoped named doc', container=c1)
+        snd1.make_name()
+        self.session.add(snd1)
+        self.session.commit()
+        self.assertEqual(ScopedNamedDocument.get(c1, u'snd1'), snd1)
+
+    def test_upsert(self):
+        # test insert for BaseNameMixin
+        nd1 = NamedDocument.upsert(u'nd1', title=u'nd1', content=u'named doc')
+        self.session.commit()
+        self.assertEqual(NamedDocument.get(u'nd1'), nd1)
+
+        # test update for BaseNameMixin
+        nd2 = NamedDocument.upsert(u'nd1', title=u'nd2')
+        nd2.make_name()
+        self.session.commit()
+        self.assertEqual(NamedDocument.get(u'nd2'), nd2)
+
+        # test insert for BaseScopedNameMixin
+        c1 = self.make_container()
+        snd1 = ScopedNamedDocument.upsert(c1, u'snd1', title=u'snd1', content=u'scoped named doc')
+        self.session.commit()
+        self.assertEqual(ScopedNamedDocument.get(c1, u'snd1'), snd1)
+
+        # test update for BaseScopedNameMixin
+        c2 = self.make_container()
+        snd2 = ScopedNamedDocument.upsert(c1, u'snd1', container=c2, title=u'snd2')
+        snd2.make_name()
+        self.session.commit()
+        self.assertEqual(ScopedNamedDocument.get(c2, u'snd2'), snd2)
+
 
 class TestCoasterModels2(TestCoasterModels):
     app = app2
