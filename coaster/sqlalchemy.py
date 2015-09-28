@@ -179,6 +179,8 @@ class BaseNameMixin(BaseMixin):
             for f in fields:
                 if hasattr(instance, f):
                     setattr(instance, f, fields[f])
+                else:
+                    raise TypeError("'{arg}' is an invalid keyword argument for {instance_type}".format(arg=f, instance_type=instance.__class__.__name__))
         else:
             instance = cls(name=name, **fields)
             cls.query.session.add(instance)
@@ -269,6 +271,8 @@ class BaseScopedNameMixin(BaseMixin):
             for f in fields:
                 if hasattr(instance, f):
                     setattr(instance, f, fields[f])
+                else:
+                    raise TypeError("'{arg}' is an invalid keyword argument for {instance_type}".format(arg=f, instance_type=instance.__class__.__name__))
         else:
             instance = cls(parent=parent, name=name, **fields)
             cls.query.session.add(instance)

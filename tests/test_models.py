@@ -195,6 +195,17 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(NamedDocument.get(u'hello4'), d4)
 
+        with self.assertRaises(TypeError) as insert_error:
+            NamedDocument.upsert(u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+        self.assertEqual(TypeError, insert_error.expected)
+
+        with self.assertRaises(TypeError) as update_error:
+            NamedDocument.upsert(u'valid1', title=u'Valid1')
+            self.session.commit()
+            NamedDocument.upsert(u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            self.session.commit()
+        self.assertEqual(TypeError, update_error.expected)
+
     # TODO: Versions of this test are required for BaseNameMixin,
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
     # since they replicate code without sharing it. Only BaseNameMixin
@@ -252,6 +263,17 @@ class TestCoasterModels(unittest.TestCase):
         d5.make_name()
         self.session.commit()
         self.assertEqual(ScopedNamedDocument.get(c2, u'hello5'), d5)
+
+        with self.assertRaises(TypeError) as insert_error:
+            ScopedNamedDocument.upsert(c1, u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+        self.assertEqual(TypeError, insert_error.expected)
+
+        with self.assertRaises(TypeError) as update_error:
+            ScopedNamedDocument.upsert(c1, u'valid1', title=u'Valid1')
+            self.session.commit()
+            ScopedNamedDocument.upsert(c1, u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            self.session.commit()
+        self.assertEqual(TypeError, update_error.expected)
 
     def test_scoped_named_short_title(self):
         """Test the short_title method of BaseScopedNameMixin."""
