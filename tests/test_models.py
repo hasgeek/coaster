@@ -276,9 +276,9 @@ class TestCoasterModels(unittest.TestCase):
             ScopedNamedDocument.upsert(c1, u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
         self.assertEqual(TypeError, insert_error.expected)
 
+        ScopedNamedDocument.upsert(c1, u'valid1', title=u'Valid1')
+        self.session.commit()
         with self.assertRaises(TypeError) as update_error:
-            ScopedNamedDocument.upsert(c1, u'valid1', title=u'Valid1')
-            self.session.commit()
             ScopedNamedDocument.upsert(c1, u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
             self.session.commit()
         self.assertEqual(TypeError, update_error.expected)
