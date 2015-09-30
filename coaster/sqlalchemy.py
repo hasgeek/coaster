@@ -120,7 +120,12 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
     """
-    pass
+    def _set_fields(self, fields):
+        for f in fields:
+            if hasattr(self, f):
+                setattr(self, f, fields[f])
+            else:
+                raise TypeError("'{arg}' is an invalid argument for {instance_type}".format(arg=f, instance_type=self.__class__.__name__))
 
 
 class BaseNameMixin(BaseMixin):
@@ -176,11 +181,7 @@ class BaseNameMixin(BaseMixin):
         """Insert or update an instance"""
         instance = cls.get(name)
         if instance:
-            for f in fields:
-                if hasattr(instance, f):
-                    setattr(instance, f, fields[f])
-                else:
-                    raise TypeError("'{arg}' is an invalid keyword argument for {instance_type}".format(arg=f, instance_type=instance.__class__.__name__))
+            instance._set_fields(fields)
         else:
             instance = cls(name=name, **fields)
             cls.query.session.add(instance)
@@ -268,11 +269,7 @@ class BaseScopedNameMixin(BaseMixin):
         """Insert or update an instance"""
         instance = cls.get(parent, name)
         if instance:
-            for f in fields:
-                if hasattr(instance, f):
-                    setattr(instance, f, fields[f])
-                else:
-                    raise TypeError("'{arg}' is an invalid keyword argument for {instance_type}".format(arg=f, instance_type=instance.__class__.__name__))
+            instance._set_fields(fields)
         else:
             instance = cls(parent=parent, name=name, **fields)
             cls.query.session.add(instance)
