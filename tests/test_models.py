@@ -176,12 +176,39 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(d1.name, u'hello')
+        self.assertEqual(NamedDocument.get(u'hello'), d1)
 
         c2 = self.make_container()
         d2 = NamedDocument(title=u"Hello", content=u"Again", container=c2)
         self.session.add(d2)
         self.session.commit()
         self.assertEqual(d2.name, u'hello2')
+
+        # test insert in BaseNameMixin's upsert
+        d3 = NamedDocument.upsert(u'hello3', title=u'hello3', content=u'hello3')
+        self.session.commit()
+        d3_persisted = NamedDocument.get(u'hello3')
+        self.assertEqual(d3_persisted, d3)
+        self.assertEqual(d3_persisted.content, u'hello3')
+
+        # test update in BaseNameMixin's upsert
+        d4 = NamedDocument.upsert(u'hello3', title=u'hello4', content=u'hello4')
+        d4.make_name()
+        self.session.commit()
+        d4_persisted = NamedDocument.get(u'hello4')
+        self.assertEqual(d4_persisted, d4)
+        self.assertEqual(d4_persisted.content, u'hello4')
+
+        with self.assertRaises(TypeError) as insert_error:
+            NamedDocument.upsert(u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+        self.assertEqual(TypeError, insert_error.expected)
+
+        with self.assertRaises(TypeError) as update_error:
+            NamedDocument.upsert(u'valid1', title=u'Valid1')
+            self.session.commit()
+            NamedDocument.upsert(u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            self.session.commit()
+        self.assertEqual(TypeError, update_error.expected)
 
     # TODO: Versions of this test are required for BaseNameMixin,
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
@@ -208,6 +235,7 @@ class TestCoasterModels(unittest.TestCase):
         u = User(username=u'foo')
         self.session.add(d1)
         self.session.commit()
+        self.assertEqual(ScopedNamedDocument.get(c1, u'hello'), d1)
         self.assertEqual(d1.name, u'hello')
         self.assertEqual(d1.permissions(user=u), set([]))
         self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
@@ -228,6 +256,32 @@ class TestCoasterModels(unittest.TestCase):
         d4 = ScopedNamedDocument(title=u"Hello", container=c3)
         self.session.commit()
         self.assertEqual(d4.permissions(user=u), set([]))
+
+        # test insert in BaseScopedNameMixin's upsert
+        d4 = ScopedNamedDocument.upsert(c1, u'hello4', title=u'Hello 4', content=u'scoped named doc')
+        self.session.commit()
+        d4_persisted = ScopedNamedDocument.get(c1, u'hello4')
+        self.assertEqual(d4_persisted, d4)
+        self.assertEqual(d4_persisted.content, u'scoped named doc')
+
+        # test update in BaseScopedNameMixin's upsert
+        d5 = ScopedNamedDocument.upsert(c1, u'hello4', container=c2, title=u'Hello5', content=u'scoped named doc')
+        d5.make_name()
+        self.session.commit()
+        d5_persisted = ScopedNamedDocument.get(c2, u'hello5')
+        self.assertEqual(d5_persisted, d5)
+        self.assertEqual(d5_persisted.content, u'scoped named doc')
+
+        with self.assertRaises(TypeError) as insert_error:
+            ScopedNamedDocument.upsert(c1, u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+        self.assertEqual(TypeError, insert_error.expected)
+
+        ScopedNamedDocument.upsert(c1, u'valid1', title=u'Valid1')
+        self.session.commit()
+        with self.assertRaises(TypeError) as update_error:
+            ScopedNamedDocument.upsert(c1, u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            self.session.commit()
+        self.assertEqual(TypeError, update_error.expected)
 
     def test_scoped_named_short_title(self):
         """Test the short_title method of BaseScopedNameMixin."""
@@ -264,6 +318,8 @@ class TestCoasterModels(unittest.TestCase):
         d1 = ScopedIdDocument(content=u"Hello", container=c1)
         u = User(username="foo")
         self.session.add(d1)
+        self.session.commit()
+        self.assertEqual(ScopedIdDocument.get(c1, d1.url_id), d1)
         self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
         self.assertEqual(d1.permissions(user=u), set([]))
 
@@ -291,6 +347,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(d1.url_name, u'1-hello')
+        self.assertEqual(ScopedIdNamedDocument.get(c1, d1.url_id), d1)
 
         d2 = ScopedIdNamedDocument(title=u"Hello again", content=u"New name", container=c1)
         self.session.add(d2)
