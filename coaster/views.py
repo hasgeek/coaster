@@ -424,6 +424,10 @@ def render_with(template, json=False):
     returned with the same mimetype. Callable templates must return Response objects
     to ensure the correct mimetype is set.
 
+    If a dictionary of templates is provided and does not include a handler for ``*/*``,
+    render_with will attempt to use the handler for (in order) ``text/html``, ``text/plain``
+    and the various JSON types, falling back to rendering the value into a unicode string.
+
     If the method is called outside a request context, the wrapped method's original
     return value is returned. This is meant to facilitate testing and should not be
     used to call the method from within another view handler as the presence of a
