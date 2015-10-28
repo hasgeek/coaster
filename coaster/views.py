@@ -504,14 +504,14 @@ def render_with(template, json=True):
                     else:
                         rendered = current_app.response_class(
                             rendered,
-                            status_code=status_code,
+                            status=status_code,
                             headers=headers,
                             mimetype=use_mimetype)
                 else:
                     if use_mimetype != '*/*':
                         rendered = current_app.response_class(
                             render_template(templates[use_mimetype], **result),
-                            status_code=status_code, headers=headers,
+                            status=status_code, headers=headers,
                             mimetype=use_mimetype)
                     else:
                         rendered = render_template(templates[use_mimetype], **result)
