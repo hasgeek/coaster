@@ -12,6 +12,7 @@
 * New word_count util returns word count for HTML documents.
 * New for_tsquery formats text queries to PostgreSQL to_tsquery parameters.
 * New: get and upsert in Base(Scoped)NameMixin.
+* render_with no longer enables JSON handler by default; now gracefully handles */* requests.
 
 0.4.3
 -----

@@ -385,7 +385,7 @@ def load_models(*chain, **kwargs):
     return inner
 
 
-def render_with(template, json=True):
+def render_with(template, json=False):
     """
     Decorator to render the wrapped method with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -398,8 +398,8 @@ def render_with(template, json=True):
         def myview():
             return {'data': 'value'}
 
-        @app.route('/myview_no_json')
-        @render_with('myview.html', json=False)
+        @app.route('/myview_with_json')
+        @render_with('myview.html', json=True)
         def myview_no_json():
             return {'data': 'value'}
 
@@ -431,8 +431,8 @@ def render_with(template, json=True):
 
     Rendering may also be suspended by calling the view handler with ``_render=False``.
 
-    render_with provides a default JSONP handler for the ``application/json``,
-    ``text/json`` and ``text/x-json`` mimetypes if :param:`json` is True (default).
+    render_with provides a JSONP handler for the ``application/json``,
+    ``text/json`` and ``text/x-json`` mimetypes if :param:`json` is True (default is False).
     """
     if json:
         templates = {
@@ -448,6 +448,13 @@ def render_with(template, json=True):
         templates.update(template)
     else:  # pragma: no cover
         raise ValueError("Expected string or dict for template")
+
+    if '*/*' not in templates:
+        templates['*/*'] = unicode
+        for handler in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
+            if handler in templates:
+                templates['*/*'] = templates[handler]
+                break
 
     def inner(f):
         @wraps(f)
