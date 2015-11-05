@@ -93,7 +93,7 @@ def sync_resources(env):
     print "Resources synced..."
 
 
-@manager.option('-e', '--env', default='dev', help="shell environment [default dev]")
+@manager.option('-e', '--env', default='dev', help="shell environment [default 'dev']")
 def shell(env, no_ipython=False, no_bpython=False):
     """Initiate a Python shell"""
     def _make_context():
@@ -104,7 +104,7 @@ def shell(env, no_ipython=False, no_bpython=False):
     Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
 
 
-@manager.option('-e', '--env', default='dev', help="shell environment [default dev]")
+@manager.option('-e', '--env', default='dev', help="shell environment [default 'dev']")
 def plainshell(env):
     """Initiate a plain Python shell"""
     return shell(env, no_ipython=True, no_bpython=True)
@@ -116,7 +116,8 @@ def init_manager(app, db, init_for, **kwargs):
 
     :param app: Flask app object
     :parm db: db instance
-    :param init_for: init_for function which is normally present in __init__.py of hgapp.
+    :param init_for: init_for function which is normally present in __init__.py of hgapp
+    :param kwargs: Additional keyword arguments to be made available as shell context
     """
     manager.app, manager.db, manager.init_for = app, db, init_for
     manager.context = kwargs
