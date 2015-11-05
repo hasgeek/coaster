@@ -13,6 +13,7 @@
 * New for_tsquery formats text queries to PostgreSQL to_tsquery parameters.
 * New: get and upsert in Base(Scoped)NameMixin.
 * render_with no longer enables JSON handler by default; now gracefully handles */* requests.
+* manage.py's shell now allows additional context to be made available in locals()
 
 0.4.3
 -----

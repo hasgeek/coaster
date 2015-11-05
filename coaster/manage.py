@@ -98,7 +98,9 @@ def shell(env, no_ipython=False, no_bpython=False):
     """Initiate a Python shell"""
     def _make_context():
         manager.init_for(env)
-        return dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+        context = dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+        context.update(manager.context)
+        return context
     Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
 
 
@@ -117,6 +119,7 @@ def init_manager(app, db, init_for, **kwargs):
     :param init_for: init_for function which is normally present in __init__.py of hgapp.
     """
     manager.app, manager.db, manager.init_for = app, db, init_for
+    manager.context = kwargs
     manager.add_command("db", database)
     manager.add_command("clean", Clean())
     manager.add_command("showurls", ShowUrls())
