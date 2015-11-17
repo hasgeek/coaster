@@ -1,6 +1,6 @@
 0.5.0
 -----
-* Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version.
+* Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version
   number since this is a non-breaking incompatible change.
 * JsonDict now uses JSONB on PostgreSQL 9.4.
 * New CoordinatesMixin adds latitude and longitude columns.
@@ -11,9 +11,9 @@
 * LabeledEnum now takes an ``__order__`` specification.
 * New word_count util returns word count for HTML documents.
 * New for_tsquery formats text queries to PostgreSQL to_tsquery parameters.
-* New: get and upsert in Base(Scoped)NameMixin.
+* New get and upsert methods in Base(Scoped)NameMixin.
 * render_with no longer enables JSON handler by default; now gracefully handles */* requests.
-* manage.py's shell now allows additional context to be made available in locals()
+* manage.py's shell now allows additional context to be made available in locals().
 
 0.4.3
 -----
