@@ -32,7 +32,7 @@ def myview():
 @render_with({
     'text/html': 'renderedview2.html',
     'text/xml': 'renderedview2.xml',
-    'text/plain': viewcallable})
+    'text/plain': viewcallable}, json=True)
 def otherview():
     return {'data': 'value'}, 201
 
@@ -77,7 +77,7 @@ class TestLoadModels(unittest.TestCase):
         # missing template is the one that was supposed to be rendered.
         try:
             self.app.get('/renderedview1')
-        except TemplateNotFound, e:
+        except TemplateNotFound as e:
             self.assertEqual(str(e), 'renderedview1.html')
         else:
             raise Exception("Wrong template rendered")
@@ -87,7 +87,7 @@ class TestLoadModels(unittest.TestCase):
                 ('text/xml,text/html,*/*', 'renderedview2.xml')]:
             try:
                 self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
-            except TemplateNotFound, e:
+            except TemplateNotFound as e:
                 self.assertEqual(str(e), template)
             else:
                 raise Exception("Wrong template rendered")
@@ -105,5 +105,5 @@ class TestLoadModels(unittest.TestCase):
         self.assertTrue(isinstance(response, Response))
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
         self.assertEqual(resp.headers['Referrer'], "http://example.com")
-        #resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
-        #self.assertEqual(resp.status_code, 201)
+        # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
+        # self.assertEqual(resp.status_code, 201)

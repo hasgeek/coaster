@@ -431,7 +431,7 @@ class TestCoasterModels(unittest.TestCase):
         m1 = MyData(data={u'value': u'foo'})
         self.session.add(m1)
         self.session.commit()
-        #Test for __setitem__
+        # Test for __setitem__
         m1.data[u'value'] = u'bar'
         self.assertEqual(m1.data[u'value'], u'bar')
         del m1.data[u'value']
