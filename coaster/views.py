@@ -5,7 +5,7 @@ from functools import wraps
 import urlparse
 import re
 from flask import (session as request_session, request, url_for, json, Response,
-    redirect, abort, g, current_app, render_template)
+    redirect, abort, g, current_app, render_template, jsonify)
 from werkzeug.routing import BuildError
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
@@ -385,7 +385,7 @@ def load_models(*chain, **kwargs):
     return inner
 
 
-def render_with(template, json=False):
+def render_with(template, json=False, jsonp=False):
     """
     Decorator to render the wrapped method with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -435,14 +435,26 @@ def render_with(template, json=False):
 
     Rendering may also be suspended by calling the view handler with ``_render=False``.
 
-    render_with provides a JSONP handler for the ``application/json``,
-    ``text/json`` and ``text/x-json`` mimetypes if :param:`json` is True (default is False).
+    render_with provides JSON and JSONP handlers for the ``application/json``,
+    ``text/json`` and ``text/x-json`` mimetypes if ``json`` or ``jsonp`` is True
+    (default is False).
+
+    :param template: Single template, or dictionary of MIME type to templates. If the
+        template is a callable, it is called with the output of the wrapped function
+    :param json: Helper to add a JSON handler (default is False)
+    :param jsonp: Helper to add a JSONP handler (if True, also provides JSON, default is False)
     """
-    if json:
+    if jsonp:
         templates = {
             'application/json': jsonp,
             'text/json': jsonp,
             'text/x-json': jsonp,
+            }
+    elif json:
+        templates = {
+            'application/json': jsonify,
+            'text/json': jsonify,
+            'text/x-json': jsonify,
             }
     else:
         templates = {}
