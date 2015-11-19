@@ -13,6 +13,9 @@ creating a new module solely for a shared dependency.
 .. autoclass:: SQLAlchemy
     :members:
 
+.. _nodular: https://github.com/hasgeek/nodular
+.. _Flask-Commentease: https://github.com/hasgeek/flask-commentease 
+
 .. py:attribute:: db
 
     Instance of :class:`SQLAlchemy`
