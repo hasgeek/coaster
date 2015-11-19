@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from sqlalchemy import exc
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from flask.ext.sqlalchemy import SQLAlchemy as SQLAlchemyBase, SignallingSession
 
 __all__ = ['SQLAlchemy', 'db']
@@ -26,10 +27,12 @@ class CoasterSession(SignallingSession):
             self.add(_instance)
             self.commit()
             return _instance
-        except exc.IntegrityError:
+        except IntegrityError as e:
             self.rollback()
-            if filters:
+            try:
                 return self.query(_instance.__class__).filter_by(**filters).one()
+            except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
+                raise e
 
 
 # Provide a Flask-SQLAlchemy alternative that uses our custom session
