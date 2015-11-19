@@ -14,6 +14,8 @@
 * New get and upsert methods in Base(Scoped)NameMixin.
 * render_with no longer enables JSON handler by default; now gracefully handles */* requests.
 * manage.py's shell now allows additional context to be made available in locals().
+* coaster.db now provides a custom SQLAlchemy session with additional helper methods,
+  starting with one: ``add_and_commit``, which rolls back if the commit fails.
 
 0.4.3
 -----
