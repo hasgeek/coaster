@@ -542,6 +542,11 @@ def render_with(template, json=False, jsonp=False):
                             rendered = (rendered, status_code, headers)
                         elif status_code is not None:
                             rendered = (rendered, status_code)
+                if not rendered.headers["Vary"]:
+                    rendered.headers["Vary"] = "Accept"
+                elif "Accept" not in headers["Vary"]:
+                    rendered.headers["Vary"] += "Accept"
+
                 return rendered
             else:
                 return result
