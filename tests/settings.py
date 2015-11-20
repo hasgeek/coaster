@@ -9,4 +9,4 @@ MAIL_PORT = 587
 MAIL_USERNAME = 'username'
 MAIL_PASSWORD = 'PASSWORD'
 SECRET_KEY = 'd vldvnvnvjn'
-SQLALCHEMY_DATABASE_URI = 'postgresql://:@localhost:5432/coaster_test'
+SQLALCHEMY_DATABASE_URI = 'postgresql://coaster:@localhost:5432/coaster_test'
