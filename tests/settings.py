@@ -1,5 +1,5 @@
 """
-Configuration used by coaster test suite
+Note: This is a test config file used by test_app.py.
 """
 SETTINGS_KEY = 'settings'
 ADMINS = ['test@example.com', ]
