@@ -4,8 +4,8 @@ import unittest
 from os import environ
 import sys
 from flask import Flask
-from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
-from coaster.logger import init_app, LocalVarFormatter
+from coaster.app import _additional_config, init_app, load_config_from_file, SandboxedFlask
+from coaster.logger import init_app as logger_init_app, LocalVarFormatter
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -25,16 +25,16 @@ class TestCoasterUtils(unittest.TestCase):
             environ[env] = k
             self.assertEqual(_additional_config.get(environ[env]), v)
 
-    def test_configure(self):
+    def test_init_app(self):
         env = 'COASTER_ENV'
         environ[env] = "testing"
-        configure(self.app, env)
+        init_app(self.app, env)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
 
     def test_logging_handler(self):
         load_config_from_file(self.another_app, "testing.py")
-        init_app(self.another_app)
+        logger_init_app(self.another_app)
         for handler in self.another_app.logger.handlers:
             try:
                 raise
