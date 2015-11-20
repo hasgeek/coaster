@@ -32,7 +32,7 @@ def myview():
 @render_with({
     'text/html': 'renderedview2.html',
     'text/xml': 'renderedview2.xml',
-    'text/plain': viewcallable}, json=True)
+    'text/plain': viewcallable}, jsonp=True)
 def otherview():
     return {'data': 'value'}, 201
 

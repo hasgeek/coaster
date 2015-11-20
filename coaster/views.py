@@ -386,6 +386,9 @@ def load_models(*chain, **kwargs):
     return inner
 
 
+__render_with_jsonp = jsonp  # So we can take a jsonp parameter in render_with
+
+
 def render_with(template, json=False, jsonp=False):
     """
     Decorator to render the wrapped method with the given template (or dictionary
@@ -447,9 +450,9 @@ def render_with(template, json=False, jsonp=False):
     """
     if jsonp:
         templates = {
-            'application/json': jsonp,
-            'text/json': jsonp,
-            'text/x-json': jsonp,
+            'application/json': __render_with_jsonp,
+            'text/json': __render_with_jsonp,
+            'text/x-json': __render_with_jsonp,
             }
     elif json:
         templates = {
