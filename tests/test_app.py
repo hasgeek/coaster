@@ -4,7 +4,7 @@ import unittest
 from os import environ
 import sys
 from flask import Flask
-from coaster.app import _additional_config, configure, load_config_from_file, SandboxedFlask
+from coaster.app import _additional_config, load_config_from_file, SandboxedFlask
 from coaster.logger import init_app, LocalVarFormatter
 
 
@@ -28,7 +28,7 @@ class TestCoasterUtils(unittest.TestCase):
     def test_configure(self):
         env = 'COASTER_ENV'
         environ[env] = "testing"
-        configure(self.app, env)
+        init_app(self.app, env)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
 
