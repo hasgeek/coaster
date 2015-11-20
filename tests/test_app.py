@@ -26,8 +26,7 @@ class TestCoasterUtils(unittest.TestCase):
             self.assertEqual(_additional_config.get(environ[env]), v)
 
     def test_init_app(self):
-        env = 'COASTER_ENV'
-        environ[env] = "testing"
+        env = "testing"
         init_app(self.app, env)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
