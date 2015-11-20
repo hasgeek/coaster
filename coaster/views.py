@@ -7,6 +7,7 @@ import re
 from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template, jsonify)
 from werkzeug.routing import BuildError
+from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 
@@ -494,12 +495,21 @@ def render_with(template, json=False, jsonp=False):
                 else:
                     status_code = None
                 if len(resultset) > 2:
-                    headers = resultset[2]
+                    headers = Headers(resultset[2])
                 else:
-                    headers = None
+                    headers = Headers()
             else:
                 status_code = None
-                headers = None
+                headers = Headers()
+
+            if len(templates) > 1:  # If we have more than one template handler
+                if 'Vary' in headers:
+                    vary_values = [item.strip() for item in headers['Vary'].split(',')]
+                    if 'Accept' not in vary_values:
+                        vary_values.append('Accept')
+                    headers['Vary'] = ', '.join(vary_values)
+                else:
+                    headers['Vary'] = 'Accept'
 
             # Find a matching mimetype between Accept headers and available templates
             use_mimetype = None
