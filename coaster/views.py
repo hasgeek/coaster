@@ -389,6 +389,14 @@ def load_models(*chain, **kwargs):
 __render_with_jsonp = jsonp  # So we can take a jsonp parameter in render_with
 
 
+def _best_mimetype_match(available_list, accept_mimetypes, default=None):
+    for use_mimetype, quality in accept_mimetypes:
+        for mimetype in available_list:
+            if use_mimetype.lower() == mimetype.lower():
+                return use_mimetype
+    return default
+
+
 def render_with(template, json=False, jsonp=False):
     """
     Decorator to render the wrapped method with the given template (or dictionary
@@ -476,6 +484,9 @@ def render_with(template, json=False, jsonp=False):
                 templates['*/*'] = templates[handler]
                 break
 
+    template_mimetypes = templates.keys()
+    template_mimetypes.remove('*/*')  # */* messes up matching, so supply it only as last resort
+
     def inner(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -517,16 +528,10 @@ def render_with(template, json=False, jsonp=False):
             # Find a matching mimetype between Accept headers and available templates
             use_mimetype = None
             if render and request:
-                mimetypes = [m.strip() for m in request.headers.get(
-                    'Accept', '').replace(';', ',').split(',') if '/' in m]
-                use_mimetype = None
-                for mimetype in mimetypes:
-                    if mimetype in templates:
-                        use_mimetype = mimetype
-                        break
-                if use_mimetype is None:
-                    if '*/*' in templates:
-                        use_mimetype = '*/*'
+                # We do not use request.accept_mimetypes.best_match because it turns out to
+                # be buggy: it returns the least match instead of the best match.
+                # use_mimetype = request.accept_mimetypes.best_match(template_mimetypes, '*/*')
+                use_mimetype = _best_mimetype_match(template_mimetypes, request.accept_mimetypes, '*/*')
 
             # Now render the result with the template for the mimetype
             if use_mimetype is not None:

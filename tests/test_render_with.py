@@ -83,8 +83,8 @@ class TestLoadModels(unittest.TestCase):
             raise Exception("Wrong template rendered")
 
         for acceptheader, template in [
-                ('text/html,text/xml,*/*', 'renderedview2.html'),
-                ('text/xml,text/html,*/*', 'renderedview2.xml')]:
+                ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
+                ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml')]:
             try:
                 self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
             except TemplateNotFound as e:
