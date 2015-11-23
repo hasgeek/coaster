@@ -16,6 +16,7 @@
 * manage.py's shell now allows additional context to be made available in locals().
 * coaster.db now provides a custom SQLAlchemy session with additional helper methods,
   starting with one: ``add_and_commit``, which rolls back if the commit fails.
+* Removed ``one_or_none`` in favor of SQLAlchemy's implementation of the same in 1.0.9
 
 0.4.3
 -----

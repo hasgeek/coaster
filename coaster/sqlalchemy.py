@@ -26,16 +26,6 @@ class Query(BaseQuery):
     Extends flask.ext.sqlalchemy.BaseQuery to add additional helper methods.
     """
 
-    def one_or_none(self):
-        """
-        Like :meth:`one` but returns None if no results are found. Raises an exception
-        if multiple results are found.
-        """
-        try:
-            return self.one()
-        except NoResultFound:
-            return None
-
     def notempty(self):
         """
         Returns the equivalent of ``bool(query.count())`` but using an efficient
