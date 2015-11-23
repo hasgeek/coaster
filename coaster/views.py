@@ -471,7 +471,7 @@ def render_with(template, json=False, jsonp=False):
     else:
         templates = {}
     if isinstance(template, basestring):
-        templates['*/*'] = template
+        templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
     else:  # pragma: no cover
