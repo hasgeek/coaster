@@ -22,7 +22,7 @@ requires = [
     'webassets',
     'Flask-Script==0.5.3',
     'Flask-SQLAlchemy',
-    'SQLAlchemy',
+    'SQLAlchemy>=1.0.9',
     'docflow>=0.3.2',
     'html2text',
     'py-bcrypt',
