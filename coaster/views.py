@@ -100,7 +100,7 @@ def jsonp(*args, **kw):
         indent=None if request.is_xhr else 2)
     callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
-        data = u'%s(' % callback + data + u');'
+        data = callback + u'(' + data + u');'
         mimetype = 'application/javascript'
     else:
         mimetype = 'application/json'
