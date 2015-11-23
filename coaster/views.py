@@ -477,11 +477,14 @@ def render_with(template, json=False, jsonp=False):
     else:  # pragma: no cover
         raise ValueError("Expected string or dict for template")
 
+    default_mimetype = '*/*'
     if '*/*' not in templates:
         templates['*/*'] = unicode
-        for handler in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
-            if handler in templates:
-                templates['*/*'] = templates[handler]
+        default_mimetype = 'text/plain'
+        for mimetype in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
+            if mimetype in templates:
+                templates['*/*'] = templates[mimetype]
+                default_mimetype = mimetype  # Remember which mimetype's handler is serving for */*
                 break
 
     template_mimetypes = templates.keys()
@@ -547,19 +550,12 @@ def render_with(template, json=False, jsonp=False):
                             rendered,
                             status=status_code,
                             headers=headers,
-                            mimetype=use_mimetype)
-                else:
-                    if use_mimetype != '*/*':
-                        rendered = current_app.response_class(
-                            render_template(templates[use_mimetype], **result),
-                            status=status_code, headers=headers,
-                            mimetype=use_mimetype)
-                    else:
-                        rendered = render_template(templates[use_mimetype], **result)
-                        if status_code is not None and headers is not None:
-                            rendered = (rendered, status_code, headers)
-                        elif status_code is not None:
-                            rendered = (rendered, status_code)
+                            mimetype=default_mimetype if use_mimetype == '*/*' else use_mimetype)
+                else:  # Not a callable mimetype. Render as a jinja2 template
+                    rendered = current_app.response_class(
+                        render_template(templates[use_mimetype], **result),
+                        status=status_code or 200, headers=headers,
+                        mimetype=default_mimetype if use_mimetype == '*/*' else use_mimetype)
                 return rendered
             else:
                 return result
