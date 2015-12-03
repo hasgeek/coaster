@@ -7,7 +7,6 @@ from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckCon
 from sqlalchemy.sql import select, func
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from flask import Markup
