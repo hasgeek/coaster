@@ -116,7 +116,7 @@ class UrlForMixin(object):
                 kwargs[param] = item
             else:
                 kwargs[param] = getattr(self, attr)
-
+        # url_for from flask
         return url_for(endpoint, **kwargs)
 
     @classmethod
