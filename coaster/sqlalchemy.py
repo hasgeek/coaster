@@ -107,20 +107,27 @@ class UrlForMixin(object):
         """
         if action not in self.url_for_endpoints:
             return  # XXX: Legacy behaviour, fail silently
-        endpoint, paramattrs = self.url_for_endpoints[action]
+        endpoint, paramattrs, _external = self.url_for_endpoints[action]
+        params = {}
         for param, attr in paramattrs.items():
             if isinstance(attr, tuple):
                 item = self
                 for subattr in attr:
                     item = getattr(item, subattr)
-                kwargs[param] = item
+                params[param] = item
+            elif callable(attr):
+                params[param] = attr()
             else:
-                kwargs[param] = getattr(self, attr)
+                params[param] = getattr(self, attr)
+        if _external is not None:
+            params['_external'] = _external
+        params.update(kwargs)  # Let kwargs override params
+
         # url_for from flask
-        return url_for(endpoint, **kwargs)
+        return url_for(endpoint, **params)
 
     @classmethod
-    def is_url_for(cls, _action, _endpoint=None, **paramattrs):
+    def is_url_for(cls, _action, _endpoint=None, _external=None, **paramattrs):
         def decorator(f):
             if 'url_for_endpoints' not in cls.__dict__:
                 cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
@@ -128,7 +135,7 @@ class UrlForMixin(object):
             for keyword in paramattrs:
                 if isinstance(paramattrs[keyword], basestring) and '.' in paramattrs[keyword]:
                     paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
-            cls.url_for_endpoints[_action] = _endpoint or f.__name__, paramattrs
+            cls.url_for_endpoints[_action] = _endpoint or f.__name__, paramattrs, _external
             return f
         return decorator
 
