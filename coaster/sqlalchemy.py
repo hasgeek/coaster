@@ -9,7 +9,7 @@ from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from flask import Markup
+from flask import Markup, url_for
 from flask.ext.sqlalchemy import BaseQuery
 from .utils import make_name
 from .gfm import markdown
@@ -95,13 +95,50 @@ class PermissionMixin(object):
 
 class UrlForMixin(object):
     """
-    Provides a placeholder :meth:`url_for` method used by BaseMixin-derived classes
+    Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
+    #: Mapping of {action: (endpoint, {param: attr})}, where attr is a string or tuple of strings.
+    #: This particular dictionary is only used as a fallback. Each subclass will get its own dictionary.
+    url_for_endpoints = {}
+
     def url_for(self, action='view', **kwargs):
         """
         Return public URL to this instance for a given action (default 'view')
         """
-        return None
+        if action not in self.url_for_endpoints:
+            # FIXME: Legacy behaviour, fails silently, but shouldn't. url_for itself raises a BuildError
+            return
+        endpoint, paramattrs, _external = self.url_for_endpoints[action]
+        params = {}
+        for param, attr in paramattrs.items():
+            if isinstance(attr, tuple):
+                item = self
+                for subattr in attr:
+                    item = getattr(item, subattr)
+                params[param] = item
+            elif callable(attr):
+                params[param] = attr(self)
+            else:
+                params[param] = getattr(self, attr)
+        if _external is not None:
+            params['_external'] = _external
+        params.update(kwargs)  # Let kwargs override params
+
+        # url_for from flask
+        return url_for(endpoint, **params)
+
+    @classmethod
+    def is_url_for(cls, _action, _endpoint=None, _external=None, **paramattrs):
+        def decorator(f):
+            if 'url_for_endpoints' not in cls.__dict__:
+                cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
+
+            for keyword in paramattrs:
+                if isinstance(paramattrs[keyword], basestring) and '.' in paramattrs[keyword]:
+                    paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
+            cls.url_for_endpoints[_action] = _endpoint or f.__name__, paramattrs, _external
+            return f
+        return decorator
 
 
 class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
