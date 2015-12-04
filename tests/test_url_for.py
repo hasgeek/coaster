@@ -23,6 +23,12 @@ def doc_edit(doc):
     return u'{} {}'.format('edit', doc)
 
 
+@app.route('/<doc>/upper')
+@NamedDocument.is_url_for('upper', doc=lambda d: d.name.upper())
+def doc_upper(doc):
+    return u'{} {}'.format('upper', doc)
+
+
 @app.route('/<container>/<doc>')
 @ScopedNamedDocument.is_url_for('view', container='parent.id', doc='name')
 def sdoc_view(container, doc):
@@ -30,7 +36,7 @@ def sdoc_view(container, doc):
 
 
 @app.route('/<container>/<doc>/edit')
-@ScopedNamedDocument.is_url_for('edit', container=('parent', 'id'), doc='name')
+@ScopedNamedDocument.is_url_for('edit', _external=True, container=('parent', 'id'), doc='name')
 def sdoc_edit(container, doc):
     return u'{} {} {}'.format('edit', container, doc)
 
@@ -72,8 +78,14 @@ class TestUrlFor(unittest.TestCase):
         self.assertEqual(doc1.url_for(), '/document1')
         self.assertEqual(doc1.url_for('view'), '/document1')
         self.assertEqual(doc1.url_for('edit'), '/document1/edit')
-
+        # Test callable parameters
+        self.assertEqual(doc1.url_for('upper'), '/DOCUMENT1/upper')
+        # Insist on changing one of the parameters
+        self.assertEqual(doc1.url_for('edit', doc=doc1.name.upper()), '/DOCUMENT1/edit')
         # Confirm second returns the correct paths
         self.assertEqual(doc2.url_for(), '/1/document2')
         self.assertEqual(doc2.url_for('view'), '/1/document2')
-        self.assertEqual(doc2.url_for('edit'), '/1/document2/edit')
+        # Test _external flag
+        self.assertEqual(doc2.url_for('edit'), 'http://localhost/1/document2/edit')
+        self.assertEqual(doc2.url_for('edit', _external=False), '/1/document2/edit')
+        self.assertEqual(doc2.url_for('edit', _external=True), 'http://localhost/1/document2/edit')

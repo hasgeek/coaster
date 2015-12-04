@@ -116,7 +116,7 @@ class UrlForMixin(object):
                     item = getattr(item, subattr)
                 params[param] = item
             elif callable(attr):
-                params[param] = attr()
+                params[param] = attr(self)
             else:
                 params[param] = getattr(self, attr)
         if _external is not None:
