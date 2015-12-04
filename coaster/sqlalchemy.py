@@ -106,7 +106,8 @@ class UrlForMixin(object):
         Return public URL to this instance for a given action (default 'view')
         """
         if action not in self.url_for_endpoints:
-            return  # XXX: Legacy behaviour, fail silently
+            # FIXME: Legacy behaviour, fails silently, but shouldn't. url_for itself raises a BuildError
+            return
         endpoint, paramattrs, _external = self.url_for_endpoints[action]
         params = {}
         for param, attr in paramattrs.items():
