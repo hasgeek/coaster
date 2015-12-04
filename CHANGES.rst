@@ -17,6 +17,7 @@
 * coaster.db now provides a custom SQLAlchemy session with additional helper methods,
   starting with one: ``add_and_commit``, which rolls back if the commit fails.
 * Removed ``one_or_none`` in favor of SQLAlchemy's implementation of the same in 1.0.9
+* New ``is_url_for`` decorator in UrlForMixin.
 
 0.4.3
 -----
