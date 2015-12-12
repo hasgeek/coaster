@@ -1,3 +1,6 @@
+0.5.1
+-----
+
 0.5.0
 -----
 * Base(Scoped)?(Id)?NameMixin now disallows blank names by default. Bumped version
