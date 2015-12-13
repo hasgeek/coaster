@@ -563,6 +563,11 @@ class JsonDict(TypeDecorator):
     Represents a JSON data structure. Usage::
 
         column = Column(JsonDict)
+
+    The column will be represented to the database as a ``JSONB`` column if
+    the server is PostgreSQL 9.4 or later, ``JSON`` if PostgreSQL 9.2 or 9.3,
+    and ``TEXT`` for everything else. The column behaves like a JSON store
+    regardless of the backing data type.
     """
 
     impl = TEXT
