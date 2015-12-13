@@ -223,11 +223,13 @@ class BaseNameMixin(BaseMixin):
         """
         if self.title:
             if self.id:
-                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
+                def checkused(c):
+                    return bool(c in reserved or c in self.reserved_names or
+                        self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
             else:
-                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter_by(name=c).notempty())
+                def checkused(c):
+                    return bool(c in reserved or c in self.reserved_names or
+                        self.__class__.query.filter_by(name=c).notempty())
             with self.__class__.query.session.no_autoflush:
                 self.name = unicode(make_name(self.title, maxlength=self.__name_length__, checkused=checkused))
 
@@ -309,12 +311,14 @@ class BaseScopedNameMixin(BaseMixin):
         """
         if self.title:
             if self.id:
-                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter(self.__class__.id != self.id).filter_by(
-                        name=c, parent=self.parent).first())
+                def checkused(c):
+                    return bool(c in reserved or c in self.reserved_names or
+                        self.__class__.query.filter(self.__class__.id != self.id).filter_by(
+                            name=c, parent=self.parent).first())
             else:
-                checkused = lambda c: bool(c in reserved or c in self.reserved_names or
-                    self.__class__.query.filter_by(name=c, parent=self.parent).first())
+                def checkused(c):
+                    return bool(c in reserved or c in self.reserved_names or
+                        self.__class__.query.filter_by(name=c, parent=self.parent).first())
             with self.__class__.query.session.no_autoflush:
                 self.name = unicode(make_name(self.short_title(), maxlength=self.__name_length__, checkused=checkused))
 
