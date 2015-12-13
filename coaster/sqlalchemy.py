@@ -414,7 +414,6 @@ class BaseScopedIdMixin(BaseMixin):
             event = db.relationship(Event)
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
-
     """
     @declared_attr
     def url_id(cls):
@@ -599,7 +598,7 @@ class JsonDict(TypeDecorator):
 class MutableDict(Mutable, dict):
     @classmethod
     def coerce(cls, key, value):
-        "Convert plain dictionaries to MutableDict."
+        """Convert plain dictionaries to MutableDict."""
 
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
@@ -617,13 +616,13 @@ class MutableDict(Mutable, dict):
             return value
 
     def __setitem__(self, key, value):
-        "Detect dictionary set events and emit change events."
+        """Detect dictionary set events and emit change events."""
 
         dict.__setitem__(self, key, value)
         self.changed()
 
     def __delitem__(self, key):
-        "Detect dictionary del events and emit change events."
+        """Detect dictionary del events and emit change events."""
 
         dict.__delitem__(self, key)
         self.changed()
@@ -699,6 +698,10 @@ class MarkdownComposite(MutableComposite):
 
 
 def MarkdownColumn(name, deferred=False, group=None, **kwargs):
+    """
+    Create a composite column that autogenerates HTML from Markdown text,
+    storing data in db columns named with ``_html`` and ``_text`` prefixes.
+    """
     return composite(MarkdownComposite,
         Column(name + '_text', UnicodeText, **kwargs),
         Column(name + '_html', UnicodeText, **kwargs),
