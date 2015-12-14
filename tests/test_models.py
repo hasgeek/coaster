@@ -6,13 +6,13 @@ import uuid
 from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
-from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict)
-from coaster.db import db
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
+from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add)
+from coaster.db import db
 
 
 app1 = Flask(__name__)
@@ -490,6 +490,26 @@ class TestCoasterModels(unittest.TestCase):
         """
         d1 = NamedDocument(name=u'missing_title')
         self.assertRaises(IntegrityError, self.session().add_and_commit, d1)
+
+    def test_failsafe_add(self):
+        """
+        failsafe_add gracefully handles IntegrityError from dupe entries
+        """
+        d1 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
+        d1a = failsafe_add(self.session, d1, name=u'add_and_commit_test')
+        self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
+
+        d2 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
+        d2a = failsafe_add(self.session, d2, name=u'add_and_commit_test')
+        self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
+        self.assertTrue(d2a is d1)
+
+    def test_failsafe_add_fail(self):
+        """
+        failsafe_add passes through errors occuring from bad data
+        """
+        d1 = NamedDocument(name=u'missing_title')
+        self.assertRaises(IntegrityError, failsafe_add, self.session, d1)
 
     def test_uuid_key(self):
         """

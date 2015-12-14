@@ -9,6 +9,8 @@ from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
 from flask.ext.sqlalchemy import BaseQuery
@@ -723,4 +725,46 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         )
 
 
-__all__ = __all_mixins + __all_columns
+# --- Helper functions --------------------------------------------------------
+
+__all_functions = ['failsafe_add']
+
+
+def failsafe_add(_session, _instance, **filters):
+    """
+    Add and commit a new instance in a nested transaction (using SQL SAVEPOINT),
+    gracefully handling failure in case a conflicting entry is already in the
+    database (which may occur due to parallel requests causing race conditions
+    in a production environment with multiple workers).
+
+    Returns the instance saved to database if no error occured, or loaded from
+    database using the provided filters if an error occured. If the filters fail
+    to load from the database, the original IntegrityError is re-raised, as it
+    is assumed to imply that the commit failed because of missing or invalid
+    data, not because of a duplicate entry.
+
+    Usage: ``failsafe_add(db.session, instance, **filters)`` where filters
+    are the parameters passed to ``Model.query.filter_by(**filters).one()``
+    to load the instance.
+
+    You must commit the transaction as usual after calling ``failsafe_add``.
+
+    :param _session: Database session
+    :param _instance: Instance to commit
+    :param filters: Filters required to load existing instance from the
+        database in case the commit fails (required)
+    :return: Instance that is in the database
+    """
+    _session.begin_nested()
+    try:
+        _session.add(_instance)
+        _session.commit()
+        return _instance
+    except IntegrityError as e:
+        _session.rollback()
+        try:
+            return _session.query(_instance.__class__).filter_by(**filters).one()
+        except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
+            raise e
+
+__all__ = __all_mixins + __all_columns + __all_functions

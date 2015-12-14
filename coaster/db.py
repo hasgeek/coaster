@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+import warnings
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from flask.ext.sqlalchemy import SQLAlchemy as SQLAlchemyBase, SignallingSession
@@ -33,6 +34,7 @@ class CoasterSession(SignallingSession):
             in case the commit fails (required)
         :return: Instance that is in the database
         """
+        warnings.warn("This method is deprecated and will go away in 0.5.2. Use failsafe_add instead")
         self.begin_nested()
         try:
             self.add(_instance)
