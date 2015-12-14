@@ -2,6 +2,7 @@
 
 import unittest
 
+import uuid
 from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
@@ -112,6 +113,11 @@ class MyData(db.Model):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
+
+
+class UuidKey(BaseMixin, db.Model):
+    __tablename__ = 'uuid_key'
+    __uuid_primary_key__ = True
 
 
 # -- Tests --------------------------------------------------------------------
@@ -468,6 +474,19 @@ class TestCoasterModels(unittest.TestCase):
         """
         d1 = NamedDocument(name=u'missing_title')
         self.assertRaises(IntegrityError, self.session().add_and_commit, d1)
+
+    def test_uuid_key(self):
+        """
+        Models with a UUID primary key work as expected
+        """
+        u1 = UuidKey()
+        u2 = UuidKey()
+        self.session.add(u1)
+        self.session.add(u2)
+        self.session.commit()
+        self.assertTrue(isinstance(u1.id, uuid.UUID))
+        self.assertTrue(isinstance(u2.id, uuid.UUID))
+        self.assertNotEqual(u1.id, u2.id)
 
 
 class TestCoasterModels2(TestCoasterModels):
