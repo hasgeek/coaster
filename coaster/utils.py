@@ -59,6 +59,13 @@ def buid():
 newid = buid
 
 
+def uuid1mc():
+    """
+    Return a UUID1 with a random multicast MAC id
+    """
+    return uuid.uuid1(node=uuid._random_getnode())
+
+
 def newsecret():
     """
     Make a secret key for email confirmation and all that stuff.
@@ -69,7 +76,7 @@ def newsecret():
     >>> newsecret() == newsecret()
     False
     """
-    return newid() + newid()
+    return buid() + buid()
 
 
 def newpin(digits=4):
