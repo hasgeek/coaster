@@ -9,9 +9,10 @@ from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
 from flask.ext.sqlalchemy import BaseQuery
-from .utils import make_name
+from .utils import make_name, uuid1mc
 from .gfm import markdown
 
 
@@ -47,9 +48,18 @@ class IdMixin(object):
     Provides the :attr:`id` primary key column
     """
     query_class = Query
-    #: Database identity for this model, used for foreign key
-    #: references from other models
-    id = Column(Integer, primary_key=True)
+    #: Use UUID primary key?
+    __uuid_primary_key__ = False
+
+    @declared_attr
+    def id(cls):
+        """
+        Database identity for this model, used for foreign key references from other models
+        """
+        if cls.__uuid_primary_key__:
+            return Column(UUIDType(binary=False), default=uuid1mc, primary_key=True)
+        else:
+            return Column(Integer, primary_key=True)
 
 
 #: ..deprecated: 0.4.3

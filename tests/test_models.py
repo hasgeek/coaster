@@ -2,6 +2,7 @@
 
 import unittest
 
+import uuid
 from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
@@ -112,6 +113,25 @@ class MyData(db.Model):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
+
+
+class UuidKey(BaseMixin, db.Model):
+    __tablename__ = 'uuid_key'
+    __uuid_primary_key__ = True
+
+
+class UuidForeignKey1(BaseMixin, db.Model):
+    __tablename__ = 'uuid_foreign_key1'
+    __uuid_primary_key__ = False
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey = relationship(UuidKey)
+
+
+class UuidForeignKey2(BaseMixin, db.Model):
+    __tablename__ = 'uuid_foreign_key2'
+    __uuid_primary_key__ = True
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey = relationship(UuidKey)
 
 
 # -- Tests --------------------------------------------------------------------
@@ -468,6 +488,32 @@ class TestCoasterModels(unittest.TestCase):
         """
         d1 = NamedDocument(name=u'missing_title')
         self.assertRaises(IntegrityError, self.session().add_and_commit, d1)
+
+    def test_uuid_key(self):
+        """
+        Models with a UUID primary key work as expected
+        """
+        u1 = UuidKey()
+        u2 = UuidKey()
+        self.session.add(u1)
+        self.session.add(u2)
+        self.session.commit()
+        self.assertTrue(isinstance(u1.id, uuid.UUID))
+        self.assertTrue(isinstance(u2.id, uuid.UUID))
+        self.assertNotEqual(u1.id, u2.id)
+
+        fk1 = UuidForeignKey1(uuidkey=u1)
+        fk2 = UuidForeignKey2(uuidkey=u2)
+        db.session.add(fk1)
+        db.session.add(fk2)
+        db.session.commit()
+
+        self.assertIs(fk1.uuidkey, u1)
+        self.assertIs(fk2.uuidkey, u2)
+        self.assertTrue(isinstance(fk1.uuidkey_id, uuid.UUID))
+        self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
+        self.assertEqual(fk1.uuidkey_id, u1.id)
+        self.assertEqual(fk2.uuidkey_id, u2.id)
 
 
 class TestCoasterModels2(TestCoasterModels):
