@@ -120,6 +120,20 @@ class UuidKey(BaseMixin, db.Model):
     __uuid_primary_key__ = True
 
 
+class UuidForeignKey1(BaseMixin, db.Model):
+    __tablename__ = 'uuid_foreign_key1'
+    __uuid_primary_key__ = False
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey = relationship(UuidKey)
+
+
+class UuidForeignKey2(BaseMixin, db.Model):
+    __tablename__ = 'uuid_foreign_key2'
+    __uuid_primary_key__ = True
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey = relationship(UuidKey)
+
+
 # -- Tests --------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
@@ -487,6 +501,19 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(isinstance(u1.id, uuid.UUID))
         self.assertTrue(isinstance(u2.id, uuid.UUID))
         self.assertNotEqual(u1.id, u2.id)
+
+        fk1 = UuidForeignKey1(uuidkey=u1)
+        fk2 = UuidForeignKey2(uuidkey=u2)
+        db.session.add(fk1)
+        db.session.add(fk2)
+        db.session.commit()
+
+        self.assertIs(fk1.uuidkey, u1)
+        self.assertIs(fk2.uuidkey, u2)
+        self.assertTrue(isinstance(fk1.uuidkey_id, uuid.UUID))
+        self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
+        self.assertEqual(fk1.uuidkey_id, u1.id)
+        self.assertEqual(fk2.uuidkey_id, u2.id)
 
 
 class TestCoasterModels2(TestCoasterModels):
