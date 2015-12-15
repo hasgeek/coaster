@@ -5,7 +5,7 @@ import six
 from datetime import datetime
 from random import randint, randrange
 import uuid
-from base64 import urlsafe_b64encode, b64encode, b64decode
+from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 import hashlib
 import string
 import re
@@ -64,6 +64,28 @@ def uuid1mc():
     Return a UUID1 with a random multicast MAC id
     """
     return uuid.uuid1(node=uuid._random_getnode())
+
+
+def uuid2buid(value):
+    """
+    Convert a UUID object to a 22-char BUID string
+
+    >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    >>> uuid2buid(u)
+    u'MyA90vLvQi-usAWNb19wiQ'
+    """
+    return unicode(urlsafe_b64encode(value.bytes).rstrip('='))
+
+
+def buid2uuid(value):
+    """
+    Convert a 22-char BUID string to a UUID object
+
+    >>> b = u'MyA90vLvQi-usAWNb19wiQ'
+    >>> buid2uuid(b)
+    UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    """
+    return uuid.UUID(bytes=urlsafe_b64decode(str(value + '==')))
 
 
 def newsecret():
