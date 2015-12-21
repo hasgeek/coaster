@@ -64,15 +64,6 @@ class IdMixin(object):
             return Column(Integer, primary_key=True)
 
 
-#: ..deprecated: 0.4.3
-#:   Use :func:`make_timestamp_columns` instead. These columns will be assigned to
-#:   the first model you use them with and can't be used again in another model
-timestamp_columns = (
-    Column('created_at', DateTime, default=datetime.utcnow, nullable=False),
-    Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False),
-    )
-
-
 def make_timestamp_columns():
     return (
         Column('created_at', DateTime, default=datetime.utcnow, nullable=False),
