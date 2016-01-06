@@ -274,7 +274,7 @@ def check_password(reference, attempt):
     elif reference.startswith(u'{BCRYPT}'):
         return bcrypt.hashpw(
             attempt.encode('utf-8') if isinstance(attempt, unicode) else attempt,
-            reference[8:]) == reference[8:]
+            str(reference[8:])) == reference[8:]
     return False
 
 
