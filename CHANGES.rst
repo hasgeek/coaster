@@ -5,6 +5,7 @@
 * Deprecated ``add_and_commit`` in favour of ``failsafe_add``.
 * New utils: ``uuid2buid`` and ``buid2uuid``.
 * Removed ``timestamp_columns`` (was deprecated in 0.4.3).
+* Replaced ``py-bcrypt`` dependency with ``python-bcrypt``.
 
 0.5.0
 -----
