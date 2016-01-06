@@ -257,6 +257,10 @@ def check_password(reference, attempt):
     True
     >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
     True
+    >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.chtMTcS1s01C', 'foo')
+    True
+    >>> check_password('{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.chtMTcS1s01C', u'foo')
+    True
     """
     if reference.startswith(u'{PLAIN}'):
         if reference[7:] == attempt:
