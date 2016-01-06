@@ -17,7 +17,7 @@ class TestManagePy(unittest.TestCase):
 
     def test_sqlalchemy_database_uri(self):
         """Check settings file loaded properly"""
-        self.assertEqual('postgresql://:@localhost:5432/coaster_test', self.app.config.get('SQLALCHEMY_DATABASE_URI'))
+        self.assertEqual('postgresql:///coaster_test', self.app.config.get('SQLALCHEMY_DATABASE_URI'))
 
     def init_for(self, env):
         coaster.app.init_app(self.app, env)

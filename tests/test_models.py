@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 
 import unittest
 
@@ -19,7 +19,7 @@ app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
 app1.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app2 = Flask(__name__)
-app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://:@localhost:5432/coaster_test'
+app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///coaster_test'
 app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app1)
 db.init_app(app2)
