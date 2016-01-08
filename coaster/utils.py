@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from __future__ import unicode_literals
 import six
 from datetime import datetime
 from random import randint, randrange
@@ -9,7 +10,6 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 import hashlib
 import string
 import re
-from urlparse import urlparse
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -18,10 +18,14 @@ import tldextract
 from unidecode import unidecode
 import html5lib
 import bleach
+from six.moves import range
 
 if six.PY3:
     from html import unescape
+    from urllib.parse import urlparse
+    import binascii
 else:
+    from urlparse import urlparse
     import HTMLParser
     unescape = HTMLParser.HTMLParser().unescape
     del HTMLParser
@@ -31,11 +35,12 @@ from ._version import *  # NOQA
 
 # --- Common delimiters and punctuation ---------------------------------------
 
-_strip_re = re.compile(ur'[\'"`‘’“”′″‴]+')
-_punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
-_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
-_ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
-_tag_re = re.compile('<.*?>')
+
+_strip_re = re.compile(r'[\'"`‘’“”′″‴]+')
+_punctuation_re = re.compile(r'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+')
+_username_valid_re = re.compile(str('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'))
+_ipv4_re = re.compile(str('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'))
+_tag_re = re.compile(str('<.*?>'))
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -53,7 +58,7 @@ def buid():
     >>> isinstance(newid(), unicode)
     True
     """
-    return unicode(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
+    return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 # Retain old name
 newid = buid
@@ -74,7 +79,7 @@ def uuid2buid(value):
     >>> uuid2buid(u)
     u'MyA90vLvQi-usAWNb19wiQ'
     """
-    return unicode(urlsafe_b64encode(value.bytes).rstrip('='))
+    return six.text_type(urlsafe_b64encode(value.bytes).rstrip('='))
 
 
 def buid2uuid(value):
@@ -173,11 +178,11 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name(u'example@example.com')
     u'example-example-com'
     """
-    name = unicode(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+    name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
-    if isinstance(text, unicode):
+    if isinstance(text, six.text_type):
         # Unidecode returns str. Restore to a unicode string if original was unicode
-        name = unicode(name)
+        name = six.text_type(name)
     if checkused is None:
         return name[:maxlength]
     candidate = name[:maxlength]
@@ -218,7 +223,7 @@ def make_password(password, encoding=u'BCRYPT'):
         raise ValueError("Unknown encoding %s" % encoding)
     if encoding == u'PLAIN':
         if isinstance(password, str):
-            password = unicode(password, 'utf-8')
+            password = six.text_type(password, 'utf-8')
         return u"{PLAIN}%s" % password
     elif encoding == u'SSHA':
         # SSHA is a modification of the SHA digest scheme with a salt
@@ -229,15 +234,19 @@ def make_password(password, encoding=u'BCRYPT'):
         salt = ''
         for n in range(7):
             salt += chr(randrange(256))
-        if isinstance(password, unicode):
+        # b64encode - accepts only bytes string (python 3), so salt also has to be encoded
+        salt = salt.encode('utf-8') if six.PY3 else salt
+        if isinstance(password, six.text_type):
             password = password.encode('utf-8')
         else:
             password = str(password)
-        return u'{SSHA}%s' % b64encode(hashlib.sha1(password + salt).digest() + salt)
+        b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)
+        b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
+        return u'{SSHA}%s' % b64_encoded
     elif encoding == u'BCRYPT':
         # BCRYPT is the recommended hash for secure passwords
         return u'{BCRYPT}%s' % bcrypt.hashpw(
-            password.encode('utf-8') if isinstance(password, unicode) else password,
+            password.encode('utf-8') if isinstance(password, six.text_type) else password,
             bcrypt.gensalt())
 
 
@@ -266,19 +275,41 @@ def check_password(reference, attempt):
         if reference[7:] == attempt:
             return True
     elif reference.startswith(u'{SSHA}'):
-        try:
-            ref = b64decode(reference[6:])
-        except TypeError:
-            return False  # Not Base64
-        if isinstance(attempt, unicode):
+        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2, and reutns
+        # binascii.Error as opposed to TypeError
+        if six.PY3:
+            try:
+                if isinstance(reference, six.text_type):
+                    ref = b64decode(reference[6:].encode('utf-8'))
+                else:
+                    ref = b64decode(reference[6:])
+            except binascii.Error:
+                return False # Not Base 64
+        else:
+            try:
+                ref = b64decode(reference[6:])
+            except TypeError:
+                return False  # Not Base64
+        if isinstance(attempt, six.text_type):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
-        compare = unicode('{SSHA}%s' % b64encode(hashlib.sha1(attempt + salt).digest() + salt))
+        b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)
+        if six.PY3: # type(b64_encoded) is bytes and can't be comapred with type(reference) which is str
+            compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
+        else:
+            compare = six.text_type('{SSHA}%s' % b64_encoded)
         return (compare == reference)
     elif reference.startswith(u'{BCRYPT}'):
-        return bcrypt.hashpw(
-            attempt.encode('utf-8') if isinstance(attempt, unicode) else attempt,
-            str(reference[8:])) == reference[8:]
+        # bcrypt.hashpw() accepts either a unicode encoded string or the basic string (python 2)
+        if isinstance(attempt, six.text_type) or isinstance(reference, six.text_type):
+            attempt = attempt.encode('utf-8')
+            reference = reference.encode('utf-8')
+        if six.PY3:
+            return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
+        else:
+            return bcrypt.hashpw(
+                attempt.encode('utf-8') if isinstance(attempt, six.text_type) else attempt,
+                str(reference[8:])) == reference[8:]
     return False
 
 
@@ -411,7 +442,7 @@ def nullunicode(value):
     True
     """
     if value:
-        return unicode(value)
+        return six.text_type(value)
 
 
 def get_email_domain(email):
@@ -596,7 +627,7 @@ def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):
     """
     Strips unwanted markup out of HTML.
     """
-    return bleach.clean(value, tags=VALID_TAGS.keys(), attributes=VALID_TAGS, strip=strip)
+    return bleach.clean(value, tags=list(VALID_TAGS.keys()), attributes=VALID_TAGS, strip=strip)
 
 
 blockish_tags = set([
@@ -632,7 +663,7 @@ def text_blocks(html_text, skip_pre=True):
             # (unless it's a pre tag and we want to skip_pre, in which case ignore it again).
             if text:
                 text_blocks.append(text)
-            elif (len(element) and isinstance(element[0].tag, basestring) and
+            elif (len(element) and isinstance(element[0].tag, six.string_types) and
                     element[0].tag.split('}')[-1] not in blockish_tags and not (skip_pre and tag == 'pre')):
                 text_blocks.append('')
         else:
@@ -720,8 +751,8 @@ def simplify_text(text):
     >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ")
     u'awesome coder wanted at awesome company'
     """
-    if isinstance(text, unicode):
-        text = unicode(text.encode('utf-8').translate(string.maketrans("", ""), string.punctuation).lower(), 'utf-8')
+    if isinstance(text, six.text_type):
+        text = six.text_type(text.encode('utf-8').translate(string.maketrans("", ""), string.punctuation).lower(), 'utf-8')
     else:
         text = text.translate(string.maketrans("", ""), string.punctuation).lower()
     return " ".join(text.split())
@@ -798,7 +829,7 @@ def namespace_from_url(url):
         namespace.pop(0)
     if namespace and namespace[-1] == 'www':
         namespace.pop(-1)
-    return '.'.join(namespace)
+    return type(url)('.'.join(namespace))
 
 
 def base_domain_matches(d1, d2):
@@ -964,18 +995,18 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
     @classmethod
     def keys(cls):
-        return cls.__labels__.keys()
+        return list(cls.__labels__.keys())
 
     @classmethod
     def values(cls):
-        return cls.__labels__.values()
+        return list(cls.__labels__.values())
 
     @classmethod
     def items(cls):
-        return cls.__labels__.items()
+        return list(cls.__labels__.items())
 
     @classmethod
     def value_for(cls, name):
-        for key, value in cls.__labels__.items():
+        for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
