@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import six
 import datetime
 import unittest
 from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url, deobfuscate_email
@@ -62,7 +63,7 @@ class TestCoasterUtils(unittest.TestCase):
         # IP addresses are rejected
         self.assertEqual(namespace_from_url('127.0.0.1'), None)
         # Return string type is the input type
-        self.assertTrue(isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), unicode))
+        self.assertTrue(isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type))
         self.assertTrue(isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str))
 
     def test_deobfuscate_email(self):
