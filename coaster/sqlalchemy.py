@@ -16,6 +16,7 @@ from flask import Markup, url_for
 from flask.ext.sqlalchemy import BaseQuery
 from .utils import make_name, uuid1mc
 from .gfm import markdown
+import six
 
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
@@ -113,7 +114,7 @@ class UrlForMixin(object):
             return
         endpoint, paramattrs, _external = self.url_for_endpoints[action]
         params = {}
-        for param, attr in paramattrs.items():
+        for param, attr in list(paramattrs.items()):
             if isinstance(attr, tuple):
                 item = self
                 for subattr in attr:
@@ -137,7 +138,7 @@ class UrlForMixin(object):
                 cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
 
             for keyword in paramattrs:
-                if isinstance(paramattrs[keyword], basestring) and '.' in paramattrs[keyword]:
+                if isinstance(paramattrs[keyword], six.string_types) and '.' in paramattrs[keyword]:
                     paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
             cls.url_for_endpoints[_action] = _endpoint or f.__name__, paramattrs, _external
             return f
@@ -234,7 +235,7 @@ class BaseNameMixin(BaseMixin):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter_by(name=c).notempty())
             with self.__class__.query.session.no_autoflush:
-                self.name = unicode(make_name(self.title, maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__, checkused=checkused))
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -323,7 +324,7 @@ class BaseScopedNameMixin(BaseMixin):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter_by(name=c, parent=self.parent).first())
             with self.__class__.query.session.no_autoflush:
-                self.name = unicode(make_name(self.short_title(), maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(make_name(self.short_title(), maxlength=self.__name_length__, checkused=checkused))
 
     def short_title(self):
         """
@@ -395,7 +396,7 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
-            self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
+            self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
     @property
     def url_id(self):
@@ -517,7 +518,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
+            self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
     @property
     def url_name(self):
@@ -589,11 +590,11 @@ class JsonDict(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = simplejson.dumps(value, default=lambda o: unicode(o))
+            value = simplejson.dumps(value, default=lambda o: six.text_type(o))
         return value
 
     def process_result_value(self, value, dialect):
-        if value is not None and isinstance(value, basestring):
+        if value is not None and isinstance(value, six.string_types):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
             # we only attempt decoding if the value is a string.
             # Since this column stores dicts only, processed values
@@ -610,7 +611,7 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
                 return MutableDict(value)
-            elif isinstance(value, basestring):
+            elif isinstance(value, six.string_types):
                 # Assume JSON string
                 if value:
                     return MutableDict(simplejson.loads(value, use_decimal=True))
@@ -665,7 +666,7 @@ class MarkdownComposite(MutableComposite):
 
     # Return a unicode representation of the text
     def __unicode__(self):
-        return unicode(self.text)
+        return six.text_type(self.text)
 
     # Return a HTML representation of the text
     def __html__(self):

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # -*- coding: utf-8 -*-
 
 import re
@@ -6,6 +7,7 @@ from collections import defaultdict
 from semantic_version import Version, Spec
 from flask.ext.assets import Bundle
 from webassets.filter import Filter, register_filter
+import six
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 
@@ -97,7 +99,7 @@ class VersionedAssets(defaultdict):
         bundles = []
         for namespec in namespecs:
             name, spec = split_namespec(namespec)
-            version = spec.select(self[name].keys())
+            version = spec.select(list(self[name].keys()))
             if version:
                 if name in asset_versions:
                     if asset_versions[name] not in spec:
@@ -112,10 +114,10 @@ class VersionedAssets(defaultdict):
                         bundle = asset[-1]
                     elif isinstance(asset, dict):
                         requires = asset.get('requires', [])
-                        if isinstance(requires, basestring):
+                        if isinstance(requires, six.string_types):
                             requires = [requires]
                         provides = asset.get('provides', [])
-                        if isinstance(provides, basestring):
+                        if isinstance(provides, six.string_types):
                             provides = [provides]
                         bundle = asset.get('bundle')
                     else:
@@ -167,7 +169,7 @@ class UglipyJS(Filter):
         self.uglipyjs = uglipyjs
 
     def output(self, _in, out, **kw):
-        out.write(unicode(self.uglipyjs.compile(_in.read()), 'utf-8'))
+        out.write(six.text_type(self.uglipyjs.compile(_in.read()), 'utf-8'))
 
 
 register_filter(UglipyJS)

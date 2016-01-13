@@ -34,20 +34,10 @@ from ._version import *  # NOQA
 
 # --- Common delimiters and punctuation ---------------------------------------
 
-def strip_re_py3():
-    return r'[\'"`‘’“”′″‴]+'
-
-def strip_re_py2():
-    return six.text_type(r'[\'"`‘’“”′″‴]+', 'utf-8')
-
-def punctuation_re_py3():
-    return r'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+'
-
-def punctuation_re_py2():
-    return six.text_type(r'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+', 'utf-8')
-
-_strip_re = re.compile(strip_re_py3() if six.PY3 else strip_re_py2())
-_punctuation_re = re.compile(punctuation_re_py3() if six.PY3 else punctuation_re_py2())
+# making the raw unicode strings compatible for Py3 and Py2
+raw_unicode = lambda x: x if six.PY3 else six.text_type(x, 'utf-8')
+_strip_re = re.compile(raw_unicode(r'[\'"`‘’“”′″‴]+'))
+_punctuation_re = re.compile(raw_unicode(r'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+'))
 _username_valid_re = re.compile(str('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'))
 _ipv4_re = re.compile(str('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'))
 _tag_re = re.compile(str('<.*?>'))
