@@ -2,7 +2,7 @@ import unittest
 from flask import Flask
 from coaster.db import db
 
-from test_models import Container, NamedDocument, ScopedNamedDocument
+from tests.test_models import Container, NamedDocument, ScopedNamedDocument
 
 # --- Test setup --------------------------------------------------------------
 

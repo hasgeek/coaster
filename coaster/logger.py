@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from __future__ import print_function
 from datetime import timedelta, datetime
 import logging.handlers
-import cStringIO
 import traceback
 import requests
+import six
 
 # global var as lazy in-memory cache
 error_throttle_timestamp = {'timestamp': None}
@@ -28,20 +29,20 @@ class LocalVarFormatter(logging.Formatter):
             f = f.f_back
         stack.reverse()
 
-        sio = cStringIO.StringIO()
+        sio = six.StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
         for frame in stack:
-            print >> sio
-            print >> sio, "Frame %s in %s at line %s" % (frame.f_code.co_name,
+            print(file=sio)
+            print("Frame %s in %s at line %s" % (frame.f_code.co_name,
                                                          frame.f_code.co_filename,
-                                                         frame.f_lineno)
-            for key, value in frame.f_locals.items():
-                print >> sio, "\t%20s = " % key,
+                                                         frame.f_lineno), file=sio)
+            for key, value in list(frame.f_locals.items()):
+                print("\t%20s = " % key, end=' ', file=sio)
                 try:
-                    print >> sio, repr(value)
+                    print(repr(value), file=sio)
                 except:
-                    print >> sio, "<ERROR WHILE PRINTING VALUE>"
+                    print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         s = sio.getvalue()
         sio.close()
