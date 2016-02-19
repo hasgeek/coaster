@@ -10,6 +10,7 @@ import hashlib
 import string
 import re
 from urlparse import urlparse
+import email.utils
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -415,7 +416,7 @@ def nullunicode(value):
         return unicode(value)
 
 
-def get_email_domain(email):
+def get_email_domain(emailaddr):
     """
     Return the domain component of an email address. Returns None if the
     provided string cannot be parsed as an email address.
@@ -424,13 +425,17 @@ def get_email_domain(email):
     'example.com'
     >>> get_email_domain('test+trailing@example.com')
     'example.com'
+    >>> get_email_domain('Example Address <test@example.com>')
+    'example.com'
     >>> get_email_domain('foobar')
     >>> get_email_domain('foo@bar@baz')
+    'bar'
     >>> get_email_domain('foobar@')
     >>> get_email_domain('@foobar')
     """
+    realname, address = email.utils.parseaddr(emailaddr)
     try:
-        username, domain = email.split('@')
+        username, domain = address.split('@')
         if not username:
             return None
         return domain or None
