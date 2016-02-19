@@ -1,6 +1,7 @@
 0.5.1
 -----
 * New util: ``uuid1mc`` generates a UUID1 with a random multicast MAC id.
+* New util: ``uuid1mc_from_datetime`` generates a UUID1 with a specific timestamp.
 * ``sqlalchemy.IdMixin`` now supports UUID primary keys.
 * Deprecated ``add_and_commit`` in favour of ``failsafe_add``.
 * New utils: ``uuid2buid`` and ``buid2uuid``.

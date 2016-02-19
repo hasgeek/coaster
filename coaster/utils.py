@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 import six
+import time
 from datetime import datetime
 from random import randint, randrange
 import uuid
@@ -66,6 +67,47 @@ def uuid1mc():
     Return a UUID1 with a random multicast MAC id
     """
     return uuid.uuid1(node=uuid._random_getnode())
+
+
+def uuid1mc_from_datetime(dt):
+    """
+    Return a UUID1 with a random multicast MAC id and with a timestamp
+    matching the given datetime object or timestamp value.
+
+    .. warning::
+        This function does not consider the timezone, and is not guaranteed to
+        return a unique UUID. Use under controlled conditions only.
+
+    >>> dt = datetime.now()
+    >>> u1 = uuid1mc()
+    >>> u2 = uuid1mc_from_datetime(dt)
+    >>> # Both timestamps should be very close to each other but not an exact match
+    >>> u1.time > u2.time
+    True
+    >>> u1.time - u2.time < 1000
+    True
+    """
+    fields = list(uuid1mc().fields)
+    if isinstance(dt, datetime):
+        timeval = time.mktime(dt.timetuple()) + dt.microsecond / 1e6
+    else:
+        # Assume we got an actual timestamp
+        timeval = dt
+
+    # The following code is borrowed from the UUID module source:
+    nanoseconds = int(timeval * 1e9)
+    # 0x01b21dd213814000 is the number of 100-ns intervals between the
+    # UUID epoch 1582-10-15 00:00:00 and the Unix epoch 1970-01-01 00:00:00.
+    timestamp = int(nanoseconds // 100) + 0x01b21dd213814000L
+    time_low = timestamp & 0xffffffffL
+    time_mid = (timestamp >> 32L) & 0xffffL
+    time_hi_version = (timestamp >> 48L) & 0x0fffL
+
+    fields[0] = time_low
+    fields[1] = time_mid
+    fields[2] = time_hi_version
+
+    return uuid.UUID(fields=tuple(fields))
 
 
 def uuid2buid(value):
