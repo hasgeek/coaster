@@ -746,6 +746,12 @@ def failsafe_add(_session, _instance, **filters):
         database in case the commit fails (required)
     :return: Instance that is in the database
     """
+    if _instance in _session:
+        # This instance is already in the session, most likely due to a
+        # save-update cascade. SQLAlchemy will flush before beginning a
+        # nested transaction, which defeats the purpose of nesting, so
+        # remove it for now and add it back inside the SAVEPOINT.
+        _session.expunge(_instance)
     _session.begin_nested()
     try:
         _session.add(_instance)

@@ -504,6 +504,20 @@ class TestCoasterModels(unittest.TestCase):
         self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
         self.assertTrue(d2a is d1)
 
+    def test_failsafe_add_existing(self):
+        """
+        failsafe_add doesn't fail if the item is already in the session
+        """
+        d1 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
+        d1a = failsafe_add(self.session, d1, name=u'add_and_commit_test')
+        self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
+
+        d2 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
+        self.session.add(d2)  # Add to session before going to failsafe_add
+        d2a = failsafe_add(self.session, d2, name=u'add_and_commit_test')
+        self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
+        self.assertTrue(d2a is d1)
+
     def test_failsafe_add_fail(self):
         """
         failsafe_add passes through errors occuring from bad data
