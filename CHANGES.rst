@@ -8,6 +8,7 @@
 * Removed ``timestamp_columns`` (was deprecated in 0.4.3).
 * Replaced ``py-bcrypt`` dependency with ``bcrypt``.
 * ``buid`` now uses UUID1 with random multicast MAC addresses instead of UUID4.
+* New util: ``unicode_http_header`` converts ASCII HTTP header strings to Unicode.
 
 0.5.0
 -----

@@ -12,6 +12,7 @@ import string
 import re
 from urlparse import urlparse
 import email.utils
+from email.header import decode_header
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -456,6 +457,19 @@ def nullunicode(value):
     """
     if value:
         return unicode(value)
+
+
+def unicode_http_header(value):
+    """
+    Convert an ASCII HTTP header string into a unicode string with the
+    appropriate encoding applied. Expects headers to be RFC 2047 compliant.
+
+    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=')
+    u'p\\xf6stal'
+    >>> unicode_http_header('p\xf6stal')
+    u'p\\xf6stal'
+    """
+    return u''.join([unicode(s, e or 'iso-8859-1') for s, e in decode_header(value)])
 
 
 def get_email_domain(emailaddr):
