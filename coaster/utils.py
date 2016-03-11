@@ -820,12 +820,11 @@ def sorted_timezones():
         if not tzname.startswith('US/') and not tzname.startswith('Canada/') and tzname not in ('GMT', 'UTC')]
     # Sort timezones by offset from UTC and their human-readable name
     presorted = [(delta, '%s%s - %s%s (%s)' % (
-            (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
-            '%02d:%02d' % hourmin(delta),
-            (pytz.country_names[timezone_country[name]] + ': ') if name in timezone_country else '',
-            name.replace('_', ' '),
-            pytz.timezone(name).tzname(now, is_dst=False)),
-        name) for delta, name in timezones]
+        (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
+        '%02d:%02d' % hourmin(delta),
+        (pytz.country_names[timezone_country[name]] + ': ') if name in timezone_country else '',
+        name.replace('_', ' '),
+        pytz.timezone(name).tzname(now, is_dst=False)), name) for delta, name in timezones]
     presorted.sort()
     # Return a list of (timezone, label) with the timezone offset included in the label.
     return [(name, label) for (delta, label, name) in presorted]
