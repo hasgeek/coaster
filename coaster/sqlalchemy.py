@@ -63,6 +63,9 @@ class IdMixin(object):
         else:
             return Column(Integer, primary_key=True)
 
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.id)
+
 
 def make_timestamp_columns():
     return (
@@ -150,6 +153,7 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
     stub :meth:`permissions` and :meth:`url_for` methods
     """
     def _set_fields(self, fields):
+        """Helper method for :meth:`upsert` in the various subclasses"""
         for f in fields:
             if hasattr(self, f):
                 setattr(self, f, fields[f])
@@ -200,6 +204,9 @@ class BaseNameMixin(BaseMixin):
         if not self.name:
             self.make_name()
 
+    def __repr__(self):
+        return '<%s %s "%s">' % (self.__class__.__name__, self.name, self.title)
+
     @classmethod
     def get(cls, name):
         """Get an instance matching the name"""
@@ -213,7 +220,7 @@ class BaseNameMixin(BaseMixin):
             instance._set_fields(fields)
         else:
             instance = cls(name=name, **fields)
-            cls.query.session.add(instance)
+            instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
     def make_name(self, reserved=[]):
@@ -290,6 +297,10 @@ class BaseScopedNameMixin(BaseMixin):
         if self.parent and not self.name:
             self.make_name()
 
+    def __repr__(self):
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.name, self.title,
+            repr(self.parent)[1:-1] if self.parent else None)
+
     @classmethod
     def get(cls, parent, name):
         """Get an instance matching the parent and name"""
@@ -303,7 +314,7 @@ class BaseScopedNameMixin(BaseMixin):
             instance._set_fields(fields)
         else:
             instance = cls(parent=parent, name=name, **fields)
-            cls.query.session.add(instance)
+            instance = failsafe_add(cls.query.session, instance, parent=parent, name=name)
         return instance
 
     def make_name(self, reserved=[]):
@@ -392,6 +403,9 @@ class BaseIdNameMixin(BaseMixin):
         if not self.name:
             self.make_name()
 
+    def __repr__(self):
+        return '<%s %s "%s">' % (self.__class__.__name__, self.url_name, self.title)
+
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
@@ -405,7 +419,7 @@ class BaseIdNameMixin(BaseMixin):
     @property
     def url_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
-        return '%d-%s' % (self.url_id, self.name)
+        return '%s-%s' % (self.url_id, self.name)
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -434,6 +448,10 @@ class BaseScopedIdMixin(BaseMixin):
         super(BaseScopedIdMixin, self).__init__(*args, **kw)
         if self.parent:
             self.make_id()
+
+    def __repr__(self):
+        return '<%s %s of %s>' % (self.__class__.__name__, self.url_id,
+            repr(self.parent)[1:-1] if self.parent else None)
 
     @classmethod
     def get(cls, parent, url_id):
@@ -509,6 +527,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if not self.name:
             self.make_name()
 
+    def __repr__(self):
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_name, self.title,
+            repr(self.parent)[1:-1] if self.parent else None)
+
     @classmethod
     def get(cls, parent, url_id):
         """Get an instance matching the parent and name"""
@@ -522,7 +544,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @property
     def url_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
-        return '%d-%s' % (self.url_id, self.name)
+        return '%s-%s' % (self.url_id, self.name)
 
 
 class CoordinatesMixin(object):
@@ -552,14 +574,14 @@ class JsonType(UserDefinedType):
     """The PostgreSQL JSON type."""
 
     def get_col_spec(self):
-        return "JSON"
+        return 'JSON'
 
 
 class JsonbType(UserDefinedType):
     """The PostgreSQL JSONB type."""
 
     def get_col_spec(self):
-        return "JSONB"
+        return 'JSONB'
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
