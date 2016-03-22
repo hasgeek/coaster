@@ -3,9 +3,15 @@
 from __future__ import absolute_import
 from datetime import timedelta, datetime
 import logging.handlers
-import cStringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 import traceback
 import requests
+from pprint import pprint
+from flask import request, session
+
 
 # global var as lazy in-memory cache
 error_throttle_timestamp = {'timestamp': None}
@@ -28,7 +34,7 @@ class LocalVarFormatter(logging.Formatter):
             f = f.f_back
         stack.reverse()
 
-        sio = cStringIO.StringIO()
+        sio = StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
         for frame in stack:
@@ -42,6 +48,30 @@ class LocalVarFormatter(logging.Formatter):
                     print >> sio, repr(value)
                 except:
                     print >> sio, "<ERROR WHILE PRINTING VALUE>"
+
+        if request:
+            print >> sio, "\nRequest context:"
+            request_data = {
+                'form': request.form,
+                'args': request.args,
+                'cookies': request.cookies,
+                'stream': request.stream,
+                'headers': request.headers,
+                'data': request.data,
+                'files': request.files,
+                'environ': request.environ,
+                'method': request.method,
+                'is_xhr': request.is_xhr,
+                'blueprint': request.blueprint,
+                'endpoint': request.endpoint,
+                'module': request.module,
+                'view_args': request.view_args
+            }
+            pprint(request_data, sio)
+
+        if session:
+            print >> sio, "\nSession cookie contents:"
+            pprint(session, sio)
 
         s = sio.getvalue()
         sio.close()

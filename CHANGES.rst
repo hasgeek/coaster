@@ -9,6 +9,7 @@
 * Replaced ``py-bcrypt`` dependency with ``bcrypt``.
 * ``buid`` now uses UUID1 with random multicast MAC addresses instead of UUID4.
 * New util: ``unicode_http_header`` converts ASCII HTTP header strings to Unicode.
+* Error traceback in ``coaster.logging`` now includes request context and session cookie.
 
 0.5.0
 -----
