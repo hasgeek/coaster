@@ -10,7 +10,7 @@ except ImportError:
 import traceback
 import requests
 from pprint import pprint
-from flask import request, session
+from flask import g, request, session
 
 
 # global var as lazy in-memory cache
@@ -72,6 +72,10 @@ class LocalVarFormatter(logging.Formatter):
         if session:
             print >> sio, "\nSession cookie contents:"
             pprint(session, sio)
+
+        if g:
+            print >> sio, "\nApp context:"
+            pprint(vars(g), sio)
 
         s = sio.getvalue()
         sio.close()
