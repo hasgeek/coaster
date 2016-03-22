@@ -17,6 +17,14 @@ from flask import g, request, session
 error_throttle_timestamp = {'timestamp': None}
 
 
+def pprint_with_indent(value, outfile, indent=4):
+    out = StringIO()
+    pprint(value, out)
+    lines = out.getvalue().split('\n')
+    out.close()
+    outfile.write('\n'.join([(' ' * indent) + l for l in lines]))
+
+
 class LocalVarFormatter(logging.Formatter):
     """
     Custom log formatter that logs the contents of local variables in the stack frame.
@@ -67,15 +75,15 @@ class LocalVarFormatter(logging.Formatter):
                 'module': request.module,
                 'view_args': request.view_args
             }
-            pprint(request_data, sio)
+            pprint_with_indent(request_data, sio)
 
         if session:
             print >> sio, "\nSession cookie contents:"
-            pprint(session, sio)
+            pprint_with_indent(session, sio)
 
         if g:
             print >> sio, "\nApp context:"
-            pprint(vars(g), sio)
+            pprint_with_indent(vars(g), sio)
 
         s = sio.getvalue()
         sio.close()
