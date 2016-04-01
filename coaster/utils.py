@@ -85,7 +85,7 @@ def uuid1mc_from_datetime(dt):
     >>> # Both timestamps should be very close to each other but not an exact match
     >>> u1.time > u2.time
     True
-    >>> u1.time - u2.time < 1000
+    >>> u1.time - u2.time < 2000
     True
     """
     fields = list(uuid1mc().fields)
