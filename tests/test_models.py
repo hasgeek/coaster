@@ -6,7 +6,7 @@ import uuid
 from time import sleep
 from datetime import datetime, timedelta
 from flask import Flask
-from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey
+from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
@@ -164,7 +164,9 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(c.id, 1)
 
     def test_timestamp(self):
-        now1 = datetime.utcnow()
+        now1 = self.session.query(func.utcnow()).first()[0]
+        # Start a new transaction so that NOW() returns a new value
+        self.session.commit()
         # The db may not store microsecond precision, so sleep at least 1 second
         # to ensure adequate gap between operations
         sleep(1)
@@ -172,12 +174,15 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         u = c.updated_at
         sleep(1)
-        now2 = datetime.utcnow()
+        now2 = self.session.query(func.utcnow()).first()[0]
+        self.session.commit()
+        self.assertNotEqual(now1, c.created_at)
         self.assertTrue(now1 < c.created_at)
         self.assertTrue(now2 > c.created_at)
-        c.content = u"updated"
         sleep(1)
+        c.content = u"updated"
         self.session.commit()
+        self.assertNotEqual(c.updated_at, u)
         self.assertTrue(c.updated_at > now2)
         self.assertTrue(c.updated_at > c.created_at)
         self.assertTrue(c.updated_at > u)
@@ -435,6 +440,7 @@ class TestCoasterModels(unittest.TestCase):
         d = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c)
         self.session.add(d)
         self.session.commit()
+        sleep(1)
         self.assertTrue(d.created_at is not None)
         self.assertTrue(d.updated_at is not None)
         updated_at = d.updated_at

@@ -1,21 +1,47 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from datetime import datetime
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
-from sqlalchemy.sql import select, func
+from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
 from flask.ext.sqlalchemy import BaseQuery
 from .utils import make_name, uuid1mc
 from .gfm import markdown
+
+
+# Provide sqlalchemy.func.utcnow()
+# Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
+class utcnow(functions.GenericFunction):
+    type = DateTime()
+
+
+@compiles(utcnow)
+def __utcnow_default(element, compiler, **kw):
+    return 'CURRENT_TIMESTAMP'
+
+
+@compiles(utcnow, 'mysql')
+def __utcnow_mysql(element, compiler, **kw):
+    return 'UTC_TIMESTAMP()'
+
+
+@compiles(utcnow, 'postgresql')
+def __utcnow_postgresql(element, compiler, **kw):
+    return 'TIMEZONE(\'utc\', CURRENT_TIMESTAMP)'
+
+
+@compiles(utcnow, 'mssql')
+def __utcnow_mssql(element, compiler, **kw):
+    return 'SYSUTCDATETIME()'
 
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
@@ -69,8 +95,8 @@ class IdMixin(object):
 
 def make_timestamp_columns():
     return (
-        Column('created_at', DateTime, default=datetime.utcnow, nullable=False),
-        Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False),
+        Column('created_at', DateTime, default=func.utcnow(), nullable=False),
+        Column('updated_at', DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False),
         )
 
 
@@ -80,9 +106,9 @@ class TimestampMixin(object):
     """
     query_class = Query
     #: Timestamp for when this instance was created, in UTC
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=func.utcnow(), nullable=False)
     #: Timestamp for when this instance was last updated (via the app), in UTC
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False)
 
 
 class PermissionMixin(object):

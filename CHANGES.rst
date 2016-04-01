@@ -2,7 +2,7 @@
 -----
 * New util: ``uuid1mc`` generates a UUID1 with a random multicast MAC id.
 * New util: ``uuid1mc_from_datetime`` generates a UUID1 with a specific timestamp.
-* ``sqlalchemy.IdMixin`` now supports UUID primary keys.
+* IdMixin now supports UUID primary keys.
 * Deprecated ``add_and_commit`` in favour of ``failsafe_add``.
 * New utils: ``uuid2buid`` and ``buid2uuid``.
 * Removed ``timestamp_columns`` (was deprecated in 0.4.3).
@@ -10,6 +10,8 @@
 * ``buid`` now uses UUID1 with random multicast MAC addresses instead of UUID4.
 * New util: ``unicode_http_header`` converts ASCII HTTP header strings to Unicode.
 * Error traceback in ``coaster.logging`` now includes request context and session cookie.
+* New: ``func.utcnow`` for reliable UTC timestamps generated in the database.
+* TimestampMixin now uses ``func.utcnow`` to move datetime generation server-side.
 
 0.5.0
 -----
