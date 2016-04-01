@@ -1,3 +1,8 @@
+0.5.2
+-----
+
+* Removed ``add_and_commit`` and associated tests.
+
 0.5.1
 -----
 * New util: ``uuid1mc`` generates a UUID1 with a random multicast MAC id.

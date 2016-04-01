@@ -477,26 +477,6 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(Container.query.filter_by(name=u'c3').one_or_none(), None)
         self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
 
-    def test_add_and_commit(self):
-        """
-        add_and_commit gracefully handles IntegrityError from dupe entries
-        """
-        d1 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
-        d1a = self.session().add_and_commit(d1, name=u'add_and_commit_test')
-        self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
-
-        d2 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
-        d2a = self.session().add_and_commit(d2, name=u'add_and_commit_test')
-        self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
-        self.assertTrue(d2a is d1)
-
-    def test_add_and_commit_fail(self):
-        """
-        add_and_commit passes through errors occuring from bad data
-        """
-        d1 = NamedDocument(name=u'missing_title')
-        self.assertRaises(IntegrityError, self.session().add_and_commit, d1)
-
     def test_failsafe_add(self):
         """
         failsafe_add gracefully handles IntegrityError from dupe entries
