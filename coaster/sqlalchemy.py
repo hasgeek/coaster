@@ -782,6 +782,11 @@ def failsafe_add(_session, _instance, **filters):
     is assumed to imply that the commit failed because of missing or invalid
     data, not because of a duplicate entry.
 
+    However, when no filters are provided, nothing is returned and IntegrityError
+    is also suppressed as there is no way to distinguish between data validation
+    failure and an existing conflicting record in the database. Use this option
+    when failures are acceptable but the cost of verification is not.
+
     Usage: ``failsafe_add(db.session, instance, **filters)`` where filters
     are the parameters passed to ``Model.query.filter_by(**filters).one()``
     to load the instance.
@@ -804,12 +809,14 @@ def failsafe_add(_session, _instance, **filters):
     try:
         _session.add(_instance)
         _session.commit()
-        return _instance
+        if filters:
+            return _instance
     except IntegrityError as e:
         _session.rollback()
-        try:
-            return _session.query(_instance.__class__).filter_by(**filters).one()
-        except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
-            raise e
+        if filters:
+            try:
+                return _session.query(_instance.__class__).filter_by(**filters).one()
+            except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
+                raise e
 
 __all__ = __all_mixins + __all_columns + __all_functions

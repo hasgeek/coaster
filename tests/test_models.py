@@ -509,7 +509,15 @@ class TestCoasterModels(unittest.TestCase):
         failsafe_add passes through errors occuring from bad data
         """
         d1 = NamedDocument(name=u'missing_title')
-        self.assertRaises(IntegrityError, failsafe_add, self.session, d1)
+        self.assertRaises(IntegrityError, failsafe_add, self.session, d1, name=u'missing_title')
+
+    def test_failsafe_add_silent_fail(self):
+        """
+        failsafe_add does not raise IntegrityError with bad data
+        when no filters are provided
+        """
+        d1 = NamedDocument(name=u'missing_title')
+        self.assertIsNone(failsafe_add(self.session, d1))
 
     def test_uuid_key(self):
         """

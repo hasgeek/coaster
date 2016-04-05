@@ -2,6 +2,7 @@
 -----
 
 * Removed ``add_and_commit`` and associated tests.
+* ``failsafe_add`` now takes filters optionally, failing silently in case of error.
 
 0.5.1
 -----
