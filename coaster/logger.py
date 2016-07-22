@@ -14,7 +14,8 @@ from flask import g, request, session
 
 
 # global var as lazy in-memory cache
-error_throttle_timestamp = {'timestamp': None}
+error_throttle_timestamp_sms = {}
+error_throttle_timestamp_slack = {}
 
 
 def pprint_with_indent(value, outfile, indent=4):
@@ -45,8 +46,9 @@ class LocalVarFormatter(logging.Formatter):
         sio = StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
-        for frame in stack:
-            print >> sio
+        print >> sio, '\n----------\n'
+        print >> sio, "Stack frames (most recent call first):"
+        for frame in stack[::-1]:
             print >> sio, "Frame %s in %s at line %s" % (frame.f_code.co_name,
                                                          frame.f_code.co_filename,
                                                          frame.f_lineno)
@@ -58,7 +60,8 @@ class LocalVarFormatter(logging.Formatter):
                     print >> sio, "<ERROR WHILE PRINTING VALUE>"
 
         if request:
-            print >> sio, "\nRequest context:"
+            print >> sio, '\n----------\n'
+            print >> sio, "Request context:"
             request_data = {
                 'form': request.form,
                 'args': request.args,
@@ -78,11 +81,13 @@ class LocalVarFormatter(logging.Formatter):
             pprint_with_indent(request_data, sio)
 
         if session:
-            print >> sio, "\nSession cookie contents:"
+            print >> sio, '\n----------\n'
+            print >> sio, "Session cookie contents:"
             pprint_with_indent(session, sio)
 
         if g:
-            print >> sio, "\nApp context:"
+            print >> sio, '\n----------\n'
+            print >> sio, "App context:"
             pprint_with_indent(vars(g), sio)
 
         s = sio.getvalue()
@@ -110,13 +115,15 @@ class SMSHandler(logging.Handler):
     def emit(self, record):
         # TODO Find linenumber and function name from exception's log record
         # if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
-        if not error_throttle_timestamp['timestamp'] or (
-                (datetime.utcnow() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
+        throttle_key = (record.module, record.lineno)
+        if throttle_key not in error_throttle_timestamp_sms or (
+                (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key]) > timedelta(minutes=5)):
             for phonenumber in self.phonenumbers:
-                self.sendsms(phonenumber, 'Error in {name}. Please check your email for details'.format(name=self.app_name))
+                self.sendsms(phonenumber, 'Error in {name}: {msg}. Please check your email for details'.format(
+                    name=self.app_name, msg=record.msg))
             # error_throttle_timestamp['funcName'] = record.funcName
             # error_throttle_timestamp['lineno'] = record.lineno
-            error_throttle_timestamp['timestamp'] = datetime.utcnow()
+            error_throttle_timestamp_sms[throttle_key] = datetime.utcnow()
 
     def sendsms(self, number, message):
         try:
@@ -138,6 +145,54 @@ class SMSHandler(logging.Handler):
                         })
         except:
             pass
+
+
+class SlackHandler(logging.Handler):
+    """
+    Post an error report to Slack
+    """
+    def __init__(self, app_name, webhooks):
+        super(SlackHandler, self).__init__()
+        self.app_name = app_name
+        self.webhooks = webhooks
+
+    def emit(self, record):
+        throttle_key = (record.module, record.lineno)
+        if throttle_key not in error_throttle_timestamp_slack or (
+                (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key]) > timedelta(minutes=5)):
+
+            # Sanity check:
+            # If we're not going to be reporting this, don't bother to format the payload
+            if record.levelname not in [lname for webhook in self.webhooks for lname in webhook.get('levelnames', [])]:
+                return
+
+            sections = [s.strip().split('\n', 1) for s in record.exc_text.split('----------')]
+
+            data = {
+                'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
+                    levelname=record.levelname, name=self.app_name, message=record.msg,
+                    info=repr(record.exc_info[1])),
+                'attachments': [{
+                    'mrkdwn_in': ['text'],
+                    'fallback': section[0],
+                    'pretext': section[0],
+                    'text': '```\n' + (section[1] if len(section) > 0 else '') + '\n```',
+                    } for section in sections]}
+
+            for webhook in self.webhooks:
+                if record.levelname not in webhook.get('levelnames', []):
+                    continue
+                payload = dict(data)
+                for attr in ('channel', 'username', 'icon_emoji'):
+                    if attr in webhook:
+                        payload[attr] = webhook[attr]
+
+                try:
+                    requests.post(webhook['url'], json=payload,
+                        headers={'Content-Type': 'application/json'})
+                except:
+                    pass
+                error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
 
 
 def init_app(app):
@@ -188,6 +243,13 @@ def init_app(app):
                 phonenumbers=app.config['ADMIN_NUMBERS'])
             sms_handler.setLevel(logging.ERROR)
             app.logger.addHandler(sms_handler)
+
+    if app.config.get('SLACK_ERROR_WEBHOOKS'):
+        logging.handlers.SlackHandler = SlackHandler
+        slack_handler = logging.handlers.SlackHandler(
+            app_name=app.name, webhooks=app.config['SLACK_ERROR_WEBHOOKS'])
+        slack_handler.setLevel(logging.NOTSET)
+        app.logger.addHandler(slack_handler)
 
     if app.config.get('ADMINS'):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail

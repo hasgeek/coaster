@@ -3,6 +3,7 @@
 
 * Removed ``add_and_commit`` and associated tests.
 * ``failsafe_add`` now takes filters optionally, failing silently in case of error.
+* Added Slack error logging and better throttling for Slack and SMS.
 
 0.5.1
 -----
