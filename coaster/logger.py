@@ -244,10 +244,10 @@ def init_app(app):
             sms_handler.setLevel(logging.ERROR)
             app.logger.addHandler(sms_handler)
 
-    if app.config.get('SLACK_ERROR_WEBHOOKS'):
+    if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler
         slack_handler = logging.handlers.SlackHandler(
-            app_name=app.name, webhooks=app.config['SLACK_ERROR_WEBHOOKS'])
+            app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS'])
         slack_handler.setLevel(logging.NOTSET)
         app.logger.addHandler(slack_handler)
 
