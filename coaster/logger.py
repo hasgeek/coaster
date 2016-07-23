@@ -166,12 +166,12 @@ class SlackHandler(logging.Handler):
             if record.levelname not in [lname for webhook in self.webhooks for lname in webhook.get('levelnames', [])]:
                 return
 
-            sections = [s.strip().split('\n', 1) for s in record.exc_text.split('----------')]
+            sections = [s.strip().split('\n', 1) for s in record.exc_text.split('----------')] if record.exc_text else []
 
             data = {
                 'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
                     levelname=record.levelname, name=self.app_name, message=record.msg,
-                    info=repr(record.exc_info[1])),
+                    info=repr(record.exc_info[1]) if record.exc_info else ''),
                 'attachments': [{
                     'mrkdwn_in': ['text'],
                     'fallback': section[0],
