@@ -31,6 +31,12 @@ else:
 
 from ._version import *  # NOQA
 
+# --- Thread safety fix -------------------------------------------------------
+
+# Force import of strptime, used in :func:`parse_isoformat`
+# http://stackoverflow.com/questions/16309650/python-importerror-for-strptime-in-spyder-for-windows-7
+datetime.strptime('20160816', '%Y%m%d')
+
 
 # --- Common delimiters and punctuation ---------------------------------------
 
