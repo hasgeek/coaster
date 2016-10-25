@@ -203,7 +203,7 @@ class BaseNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
@@ -218,7 +218,7 @@ class BaseNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False, unique=True)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False, unique=True)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False, unique=True)
 
     @declared_attr
     def title(cls):
@@ -296,7 +296,7 @@ class BaseScopedNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
@@ -311,7 +311,7 @@ class BaseScopedNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -401,7 +401,7 @@ class BaseIdNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
@@ -414,7 +414,7 @@ class BaseIdNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -526,7 +526,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
@@ -539,7 +539,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
