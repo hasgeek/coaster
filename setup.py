@@ -16,6 +16,7 @@ else:
 
 requires = [
     'nltk>=3.0',
+    'isoweek',
     'UgliPyJS',
     'PyExecJS',
     'Flask-Assets',

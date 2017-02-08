@@ -21,6 +21,7 @@ import tldextract
 from unidecode import unidecode
 import html5lib
 import bleach
+import isoweek
 
 if six.PY3:
     from html import unescape
@@ -391,6 +392,33 @@ def parse_isoformat(text):
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S.%fZ')
     except ValueError:
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
+
+
+def isoweek_datetime(year, week, timezone='UTC', naive=False):
+    """
+    Returns a datetime matching the starting point of a specified ISO week
+    in the specified timezone (default UTC). Returns a naive datetime in
+    UTC if requested (default False).
+
+    >>> isoweek_datetime(2017, 1)
+    datetime.datetime(2017, 1, 2, 0, 0, tzinfo=<UTC>)
+    >>> isoweek_datetime(2017, 1, 'Asia/Kolkata')
+    datetime.datetime(2017, 1, 1, 18, 30, tzinfo=<UTC>)
+    >>> isoweek_datetime(2017, 1, 'Asia/Kolkata', naive=True)
+    datetime.datetime(2017, 1, 1, 18, 30)
+    >>> isoweek_datetime(2008, 1, 'Asia/Kolkata')
+    datetime.datetime(2007, 12, 30, 18, 30, tzinfo=<UTC>)
+    """
+    naivedt = datetime.combine(isoweek.Week(year, week).day(0), datetime.min.time())
+    if isinstance(timezone, basestring):
+        tz = pytz.timezone(timezone)
+    else:
+        tz = timezone
+    dt = tz.localize(naivedt).astimezone(pytz.UTC)
+    if naive:
+        return dt.replace(tzinfo=None)
+    else:
+        return dt
 
 
 def getbool(value):
