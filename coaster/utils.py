@@ -421,6 +421,22 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
         return dt
 
 
+def midnight_in_utc(dt):
+    """
+    Returns a UTC datetime matching the midnight for the given date or datetime.
+
+    >>> midnight_in_utc(datetime(2017, 1, 1))
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
+    >>> midnight_in_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)))
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    """
+    if dt.tzinfo:
+        tz = dt.tzinfo
+    else:
+        tz = pytz.UTC
+    return tz.localize(datetime.combine(dt, datetime.min.time())).astimezone(pytz.UTC)
+
+
 def getbool(value):
     """
     Returns a boolean from any of a range of values. Returns None for
