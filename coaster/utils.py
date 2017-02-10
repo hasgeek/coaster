@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 import six
 import time
-from datetime import datetime, date
+from datetime import datetime
 from random import randint, randrange
 import uuid
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
@@ -424,7 +424,7 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
 def midnight_to_utc(dt, timezone=None, naive=False):
     """
     Returns a UTC datetime matching the midnight for the given date or datetime.
-
+    >>> from datetime import date
     >>> midnight_to_utc(datetime(2017, 1, 1))
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)))
