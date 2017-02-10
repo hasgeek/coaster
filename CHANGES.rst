@@ -5,6 +5,7 @@
 * ``failsafe_add`` now takes filters optionally, failing silently in case of error.
 * Added Slack error logging and better throttling for Slack and SMS.
 * New util: ``isoweek_datetime`` for week-based datetimes in reports.
+* New util: ``midnight_to_utc`` for UTC-casted datetimes to represent midnights in reports.
 
 0.5.1
 -----
