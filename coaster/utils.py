@@ -431,6 +431,8 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
     >>> midnight_to_utc(datetime(2017, 1, 1), naive=True)
     datetime.datetime(2017, 1, 1, 0, 0)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), naive=True)
+    datetime.datetime(2016, 12, 31, 18, 30)
     >>> midnight_to_utc(date(2017, 1, 1))
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     >>> midnight_to_utc(date(2017, 1, 1), naive=True)
@@ -442,16 +444,20 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), timezone='UTC')
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
-    if naive:
-        return datetime.combine(dt, datetime.min.time()).replace(tzinfo=None)
-
     if timezone:
-        tz = pytz.timezone(timezone)
+        if isinstance(timezone, basestring):
+            tz = pytz.timezone(timezone)
+        else:
+            tz = timezone
     elif isinstance(dt, datetime) and dt.tzinfo:
         tz = dt.tzinfo
     else:
         tz = pytz.UTC
-    return tz.localize(datetime.combine(dt, datetime.min.time())).astimezone(pytz.UTC)
+
+    utc_dt = tz.localize(datetime.combine(dt, datetime.min.time())).astimezone(pytz.UTC)
+    if naive:
+        return utc_dt.replace(tzinfo=None)
+    return utc_dt
 
 
 def getbool(value):
