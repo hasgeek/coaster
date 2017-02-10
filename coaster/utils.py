@@ -421,7 +421,7 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
         return dt
 
 
-def midnight_to_utc(dt, naive=False):
+def midnight_to_utc(dt, timezone=None, naive=False):
     """
     Returns a UTC datetime matching the midnight for the given date or datetime.
 
@@ -435,11 +435,19 @@ def midnight_to_utc(dt, naive=False):
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     >>> midnight_to_utc(date(2017, 1, 1), naive=True)
     datetime.datetime(2017, 1, 1, 0, 0)
+    >>> midnight_to_utc(date(2017, 1, 1), timezone='Asia/Kolkata')
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(datetime(2017, 1, 1), timezone='Asia/Kolkata')
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), timezone='UTC')
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
     if naive:
         return datetime.combine(dt, datetime.min.time()).replace(tzinfo=None)
 
-    if isinstance(dt, datetime) and dt.tzinfo:
+    if timezone:
+        tz = pytz.timezone(timezone)
+    elif isinstance(dt, datetime) and dt.tzinfo:
         tz = dt.tzinfo
     else:
         tz = pytz.UTC
