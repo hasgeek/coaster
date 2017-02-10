@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 import six
 import time
-from datetime import datetime
+from datetime import datetime, date
 from random import randint, randrange
 import uuid
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
@@ -421,16 +421,25 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
         return dt
 
 
-def midnight_in_utc(dt):
+def midnight_to_utc(dt, naive=False):
     """
     Returns a UTC datetime matching the midnight for the given date or datetime.
 
-    >>> midnight_in_utc(datetime(2017, 1, 1))
+    >>> midnight_to_utc(datetime(2017, 1, 1))
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
-    >>> midnight_in_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)))
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)))
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(datetime(2017, 1, 1), naive=True)
+    datetime.datetime(2017, 1, 1, 0, 0)
+    >>> midnight_to_utc(date(2017, 1, 1))
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
+    >>> midnight_to_utc(date(2017, 1, 1), naive=True)
+    datetime.datetime(2017, 1, 1, 0, 0)
     """
-    if dt.tzinfo:
+    if naive:
+        return datetime.combine(dt, datetime.min.time()).replace(tzinfo=None)
+
+    if isinstance(dt, datetime) and dt.tzinfo:
         tz = dt.tzinfo
     else:
         tz = pytz.UTC
