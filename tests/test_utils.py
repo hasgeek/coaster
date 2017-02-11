@@ -2,7 +2,9 @@
 
 import datetime
 import unittest
-from coaster.utils import LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html, sorted_timezones, namespace_from_url, deobfuscate_email
+from pytz import common_timezones
+from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
+    sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc)
 
 
 class MY_ENUM(LabeledEnum):
@@ -95,3 +97,15 @@ class TestCoasterUtils(unittest.TestCase):
             <test@example.com>
             """
         self.assertEqual(deobfuscate_email(input), output)
+
+    def test_isoweek_datetime_all_timezones(self):
+            """Test that isoweek_datetime works for all timezones"""
+            for timezone in common_timezones:
+                for week in range(53):
+                    isoweek_datetime(2017, week + 1, timezone)
+
+    def test_midnight_to_utc_all_timezones(self):
+            """Test that midnight_to_utc works for all timezones"""
+            for timezone in common_timezones:
+                for day in range(365):
+                    midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
