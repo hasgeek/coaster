@@ -32,7 +32,7 @@ requires = [
     'tldextract',
     'Pygments',
     'bleach',
-    'html5lib==0.9999999',
+    'html5lib>=0.99999999',
     'markdown>=2.4.1',
     'pytz',
     'semantic_version',
