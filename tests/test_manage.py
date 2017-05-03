@@ -3,7 +3,7 @@
 import unittest
 from coaster.manage import init_manager, set_alembic_revision
 import coaster
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 from flask import Flask
 
 

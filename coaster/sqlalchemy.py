@@ -13,7 +13,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
-from flask.ext.sqlalchemy import BaseQuery
+from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid1mc
 from .gfm import markdown
 
