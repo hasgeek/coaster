@@ -9,6 +9,7 @@ services:
   - postgresql
 # command to install dependencies
 install:
+  - pip install --upgrade setuptools
   - python setup.py develop
   - pip install -r test_requirements.txt . --use-mirrors
 # command to run tests
