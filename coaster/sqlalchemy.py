@@ -51,7 +51,7 @@ __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
 
 class Query(BaseQuery):
     """
-    Extends flask.ext.sqlalchemy.BaseQuery to add additional helper methods.
+    Extends flask_sqlalchemy.BaseQuery to add additional helper methods.
     """
 
     def notempty(self):
