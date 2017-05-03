@@ -6,9 +6,9 @@ import flask
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
-from flask.ext.script import Manager, prompt_bool, Shell
-from flask.ext.script.commands import Clean, ShowUrls
-from flask.ext.alembic import ManageMigrations
+from flask_script import Manager, prompt_bool, Shell
+from flask_script.commands import Clean, ShowUrls
+from flask_alembic import ManageMigrations
 
 
 manager = Manager()

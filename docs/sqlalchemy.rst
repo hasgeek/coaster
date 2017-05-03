@@ -5,7 +5,7 @@ Coaster provides a number of mixin classes for SQLAlchemy models. To use in
 your Flask app::
 
     from flask import Flask
-    from flask.ext.sqlalchemy import SQLAlchemy
+    from flask_sqlalchemy import SQLAlchemy
     from coaster.sqlalchemy import BaseMixin
 
     app = Flask(__name__)
