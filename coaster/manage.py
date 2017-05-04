@@ -23,14 +23,6 @@ def alembic_table_metadata():
     return metadata, alembic_version
 
 
-class InitedMigrations(ManageMigrations):
-    """Perform Alembic database migration operations"""
-    def run(self, args):
-        if len(args) and not args[0].startswith('-'):
-            manager.init_for(args[0])
-        super(InitedMigrations, self).run(args[1:])
-
-
 def set_alembic_revision(path=None):
     """Create/Update alembic table to latest revision number"""
     config = Config()
@@ -123,5 +115,5 @@ def init_manager(app, db, **kwargs):
     manager.add_command("db", database)
     manager.add_command("clean", Clean())
     manager.add_command("showurls", ShowUrls())
-    manager.add_command("migrate", InitedMigrations())
+    manager.add_command("migrate", ManageMigrations())
     return manager
