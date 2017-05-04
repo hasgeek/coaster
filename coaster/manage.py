@@ -23,14 +23,6 @@ def alembic_table_metadata():
     return metadata, alembic_version
 
 
-class InitedMigrations(ManageMigrations):
-    """Perform Alembic database migration operations"""
-    def run(self, args):
-        if len(args) and not args[0].startswith('-'):
-            manager.init_for(args[0])
-        super(InitedMigrations, self).run(args[1:])
-
-
 def set_alembic_revision(path=None):
     """Create/Update alembic table to latest revision number"""
     config = Config()
@@ -55,28 +47,25 @@ def set_alembic_revision(path=None):
         stdout.write(e.message)
 
 
-@database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
+@database.command
 def drop(env):
     "Drop database tables"
-    manager.init_for(env)
     manager.db.engine.echo = True
     if prompt_bool("Are you sure you want to lose all your data"):
         manager.db.drop_all()
 
 
-@database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
+@database.command
 def create(env):
     "Create database tables from sqlalchemy models"
-    manager.init_for(env)
     manager.db.engine.echo = True
     manager.db.create_all()
     set_alembic_revision()
 
 
-@manager.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
-def sync_resources(env):
+@manager.command
+def sync_resources():
     """Sync the client's resources with the Lastuser server"""
-    manager.init_for(env)
     print "Syncing resources with Lastuser..."
     resources = manager.app.lastuser.sync_resources()['results']
 
@@ -93,36 +82,35 @@ def sync_resources(env):
     print "Resources synced..."
 
 
-@manager.option('-e', '--env', default='dev', help="shell environment [default 'dev']")
-def shell(env, no_ipython=False, no_bpython=False):
+@manager.command
+def shell(no_ipython=False, no_bpython=False):
     """Initiate a Python shell"""
     def _make_context():
-        manager.init_for(env)
-        context = dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+        context = dict(app=manager.app, db=manager.db, flask=flask)
         context.update(manager.context)
         return context
     Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
 
 
-@manager.option('-e', '--env', default='dev', help="shell environment [default 'dev']")
-def plainshell(env):
+@manager.command
+def plainshell():
     """Initiate a plain Python shell"""
-    return shell(env, no_ipython=True, no_bpython=True)
+    return shell(no_ipython=True, no_bpython=True)
 
 
-def init_manager(app, db, init_for, **kwargs):
+def init_manager(app, db, **kwargs):
     """
     Initialise Manager
 
     :param app: Flask app object
     :parm db: db instance
-    :param init_for: init_for function which is normally present in __init__.py of hgapp
     :param kwargs: Additional keyword arguments to be made available as shell context
     """
-    manager.app, manager.db, manager.init_for = app, db, init_for
+    manager.app = app
+    manager.db = db
     manager.context = kwargs
     manager.add_command("db", database)
     manager.add_command("clean", Clean())
     manager.add_command("showurls", ShowUrls())
-    manager.add_command("migrate", InitedMigrations())
+    manager.add_command("migrate", ManageMigrations())
     return manager

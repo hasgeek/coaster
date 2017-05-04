@@ -2,7 +2,6 @@
 
 from os import environ
 import sys
-from warnings import warn
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
 from flask import Flask, url_for, get_flashed_messages, request, session, g
 try:
@@ -66,21 +65,15 @@ class SandboxedFlask(Flask):
         return rv
 
 
-def configure(app, env):
-    """
-    Configure an app depending on the environment.
-    """
-    warn("This function is deprecated. Please use init_app instead", DeprecationWarning)
-    init_app(app, environ.get(env))
-
-
-def init_app(app, env):
+def init_app(app, env=None):
     """
     Configure an app depending on the environment.
     """
     load_config_from_file(app, 'settings.py')
 
-    additional = _additional_config.get(env)
+    if not env:
+        env = environ.get('FLASK_ENV', 'DEVELOPMENT')  # Uppercase for compatibility with Flask-Environments
+    additional = _additional_config.get(env.lower())  # Lowercase because that's how we define it
     if additional:
         load_config_from_file(app, additional)
 
