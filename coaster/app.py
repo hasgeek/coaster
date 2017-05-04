@@ -26,7 +26,7 @@ _additional_config = {
 class SandboxedEnvironment(BaseSandboxedEnvironment):
     """
     Works like a regular Jinja2 sandboxed environment but has some
-    additional knowledge of how Flask's blueprint works so that it can
+    additional knowledge of how Flask's blueprint works, so that it can
     prepend the name of the blueprint to referenced templates if necessary.
     """
 
