@@ -82,20 +82,10 @@ def sync_resources():
     print "Resources synced..."
 
 
-@manager.command
-def shell(no_ipython=False, no_bpython=False):
-    """Initiate a Python shell"""
-    def _make_context():
-        context = dict(app=manager.app, db=manager.db, flask=flask)
-        context.update(manager.context)
-        return context
-    Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
-
-
-@manager.command
-def plainshell():
-    """Initiate a plain Python shell"""
-    return shell(no_ipython=True, no_bpython=True)
+def shell_context():
+    context = dict(app=manager.app, db=manager.db, flask=flask)
+    context.update(manager.context)
+    return context
 
 
 def init_manager(app, db, **kwargs):
@@ -109,8 +99,7 @@ def init_manager(app, db, **kwargs):
     manager.app = app
     manager.db = db
     manager.context = kwargs
-    manager.add_command("db", database)
-    manager.add_command("clean", Clean())
-    manager.add_command("showurls", ShowUrls())
-    manager.add_command("migrate", ManageMigrations())
+    manager.add_command('db', database)
+    manager.add_command('clean', Clean())
+    manager.add_command('showurls', ShowUrls())
     return manager
