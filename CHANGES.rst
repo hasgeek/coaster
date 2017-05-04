@@ -1,3 +1,12 @@
+0.6.0
+-----
+
+* Removed deprecated ``coaster.app.configure``.
+* ``coaster.app.init_app`` now takes an optional environment, reading from the
+  ``FLASK_ENV`` environment variable and defaulting to ``DEVELOPMENT``.
+* ``coaster.manage`` no longer accepts environment or calls ``init_for``.
+  Apps must do this themselves.
+
 0.5.2
 -----
 
