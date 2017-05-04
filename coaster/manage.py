@@ -47,19 +47,17 @@ def set_alembic_revision(path=None):
         stdout.write(e.message)
 
 
-@database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
+@database.command
 def drop(env):
     "Drop database tables"
-    manager.init_for(env)
     manager.db.engine.echo = True
     if prompt_bool("Are you sure you want to lose all your data"):
         manager.db.drop_all()
 
 
-@database.option('-e', '--env', default='dev', help="runtime environment [default 'dev']")
+@database.command
 def create(env):
     "Create database tables from sqlalchemy models"
-    manager.init_for(env)
     manager.db.engine.echo = True
     manager.db.create_all()
     set_alembic_revision()
@@ -88,7 +86,7 @@ def sync_resources():
 def shell(no_ipython=False, no_bpython=False):
     """Initiate a Python shell"""
     def _make_context():
-        context = dict(app=manager.app, db=manager.db, init_for=manager.init_for, flask=flask)
+        context = dict(app=manager.app, db=manager.db, flask=flask)
         context.update(manager.context)
         return context
     Shell(make_context=_make_context).run(no_ipython=no_ipython, no_bpython=no_bpython)
@@ -106,7 +104,6 @@ def init_manager(app, db, **kwargs):
 
     :param app: Flask app object
     :parm db: db instance
-    :param init_for: init_for function which is normally present in __init__.py of hgapp
     :param kwargs: Additional keyword arguments to be made available as shell context
     """
     manager.app = app
