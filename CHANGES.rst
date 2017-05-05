@@ -7,6 +7,9 @@
   reverses the change introduced in version 0.3.2
 * ``coaster.manage`` no longer accepts environment or calls ``init_for``.
   Apps must do this themselves
+* ``coaster.manage`` now exposes Alembic migrations via Flask-Migrate instead
+  of Flask-Alembic
+
 
 0.5.2
 -----
