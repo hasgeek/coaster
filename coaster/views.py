@@ -545,6 +545,11 @@ def render_with(template, json=False, jsonp=False):
                             rendered.status_code = status_code
                         if headers is not None:
                             rendered.headers.extend(headers)
+                            try:
+                                if "Accept" not in headers["Vary"]:
+                                    rendered.headers["Vary"] += "Accept"
+                            except KeyError:
+                                rendered.headers["Vary"] = "Accept"
                     else:
                         rendered = current_app.response_class(
                             rendered,
