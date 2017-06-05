@@ -117,6 +117,11 @@ class MyData(db.Model):
     data = Column(JsonDict)
 
 
+class NonUuuidKey(BaseMixin, db.Model):
+    __tablename__ = 'non_uuid_key'
+    __uuid_primary_key__ = False
+
+
 class UuidKey(BaseMixin, db.Model):
     __tablename__ = 'uuid_key'
     __uuid_primary_key__ = True
@@ -544,6 +549,15 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
+
+    def test_uuid_default(self):
+        """
+        Models with a UUID primary key have a value before adding to session.
+        """
+        uuid_no = NonUuuidKey()
+        uuid_yes = UuidKey()
+        self.assertIsNone(uuid_no.id)
+        self.assertIsInstance(uuid_yes.id, uuid.UUID)
 
 
 class TestCoasterModels2(TestCoasterModels):

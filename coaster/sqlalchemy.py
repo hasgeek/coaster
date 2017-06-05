@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
+from sqlalchemy import event
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -91,6 +92,23 @@ class IdMixin(object):
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
+
+
+# Setup listeners for UUID-based subclasses
+def __uuid_default_listener(idcolumn):
+    @event.listens_for(idcolumn, 'init_scalar', retval=True, propagate=True)
+    def init_scalar(target, value, dict_):
+        value = idcolumn.columns[0].default.arg(None)
+        dict_[idcolumn.key] = value
+        return value
+
+
+def __configure_listener(mapper, class_):
+    if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
+        __uuid_default_listener(mapper.attrs.id)
+
+
+event.listen(IdMixin, 'mapper_configured', __configure_listener, propagate=True)
 
 
 def make_timestamp_columns():
