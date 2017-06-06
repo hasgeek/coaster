@@ -9,7 +9,9 @@
   Apps must do this themselves
 * ``coaster.manage`` now exposes Alembic migrations via Flask-Migrate instead
   of Flask-Alembic
-
+* When using UUID primary keys in ``IdMixin``, a UUID is automatically
+  generated the first time the ``id`` column is accessed, without the need
+  to commit to the database
 
 0.5.2
 -----
