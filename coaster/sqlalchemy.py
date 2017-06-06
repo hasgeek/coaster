@@ -459,7 +459,10 @@ class BaseIdNameMixin(BaseMixin):
     @property
     def url_id(self):
         """Return the URL id"""
-        return self.id
+        if self.__uuid_primary_key__:
+            return self.id.hex
+        else:
+            return self.id
 
     @property
     def url_name(self):

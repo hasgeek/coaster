@@ -141,6 +141,11 @@ class UuidForeignKey2(BaseMixin, db.Model):
     uuidkey = relationship(UuidKey)
 
 
+class UuidIdName(BaseIdNameMixin, db.Model):
+    __tablename__ = 'uuid_id_name'
+    __uuid_primary_key__ = True
+
+
 # -- Tests --------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
@@ -549,6 +554,15 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
+
+    def test_uuid_url_name(self):
+        """
+        BaseIdNameMixin models with UUID primary keys should generate
+        properly formatted url_id and url_name, without dashes
+        """
+        u = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test')
+        self.assertEqual(u.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u.url_name, u'74d588574a7611e78c27c38403d0935c-test')
 
     def test_uuid_default(self):
         """
