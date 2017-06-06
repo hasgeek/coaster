@@ -552,12 +552,19 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_uuid_default(self):
         """
-        Models with a UUID primary key have a value before adding to session.
+        Models with a UUID primary key have a default value before adding to session
         """
         uuid_no = NonUuuidKey()
         uuid_yes = UuidKey()
-        self.assertIsNone(uuid_no.id)
-        self.assertIsInstance(uuid_yes.id, uuid.UUID)
+        # Non-UUID primary keys are not automatically generated
+        u1 = uuid_no.id
+        self.assertIsNone(u1)
+        # However, UUID keys are generated even before adding to session
+        u2 = uuid_yes.id
+        self.assertIsInstance(u2, uuid.UUID)
+        # Once generated, the key remains stable
+        u3 = uuid_yes.id
+        self.assertEqual(u2, u3)
 
 
 class TestCoasterModels2(TestCoasterModels):

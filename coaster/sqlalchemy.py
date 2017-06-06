@@ -94,7 +94,7 @@ class IdMixin(object):
         return '<%s %s>' % (self.__class__.__name__, self.id)
 
 
-# Setup listeners for UUID-based subclasses
+# Supply a default value for UUID-based id columns
 def __uuid_default_listener(idcolumn):
     @event.listens_for(idcolumn, 'init_scalar', retval=True, propagate=True)
     def init_scalar(target, value, dict_):
@@ -103,6 +103,7 @@ def __uuid_default_listener(idcolumn):
         return value
 
 
+# Setup listeners for UUID-based subclasses
 def __configure_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         __uuid_default_listener(mapper.attrs.id)
