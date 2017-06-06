@@ -117,7 +117,7 @@ class MyData(db.Model):
     data = Column(JsonDict)
 
 
-class NonUuuidKey(BaseMixin, db.Model):
+class NonUuidKey(BaseMixin, db.Model):
     __tablename__ = 'non_uuid_key'
     __uuid_primary_key__ = False
 
@@ -568,7 +568,7 @@ class TestCoasterModels(unittest.TestCase):
         """
         Models with a UUID primary key have a default value before adding to session
         """
-        uuid_no = NonUuuidKey()
+        uuid_no = NonUuidKey()
         uuid_yes = UuidKey()
         # Non-UUID primary keys are not automatically generated
         u1 = uuid_no.id
