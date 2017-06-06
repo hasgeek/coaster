@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -277,7 +277,7 @@ class BaseNameMixin(BaseMixin):
         :param reserved: List or set of reserved names unavailable for use
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
@@ -369,7 +369,7 @@ class BaseScopedNameMixin(BaseMixin):
         until an available name is found.
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(
