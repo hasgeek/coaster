@@ -77,7 +77,8 @@ class IdMixin(object):
     Provides the :attr:`id` primary key column
     """
     query_class = Query
-    #: Use UUID primary key?
+    #: Use UUID primary key? If yes, UUIDs are automatically generated without
+    #: the need to commit to the database
     __uuid_primary_key__ = False
 
     @declared_attr
