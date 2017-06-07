@@ -26,12 +26,6 @@ db.init_app(app2)
 
 
 # --- Models ------------------------------------------------------------------
-class BaseContainer(db.Model):
-    __tablename__ = 'base_container'
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode(80), nullable=True)
-
-
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
@@ -287,12 +281,6 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d3)
         self.session.commit()
         self.assertEqual(d3.name, u'hello')
-
-        c3 = BaseContainer()
-        self.session.add(c3)
-        d4 = ScopedNamedDocument(title=u"Hello", container=c3)
-        self.session.commit()
-        self.assertEqual(d4.permissions(user=u), set([]))
 
         # test insert in BaseScopedNameMixin's upsert
         d4 = ScopedNamedDocument.upsert(c1, u'hello4', title=u'Hello 4', content=u'scoped named doc')
