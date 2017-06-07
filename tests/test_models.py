@@ -26,12 +26,6 @@ db.init_app(app2)
 
 
 # --- Models ------------------------------------------------------------------
-class BaseContainer(db.Model):
-    __tablename__ = 'base_container'
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode(80), nullable=True)
-
-
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
@@ -117,6 +111,11 @@ class MyData(db.Model):
     data = Column(JsonDict)
 
 
+class NonUuidKey(BaseMixin, db.Model):
+    __tablename__ = 'non_uuid_key'
+    __uuid_primary_key__ = False
+
+
 class UuidKey(BaseMixin, db.Model):
     __tablename__ = 'uuid_key'
     __uuid_primary_key__ = True
@@ -134,6 +133,11 @@ class UuidForeignKey2(BaseMixin, db.Model):
     __uuid_primary_key__ = True
     uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
     uuidkey = relationship(UuidKey)
+
+
+class UuidIdName(BaseIdNameMixin, db.Model):
+    __tablename__ = 'uuid_id_name'
+    __uuid_primary_key__ = True
 
 
 # -- Tests --------------------------------------------------------------------
@@ -277,12 +281,6 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d3)
         self.session.commit()
         self.assertEqual(d3.name, u'hello')
-
-        c3 = BaseContainer()
-        self.session.add(c3)
-        d4 = ScopedNamedDocument(title=u"Hello", container=c3)
-        self.session.commit()
-        self.assertEqual(d4.permissions(user=u), set([]))
 
         # test insert in BaseScopedNameMixin's upsert
         d4 = ScopedNamedDocument.upsert(c1, u'hello4', title=u'Hello 4', content=u'scoped named doc')
@@ -544,6 +542,31 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
+
+    def test_uuid_url_name(self):
+        """
+        BaseIdNameMixin models with UUID primary keys should generate
+        properly formatted url_id and url_name, without dashes
+        """
+        u = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test')
+        self.assertEqual(u.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u.url_name, u'74d588574a7611e78c27c38403d0935c-test')
+
+    def test_uuid_default(self):
+        """
+        Models with a UUID primary key have a default value before adding to session
+        """
+        uuid_no = NonUuidKey()
+        uuid_yes = UuidKey()
+        # Non-UUID primary keys are not automatically generated
+        u1 = uuid_no.id
+        self.assertIsNone(u1)
+        # However, UUID keys are generated even before adding to session
+        u2 = uuid_yes.id
+        self.assertIsInstance(u2, uuid.UUID)
+        # Once generated, the key remains stable
+        u3 = uuid_yes.id
+        self.assertEqual(u2, u3)
 
 
 class TestCoasterModels2(TestCoasterModels):

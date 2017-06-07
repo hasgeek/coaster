@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
+from sqlalchemy import event, inspect
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -76,7 +77,8 @@ class IdMixin(object):
     Provides the :attr:`id` primary key column
     """
     query_class = Query
-    #: Use UUID primary key?
+    #: Use UUID primary key? If yes, UUIDs are automatically generated without
+    #: the need to commit to the database
     __uuid_primary_key__ = False
 
     @declared_attr
@@ -91,6 +93,24 @@ class IdMixin(object):
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
+
+
+# Supply a default value for UUID-based id columns
+def __uuid_default_listener(idcolumn):
+    @event.listens_for(idcolumn, 'init_scalar', retval=True, propagate=True)
+    def init_scalar(target, value, dict_):
+        value = idcolumn.columns[0].default.arg(None)
+        dict_[idcolumn.key] = value
+        return value
+
+
+# Setup listeners for UUID-based subclasses
+def __configure_listener(mapper, class_):
+    if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
+        __uuid_default_listener(mapper.attrs.id)
+
+
+event.listen(IdMixin, 'mapper_configured', __configure_listener, propagate=True)
 
 
 def make_timestamp_columns():
@@ -332,7 +352,7 @@ class BaseNameMixin(BaseMixin):
         :param reserved: List or set of reserved names unavailable for use
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
@@ -424,7 +444,7 @@ class BaseScopedNameMixin(BaseMixin):
         until an available name is found.
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(
@@ -514,7 +534,10 @@ class BaseIdNameMixin(BaseMixin):
     @property
     def url_id(self):
         """Return the URL id"""
-        return self.id
+        if self.__uuid_primary_key__:
+            return self.id.hex
+        else:
+            return self.id
 
     @property
     def url_name(self):
