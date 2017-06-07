@@ -124,6 +124,80 @@ class PermissionMixin(object):
         else:
             return set()
 
+class AccessibleProxy(object):
+    def __init__(self, obj, roles=[]):
+        self.__dict__['obj'] = obj
+        self.__dict__['user_roles'] = roles
+        self.__dict__['attr_access_map'] = {}
+        # Read the object's SQLAlchemy mapper for its column attributes
+        self.__dict__['column_attrs'] = obj.__mapper__.attrs.keys()
+
+        for column_attr in self.column_attrs:
+            self.attr_access_map[column_attr] = {'read': False, 'write': False}
+            if self.is_attr_accessible(column_attr, access_level='read'):
+                self.attr_access_map[column_attr]['read'] = True
+            if self.is_attr_accessible(column_attr, access_level='read'):
+                self.attr_access_map[column_attr]['write'] = True
+
+
+    def is_attr_accessible(self, attr, access_level):
+        attr_accessible = False
+
+        if attr in self.column_attrs:
+            if self.obj.__roles__.get(attr) and self.user_roles.intersection(self.obj.__roles__[attr][access_level]):
+                attr_accessible = True
+        else:
+            attr_accessible = True
+        return attr_accessible
+
+
+    def __getattribute__(self, attr):
+        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible', '__getattribute__', 'to_dict']:
+            return object.__getattribute__(self, attr)
+
+        if self.attr_access_map[attr]['read']:
+            return object.__getattribute__(self.obj, attr)
+
+
+    def __setattr__(self, attr, val):
+        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible']:
+            return setattr(self.obj, attr, val)
+
+        if self.attr_access_map[attr]['write']:
+            return setattr(self.obj, attr, val)
+
+    def to_dict(self):
+        attr_dict = {}
+        for attr, access_map in self.attr_access_map.iteritems():
+            if access_map['read'] or access_map['write']:
+                attr_dict[attr] = self.__getattribute__(attr)
+        return attr_dict
+
+
+class RolesMixin(object):
+    """
+    Provides the :meth:`roles` and :meth:`accessible_proxy` method used by BaseMixin and derived classes
+
+     __roles__ = {
+        'description': {
+            'write': {'item_collection_owner'},
+            'read': {'item_collection_owner'}
+        }
+    }
+    """
+    def roles(self, user=None, token=None, inherited=None):
+        """
+        Return roles available to the given user on this object
+        """
+        if inherited is not None:
+            return set(inherited)
+        else:
+            return set()
+
+    def accessible_proxy(self, user=None, token=None, roles=[]):
+        user_roles = roles if roles else self.roles(user=user, token=token)
+        return AccessibleProxy(self, roles=user_roles)
+
 
 class UrlForMixin(object):
     """
@@ -173,7 +247,7 @@ class UrlForMixin(object):
         return decorator
 
 
-class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
+class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RolesMixin, UrlForMixin):
     """
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
