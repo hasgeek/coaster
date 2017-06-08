@@ -13,19 +13,23 @@ apps. Documentation at http://coaster.readthedocs.org/
 
 ### Run tests
 
-Create a test Coaster DB:
+Testing requires SQLite and PostgreSQL. Create a test database in PostgreSQL::
 
-   $ createuser `whoami`
-   $ createdb -O `whoami` coaster_test
+    $ createuser `whoami`
+    $ createdb -O `whoami` coaster_test
 
-Testing requires additional dependencies. Install them with:
+Testing also requires additional dependencies. Install them with::
 
-   $ pip install -r test_requirements.txt
+    $ pip install -r test_requirements.txt
 
-To run a single test:
+To run a single test::
 
-   $ nosetests tests.<test_filename> # Example: `nosetests test.test_render_with`
+    $ nosetests tests.<test_filename> 
+    $ # Example: nosetests tests.test_render_with
 
-To run all tests in one go:
+To run all tests in one go::
 
-   $ nosetests
+    $ ./runtests.sh
+
+Some tests are in the form of doctests within each function, and only
+accessible by running all tests via ``runtests.sh``.
