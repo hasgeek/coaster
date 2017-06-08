@@ -11,7 +11,9 @@ Coaster: common patterns for Flask apps
 Coaster contains functions and db models for recurring patterns in Flask
 apps. Documentation at http://coaster.readthedocs.org/
 
-### Run tests
+
+Run tests
+---------
 
 Testing requires SQLite and PostgreSQL. Create a test database in PostgreSQL::
 
