@@ -161,9 +161,12 @@ class AccessibleProxy(object):
         }
     }
 
-    >>> proxy = model.accessible_proxy(roles={'writer'})
-    >>> proxy.model_attr = 'new value'
-    >>> dict(proxy)
+    Example usage:
+
+    >> proxy = model.accessible_proxy(roles={'writer'})
+    >> proxy.model_attr
+    >> proxy.model_attr = 'new value'
+    >> dict(proxy)
     """
     def __init__(self, obj, roles={}):
         self.__dict__['obj'] = obj
