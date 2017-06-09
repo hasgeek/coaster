@@ -140,6 +140,27 @@ class UuidIdName(BaseIdNameMixin, db.Model):
     __uuid_primary_key__ = True
 
 
+class ProxiedDocument(BaseMixin, db.Model):
+    __tablename__ = 'proxied_document'
+    __roles__ = {
+        'name': {
+            'write': {'document_writer'},
+            'read': {'document_reader'}
+        },
+        'title': {
+            'write': {'document_writer'},
+            'read': {'document_reader', 'title_reader'}
+        },
+        'content': {
+            'write': {'document_writer'},
+            'read': {'document_reader'}
+        }
+    }
+
+    name = Column(Unicode(80), nullable=True)
+    title = Column(Unicode(80), nullable=True)
+    content = Column(Unicode(250))
+
 # -- Tests --------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
@@ -567,6 +588,41 @@ class TestCoasterModels(unittest.TestCase):
         # Once generated, the key remains stable
         u3 = uuid_yes.id
         self.assertEqual(u2, u3)
+
+    def test_accessible_proxy(self):
+        """
+        Should be able to proxy SQLAlchemy model objects
+        to control read, write access on attributes
+        """
+        doc = ProxiedDocument(name='document1', title='Document 1', content='content')
+        db.session.add(doc)
+        db.session.commit()
+        non_existent_roles = {'non_existent_role'}
+        inaccessible_doc_proxy = doc.accessible_proxy(roles=non_existent_roles)
+        self.assertIsNone(inaccessible_doc_proxy.name)
+
+        reader_roles = {'document_reader'}
+        reader_accessible_doc_proxy = doc.accessible_proxy(roles=reader_roles)
+        self.assertEquals(reader_accessible_doc_proxy.name, doc.name)
+
+        partial_reader_roles = {'title_reader'}
+        partial_reader_accessible_doc_proxy = doc.accessible_proxy(roles=partial_reader_roles)
+        self.assertIsNone(partial_reader_accessible_doc_proxy.name)
+        self.assertIsNone(partial_reader_accessible_doc_proxy.content)
+        self.assertEquals(partial_reader_accessible_doc_proxy.title, doc.title)
+
+        # writer should also be able to read the attributes
+        # they have access to read
+        writer_roles = {'document_writer'}
+        writer_accessible_doc_proxy = doc.accessible_proxy(roles=writer_roles)
+        self.assertEquals(writer_accessible_doc_proxy.name, doc.name)
+
+        new_title = u"Document 1 updated via proxy"
+        writer_accessible_doc_proxy.title = new_title
+        db.session.commit()
+        self.assertEquals(doc.title, new_title)
+        self.assertIsInstance(dict(writer_accessible_doc_proxy), dict)
+
 
 
 class TestCoasterModels2(TestCoasterModels):
