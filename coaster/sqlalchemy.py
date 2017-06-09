@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+# from UserDict import DictMixin
+from collections import Mapping
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy import event, inspect
@@ -144,21 +146,65 @@ class PermissionMixin(object):
         else:
             return set()
 
+
 class AccessibleProxy(object):
+    """
+    A proxy interface that wraps a object and provides role-based access control on the wrapped
+    object's attributes. The proxy also lends itself as a mapping iterable i.e `dict(proxy)` will
+    yield a dict of accessible attributes and values.
+
+    The object is expected to inherit `RolesMixin` and implement the `__roles__` dictionary
+    that specifies the mapping between attributes and roles.
+
+    >>> proxy = model.accessible_proxy(roles={'writer'})
+    >>> proxy.model_attr = 'new value'
+    >>> dict(proxy)
+    """
     def __init__(self, obj, roles=[]):
         self.__dict__['obj'] = obj
         self.__dict__['user_roles'] = roles
         self.__dict__['attr_access_map'] = {}
-        # Read the object's SQLAlchemy mapper for its column attributes
-        self.__dict__['column_attrs'] = obj.__mapper__.attrs.keys()
+        self.__dict__['column_attrs'] = obj.__roles__.keys()
 
         for column_attr in self.column_attrs:
             self.attr_access_map[column_attr] = {'read': False, 'write': False}
-            if self.is_attr_accessible(column_attr, access_level='read'):
+            if self.is_attr_accessible(column_attr, access_level='read') or self.is_attr_accessible(column_attr, access_level='write'):
                 self.attr_access_map[column_attr]['read'] = True
-            if self.is_attr_accessible(column_attr, access_level='read'):
+            if self.is_attr_accessible(column_attr, access_level='write'):
                 self.attr_access_map[column_attr]['write'] = True
 
+    def __getattribute__(self, attr):
+        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible', '__getattribute__', 'keys']:
+            return object.__getattribute__(self, attr)
+
+        if self.attr_access_map.get(attr, {}).get('read') or self.attr_access_map.get(attr, {}).get('write'):
+            return object.__getattribute__(self.obj, attr)
+
+    def __setattr__(self, attr, val):
+        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible']:
+            return setattr(self.obj, attr, val)
+
+        if self.attr_access_map.get(attr, {}).get('write'):
+            return setattr(self.obj, attr, val)
+
+    def __getitem__(self, key):
+        return self.__getattribute__(key)
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __setitem__(self, key, value):
+        self.__setattr__(key, value)
+
+    def __iter__(self):
+        for key in self.keys():
+            yield key
+
+    def iterkeys(self):
+        return self.__iter__()
+
+    def keys(self):
+        return self.column_attrs
 
     def is_attr_accessible(self, attr, access_level):
         attr_accessible = False
@@ -166,32 +212,7 @@ class AccessibleProxy(object):
         if attr in self.column_attrs:
             if self.obj.__roles__.get(attr) and self.user_roles.intersection(self.obj.__roles__[attr][access_level]):
                 attr_accessible = True
-        else:
-            attr_accessible = True
         return attr_accessible
-
-
-    def __getattribute__(self, attr):
-        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible', '__getattribute__', 'to_dict']:
-            return object.__getattribute__(self, attr)
-
-        if self.attr_access_map[attr]['read']:
-            return object.__getattribute__(self.obj, attr)
-
-
-    def __setattr__(self, attr, val):
-        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible']:
-            return setattr(self.obj, attr, val)
-
-        if self.attr_access_map[attr]['write']:
-            return setattr(self.obj, attr, val)
-
-    def to_dict(self):
-        attr_dict = {}
-        for attr, access_map in self.attr_access_map.iteritems():
-            if access_map['read'] or access_map['write']:
-                attr_dict[attr] = self.__getattribute__(attr)
-        return attr_dict
 
 
 class RolesMixin(object):
