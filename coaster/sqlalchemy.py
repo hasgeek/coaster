@@ -152,7 +152,14 @@ class AccessibleProxy(object):
     yield a dict of accessible attributes and values.
 
     The object is expected to inherit `RolesMixin` and implement the `__roles__` dictionary
-    that specifies the mapping between attributes and roles.
+    that specifies the mapping between attributes and roles in the following way:
+
+     __roles__ = {
+        'column_attr': {
+            'write': {'role'},
+            'read': {'role'}
+        }
+    }
 
     >>> proxy = model.accessible_proxy(roles={'writer'})
     >>> proxy.model_attr = 'new value'
@@ -216,13 +223,6 @@ class AccessibleProxy(object):
 class RolesMixin(object):
     """
     Provides the :meth:`roles` and :meth:`accessible_proxy` method used by BaseMixin and derived classes
-
-     __roles__ = {
-        'description': {
-            'write': {'item_collection_owner'},
-            'read': {'item_collection_owner'}
-        }
-    }
     """
     def roles(self, user=None, token=None, inherited=None):
         """
