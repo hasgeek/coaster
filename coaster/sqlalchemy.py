@@ -158,7 +158,7 @@ class AccessibleProxy(object):
     >>> proxy.model_attr = 'new value'
     >>> dict(proxy)
     """
-    def __init__(self, obj, roles=[]):
+    def __init__(self, obj, roles={}):
         self.__dict__['obj'] = obj
         self.__dict__['user_roles'] = roles
         self.__dict__['attr_access_map'] = {}
