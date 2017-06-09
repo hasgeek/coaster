@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-# from UserDict import DictMixin
-from collections import Mapping
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy import event, inspect
