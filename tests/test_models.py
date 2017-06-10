@@ -622,7 +622,7 @@ class TestCoasterModels(unittest.TestCase):
         db.session.commit()
         self.assertEquals(doc.title, new_title)
         self.assertIsInstance(dict(writer_accessible_doc_proxy), dict)
-        self.assertEquals(dict(writer_accessible_doc_proxy).get('name'), doc.name)
+        self.assertEquals(dict(writer_accessible_doc_proxy), {'name': doc.name, 'title': doc.title, 'content': doc.content})
 
 
 class TestCoasterModels2(TestCoasterModels):
