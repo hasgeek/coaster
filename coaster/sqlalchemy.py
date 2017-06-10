@@ -215,12 +215,10 @@ class AccessibleProxy(object):
         return self.column_attrs
 
     def is_attr_accessible(self, attr, access_level):
-        attr_accessible = False
-
         if attr in self.column_attrs:
             if self.obj.__roles__.get(attr) and self.user_roles.intersection(self.obj.__roles__[attr][access_level]):
-                attr_accessible = True
-        return attr_accessible
+                return True
+        return False
 
 
 class RolesMixin(object):
