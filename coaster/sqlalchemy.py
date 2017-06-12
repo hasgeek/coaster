@@ -184,22 +184,19 @@ class AccessibleProxy(object):
             if self.is_attr_accessible(column_attr, access_level='write'):
                 self.attr_access_map[column_attr]['write'] = True
 
-    def __getattribute__(self, attr):
-        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible', '__getattribute__', 'keys']:
-            return object.__getattribute__(self, attr)
-
+    def __getattr__(self, attr):
         if self.attr_access_map.get(attr, {}).get('read') or self.attr_access_map.get(attr, {}).get('write'):
             return object.__getattribute__(self.obj, attr)
 
     def __setattr__(self, attr, val):
         if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible']:
-            return setattr(self.obj, attr, val)
+            return setattr(self, attr, val)
 
         if self.attr_access_map.get(attr, {}).get('write'):
             return setattr(self.obj, attr, val)
 
     def __getitem__(self, key):
-        return self.__getattribute__(key)
+        return self.__getattr__(key)
 
     def __len__(self):
         return len(self.keys())
