@@ -147,26 +147,29 @@ class PermissionMixin(object):
 
 class AccessibleProxy(object):
     """
-    A proxy interface that wraps a object and provides role-based access control on the wrapped
+    A proxy interface that wraps an object and provides role-based access control on the wrapped
     object's attributes. The proxy also lends itself as a mapping iterable i.e `dict(proxy)` will
-    yield a dict of accessible attributes and values.
+    yield a dict of attributes and values, that are accessible by the given role(s).
 
-    The object is expected to inherit `RolesMixin` and implement the `__roles__` dictionary
-    that specifies the mapping between attributes and roles in the following way:
+    The object is expected to inherit `RolesMixin` and implement a `__roles__` dictionary
+    which specifies the mapping between the model's attributes and the authorized roles in the following way::
 
-     __roles__ = {
-        'column_attr': {
-            'write': {'role'},
-            'read': {'role'}
+         __roles__ = {
+            'column_attr': {
+                'write': {'role'},
+                'read': {'role'}
+            }
         }
-    }
 
-    Example usage:
+    :param obj: The object that should be wrapped with the proxy
+    :param roles: A set of roles to enforce access control
 
-    >> proxy = model.accessible_proxy(roles={'writer'})
-    >> proxy.model_attr
-    >> proxy.model_attr = 'new value'
-    >> dict(proxy)
+    :Example:
+
+        proxy = model.accessible_proxy(roles={'writer'})
+        proxy.model_attr
+        proxy.model_attr = 'new value'
+        dict(proxy)
     """
     def __init__(self, obj, roles={}):
         self.__dict__['obj'] = obj
