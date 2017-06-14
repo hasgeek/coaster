@@ -93,7 +93,10 @@ def uuid1mc_from_datetime(dt):
     >>> # Both timestamps should be very close to each other but not an exact match
     >>> u1.time > u2.time
     True
-    >>> u1.time - u2.time < 2000
+    >>> u1.time - u2.time < 3000
+    True
+    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000L) * 100 / 1e9)
+    >>> d2 == dt
     True
     """
     fields = list(uuid1mc().fields)
