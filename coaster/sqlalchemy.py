@@ -102,9 +102,10 @@ class IdMixin(object):
 
     @declared_attr
     def url_id(cls):
-        """Return the URL id"""
+        """The URL id"""
         if cls.__uuid_primary_key__:
             def url_id_func(self):
+                """The URL id, UUID primary key rendered as a hex string"""
                 return self.id.hex
             url_id_property = hybrid_property(url_id_func)
 
@@ -115,6 +116,7 @@ class IdMixin(object):
             return url_id_property
         else:
             def url_id_func(self):
+                """The URL id, integer primary key rendered as a string"""
                 return unicode(self.id)
             return property(url_id_func)
 
