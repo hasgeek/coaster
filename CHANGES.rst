@@ -12,9 +12,11 @@
 * When using UUID primary keys in ``IdMixin``, a UUID is automatically
   generated the first time the ``id`` column is accessed, without the need
   to commit to the database
-* The ``url_id`` property is now part of ``IdMixin`` and supports SQL queries
-  as well. This makes it compatible with the support for ``url_name`` in
-  ``load_models``
+* New: ShortUUID functions ``suuid``, ``suuid2uuid`` and ``uuid2suuid``
+  using Base58 encoding instead of ``buid``'s URL-safe Base64
+* The ``url_id`` property is now part of ``IdMixin``, uses short UUIDs,
+  and supports SQL queries as well. This makes it compatible with the support
+  for ``url_name`` in ``load_models``
 
 0.5.2
 -----
