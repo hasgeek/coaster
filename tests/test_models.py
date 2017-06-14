@@ -543,6 +543,48 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
 
+    def test_uuid_url_id(self):
+        """
+        IdMixin provides a url_id that renders as a string of
+        either the integer primary key or the UUID primary key
+        """
+        u1 = NonUuidKey()
+        u2 = UuidKey()
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        i1 = u1.id
+        i2 = u2.id
+
+        self.assertEqual(u1.url_id, unicode(i1))
+        self.assertIsInstance(u2.id, uuid.UUID)
+        self.assertEqual(u2.url_id, i2.hex)
+        self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex string
+        self.assertFalse('-' in u2.url_id)  # Without dashes
+
+        # Querying against `url_id` redirects the query to `id`.
+
+        # Note that `literal_binds` here doesn't know how to render UUIDs if
+        # no engine is specified, and so casts into a string. We test this with
+        # multiple renderings.
+        self.assertEqual(
+            unicode((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={"literal_binds": True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        self.assertEqual(
+            unicode((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
+                ).compile(compile_kwargs={"literal_binds": True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        self.assertEqual(
+            unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
+                ).compile(compile_kwargs={"literal_binds": True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+
+        # Running a database query with url_id works as expected.
+        # This test should pass on both SQLite and PostgreSQL
+        u3 = UuidKey.query.filter_by(url_id=u2.url_id).first()
+        self.assertEqual(u2, u3)
+
     def test_uuid_url_name(self):
         """
         BaseIdNameMixin models with UUID primary keys should generate

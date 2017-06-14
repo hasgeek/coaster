@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+import uuid
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy import event, inspect
@@ -9,6 +10,7 @@ from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.ext.hybrid import Comparator, hybrid_property
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.compiler import compiles
@@ -72,6 +74,13 @@ class Query(BaseQuery):
         return not self.session.query(self.exists()).first()[0]
 
 
+class UuidSqlComparator(Comparator):
+    def __eq__(self, other):
+        if not isinstance(other, uuid.UUID):
+            other = uuid.UUID(other)
+        return self.__clause_element__() == other
+
+
 class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
@@ -90,6 +99,24 @@ class IdMixin(object):
             return Column(UUIDType(binary=False), default=uuid1mc, primary_key=True)
         else:
             return Column(Integer, primary_key=True)
+
+    @declared_attr
+    def url_id(cls):
+        """Return the URL id"""
+        if cls.__uuid_primary_key__:
+            def url_id_func(self):
+                return self.id.hex
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.comparator
+            def url_id_is(cls):
+                return UuidSqlComparator(cls.id)
+
+            return url_id_property
+        else:
+            def url_id_func(self):
+                return unicode(self.id)
+            return property(url_id_func)
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
@@ -456,14 +483,6 @@ class BaseIdNameMixin(BaseMixin):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
-
-    @property
-    def url_id(self):
-        """Return the URL id"""
-        if self.__uuid_primary_key__:
-            return self.id.hex
-        else:
-            return self.id
 
     @property
     def url_name(self):
