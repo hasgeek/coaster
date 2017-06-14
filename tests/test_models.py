@@ -564,20 +564,31 @@ class TestCoasterModels(unittest.TestCase):
 
         # Querying against `url_id` redirects the query to `id`.
 
+        self.assertEqual(
+            unicode((NonUuidKey.url_id == 1
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_key.id = 1")
+
+        # We don't check the data type here, leaving that to the engine
+        self.assertEqual(
+            unicode((NonUuidKey.url_id == '1'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_key.id = '1'")
+
         # Note that `literal_binds` here doesn't know how to render UUIDs if
         # no engine is specified, and so casts into a string. We test this with
         # multiple renderings.
         self.assertEqual(
             unicode((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
-                ).compile(compile_kwargs={"literal_binds": True})),
+                ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
             unicode((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
-                ).compile(compile_kwargs={"literal_binds": True})),
+                ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
             unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
-                ).compile(compile_kwargs={"literal_binds": True})),
+                ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Running a database query with url_id works as expected.

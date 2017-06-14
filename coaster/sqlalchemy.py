@@ -118,7 +118,14 @@ class IdMixin(object):
             def url_id_func(self):
                 """The URL id, integer primary key rendered as a string"""
                 return unicode(self.id)
-            return property(url_id_func)
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.expression
+            def url_id_expression(cls):
+                """The URL id, integer primary key"""
+                return cls.id
+
+            return url_id_property
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
