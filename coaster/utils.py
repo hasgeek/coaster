@@ -24,6 +24,8 @@ import bleach
 import isoweek
 import base58
 
+from werkzeug.exceptions import NotFound
+
 if six.PY3:
     from html import unescape
 else:
@@ -49,6 +51,13 @@ _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0
 _tag_re = re.compile('<.*?>')
 
 
+# --- Exceptions --------------------------------------------------------------
+
+class InvalidSuuid(NotFound):
+    """Invalid ShortUUID. Triggers the NotFound handler when an invalid id is used in a URL."""
+    pass
+
+
 # --- Utilities ---------------------------------------------------------------
 
 def buid():
@@ -56,6 +65,9 @@ def buid():
     Return a new random id that is exactly 22 characters long,
     by encoding a UUID1MC in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
+
+    .. deprecated:: 0.6.0
+        Use :func:``suuid`` for all new usecases.
 
     >>> len(buid())
     22
@@ -159,7 +171,10 @@ def suuid2uuid(value):
     """
     Convert a Base58 ShortUUID back into a UUID
     """
-    return uuid.UUID(bytes=base58.b58decode(value))
+    try:
+        return uuid.UUID(bytes=base58.b58decode(value))
+    except ValueError:
+        raise InvalidSuuid(value)
 
 
 def newsecret():

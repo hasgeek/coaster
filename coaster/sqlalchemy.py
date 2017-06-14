@@ -17,7 +17,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
-from .utils import make_name, uuid1mc
+from .utils import make_name, uuid1mc, suuid2uuid, uuid2suuid
 from .gfm import markdown
 
 
@@ -77,7 +77,15 @@ class Query(BaseQuery):
 class UuidSqlComparator(Comparator):
     def __eq__(self, other):
         if not isinstance(other, uuid.UUID):
-            other = uuid.UUID(other)
+            # What is other? If a 22 character string, assume a ShortUUID
+            if len(other) == 22:
+                other = suuid2uuid(other)
+            # Got 16 characters? Maybe it's raw bytes (but how?)
+            elif len(other) == 16:
+                other = uuid.UUID(bytes=other)
+            # Maybe it's just a hex representation of a UUID (with or without dashes)
+            else:
+                other = uuid.UUID(other)
         return self.__clause_element__() == other
 
 
@@ -105,8 +113,8 @@ class IdMixin(object):
         """The URL id"""
         if cls.__uuid_primary_key__:
             def url_id_func(self):
-                """The URL id, UUID primary key rendered as a hex string"""
-                return self.id.hex
+                """The URL id, UUID primary key rendered as a ShortUUID string"""
+                return uuid2suuid(self.id)
             url_id_property = hybrid_property(url_id_func)
 
             @url_id_property.comparator
