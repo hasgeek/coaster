@@ -22,6 +22,7 @@ from unidecode import unidecode
 import html5lib
 import bleach
 import isoweek
+import base58
 
 if six.PY3:
     from html import unescape
@@ -140,6 +141,27 @@ def buid2uuid(value):
     return uuid.UUID(bytes=urlsafe_b64decode(str(value + '==')))
 
 
+def suuid():
+    """
+    Return a ShortUUID using uuid1mc rendered in Base58
+    """
+    return base58.b58encode(uuid1mc().bytes)
+
+
+def uuid2suuid(value):
+    """
+    Render a UUID as a Base58 ShortUUID
+    """
+    return base58.b58encode(value.bytes)
+
+
+def suuid2uuid(value):
+    """
+    Convert a Base58 ShortUUID back into a UUID
+    """
+    return uuid.UUID(bytes=base58.b58decode(value))
+
+
 def newsecret():
     """
     Make a secret key for email confirmation and all that stuff.
@@ -150,7 +172,7 @@ def newsecret():
     >>> newsecret() == newsecret()
     False
     """
-    return buid() + buid()
+    return suuid() + suuid()
 
 
 def newpin(digits=4):
