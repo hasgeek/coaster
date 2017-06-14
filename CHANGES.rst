@@ -12,6 +12,8 @@
 * When using UUID primary keys in ``IdMixin``, a UUID is automatically
   generated the first time the ``id`` column is accessed, without the need
   to commit to the database
+* New: ShortUUID functions ``suuid``, ``suuid2uuid`` and ``uuid2suuid``
+  using Base58 encoding instead of ``buid``'s URL-safe Base64
 
 0.5.2
 -----
