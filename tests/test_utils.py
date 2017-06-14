@@ -114,7 +114,8 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_suuid(self):
         """
-        Test the ShortUUID methods"""
+        Test the ShortUUID methods
+        """
         s1 = suuid()
         self.assertEqual(len(s1), 22)
         u1 = suuid2uuid(s1)
