@@ -564,6 +564,11 @@ class TestCoasterModels(unittest.TestCase):
 
         # Querying against `url_id` redirects the query to `id`.
 
+        # Note that `literal_binds` here doesn't know how to render UUIDs if
+        # no engine is specified, and so casts them into a string. We test this
+        # with multiple renderings.
+
+        # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
             unicode((NonUuidKey.url_id == 1
                 ).compile(compile_kwargs={'literal_binds': True})),
@@ -575,9 +580,8 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_key.id = '1'")
 
-        # Note that `literal_binds` here doesn't know how to render UUIDs if
-        # no engine is specified, and so casts into a string. We test this with
-        # multiple renderings.
+        # With UUID primary keys, `url_id` casts the value into a UUID
+        # and then queries against `id`
         self.assertEqual(
             unicode((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
@@ -593,8 +597,10 @@ class TestCoasterModels(unittest.TestCase):
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
-        u3 = UuidKey.query.filter_by(url_id=u2.url_id).first()
-        self.assertEqual(u2, u3)
+        qu1 = NonUuidKey.query.filter_by(url_id=u1.url_id).first()
+        self.assertEqual(u1, qu1)
+        qu2 = UuidKey.query.filter_by(url_id=u2.url_id).first()
+        self.assertEqual(u2, qu2)
 
     def test_uuid_url_name(self):
         """
