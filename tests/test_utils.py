@@ -99,13 +99,13 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(deobfuscate_email(input), output)
 
     def test_isoweek_datetime_all_timezones(self):
-            """Test that isoweek_datetime works for all timezones"""
-            for timezone in common_timezones:
-                for week in range(53):
-                    isoweek_datetime(2017, week + 1, timezone)
+        """Test that isoweek_datetime works for all timezones"""
+        for timezone in common_timezones:
+            for week in range(53):
+                isoweek_datetime(2017, week + 1, timezone)
 
     def test_midnight_to_utc_all_timezones(self):
-            """Test that midnight_to_utc works for all timezones"""
-            for timezone in common_timezones:
-                for day in range(365):
-                    midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
+        """Test that midnight_to_utc works for all timezones"""
+        for timezone in common_timezones:
+            for day in range(365):
+                midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
