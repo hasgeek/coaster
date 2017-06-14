@@ -69,8 +69,12 @@ def init_app(app, env=None):
     """
     Configure an app depending on the environment.
     """
+    # Disable Flask-SQLAlchemy events.
+    # Apps that want it can turn it back on in their config
+    app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
+    # Load config from the app's settings.py
     load_config_from_file(app, 'settings.py')
-
+    # Load additional settings from the app's environment-specific config file
     if not env:
         env = environ.get('FLASK_ENV', 'DEVELOPMENT')  # Uppercase for compatibility with Flask-Environments
     additional = _additional_config.get(env.lower())  # Lowercase because that's how we define it

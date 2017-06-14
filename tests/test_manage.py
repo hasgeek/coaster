@@ -10,9 +10,9 @@ from flask import Flask
 class TestManagePy(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
-        self.app.config.from_pyfile('settings.py')
-        self.db = SQLAlchemy(self.app)
+        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         coaster.app.init_app(self.app)
+        self.db = SQLAlchemy(self.app)
 
         self.manage = init_manager(self.app, self.db)
 
