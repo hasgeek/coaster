@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+import uuid
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy import event, inspect
@@ -9,15 +10,29 @@ from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.ext.hybrid import Comparator, hybrid_property
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
+from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid1mc
 from .gfm import markdown
 
+
+# --- Exceptions --------------------------------------------------------------
+
+__all_exceptions = ['InvalidUuid']
+
+
+class InvalidUuid(NotFound):
+    """Invalid UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
+    pass
+
+
+# --- SQL Functions -----------------------------------------------------------
 
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
@@ -44,6 +59,8 @@ def __utcnow_postgresql(element, compiler, **kw):
 def __utcnow_mssql(element, compiler, **kw):
     return 'SYSUTCDATETIME()'
 
+
+# --- Mixins ------------------------------------------------------------------
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
@@ -72,6 +89,19 @@ class Query(BaseQuery):
         return not self.session.query(self.exists()).first()[0]
 
 
+class SqlHexUuidComparator(Comparator):
+    """
+    Allows comparing UUID fields with hex representations of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid.UUID):
+            try:
+                other = uuid.UUID(other)
+            except ValueError:
+                raise InvalidUuid(other)
+        return op(self.__clause_element__(), other)
+
+
 class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
@@ -90,6 +120,33 @@ class IdMixin(object):
             return Column(UUIDType(binary=False), default=uuid1mc, primary_key=True)
         else:
             return Column(Integer, primary_key=True)
+
+    @declared_attr
+    def url_id(cls):
+        """The URL id"""
+        if cls.__uuid_primary_key__:
+            def url_id_func(self):
+                """The URL id, UUID primary key rendered as a hex string"""
+                return self.id.hex
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.comparator
+            def url_id_is(cls):
+                return SqlHexUuidComparator(cls.id)
+
+            return url_id_property
+        else:
+            def url_id_func(self):
+                """The URL id, integer primary key rendered as a string"""
+                return unicode(self.id)
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.expression
+            def url_id_expression(cls):
+                """The URL id, integer primary key"""
+                return cls.id
+
+            return url_id_property
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
@@ -456,14 +513,6 @@ class BaseIdNameMixin(BaseMixin):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
-
-    @property
-    def url_id(self):
-        """Return the URL id"""
-        if self.__uuid_primary_key__:
-            return self.id.hex
-        else:
-            return self.id
 
     @property
     def url_name(self):
@@ -842,4 +891,4 @@ def failsafe_add(_session, _instance, **filters):
             except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
                 raise e
 
-__all__ = __all_mixins + __all_columns + __all_functions
+__all__ = __all_exceptions + __all_mixins + __all_columns + __all_functions

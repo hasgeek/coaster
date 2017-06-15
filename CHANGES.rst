@@ -14,6 +14,9 @@
   to commit to the database
 * New: ShortUUID functions ``suuid``, ``suuid2uuid`` and ``uuid2suuid``
   using Base58 encoding instead of ``buid``'s URL-safe Base64
+* The ``url_id`` property is now part of ``IdMixin``  and supports SQL queries
+  as well. This makes it compatible with the support for ``url_name`` in
+  ``load_models``
 
 0.5.2
 -----
