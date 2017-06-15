@@ -175,7 +175,7 @@ def newsecret():
     >>> newsecret() == newsecret()
     False
     """
-    return suuid() + suuid()
+    return buid() + buid()
 
 
 def newpin(digits=4):
