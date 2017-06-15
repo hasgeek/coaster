@@ -16,7 +16,8 @@
   as well. This makes it compatible with the support for ``url_name`` in
   ``load_models``
 * New: ``shortuuid`` module exposed via the ``utils`` module, with ``suuid``,
-  ``suuid2uuid`` and ``uuid2suuid`` functions.
+  ``suuid2uuid`` and ``uuid2suuid`` functions
+* ``buid`` reverts to using UUID4 instead of UUID1mc
   
 
 0.5.2

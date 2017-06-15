@@ -55,7 +55,7 @@ _tag_re = re.compile('<.*?>')
 def buid():
     """
     Return a new random id that is exactly 22 characters long,
-    by encoding a UUID1MC in URL-safe Base64. See
+    by encoding a UUID4 in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
 
     >>> len(buid())
@@ -65,7 +65,7 @@ def buid():
     >>> isinstance(buid(), unicode)
     True
     """
-    return unicode(urlsafe_b64encode(uuid1mc().bytes).rstrip('='))
+    return unicode(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 
 # Retain old name
