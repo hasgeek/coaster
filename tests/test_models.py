@@ -559,8 +559,8 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertEqual(u1.url_id, unicode(i1))
         self.assertIsInstance(u2.id, uuid.UUID)
-        self.assertEqual(u2.url_id, uuid2suuid(i2))
-        self.assertEqual(len(u2.url_id), 22)  # This is a 22-byte ShortUUID string
+        self.assertEqual(u2.url_id, i2.hex)
+        self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
         self.assertFalse('-' in u2.url_id)  # Without dashes
 
         # Querying against `url_id` redirects the query to `id`.
@@ -599,11 +599,6 @@ class TestCoasterModels(unittest.TestCase):
             unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
-        # ShortUUID (UUID in Base58)
-        self.assertEqual(
-            unicode((UuidKey.url_id == 'FRn1p6EnzbhydnssMnHqFZ'
-                ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
@@ -618,8 +613,8 @@ class TestCoasterModels(unittest.TestCase):
         properly formatted url_id and url_name, without dashes
         """
         u = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test')
-        self.assertEqual(u.url_id, u'FRn1p6EnzbhydnssMnHqFZ')
-        self.assertEqual(u.url_name, u'FRn1p6EnzbhydnssMnHqFZ-test')
+        self.assertEqual(u.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u.url_name, u'74d588574a7611e78c27c38403d0935c-test')
 
     def test_uuid_default(self):
         """

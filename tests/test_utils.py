@@ -6,7 +6,7 @@ import datetime
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    suuid, suuid2uuid, uuid2suuid, InvalidSuuid)
+    suuid, suuid2uuid, uuid2suuid)
 
 
 class MY_ENUM(LabeledEnum):
@@ -123,5 +123,3 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(u1.version, 1)  # suuid should generate UUID1 (multicast) ids
         s2 = uuid2suuid(u1)
         self.assertEqual(s1, s2)
-        with self.assertRaises(InvalidSuuid):
-            suuid2uuid('Garbage')

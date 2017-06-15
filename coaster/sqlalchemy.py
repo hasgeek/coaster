@@ -15,11 +15,24 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
+from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
-from .utils import make_name, uuid1mc, suuid2uuid, uuid2suuid
+from .utils import make_name, uuid1mc
 from .gfm import markdown
 
+
+# --- Exceptions --------------------------------------------------------------
+
+__all_exceptions = ['InvalidUuid']
+
+
+class InvalidUuid(NotFound):
+    """Invalid UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
+    pass
+
+
+# --- SQL Functions -----------------------------------------------------------
 
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
@@ -46,6 +59,8 @@ def __utcnow_postgresql(element, compiler, **kw):
 def __utcnow_mssql(element, compiler, **kw):
     return 'SYSUTCDATETIME()'
 
+
+# --- Mixins ------------------------------------------------------------------
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
@@ -74,19 +89,17 @@ class Query(BaseQuery):
         return not self.session.query(self.exists()).first()[0]
 
 
-class UuidSqlComparator(Comparator):
-    def __eq__(self, other):
+class SqlHexUuidComparator(Comparator):
+    """
+    Allows comparing UUID fields with hex representations of the UUID
+    """
+    def operate(self, op, other):
         if not isinstance(other, uuid.UUID):
-            # What is other? If a 22 character string, assume a ShortUUID
-            if len(other) == 22:
-                other = suuid2uuid(other)
-            # Got 16 characters? Maybe it's raw bytes (but how?)
-            elif len(other) == 16:
-                other = uuid.UUID(bytes=other)
-            # Maybe it's just a hex representation of a UUID (with or without dashes)
-            else:
+            try:
                 other = uuid.UUID(other)
-        return self.__clause_element__() == other
+            except ValueError:
+                raise InvalidUuid(other)
+        return op(self.__clause_element__(), other)
 
 
 class IdMixin(object):
@@ -114,12 +127,12 @@ class IdMixin(object):
         if cls.__uuid_primary_key__:
             def url_id_func(self):
                 """The URL id, UUID primary key rendered as a ShortUUID string"""
-                return uuid2suuid(self.id)
+                return self.id.hex
             url_id_property = hybrid_property(url_id_func)
 
             @url_id_property.comparator
             def url_id_is(cls):
-                return UuidSqlComparator(cls.id)
+                return SqlHexUuidComparator(cls.id)
 
             return url_id_property
         else:
@@ -878,4 +891,4 @@ def failsafe_add(_session, _instance, **filters):
             except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
                 raise e
 
-__all__ = __all_mixins + __all_columns + __all_functions
+__all__ = __all_exceptions + __all_mixins + __all_columns + __all_functions

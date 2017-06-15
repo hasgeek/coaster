@@ -24,8 +24,6 @@ import bleach
 import isoweek
 import base58
 
-from werkzeug.exceptions import NotFound
-
 if six.PY3:
     from html import unescape
 else:
@@ -49,13 +47,6 @@ _punctuation_re = re.compile(ur'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 _tag_re = re.compile('<.*?>')
-
-
-# --- Exceptions --------------------------------------------------------------
-
-class InvalidSuuid(NotFound):
-    """Invalid ShortUUID. Triggers the NotFound handler when an invalid id is used in a URL."""
-    pass
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -174,10 +165,7 @@ def suuid2uuid(value):
     """
     Convert a Base58 ShortUUID back into a UUID
     """
-    try:
-        return uuid.UUID(bytes=base58.b58decode(value))
-    except ValueError:
-        raise InvalidSuuid(value)
+    return uuid.UUID(bytes=base58.b58decode(value))
 
 
 def newsecret():
