@@ -18,6 +18,7 @@
 * New: ``shortuuid`` module exposed via the ``utils`` module, with ``suuid``,
   ``suuid2uuid`` and ``uuid2suuid`` functions
 * ``buid`` reverts to using UUID4 instead of UUID1mc
+* The deprecated ``newid`` alias for ``buid`` has now been removed
   
 
 0.5.2

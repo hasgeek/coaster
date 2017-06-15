@@ -68,10 +68,6 @@ def buid():
     return unicode(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 
-# Retain old name
-newid = buid
-
-
 def uuid1mc():
     """
     Return a UUID1 with a random multicast MAC id
