@@ -22,7 +22,8 @@ from unidecode import unidecode
 import html5lib
 import bleach
 import isoweek
-from shortuuid import ShortUUID
+
+from .shortuuid import suuid, encode as uuid2suuid, decode as suuid2uuid  # noqa
 
 if six.PY3:
     from html import unescape
@@ -50,12 +51,6 @@ _tag_re = re.compile('<.*?>')
 
 
 # --- Utilities ---------------------------------------------------------------
-
-# This alphabet is the default, but we make a class instance anyway to (a) not
-# be affected by global changes (from the module's set_alphabet function), and
-# (b) to be isolated from upstream alphabet changes, unlikely as that may be
-shortuuid = ShortUUID(alphabet="23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
-
 
 def buid():
     """

@@ -15,8 +15,9 @@
 * The ``url_id`` property is now part of ``IdMixin``  and supports SQL queries
   as well. This makes it compatible with the support for ``url_name`` in
   ``load_models``
-* New: ``shortuuid()`` generator with ``uuid()``, ``encode()`` and ``decode()``
-  functions using the Base57 generator in the shortuuid library
+* New: ``shortuuid`` module exposed via the ``utils`` module, with ``suuid``,
+  ``suuid2uuid`` and ``uuid2suuid`` functions.
+  
 
 0.5.2
 -----

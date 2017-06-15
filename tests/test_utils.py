@@ -6,7 +6,7 @@ import datetime
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    shortuuid)
+    suuid, suuid2uuid, uuid2suuid)
 
 
 class MY_ENUM(LabeledEnum):
@@ -116,10 +116,10 @@ class TestCoasterUtils(unittest.TestCase):
         """
         Test the ShortUUID functions
         """
-        s1 = shortuuid.uuid()
+        s1 = suuid()
         self.assertEqual(len(s1), 22)
-        u1 = shortuuid.decode(s1)
+        u1 = suuid2uuid(s1)
         self.assertIsInstance(u1, uuid.UUID)
         self.assertEqual(u1.version, 4)  # ShortUUID uses v4 UUIDs by default
-        s2 = shortuuid.encode(u1)
+        s2 = uuid2suuid(u1)
         self.assertEqual(s1, s2)
