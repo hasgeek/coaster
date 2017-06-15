@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidUuid)
 from coaster.db import db
 
 
@@ -597,6 +597,9 @@ class TestCoasterModels(unittest.TestCase):
             unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+
+        with self.assertRaises(InvalidUuid):
+            UuidKey.url_id == 'garbage'
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
