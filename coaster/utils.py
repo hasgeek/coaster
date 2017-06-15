@@ -57,9 +57,6 @@ def buid():
     by encoding a UUID1MC in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
 
-    .. deprecated:: 0.6.0
-        Use :func:``suuid`` for all new usecases.
-
     >>> len(buid())
     22
     >>> buid() == buid()

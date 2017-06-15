@@ -126,7 +126,7 @@ class IdMixin(object):
         """The URL id"""
         if cls.__uuid_primary_key__:
             def url_id_func(self):
-                """The URL id, UUID primary key rendered as a ShortUUID string"""
+                """The URL id, UUID primary key rendered as a hex string"""
                 return self.id.hex
             url_id_property = hybrid_property(url_id_func)
 

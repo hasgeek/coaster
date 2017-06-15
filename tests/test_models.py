@@ -10,7 +10,6 @@ from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, f
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
-from coaster.utils import uuid2suuid
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add)
 from coaster.db import db
@@ -565,16 +564,11 @@ class TestCoasterModels(unittest.TestCase):
 
         # Querying against `url_id` redirects the query to `id`.
 
-        # Note that `literal_binds` here doesn't know how to render UUIDs if
-        # no engine is specified, and so casts them into a string. We test this
-        # with multiple renderings.
-
         # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
             unicode((NonUuidKey.url_id == 1
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_key.id = 1")
-
         # We don't check the data type here, leaving that to the engine
         self.assertEqual(
             unicode((NonUuidKey.url_id == '1'
@@ -583,6 +577,10 @@ class TestCoasterModels(unittest.TestCase):
 
         # With UUID primary keys, `url_id` casts the value into a UUID
         # and then queries against `id`
+
+        # Note that `literal_binds` here doesn't know how to render UUIDs if
+        # no engine is specified, and so casts them into a string. We test this
+        # with multiple renderings.
 
         # Hex UUID
         self.assertEqual(
