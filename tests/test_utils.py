@@ -114,12 +114,12 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_suuid(self):
         """
-        Test the ShortUUID methods
+        Test the ShortUUID functions
         """
         s1 = suuid()
         self.assertEqual(len(s1), 22)
         u1 = suuid2uuid(s1)
         self.assertIsInstance(u1, uuid.UUID)
-        self.assertEqual(u1.version, 1)  # suuid should generate UUID1 (multicast) ids
+        self.assertEqual(u1.version, 4)  # ShortUUID uses v4 UUIDs by default
         s2 = uuid2suuid(u1)
         self.assertEqual(s1, s2)
