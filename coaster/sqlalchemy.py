@@ -18,7 +18,7 @@ from sqlalchemy_utils.types import UUIDType
 from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
-from .utils import make_name, uuid1mc
+from .utils import make_name
 from .gfm import markdown
 
 
@@ -117,7 +117,7 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return Column(UUIDType(binary=False), default=uuid1mc, primary_key=True)
+            return Column(UUIDType(binary=False), default=uuid.uuid4, primary_key=True)
         else:
             return Column(Integer, primary_key=True)
 
