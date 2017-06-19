@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import datetime
 import unittest
+import uuid
+import datetime
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
-    sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc)
+    sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
+    suuid, suuid2uuid, uuid2suuid)
 
 
 class MY_ENUM(LabeledEnum):
@@ -99,13 +101,25 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(deobfuscate_email(input), output)
 
     def test_isoweek_datetime_all_timezones(self):
-            """Test that isoweek_datetime works for all timezones"""
-            for timezone in common_timezones:
-                for week in range(53):
-                    isoweek_datetime(2017, week + 1, timezone)
+        """Test that isoweek_datetime works for all timezones"""
+        for timezone in common_timezones:
+            for week in range(53):
+                isoweek_datetime(2017, week + 1, timezone)
 
     def test_midnight_to_utc_all_timezones(self):
-            """Test that midnight_to_utc works for all timezones"""
-            for timezone in common_timezones:
-                for day in range(365):
-                    midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
+        """Test that midnight_to_utc works for all timezones"""
+        for timezone in common_timezones:
+            for day in range(365):
+                midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
+
+    def test_suuid(self):
+        """
+        Test the ShortUUID functions
+        """
+        s1 = suuid()
+        self.assertEqual(len(s1), 22)
+        u1 = suuid2uuid(s1)
+        self.assertIsInstance(u1, uuid.UUID)
+        self.assertEqual(u1.version, 4)  # ShortUUID uses v4 UUIDs by default
+        s2 = uuid2suuid(u1)
+        self.assertEqual(s1, s2)

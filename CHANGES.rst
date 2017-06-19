@@ -12,6 +12,14 @@
 * When using UUID primary keys in ``IdMixin``, a UUID is automatically
   generated the first time the ``id`` column is accessed, without the need
   to commit to the database
+* The ``url_id`` property is now part of ``IdMixin``  and supports SQL queries
+  as well. This makes it compatible with the support for ``url_name`` in
+  ``load_models``
+* New: ``shortuuid`` module exposed via the ``utils`` module, with ``suuid``,
+  ``suuid2uuid`` and ``uuid2suuid`` functions
+* ``buid`` reverts to using UUID4 instead of UUID1mc
+* The deprecated ``newid`` alias for ``buid`` has now been removed
+  
 
 0.5.2
 -----

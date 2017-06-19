@@ -16,6 +16,7 @@ else:
 
 requires = [
     'nltk>=3.0',
+    'shortuuid',
     'isoweek',
     'UgliPyJS',
     'PyExecJS',

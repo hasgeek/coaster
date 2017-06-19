@@ -23,6 +23,8 @@ import html5lib
 import bleach
 import isoweek
 
+from .shortuuid import suuid, encode as uuid2suuid, decode as suuid2uuid  # noqa
+
 if six.PY3:
     from html import unescape
 else:
@@ -53,7 +55,7 @@ _tag_re = re.compile('<.*?>')
 def buid():
     """
     Return a new random id that is exactly 22 characters long,
-    by encoding a UUID1MC in URL-safe Base64. See
+    by encoding a UUID4 in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
 
     >>> len(buid())
@@ -63,11 +65,7 @@ def buid():
     >>> isinstance(buid(), unicode)
     True
     """
-    return unicode(urlsafe_b64encode(uuid1mc().bytes).rstrip('='))
-
-
-# Retain old name
-newid = buid
+    return unicode(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 
 def uuid1mc():
@@ -92,7 +90,10 @@ def uuid1mc_from_datetime(dt):
     >>> # Both timestamps should be very close to each other but not an exact match
     >>> u1.time > u2.time
     True
-    >>> u1.time - u2.time < 2000
+    >>> u1.time - u2.time < 3000
+    True
+    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000L) * 100 / 1e9)
+    >>> d2 == dt
     True
     """
     fields = list(uuid1mc().fields)

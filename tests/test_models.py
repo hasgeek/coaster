@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidUuid)
 from coaster.db import db
 
 
@@ -563,6 +563,71 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
+
+    def test_uuid_url_id(self):
+        """
+        IdMixin provides a url_id that renders as a string of
+        either the integer primary key or the UUID primary key
+        """
+        u1 = NonUuidKey()
+        u2 = UuidKey()
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        i1 = u1.id
+        i2 = u2.id
+
+        self.assertEqual(u1.url_id, unicode(i1))
+        self.assertIsInstance(u2.id, uuid.UUID)
+        self.assertEqual(u2.url_id, i2.hex)
+        self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
+        self.assertFalse('-' in u2.url_id)  # Without dashes
+
+        # Querying against `url_id` redirects the query to `id`.
+
+        # With integer primary keys, `url_id` is simply a proxy for `id`
+        self.assertEqual(
+            unicode((NonUuidKey.url_id == 1
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_key.id = 1")
+        # We don't check the data type here, leaving that to the engine
+        self.assertEqual(
+            unicode((NonUuidKey.url_id == '1'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_key.id = '1'")
+
+        # With UUID primary keys, `url_id` casts the value into a UUID
+        # and then queries against `id`
+
+        # Note that `literal_binds` here doesn't know how to render UUIDs if
+        # no engine is specified, and so casts them into a string. We test this
+        # with multiple renderings.
+
+        # Hex UUID
+        self.assertEqual(
+            unicode((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        # Hex UUID with dashes
+        self.assertEqual(
+            unicode((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        # UUID object
+        self.assertEqual(
+            unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+
+        with self.assertRaises(InvalidUuid):
+            UuidKey.url_id == 'garbage'
+
+        # Running a database query with url_id works as expected.
+        # This test should pass on both SQLite and PostgreSQL
+        qu1 = NonUuidKey.query.filter_by(url_id=u1.url_id).first()
+        self.assertEqual(u1, qu1)
+        qu2 = UuidKey.query.filter_by(url_id=u2.url_id).first()
+        self.assertEqual(u2, qu2)
 
     def test_uuid_url_name(self):
         """
