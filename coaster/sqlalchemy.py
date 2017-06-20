@@ -24,11 +24,11 @@ from .gfm import markdown
 
 # --- Exceptions --------------------------------------------------------------
 
-__all_exceptions = ['InvalidUuid']
+__all_exceptions = ['InvalidId']
 
 
-class InvalidUuid(NotFound):
-    """Invalid UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
+class InvalidId(NotFound):
+    """Invalid id/UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
     pass
 
 
@@ -103,7 +103,10 @@ class SqlSplitIdComparator(SplitIndexComparator):
     """
     def operate(self, op, other):
         if self.splitindex is not None and isinstance(other, basestring):
-            other = other.split('-')[self.splitindex]
+            try:
+                other = int(other.split('-')[self.splitindex])
+            except ValueError:
+                raise InvalidId(other)
         return op(self.__clause_element__(), other)
 
 
@@ -118,7 +121,7 @@ class SqlHexUuidComparator(SplitIndexComparator):
             try:
                 other = uuid_.UUID(other)
             except ValueError:
-                raise InvalidUuid(other)
+                raise InvalidId(other)
         return op(self.__clause_element__(), other)
 
 
@@ -134,7 +137,7 @@ class SqlBuidComparator(SplitIndexComparator):
             try:
                 other = buid2uuid(other)
             except ValueError:
-                raise InvalidUuid(other)
+                raise InvalidId(other)
         return op(self.__clause_element__(), other)
 
 
@@ -149,7 +152,7 @@ class SqlSuuidComparator(SplitIndexComparator):
             try:
                 other = suuid2uuid(other)
             except ValueError:
-                raise InvalidUuid(other)
+                raise InvalidId(other)
         return op(self.__clause_element__(), other)
 
 
@@ -638,9 +641,6 @@ class BaseIdNameMixin(BaseMixin):
         """The title of this object"""
         return Column(Unicode(cls.__title_length__), nullable=False)
 
-    #: The attribute containing id numbers used in the URL in id-name syntax, for external reference
-    url_id_attr = 'id'
-
     def __init__(self, *args, **kw):
         super(BaseIdNameMixin, self).__init__(*args, **kw)
         if not self.name:
@@ -705,9 +705,6 @@ class BaseScopedIdMixin(BaseMixin):
     def url_id(cls):
         """Contains an id number that is unique within the parent container"""
         return Column(Integer, nullable=False)
-
-    #: The attribute containing the url id value, for external reference
-    url_id_attr = 'url_id'
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdMixin, self).__init__(*args, **kw)

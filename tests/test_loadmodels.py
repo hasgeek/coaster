@@ -118,7 +118,8 @@ def t_scoped_named_document(container, document):
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (IdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document')
+    (IdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
+    urlcheck=['url_name']
     )
 def t_id_named_document(container, document):
     return document
@@ -134,7 +135,8 @@ def t_scoped_id_document(container, document):
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (ScopedIdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document')
+    (ScopedIdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
+    urlcheck=['url_name'],
     )
 def t_scoped_id_named_document(container, document):
     return document
@@ -273,6 +275,10 @@ class TestLoadModels(unittest.TestCase):
     def test_id_named_document(self):
         self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
         self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
+        with self.app.test_request_context('/c/1-wrong-name'):
+            r = t_id_named_document(container=u'c', document=u'1-wrong-name')
+            self.assertEqual(r.status_code, 302)
+            self.assertEqual(r.location, '/c/1-id-named-document')
         self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
 
     def test_scoped_id_document(self):
@@ -284,6 +290,10 @@ class TestLoadModels(unittest.TestCase):
     def test_scoped_id_named_document(self):
         self.assertEqual(t_scoped_id_named_document(container=u'c', document=u'1-scoped-id-named-document'), self.sind1)
         self.assertEqual(t_scoped_id_named_document(container=u'c', document=u'2-another-scoped-id-named-document'), self.sind2)
+        with self.app.test_request_context('/c/1-wrong-name'):
+            r = t_scoped_id_named_document(container=u'c', document=u'1-wrong-name')
+            self.assertEqual(r.status_code, 302)
+            self.assertEqual(r.location, '/c/1-scoped-id-named-document')
         self.assertRaises(NotFound, t_scoped_id_named_document, container=u'c', document=u'random-non-integer')
 
     def test_callable_document(self):
@@ -309,7 +319,7 @@ class TestLoadModels(unittest.TestCase):
     def test_unmutated_inherited_permissions(self):
         """The inherited permission set should not be mutated by a permission check"""
         user = User(username='admin')
-        inherited=set(['add-video'])
+        inherited = set(['add-video'])
         self.assertEqual(self.pc.permissions(user, inherited=inherited), set(['add-video', 'view']))
         self.assertEqual(inherited, set(['add-video']))
 
