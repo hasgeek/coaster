@@ -78,7 +78,7 @@ class Query(BaseQuery):
         SQL EXISTS function, so the database stops counting after the first result
         is found.
         """
-        return self.session.query(self.exists()).first()[0]
+        return self.session.query(self.exists()).scalar()
 
     def isempty(self):
         """
@@ -86,7 +86,7 @@ class Query(BaseQuery):
         SQL EXISTS function, so the database stops counting after the first result
         is found.
         """
-        return not self.session.query(self.exists()).first()[0]
+        return not self.session.query(self.exists()).scalar()
 
 
 class SqlHexUuidComparator(Comparator):
