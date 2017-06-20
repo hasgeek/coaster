@@ -142,6 +142,16 @@ class UuidIdName(BaseIdNameMixin, db.Model):
     __uuid_primary_key__ = True
 
 
+class UuidIdNameMixin(UuidMixin, BaseIdNameMixin, db.Model):
+    __tablename__ = 'uuid_id_name_mixin'
+    __uuid_primary_key__ = True
+
+
+class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin, db.Model):
+    __tablename__ = 'uuid_id_name_secondary'
+    __uuid_primary_key__ = False
+
+
 class NonUuidMixinKey(UuidMixin, BaseMixin, db.Model):
     __tablename__ = 'non_uuid_mixin_key'
     __uuid_primary_key__ = False
@@ -384,6 +394,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(d1.url_name, u'1-hello')
+        self.assertEqual(d1.url_name, d1.url_id_name)  # url_name is now an alias for url_id_name
         self.assertEqual(ScopedIdNamedDocument.get(c1, d1.url_id), d1)
 
         d2 = ScopedIdNamedDocument(title=u"Hello again", content=u"New name", container=c1)
@@ -401,6 +412,12 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d4)
         self.session.commit()
         self.assertEqual(d4.url_name, u'3-hello')
+
+        # Queries work as well
+        qd1 = ScopedIdNamedDocument.query.filter_by(container=c1, url_name=d1.url_name).first()
+        self.assertEqual(qd1, d1)
+        qd2 = ScopedIdNamedDocument.query.filter_by(container=c1, url_id_name=d2.url_id_name).first()
+        self.assertEqual(qd2, d2)
 
     def test_scoped_id_without_parent(self):
         d1 = ScopedIdDocument(content=u"Hello")
@@ -720,14 +737,46 @@ class TestCoasterModels(unittest.TestCase):
         with self.assertRaises(InvalidUuid):
             UuidMixinKey.suuid == 'garbage!'
 
-    def test_uuid_url_name(self):
+    def test_uuid_url_id_name_suuid(self):
         """
-        BaseIdNameMixin models with UUID primary keys should generate
-        properly formatted url_id and url_name, without dashes
+        BaseIdNameMixin models with UUID primary or secondary keys should
+        generate properly formatted url_id, url_id_name and url_name_suuid.
+        The url_id_name and url_name_suuid fields should be queryable as well.
         """
-        u = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test')
-        self.assertEqual(u.url_id, u'74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u.url_name, u'74d588574a7611e78c27c38403d0935c-test')
+        u1 = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
+        u2 = UuidIdNameMixin(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
+        u3 = UuidIdNameSecondary(uuid=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
+        db.session.add_all([u1, u2, u3])
+        db.session.commit()
+
+        self.assertEqual(u1.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u1.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
+        with self.assertRaises(AttributeError):
+            # No UuidMixin == No suuid or url_name_suuid attributes
+            self.assertEqual(u1.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
+        self.assertEqual(u2.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u2.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
+        self.assertEqual(u2.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
+        self.assertEqual(u3.url_id, u'74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u3.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
+        self.assertEqual(u3.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
+
+        # url_name is legacy
+        self.assertEqual(u1.url_id_name, u1.url_name)
+        self.assertEqual(u2.url_id_name, u2.url_name)
+        self.assertEqual(u3.url_id_name, u3.url_name)
+
+        qu1 = UuidIdName.query.filter_by(url_id_name=u1.url_id_name).first()
+        self.assertEqual(qu1, u1)
+        qu2 = UuidIdNameMixin.query.filter_by(url_id_name=u2.url_id_name).first()
+        self.assertEqual(qu2, u2)
+        qu3 = UuidIdNameSecondary.query.filter_by(url_id_name=u3.url_id_name).first()
+        self.assertEqual(qu3, u3)
+
+        qsu2 = UuidIdNameMixin.query.filter_by(url_name_suuid=u2.url_name_suuid).first()
+        self.assertEqual(qsu2, u2)
+        qsu3 = UuidIdNameSecondary.query.filter_by(url_name_suuid=u3.url_name_suuid).first()
+        self.assertEqual(qsu3, u3)
 
     def test_uuid_default(self):
         """

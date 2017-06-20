@@ -60,13 +60,7 @@ def __utcnow_mssql(element, compiler, **kw):
     return 'SYSUTCDATETIME()'
 
 
-# --- Mixins ------------------------------------------------------------------
-
-__all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
-    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
-    'UuidMixin']
-
+# --- Queries and comparators -------------------------------------------------
 
 class Query(BaseQuery):
     """
@@ -90,12 +84,37 @@ class Query(BaseQuery):
         return not self.session.query(self.exists()).scalar()
 
 
-class SqlHexUuidComparator(Comparator):
+class SplitIndexComparator(Comparator):
+    """
+    Base class for comparators that support splitting a string and
+    comparing with one of the split values.
+    """
+
+    def __init__(self, expression, splitindex=None):
+        super(SplitIndexComparator, self).__init__(expression)
+        self.splitindex = splitindex
+
+
+class SqlSplitIdComparator(SplitIndexComparator):
+    """
+    Allows comparing an id value with a column, useful mostly because of
+    the splitindex feature, which splits an incoming string along the ``-``
+    character and picks one of the splits for comparison.
+    """
+    def operate(self, op, other):
+        if self.splitindex is not None and isinstance(other, basestring):
+            other = other.split('-')[self.splitindex]
+        return op(self.__clause_element__(), other)
+
+
+class SqlHexUuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with hex representations of the UUID
     """
     def operate(self, op, other):
         if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
             try:
                 other = uuid_.UUID(other)
             except ValueError:
@@ -103,13 +122,15 @@ class SqlHexUuidComparator(Comparator):
         return op(self.__clause_element__(), other)
 
 
-class SqlBuidComparator(Comparator):
+class SqlBuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with URL-safe Base64 (BUID) representations
     of the UUID
     """
     def operate(self, op, other):
         if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
             try:
                 other = buid2uuid(other)
             except ValueError:
@@ -117,17 +138,27 @@ class SqlBuidComparator(Comparator):
         return op(self.__clause_element__(), other)
 
 
-class SqlSuuidComparator(Comparator):
+class SqlSuuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with ShortUUID representations of the UUID
     """
     def operate(self, op, other):
         if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
             try:
                 other = suuid2uuid(other)
             except ValueError:
                 raise InvalidUuid(other)
         return op(self.__clause_element__(), other)
+
+
+# --- Mixins ------------------------------------------------------------------
+
+__all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
+    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
+    'UuidMixin']
 
 
 class IdMixin(object):
@@ -186,9 +217,33 @@ class UuidMixin(object):
     to the existing ``id`` column if the class uses UUID primary keys. Also
     provides hybrid properties ``url_id``, ``buid`` and ``suuid`` that provide
     hex, BUID and ShortUUID representations of the ``uuid`` column.
+
+    :class:`UuidMixin` must appear before other classes in the base class order::
+
+        class MyDocument(UuidMixin, BaseMixin, db.Model):
+            pass
+
+    Compatibility table:
+
+    +-----------------------+-------------+-----------------------------------------+
+    | Base class            | Compatible? | Notes                                   |
+    +=======================+=============+=========================================+
+    | BaseMixin             | Yes         |                                         |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseIdNameMixin       | Yes         |                                         |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseNameMixin         | N/A         | ``name`` is secondary key, not ``uuid`` |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedNameMixin   | N/A         | ``name`` is secondary key, not ``uuid`` |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedIdMixin     | No          | Conflicting :attr:`url_id` attribute    |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedIdNameMixin | No          | Conflicting :attr:`url_id` attribute    |
+    +-----------------------+-------------+-----------------------------------------+
     """
     @declared_attr
     def uuid(cls):
+        """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         else:
@@ -196,6 +251,7 @@ class UuidMixin(object):
 
     @hybrid_property
     def url_id(self):
+        """URL-friendly UUID representation as a hex string"""
         return self.uuid.hex
 
     @url_id.comparator
@@ -209,6 +265,7 @@ class UuidMixin(object):
 
     @hybrid_property
     def buid(self):
+        """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
         return uuid2buid(self.uuid)
 
     @buid.comparator
@@ -217,6 +274,7 @@ class UuidMixin(object):
 
     @hybrid_property
     def suuid(self):
+        """URL-friendly UUID representation, using ShortUUID"""
         return uuid2suuid(self.uuid)
 
     @suuid.comparator
@@ -252,6 +310,7 @@ event.listen(UuidMixin, 'mapper_configured', __configure_uuid_listener, propagat
 
 
 def make_timestamp_columns():
+    """Return two columns, created_at and updated_at, with appropriate defaults"""
     return (
         Column('created_at', DateTime, default=func.utcnow(), nullable=False),
         Column('updated_at', DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False),
@@ -595,10 +654,37 @@ class BaseIdNameMixin(BaseMixin):
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
-    @property
-    def url_name(self):
-        """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
+    @hybrid_property
+    def url_id_name(self):
+        """
+        Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name
+        syntax. This property is also available as :attr:`url_name` for legacy
+        reasons.
+        """
         return '%s-%s' % (self.url_id, self.name)
+
+    @url_id_name.comparator
+    def url_id_name(cls):
+        if cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id, splitindex=0)
+        elif issubclass(cls, UuidMixin):
+            return SqlHexUuidComparator(cls.uuid, splitindex=0)
+        else:
+            return SqlSplitIdComparator(cls.id, splitindex=0)
+
+    url_name = url_id_name  # Legacy name
+
+    @hybrid_property
+    def url_name_suuid(self):
+        """
+        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
+        To use this, the class must derive from :class:`UuidMixin`.
+        """
+        return '%s-%s' % (self.name, self.suuid)
+
+    @url_name_suuid.comparator
+    def url_name_suuid(cls):
+        return SqlSuuidComparator(cls.uuid, splitindex=-1)
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -720,10 +806,16 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
-    @property
-    def url_name(self):
+    @hybrid_property
+    def url_id_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
         return '%s-%s' % (self.url_id, self.name)
+
+    @url_id_name.comparator
+    def url_id_name(cls):
+        return SqlSplitIdComparator(cls.url_id, splitindex=0)
+
+    url_name = url_id_name  # Legacy name
 
 
 class CoordinatesMixin(object):
