@@ -22,7 +22,9 @@
 * New: ``UuidMixin`` that adds a UUID secondary key and complements ``IdMixin``
 * ``BaseIdNameMixin`` now implements ``url_id_name`` (previously ``url_name``)
   as a hybrid property and has an additional ``url_name_suuid`` property.
-  ``BaseScopedIdNameMixin`` has an upgraded ``url_id_name`` as well.
+  ``BaseScopedIdNameMixin`` has an upgraded ``url_id_name`` as well
+* ``load_models`` no longer hardcodes for ``url_name``, instead accepting an
+  optional ``urlcheck`` list parameter
   
 
 0.5.2

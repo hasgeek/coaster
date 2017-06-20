@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidUuid,
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidId,
     UuidMixin)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
@@ -645,12 +645,12 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
 
-        # Query raises InvalidUuid if given an invalid value
-        with self.assertRaises(InvalidUuid):
+        # Query raises InvalidId if given an invalid value
+        with self.assertRaises(InvalidId):
             UuidKey.url_id == 'garbage!'
-        with self.assertRaises(InvalidUuid):
+        with self.assertRaises(InvalidId):
             NonUuidMixinKey.url_id == 'garbage!'
-        with self.assertRaises(InvalidUuid):
+        with self.assertRaises(InvalidId):
             UuidMixinKey.url_id == 'garbage!'
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
@@ -727,14 +727,14 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
-        # Query raises InvalidUuid if given an invalid value
-        with self.assertRaises(InvalidUuid):
+        # Query raises InvalidId if given an invalid value
+        with self.assertRaises(InvalidId):
             NonUuidMixinKey.buid == 'garbage!'
-        with self.assertRaises(InvalidUuid):
+        with self.assertRaises(InvalidId):
             NonUuidMixinKey.suuid == 'garbage!'
-        with self.assertRaises(InvalidUuid):
+        with self.assertRaises(InvalidId):
             UuidMixinKey.buid == 'garbage!'
-        with self.assertRaises(InvalidUuid):
+        with self.assertRaises(InvalidId):
             UuidMixinKey.suuid == 'garbage!'
 
     def test_uuid_url_id_name_suuid(self):
