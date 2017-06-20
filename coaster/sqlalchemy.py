@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-import uuid
+import uuid as uuid_
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
 from sqlalchemy import event, inspect
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite
+from sqlalchemy.orm import composite, synonym
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from sqlalchemy.ext.hybrid import Comparator, hybrid_property
@@ -18,7 +18,7 @@ from sqlalchemy_utils.types import UUIDType
 from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
-from .utils import make_name
+from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
 from .gfm import markdown
 
 
@@ -64,7 +64,8 @@ def __utcnow_mssql(element, compiler, **kw):
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin']
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
+    'UuidMixin']
 
 
 class Query(BaseQuery):
@@ -94,9 +95,36 @@ class SqlHexUuidComparator(Comparator):
     Allows comparing UUID fields with hex representations of the UUID
     """
     def operate(self, op, other):
-        if not isinstance(other, uuid.UUID):
+        if not isinstance(other, uuid_.UUID):
             try:
-                other = uuid.UUID(other)
+                other = uuid_.UUID(other)
+            except ValueError:
+                raise InvalidUuid(other)
+        return op(self.__clause_element__(), other)
+
+
+class SqlBuidComparator(Comparator):
+    """
+    Allows comparing UUID fields with URL-safe Base64 (BUID) representations
+    of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid_.UUID):
+            try:
+                other = buid2uuid(other)
+            except ValueError:
+                raise InvalidUuid(other)
+        return op(self.__clause_element__(), other)
+
+
+class SqlSuuidComparator(Comparator):
+    """
+    Allows comparing UUID fields with ShortUUID representations of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid_.UUID):
+            try:
+                other = suuid2uuid(other)
             except ValueError:
                 raise InvalidUuid(other)
         return op(self.__clause_element__(), other)
@@ -117,7 +145,7 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return Column(UUIDType(binary=False), default=uuid.uuid4, primary_key=True)
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True)
         else:
             return Column(Integer, primary_key=True)
 
@@ -152,22 +180,75 @@ class IdMixin(object):
         return '<%s %s>' % (self.__class__.__name__, self.id)
 
 
+class UuidMixin(object):
+    """
+    Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
+    to the existing ``id`` column if the class uses UUID primary keys. Also
+    provides hybrid properties ``url_id``, ``buid`` and ``suuid`` that provide
+    hex, BUID and ShortUUID representations of the ``uuid`` column.
+    """
+    @declared_attr
+    def uuid(cls):
+        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
+            return synonym('id')
+        else:
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True)
+
+    @hybrid_property
+    def url_id(self):
+        return self.uuid.hex
+
+    @url_id.comparator
+    def url_id(cls):
+        # For some reason the test fails if we use `cls.uuid` here
+        # but works fine in the `buid` and `suuid` comparators below
+        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id)
+        else:
+            return SqlHexUuidComparator(cls.uuid)
+
+    @hybrid_property
+    def buid(self):
+        return uuid2buid(self.uuid)
+
+    @buid.comparator
+    def buid(cls):
+        return SqlBuidComparator(cls.uuid)
+
+    @hybrid_property
+    def suuid(self):
+        return uuid2suuid(self.uuid)
+
+    @suuid.comparator
+    def suuid(cls):
+        return SqlSuuidComparator(cls.uuid)
+
+
 # Supply a default value for UUID-based id columns
-def __uuid_default_listener(idcolumn):
-    @event.listens_for(idcolumn, 'init_scalar', retval=True, propagate=True)
+def __uuid_default_listener(uuidcolumn):
+    @event.listens_for(uuidcolumn, 'init_scalar', retval=True, propagate=True)
     def init_scalar(target, value, dict_):
-        value = idcolumn.columns[0].default.arg(None)
-        dict_[idcolumn.key] = value
+        value = uuidcolumn.columns[0].default.arg(None)
+        dict_[uuidcolumn.key] = value
         return value
 
 
 # Setup listeners for UUID-based subclasses
-def __configure_listener(mapper, class_):
+def __configure_id_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         __uuid_default_listener(mapper.attrs.id)
 
 
-event.listen(IdMixin, 'mapper_configured', __configure_listener, propagate=True)
+def __configure_uuid_listener(mapper, class_):
+    if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
+        return
+    # Only configure this listener if the class doesn't use UUID primary keys,
+    # as the `uuid` column will only be an alias for `id` in that case
+    __uuid_default_listener(mapper.attrs.uuid)
+
+
+event.listen(IdMixin, 'mapper_configured', __configure_id_listener, propagate=True)
+event.listen(UuidMixin, 'mapper_configured', __configure_uuid_listener, propagate=True)
 
 
 def make_timestamp_columns():

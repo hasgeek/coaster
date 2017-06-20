@@ -19,6 +19,7 @@
   ``suuid2uuid`` and ``uuid2suuid`` functions
 * ``buid`` reverts to using UUID4 instead of UUID1mc
 * The deprecated ``newid`` alias for ``buid`` has now been removed
+* New: ``UuidMixin`` that adds a UUID secondary key and complements ``IdMixin``
   
 
 0.5.2

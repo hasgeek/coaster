@@ -11,7 +11,9 @@ from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidUuid)
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidUuid,
+    UuidMixin)
+from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 
 
@@ -137,6 +139,16 @@ class UuidForeignKey2(BaseMixin, db.Model):
 
 class UuidIdName(BaseIdNameMixin, db.Model):
     __tablename__ = 'uuid_id_name'
+    __uuid_primary_key__ = True
+
+
+class NonUuidMixinKey(UuidMixin, BaseMixin, db.Model):
+    __tablename__ = 'non_uuid_mixin_key'
+    __uuid_primary_key__ = False
+
+
+class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
+    __tablename__ = 'uuid_mixin_key'
     __uuid_primary_key__ = True
 
 
@@ -550,19 +562,37 @@ class TestCoasterModels(unittest.TestCase):
         """
         u1 = NonUuidKey()
         u2 = UuidKey()
-        db.session.add_all([u1, u2])
+        u3 = NonUuidMixinKey()
+        u4 = UuidMixinKey()
+        db.session.add_all([u1, u2, u3, u4])
         db.session.commit()
 
+        # Regular IdMixin ids
         i1 = u1.id
         i2 = u2.id
+        # UUID keys from UuidMixin
+        i3 = u3.uuid
+        i4 = u4.uuid
 
         self.assertEqual(u1.url_id, unicode(i1))
-        self.assertIsInstance(u2.id, uuid.UUID)
+
+        self.assertIsInstance(i2, uuid.UUID)
         self.assertEqual(u2.url_id, i2.hex)
         self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
         self.assertFalse('-' in u2.url_id)  # Without dashes
 
-        # Querying against `url_id` redirects the query to `id`.
+        self.assertIsInstance(i3, uuid.UUID)
+        self.assertEqual(u3.url_id, i3.hex)
+        self.assertEqual(len(u3.url_id), 32)  # This is a 32-byte hex representation
+        self.assertFalse('-' in u3.url_id)  # Without dashes
+
+        self.assertIsInstance(i4, uuid.UUID)
+        self.assertEqual(u4.url_id, i4.hex)
+        self.assertEqual(len(u4.url_id), 32)  # This is a 32-byte hex representation
+        self.assertFalse('-' in u4.url_id)  # Without dashes
+
+        # Querying against `url_id` redirects the query to
+        # `id` (IdMixin) or `uuid` (UuidMixin).
 
         # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
@@ -576,7 +606,7 @@ class TestCoasterModels(unittest.TestCase):
             u"non_uuid_key.id = '1'")
 
         # With UUID primary keys, `url_id` casts the value into a UUID
-        # and then queries against `id`
+        # and then queries against `id` or ``uuid``
 
         # Note that `literal_binds` here doesn't know how to render UUIDs if
         # no engine is specified, and so casts them into a string. We test this
@@ -598,8 +628,23 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
 
+        # Query raises InvalidUuid if given an invalid value
         with self.assertRaises(InvalidUuid):
-            UuidKey.url_id == 'garbage'
+            UuidKey.url_id == 'garbage!'
+        with self.assertRaises(InvalidUuid):
+            NonUuidMixinKey.url_id == 'garbage!'
+        with self.assertRaises(InvalidUuid):
+            UuidMixinKey.url_id == 'garbage!'
+
+        # Repeat against UuidMixin classes (with only hex keys for brevity)
+        self.assertEqual(
+            unicode((NonUuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+        self.assertEqual(
+            unicode((UuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
@@ -607,6 +652,73 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(u1, qu1)
         qu2 = UuidKey.query.filter_by(url_id=u2.url_id).first()
         self.assertEqual(u2, qu2)
+        qu3 = NonUuidMixinKey.query.filter_by(url_id=u3.url_id).first()
+        self.assertEqual(u3, qu3)
+        qu4 = UuidMixinKey.query.filter_by(url_id=u4.url_id).first()
+        self.assertEqual(u4, qu4)
+
+    def test_uuid_buid_suuid(self):
+        """
+        UuidMixin provides buid and suuid
+        """
+        u1 = NonUuidMixinKey()
+        u2 = UuidMixinKey()
+        db.session.add_all([u1, u2])
+        db.session.commit()
+
+        # The `uuid` column contains a UUID
+        self.assertIsInstance(u1.uuid, uuid.UUID)
+        self.assertIsInstance(u2.uuid, uuid.UUID)
+
+        # Test readbility of `buid` attribute
+        self.assertEqual(u1.buid, uuid2buid(u1.uuid))
+        self.assertEqual(len(u1.buid), 22)  # This is a 22-byte BUID representation
+        self.assertEqual(u2.buid, uuid2buid(u2.uuid))
+        self.assertEqual(len(u2.buid), 22)  # This is a 22-byte BUID representation
+
+        # Test readability of `suuid` attribute
+        self.assertEqual(u1.suuid, uuid2suuid(u1.uuid))
+        self.assertEqual(len(u1.suuid), 22)  # This is a 22-byte ShortUUID representation
+        self.assertEqual(u2.suuid, uuid2suuid(u2.uuid))
+        self.assertEqual(len(u2.suuid), 22)  # This is a 22-byte ShortUUID representation
+
+        # SQL queries against `buid` and `suuid` cast the value into a UUID
+        # and then query against `id` or ``uuid``
+
+        # Note that `literal_binds` here doesn't know how to render UUIDs if
+        # no engine is specified, and so casts them into a string
+
+        # UuidMixin with integer primary key queries against the `uuid` column
+        self.assertEqual(
+            unicode((NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+
+        # UuidMixin with UUID primary key queries against the `id` column
+        self.assertEqual(
+            unicode((UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
+
+        # Repeat for `suuid`
+        self.assertEqual(
+            unicode((NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+        self.assertEqual(
+            unicode((UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
+
+        # Query raises InvalidUuid if given an invalid value
+        with self.assertRaises(InvalidUuid):
+            NonUuidMixinKey.buid == 'garbage!'
+        with self.assertRaises(InvalidUuid):
+            NonUuidMixinKey.suuid == 'garbage!'
+        with self.assertRaises(InvalidUuid):
+            UuidMixinKey.buid == 'garbage!'
+        with self.assertRaises(InvalidUuid):
+            UuidMixinKey.suuid == 'garbage!'
 
     def test_uuid_url_name(self):
         """
@@ -619,10 +731,13 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_uuid_default(self):
         """
-        Models with a UUID primary key have a default value before adding to session
+        Models with a UUID primary or secondary key have a default value before
+        adding to session
         """
         uuid_no = NonUuidKey()
         uuid_yes = UuidKey()
+        uuidm_no = NonUuidMixinKey()
+        uuidm_yes = UuidMixinKey()
         # Non-UUID primary keys are not automatically generated
         u1 = uuid_no.id
         self.assertIsNone(u1)
@@ -632,6 +747,13 @@ class TestCoasterModels(unittest.TestCase):
         # Once generated, the key remains stable
         u3 = uuid_yes.id
         self.assertEqual(u2, u3)
+
+        # UuidMixin works likewise
+        um1 = uuidm_no.uuid
+        self.assertIsInstance(um1, uuid.UUID)
+        um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
+        self.assertIsInstance(um2, uuid.UUID)
+        self.assertEqual(uuidm_yes.id, uuidm_yes.uuid)
 
 
 class TestCoasterModels2(TestCoasterModels):
