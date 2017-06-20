@@ -20,6 +20,9 @@
 * ``buid`` reverts to using UUID4 instead of UUID1mc
 * The deprecated ``newid`` alias for ``buid`` has now been removed
 * New: ``UuidMixin`` that adds a UUID secondary key and complements ``IdMixin``
+* ``BaseIdNameMixin`` now implements ``url_id_name`` (previously ``url_name``)
+  as a hybrid property and has an additional ``url_name_suuid`` property.
+  ``BaseScopedIdNameMixin`` has an upgraded ``url_id_name`` as well.
   
 
 0.5.2
