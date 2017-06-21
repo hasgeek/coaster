@@ -47,7 +47,7 @@ def get_current_url():
         return request.url
 
     url = url_for(request.endpoint, **request.view_args)
-    query = request.environ.get('QUERY_STRING')
+    query = request.query_string
     if query:
         return url + '?' + query
     else:
@@ -339,7 +339,10 @@ def load_models(*chain, **kwargs):
                     # This item is a redirect object. Redirect to destination
                     view_args = dict(request.view_args)
                     view_args.update(item.redirect_view_args())
-                    return redirect(url_for(request.endpoint, **view_args), code=302)
+                    location = url_for(request.endpoint, **view_args)
+                    if request.query_string:
+                        location = location + u'?' + request.query_string
+                    return redirect(location, code=307)
 
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
@@ -349,7 +352,7 @@ def load_models(*chain, **kwargs):
                     permissions.update(addlperms)
                 if g:
                     g.permissions = permissions
-                if url_check:
+                if url_check and request.method == 'GET':  # Only do urlcheck redirects on GET requests
                     url_redirect = False
                     view_args = None
                     for k, v in url_check_paramvalues.items():
@@ -360,7 +363,10 @@ def load_models(*chain, **kwargs):
                                 view_args = dict(request.view_args)
                             view_args[uparam] = getattr(item, k)
                     if url_redirect:
-                        return redirect(url_for(request.endpoint, **view_args), code=302)
+                        location = url_for(request.endpoint, **view_args)
+                        if request.query_string:
+                            location = location + u'?' + request.query_string
+                        return redirect(location, code=302)
                 if parameter.startswith('g.'):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
