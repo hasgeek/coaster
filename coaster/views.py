@@ -47,7 +47,7 @@ def get_current_url():
         return request.url
 
     url = url_for(request.endpoint, **request.view_args)
-    query = request.environ.get('QUERY_STRING')
+    query = request.query_string
     if query:
         return url + '?' + query
     else:
@@ -195,7 +195,7 @@ def requestargs(*vars):
 
 
 def load_model(model, attributes=None, parameter=None,
-        workflow=False, kwargs=False, permission=None, addlperms=None):
+        workflow=False, kwargs=False, permission=None, addlperms=None, urlcheck=[]):
     """
     Decorator to load a model given a query parameter.
 
@@ -215,10 +215,7 @@ def load_model(model, attributes=None, parameter=None,
         def profile_view(profile):
             return "Hello, %s" % profile.name
 
-    ``load_model`` aborts with a 404 if no instance is found. ``load_model`` also
-    recognizes queries to ``url_name`` of :class:`~coaster.sqlalchemy.BaseIdNameMixin`
-    instances and will automatically load the model. TODO: that should be handled by
-    the model, not here.
+    ``load_model`` aborts with a 404 if no instance is found.
 
     :param model: The SQLAlchemy model to query. Must contain a ``query`` object
         (which is the default with Flask-SQLAlchemy)
@@ -252,9 +249,14 @@ def load_model(model, attributes=None, parameter=None,
         permissions available to the user, apart from those granted by the models. In an app
         that uses Lastuser for authentication, passing ``lastuser.permissions`` will pass
         through permissions granted via Lastuser
+
+    :param list urlcheck: If an attribute in this list has been used to load an object, but
+        the value of the attribute in the loaded object does not match the request argument,
+        issue a redirect to the corrected URL. This is useful for attributes like
+        ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may change
     """
     return load_models((model, attributes, parameter),
-        workflow=workflow, kwargs=kwargs, permission=permission, addlperms=addlperms)
+        workflow=workflow, kwargs=kwargs, permission=permission, addlperms=addlperms, urlcheck=urlcheck)
 
 
 def load_models(*chain, **kwargs):
@@ -297,6 +299,7 @@ def load_models(*chain, **kwargs):
         def decorated_function(**kw):
             permissions = None
             permission_required = kwargs.get('permission')
+            url_check_attributes = kwargs.get('urlcheck', [])
             if isinstance(permission_required, basestring):
                 permission_required = set([permission_required])
             elif permission_required is not None:
@@ -309,31 +312,22 @@ def load_models(*chain, **kwargs):
                 for model in models:
                     query = model.query
                     url_check = False
-                    url_key = url_name = None
+                    url_check_paramvalues = {}
                     for k, v in attributes.items():
-                        if k == 'url_name' and hasattr(model, 'url_id_attr'):
-                            url_key = v
-                            url_name = kw.get(url_key)
-                            parts = url_name.split('-')
-                            if request and request.method == 'GET':
-                                url_check = True
-                            try:
-                                url_id = int(parts[0])
-                            except ValueError:
-                                abort(404)
-                            query = query.filter_by(**{model.url_id_attr: url_id})
+                        if callable(v):
+                            query = query.filter_by(**{k: v(result, kw)})
                         else:
-                            if callable(v):
-                                query = query.filter_by(**{k: v(result, kw)})
+                            if '.' in v:
+                                first, attrs = v.split('.', 1)
+                                val = result.get(first)
+                                for attr in attrs.split('.'):
+                                    val = getattr(val, attr)
                             else:
-                                if '.' in v:
-                                    first, attrs = v.split('.', 1)
-                                    val = result.get(first)
-                                    for attr in attrs.split('.'):
-                                        val = getattr(val, attr)
-                                else:
-                                    val = result.get(v, kw.get(v))
-                                query = query.filter_by(**{k: val})
+                                val = result.get(v, kw.get(v))
+                            query = query.filter_by(**{k: val})
+                        if k in url_check_attributes:
+                            url_check = True
+                            url_check_paramvalues[k] = (v, val)
                     item = query.first()
                     if item is not None:
                         # We found it, so don't look in additional models
@@ -345,7 +339,10 @@ def load_models(*chain, **kwargs):
                     # This item is a redirect object. Redirect to destination
                     view_args = dict(request.view_args)
                     view_args.update(item.redirect_view_args())
-                    return redirect(url_for(request.endpoint, **view_args), code=302)
+                    location = url_for(request.endpoint, **view_args)
+                    if request.query_string:
+                        location = location + u'?' + request.query_string
+                    return redirect(location, code=307)
 
                 if permission_required:
                     permissions = item.permissions(g.user, inherited=permissions)
@@ -355,13 +352,21 @@ def load_models(*chain, **kwargs):
                     permissions.update(addlperms)
                 if g:
                     g.permissions = permissions
-                if url_check:
-                    if item.url_name != url_name:
-                        # The url_name doesn't match.
-                        # Redirect browser to same page with correct url_name.
-                        view_args = dict(request.view_args)
-                        view_args[url_key] = item.url_name
-                        return redirect(url_for(request.endpoint, **view_args), code=302)
+                if url_check and request.method == 'GET':  # Only do urlcheck redirects on GET requests
+                    url_redirect = False
+                    view_args = None
+                    for k, v in url_check_paramvalues.items():
+                        uparam, uvalue = v
+                        if getattr(item, k) != uvalue:
+                            url_redirect = True
+                            if view_args is None:
+                                view_args = dict(request.view_args)
+                            view_args[uparam] = getattr(item, k)
+                    if url_redirect:
+                        location = url_for(request.endpoint, **view_args)
+                        if request.query_string:
+                            location = location + u'?' + request.query_string
+                        return redirect(location, code=302)
                 if parameter.startswith('g.'):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
