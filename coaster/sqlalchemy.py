@@ -19,6 +19,7 @@ from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
+from .roles import RoleMixin, set_roles, declared_attr_roles  # NOQA
 from .gfm import markdown
 
 
@@ -245,6 +246,7 @@ class UuidMixin(object):
     +-----------------------+-------------+-----------------------------------------+
     """
     @declared_attr
+    @declared_attr_roles(read={'all'})
     def uuid(cls):
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -252,6 +254,7 @@ class UuidMixin(object):
         else:
             return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True)
 
+    @set_roles(read={'all'})
     @hybrid_property
     def url_id(self):
         """URL-friendly UUID representation as a hex string"""
@@ -266,6 +269,7 @@ class UuidMixin(object):
         else:
             return SqlHexUuidComparator(cls.uuid)
 
+    @set_roles(read={'all'})
     @hybrid_property
     def buid(self):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
@@ -275,6 +279,7 @@ class UuidMixin(object):
     def buid(cls):
         return SqlBuidComparator(cls.uuid)
 
+    @set_roles(read={'all'})
     @hybrid_property
     def suuid(self):
         """URL-friendly UUID representation, using ShortUUID"""
@@ -345,100 +350,6 @@ class PermissionMixin(object):
             return set()
 
 
-class AccessibleProxy(object):
-    """
-    A proxy interface that wraps an object and provides role-based access control on the wrapped
-    object's attributes. The proxy also lends itself as a mapping iterable i.e `dict(proxy)` will
-    yield a dict of attributes and values, that are accessible by the given role(s).
-
-    The object is expected to inherit `RolesMixin` and implement a `__roles__` dictionary
-    which specifies the mapping between the model's attributes and the authorized roles in the following way::
-
-         __roles__ = {
-            'column_attr': {
-                'write': {'role'},
-                'read': {'role'}
-            }
-        }
-
-    :param obj: The object that should be wrapped with the proxy
-    :param roles: A set of roles to enforce access control
-
-    :Example:
-
-        proxy = model.accessible_proxy(roles={'writer'})
-        proxy.model_attr
-        proxy.model_attr = 'new value'
-        dict(proxy)
-    """
-    def __init__(self, obj, roles={}):
-        self.__dict__['obj'] = obj
-        self.__dict__['user_roles'] = roles
-        self.__dict__['attr_access_map'] = {}
-        self.__dict__['column_attrs'] = obj.__roles__.keys()
-
-        for column_attr in self.column_attrs:
-            self.attr_access_map[column_attr] = {'read': False, 'write': False}
-            if self.is_attr_accessible(column_attr, access_level='read') or self.is_attr_accessible(column_attr, access_level='write'):
-                self.attr_access_map[column_attr]['read'] = True
-            if self.is_attr_accessible(column_attr, access_level='write'):
-                self.attr_access_map[column_attr]['write'] = True
-
-    def __getattr__(self, attr):
-        if self.attr_access_map.get(attr, {}).get('read') or self.attr_access_map.get(attr, {}).get('write'):
-            return object.__getattribute__(self.obj, attr)
-
-    def __setattr__(self, attr, val):
-        if attr in ['__dict__', 'obj', 'user_roles', 'attr_access_map', 'column_attrs', 'is_attr_accessible']:
-            return setattr(self, attr, val)
-
-        if self.attr_access_map.get(attr, {}).get('write'):
-            return setattr(self.obj, attr, val)
-
-    def __getitem__(self, key):
-        return self.__getattr__(key)
-
-    def __len__(self):
-        return len(self.keys())
-
-    def __setitem__(self, key, value):
-        self.__setattr__(key, value)
-
-    def __iter__(self):
-        for key in self.keys():
-            yield key
-
-    def iterkeys(self):
-        return self.__iter__()
-
-    def keys(self):
-        return self.column_attrs
-
-    def is_attr_accessible(self, attr, access_level):
-        if attr in self.column_attrs:
-            if self.obj.__roles__.get(attr) and self.user_roles.intersection(self.obj.__roles__[attr][access_level]):
-                return True
-        return False
-
-
-class RolesMixin(object):
-    """
-    Provides the :meth:`roles` and :meth:`accessible_proxy` method used by BaseMixin and derived classes
-    """
-    def roles(self, user=None, token=None, inherited=None):
-        """
-        Return roles available to the given user on this object
-        """
-        if inherited is not None:
-            return set(inherited)
-        else:
-            return set()
-
-    def accessible_proxy(self, user=None, token=None, roles=[]):
-        user_roles = roles if roles else self.roles(user=user, token=token)
-        return AccessibleProxy(self, roles=user_roles)
-
-
 class UrlForMixin(object):
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
@@ -487,7 +398,7 @@ class UrlForMixin(object):
         return decorator
 
 
-class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RolesMixin, UrlForMixin):
+class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
     """
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
@@ -748,6 +659,7 @@ class BaseIdNameMixin(BaseMixin):
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
+    @set_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """
@@ -768,6 +680,7 @@ class BaseIdNameMixin(BaseMixin):
 
     url_name = url_id_name  # Legacy name
 
+    @set_roles(read={'all'})
     @hybrid_property
     def url_name_suuid(self):
         """
@@ -796,6 +709,7 @@ class BaseScopedIdMixin(BaseMixin):
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
     @declared_attr
+    @declared_attr_roles(read={'all'})
     def url_id(cls):
         """Contains an id number that is unique within the parent container"""
         return Column(Integer, nullable=False)
@@ -897,6 +811,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = unicode(make_name(self.title, maxlength=self.__name_length__))
 
+    @set_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
