@@ -162,7 +162,7 @@ class SqlSuuidComparator(SplitIndexComparator):
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
     'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
-    'UuidMixin']
+    'UuidMixin', 'RoleMixin']
 
 
 class IdMixin(object):
@@ -1017,7 +1017,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add']
+__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles']
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -1027,8 +1027,8 @@ def failsafe_add(_session, _instance, **filters):
     database (which may occur due to parallel requests causing race conditions
     in a production environment with multiple workers).
 
-    Returns the instance saved to database if no error occured, or loaded from
-    database using the provided filters if an error occured. If the filters fail
+    Returns the instance saved to database if no error occurred, or loaded from
+    database using the provided filters if an error occurred. If the filters fail
     to load from the database, the original IntegrityError is re-raised, as it
     is assumed to imply that the commit failed because of missing or invalid
     data, not because of a duplicate entry.
