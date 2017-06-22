@@ -180,6 +180,7 @@ class TestCoasterRoles(unittest.TestCase):
         """Proxies support identical attribute and dictionary access"""
         rm = RoleModel(name=u'test', title=u'Test')
         proxy = rm.access_for(user=None)
+        self.assertIn('name', proxy)
         self.assertEqual(proxy.name, u'test')
         self.assertEqual(proxy['name'], u'test')
 
@@ -239,3 +240,26 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertEqual(proxy,
             {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None, 'hello': rm.hello}
             )
+
+    def test_bad_decorator(self):
+        """Prevent set_roles from being used with a positional parameter"""
+        with self.assertRaises(TypeError):
+            @set_roles({'all'})
+            def foo():
+                pass
+
+    def test_roles_for_user_and_token(self):
+        """roles_for accepts user or token, not both"""
+        rm = RoleModel(name=u'test', title=u'Test')
+        with self.assertRaises(TypeError):
+            rm.roles_for(user=1, token='owner-secret')
+
+    def test_access_for_roles_and_user_or_token(self):
+        """access_for accepts roles or user/token, not both/all"""
+        rm = RoleModel(name=u'test', title=u'Test')
+        with self.assertRaises(TypeError):
+            rm.access_for(roles={'all'}, user=1)
+        with self.assertRaises(TypeError):
+            rm.access_for(roles={'all'}, token='owner-secret')
+        with self.assertRaises(TypeError):
+            rm.access_for(roles={'all'}, user=1, token='owner-secret')

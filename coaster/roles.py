@@ -131,6 +131,10 @@ class RoleAccessProxy(collections.Mapping):
         self.__dict__['_read'] = read
         self.__dict__['_write'] = write
 
+    def __repr__(self):  # pragma: no-cover
+        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
+            obj=repr(self._obj), roles=repr(self._roles))
+
     def __getattr__(self, attr):
         if attr in self._read:
             return getattr(self._obj, attr)
@@ -164,9 +168,6 @@ class RoleAccessProxy(collections.Mapping):
     def __iter__(self):
         for key in self._read:
             yield key
-
-    def iterkeys(self):
-        return self.__iter__()
 
 
 def set_roles(obj=None, rw=None, call=None, read=None, write=None):
@@ -210,7 +211,7 @@ def set_roles(obj=None, rw=None, call=None, read=None, write=None):
 
     if isinstance(obj, (list, tuple, set)):
         # Protect against accidental specification of roles instead of an object
-        raise ValueError('Roles must be specified as named parameters')
+        raise TypeError('Roles must be specified as named parameters')
     elif obj is not None:
         return inner(obj)
     else:
@@ -271,7 +272,7 @@ class RoleMixin(object):
         granted.
         """
         if user is not None and token is not None:
-            raise ValueError('Either user or token must be specified, not both')
+            raise TypeError('Either user or token must be specified, not both')
 
         if user is None and token is None:
             result = {'all', 'anon'}
@@ -317,7 +318,7 @@ class RoleMixin(object):
         if roles is None:
             roles = self.roles_for(user=user, token=token)
         elif user is not None or token is not None:
-            raise ValueError('If roles are specified, user and token must not be specified')
+            raise TypeError('If roles are specified, user and token must not be specified')
         return RoleAccessProxy(self, roles=roles)
 
 
@@ -336,17 +337,13 @@ def __configure_roles(mapper, cls):
         # to the current object.
         cls.__roles__ = deepcopy(cls.__roles__)
 
-    # Avoid these attributes as they're special symbols in SQLAlchemy
-    reserved = {'_cached_tablename', '_decl_class_registry', '_sa_class_manager',
-        'metadata', 'query', 'query_class'}
-
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
     # Loop through all attributes in this and base classes, looking for role annotations
     for base in cls.__mro__:
         for name, attr in base.__dict__.items():
-            if name in processed or name.startswith('__') or name in reserved:
+            if name in processed or name.startswith('__'):
                 continue
             processed.add(name)
             if hasattr(attr, '_coaster_roles'):
