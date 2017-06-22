@@ -162,6 +162,28 @@ class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
     __uuid_primary_key__ = True
 
 
+class ProxiedDocument(BaseMixin, db.Model):
+    __tablename__ = 'proxied_document'
+    __roles__ = {
+        'name': {
+            'write': {'document_writer'},
+            'read': {'document_reader'}
+        },
+        'title': {
+            'write': {'document_writer'},
+            'read': {'document_reader', 'title_reader'}
+        },
+        'content': {
+            'write': {'document_writer'},
+            'read': {'document_reader'}
+        }
+    }
+
+    name = Column(Unicode(80), nullable=True)
+    title = Column(Unicode(80), nullable=True)
+    content = Column(Unicode(250))
+
+
 # -- Tests --------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
