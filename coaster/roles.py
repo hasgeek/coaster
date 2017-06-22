@@ -294,7 +294,7 @@ class RoleMixin(object):
         object alone, with either all roles available to the user, or just
         the specified subset. If an existing token is available, add to it.
 
-        This function should return ``None`` if a token cannot be generated.
+        This method should return ``None`` if a token cannot be generated.
         Must be implemented by subclasses.
         """
         # TODO: Consider implementing this method so subclasses don't have to.
