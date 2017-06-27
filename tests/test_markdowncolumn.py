@@ -41,7 +41,6 @@ class TestMarkdownColumn(unittest.TestCase):
         self.assertEqual(data.value.html, markdown(text))
         self.assertEqual(data.value.text, text)
         self.assertEqual(data.value.__str__(), text)
-        self.assertEqual(data.value.__unicode__(), text)
         self.assertEqual(data.value.__html__(), markdown(text))
 
     def test_does_not_render_on_load(self):

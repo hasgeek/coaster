@@ -1,6 +1,4 @@
 nose
 coverage
 coveralls
-https://github.com/jace/flask-alembic/archive/master.zip
 psycopg2
-PySqlite

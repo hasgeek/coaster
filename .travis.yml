@@ -3,6 +3,9 @@ language: python
 cache: pip
 python:
   - "2.7"
+  - "3.4"
+  - "3.5"
+  - "3.6"
 addons:
   postgresql: "9.4"
 services:
@@ -11,7 +14,8 @@ services:
 install:
   - pip install --upgrade setuptools
   - python setup.py develop
-  - pip install -r test_requirements.txt . --use-mirrors
+  - pip install -r test_requirements.txt
+  - 'if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then pip install PySqlite; fi'
 # command to run tests
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
