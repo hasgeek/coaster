@@ -990,10 +990,10 @@ class MarkdownComposite(MutableComposite):
         object.__setattr__(self, '_html', state[1])
         self.changed()
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.text)
 
-    __bool__ = __nonzero__
+    __nonzero__ = __bool__
 
     # Allow a composite column to be assigned a string value
     @classmethod
