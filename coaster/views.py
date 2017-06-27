@@ -405,11 +405,11 @@ def _best_mimetype_match(available_list, accept_mimetypes, default=None):
 
 def render_with(template, json=False, jsonp=False):
     """
-    Decorator to render the wrapped method with the given template (or dictionary
+    Decorator to render the wrapped function with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
-    file or a callable that returns a Response). The method's return value must be
+    file or a callable that returns a Response). The function's return value must be
     a dictionary and is passed to the template as parameters. Callable templates get
-    a single parameter with the method's return value. Usage::
+    a single parameter with the function's return value. Usage::
 
         @app.route('/myview')
         @render_with('myview.html')
