@@ -3,8 +3,8 @@ import re
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
-README = unicode(open(os.path.join(here, 'README.rst')).read(), 'utf-8')
-CHANGES = unicode(open(os.path.join(here, 'CHANGES.rst')).read(), 'utf-8')
+README = open(os.path.join(here, 'README.rst')).read()
+CHANGES = open(os.path.join(here, 'CHANGES.rst')).read()
 versionfile = open(os.path.join(here, "coaster", "_version.py")).read()
 
 mo = re.search(r"^__version__\s*=\s*['\"]([^'\"]*)['\"]", versionfile, re.M)
@@ -53,6 +53,7 @@ setup(name='coaster',
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.6",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Intended Audience :: Developers",

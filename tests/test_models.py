@@ -6,6 +6,7 @@ import unittest
 import uuid
 from time import sleep
 from datetime import datetime, timedelta
+import six
 from flask import Flask
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func
 from sqlalchemy.orm import relationship, synonym
@@ -592,7 +593,7 @@ class TestCoasterModels(unittest.TestCase):
         i3 = u3.uuid
         i4 = u4.uuid
 
-        self.assertEqual(u1.url_id, unicode(i1))
+        self.assertEqual(u1.url_id, six.text_type(i1))
 
         self.assertIsInstance(i2, uuid.UUID)
         self.assertEqual(u2.url_id, i2.hex)
@@ -614,12 +615,12 @@ class TestCoasterModels(unittest.TestCase):
 
         # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
-            unicode((NonUuidKey.url_id == 1
+            six.text_type((NonUuidKey.url_id == 1
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_key.id = 1")
         # We don't check the data type here, leaving that to the engine
         self.assertEqual(
-            unicode((NonUuidKey.url_id == '1'
+            six.text_type((NonUuidKey.url_id == '1'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_key.id = '1'")
 
@@ -632,17 +633,17 @@ class TestCoasterModels(unittest.TestCase):
 
         # Hex UUID
         self.assertEqual(
-            unicode((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
+            six.text_type((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         # Hex UUID with dashes
         self.assertEqual(
-            unicode((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
+            six.text_type((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         # UUID object
         self.assertEqual(
-            unicode((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
+            six.text_type((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
 
@@ -656,11 +657,11 @@ class TestCoasterModels(unittest.TestCase):
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
-            unicode((NonUuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+            six.text_type((NonUuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
-            unicode((UuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+            six.text_type((UuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
@@ -708,23 +709,23 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin with integer primary key queries against the `uuid` column
         self.assertEqual(
-            unicode((NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
+            six.text_type((NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
-            unicode((UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
+            six.text_type((UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Repeat for `suuid`
         self.assertEqual(
-            unicode((NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
+            six.text_type((NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
-            unicode((UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
+            six.text_type((UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 

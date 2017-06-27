@@ -50,7 +50,7 @@ def get_current_url():
     url = url_for(request.endpoint, **request.view_args)
     query = request.query_string
     if query:
-        return url + '?' + query
+        return url + '?' + query.decode()
     else:
         return url
 
@@ -342,7 +342,7 @@ def load_models(*chain, **kwargs):
                     view_args.update(item.redirect_view_args())
                     location = url_for(request.endpoint, **view_args)
                     if request.query_string:
-                        location = location + u'?' + request.query_string
+                        location = location + u'?' + request.query_string.decode()
                     return redirect(location, code=307)
 
                 if permission_required:
@@ -366,7 +366,7 @@ def load_models(*chain, **kwargs):
                     if url_redirect:
                         location = url_for(request.endpoint, **view_args)
                         if request.query_string:
-                            location = location + u'?' + request.query_string
+                            location = location + u'?' + request.query_string.decode()
                         return redirect(location, code=302)
                 if parameter.startswith('g.'):
                     parameter = parameter[2:]

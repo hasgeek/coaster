@@ -174,6 +174,7 @@ class TestCoasterRoles(unittest.TestCase):
         """All users should be able to read some fields"""
         arm = AutoRoleModel(name=u'test')
         proxy = arm.access_for(user=None)
+        self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
 
     def test_attr_dict_access(self):

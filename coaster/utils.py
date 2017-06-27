@@ -96,9 +96,9 @@ def uuid1mc_from_datetime(dt):
     >>> # Both timestamps should be very close to each other but not an exact match
     >>> u1.time > u2.time
     True
-    >>> u1.time - u2.time < 3000
+    >>> u1.time - u2.time < 5000
     True
-    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000L) * 100 / 1e9)
+    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000) * 100 / 1e9)
     >>> d2 == dt
     True
     """
@@ -113,10 +113,10 @@ def uuid1mc_from_datetime(dt):
     nanoseconds = int(timeval * 1e9)
     # 0x01b21dd213814000 is the number of 100-ns intervals between the
     # UUID epoch 1582-10-15 00:00:00 and the Unix epoch 1970-01-01 00:00:00.
-    timestamp = int(nanoseconds // 100) + 0x01b21dd213814000L
-    time_low = timestamp & 0xffffffffL
-    time_mid = (timestamp >> 32L) & 0xffffL
-    time_hi_version = (timestamp >> 48L) & 0x0fffL
+    timestamp = int(nanoseconds // 100) + 0x01b21dd213814000
+    time_low = timestamp & 0xffffffff
+    time_mid = (timestamp >> 32) & 0xffff
+    time_hi_version = (timestamp >> 48) & 0x0fff
 
     fields[0] = time_low
     fields[1] = time_mid
@@ -458,7 +458,7 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
     datetime.datetime(2007, 12, 30, 18, 30, tzinfo=<UTC>)
     """
     naivedt = datetime.combine(isoweek.Week(year, week).day(0), datetime.min.time())
-    if isinstance(timezone, basestring):
+    if isinstance(timezone, six.string_types):
         tz = pytz.timezone(timezone)
     else:
         tz = timezone
@@ -494,7 +494,7 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
     if timezone:
-        if isinstance(timezone, basestring):
+        if isinstance(timezone, six.string_types):
             tz = pytz.timezone(timezone)
         else:
             tz = timezone
@@ -586,12 +586,21 @@ def unicode_http_header(value):
     Convert an ASCII HTTP header string into a unicode string with the
     appropriate encoding applied. Expects headers to be RFC 2047 compliant.
 
-    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=')
-    u'p\\xf6stal'
-    >>> unicode_http_header('p\xf6stal')
-    u'p\\xf6stal'
+    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    True
+    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    True
+    >>> unicode_http_header('p\xf6stal') == u'p\xf6stal'
+    True
     """
-    return u''.join([six.text_type(s, e or 'iso-8859-1') for s, e in decode_header(value)])
+    if six.PY3:
+        # email.header.decode_header expects strings, not bytes. Your input data may be in bytes.
+        # Since these bytes are almost always ASCII, calling `.decode()` on it without specifying
+        # a charset should work fine.
+        if isinstance(value, six.binary_type):
+            value = value.decode()
+    return u''.join([six.text_type(s, e or 'iso-8859-1') if not isinstance(s, six.text_type) else s
+        for s, e in decode_header(value)])
 
 
 def get_email_domain(emailaddr):

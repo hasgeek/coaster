@@ -104,7 +104,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
     character and picks one of the splits for comparison.
     """
     def operate(self, op, other):
-        if self.splitindex is not None and isinstance(other, basestring):
+        if self.splitindex is not None and isinstance(other, six.string_types):
             try:
                 other = int(other.split('-')[self.splitindex])
             except ValueError:
@@ -202,7 +202,7 @@ class IdMixin(object):
         else:
             def url_id_func(self):
                 """The URL id, integer primary key rendered as a string"""
-                return unicode(self.id)
+                return six.text_type(self.id)
             url_id_property = hybrid_property(url_id_func)
 
             @url_id_property.expression

@@ -25,6 +25,7 @@
   ``BaseScopedIdNameMixin`` has an upgraded ``url_id_name`` as well
 * ``load_models`` no longer hardcodes for ``url_name``, instead accepting an
   optional ``urlcheck`` list parameter
+* Added Python 3.6 compatibility
   
 
 0.5.2
