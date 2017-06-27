@@ -130,7 +130,7 @@ def uuid2buid(value):
     Convert a UUID object to a 22-char BUID string
 
     >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
-    >>> uuid2buid(u) == 'MyA90vLvQi-usAWNb19wiQ' if six.PY3 else uuid2buid(u) == u'MyA90vLvQi-usAWNb19wiQ'
+    >>> uuid2buid(u) == 'MyA90vLvQi-usAWNb19wiQ'
     True
     """
     if six.PY3:
@@ -203,27 +203,27 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name("How 'bout this?")
     'how-bout-this'
     >>> test = make_name(u"How’s that?")
-    >>> test == 'hows-that' if six.PY3 else test == u'hows-that'
+    >>> test == 'hows-that'
     True
     >>> test = make_name(u'K & D')
-    >>> test == 'k-d' if six.PY3 else test == u'k-d'
+    >>> test == 'k-d'
     True
     >>> make_name('billion+ pageviews')
     'billion-pageviews'
     >>> test = make_name(u'हिन्दी slug!')
-    >>> test == 'hindii-slug' if six.PY3 else test == u'hindii-slug'
+    >>> test == 'hindii-slug'
     True
     >>> test = make_name(u'__name__', delim=u'_')
-    >>> test == 'name' if six.PY3 else test == u'name'
+    >>> test == 'name'
     True
     >>> test = make_name(u'how_about_this', delim=u'_')
-    >>> test == 'how_about_this' if six.PY3 else test == u'how_about_this'
+    >>> test == 'how_about_this'
     True
     >>> test = make_name(u'and-that', delim=u'_')
-    >>> test == 'and_that' if six.PY3 else test == u'and_that'
+    >>> test == 'and_that'
     True
     >>> test = make_name(u'Umlauts in Mötörhead')
-    >>> test == 'umlauts-in-motorhead' if six.PY3 else test == u'umlauts-in-motorhead'
+    >>> test == 'umlauts-in-motorhead'
     True
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
     'candidate2'
@@ -238,10 +238,10 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
     >>> test = make_name(u'Lǝnkǝran')
-    >>> test == 'lankaran' if six.PY3 else test == u'lankaran'
+    >>> test == 'lankaran'
     True
     >>> test = make_name(u'example@example.com')
-    >>> test == 'example-example-com' if six.PY3 else test == u'example-example-com'
+    >>> test == 'example-example-com'
     True
     """
     name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
