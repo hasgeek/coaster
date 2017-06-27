@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 # Version is not used here but is made available for others to import from
 from semantic_version import Version, Spec
-from flask.ext.assets import Bundle
+from flask_assets import Bundle
 from webassets.filter import Filter, register_filter
 import six
 
@@ -77,7 +77,7 @@ class VersionedAssets(defaultdict):
 
     To use these assets in a Flask app, register the assets with an environment::
 
-        from flask.ext.assets import Environment
+        from flask_assets import Environment
         appassets = Environment(app)
         appassets.register('js_all', assets.require('jquery.js', ...))
 

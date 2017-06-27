@@ -9,14 +9,17 @@ services:
   - postgresql
 # command to install dependencies
 install:
+  - pip install --upgrade setuptools
   - python setup.py develop
   - pip install -r test_requirements.txt . --use-mirrors
 # command to run tests
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
-script: coverage run `which nosetests`
+script: ./runtests.sh
 after_success:
   - coveralls
 notifications:
   email: false
-  slack: friendsofhasgeek:3bLViYSzhfaThJovFYCVD3fX
+  slack:
+    - hasgeek:HDCoMDj3T4ICB59qFFVorCG8
+    - friendsofhasgeek:3bLViYSzhfaThJovFYCVD3fX

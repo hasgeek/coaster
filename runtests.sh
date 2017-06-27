@@ -1,3 +1,5 @@
 #!/bin/sh
-coverage run `which nosetests`
-coverage report
+set -e
+export FLASK_ENV="TESTING"
+coverage run `which nosetests` "$@"
+coverage report -m

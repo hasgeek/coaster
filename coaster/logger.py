@@ -6,10 +6,22 @@ from datetime import timedelta, datetime
 import logging.handlers
 import traceback
 import requests
+from pprint import pprint
 import six
+from flask import g, request, session
+
 
 # global var as lazy in-memory cache
-error_throttle_timestamp = {'timestamp': None}
+error_throttle_timestamp_sms = {}
+error_throttle_timestamp_slack = {}
+
+
+def pprint_with_indent(value, outfile, indent=4):
+    out = six.StringIO()
+    pprint(value, out)
+    lines = out.getvalue().split('\n')
+    out.close()
+    outfile.write('\n'.join([(' ' * indent) + l for l in lines]))
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -32,17 +44,49 @@ class LocalVarFormatter(logging.Formatter):
         sio = six.StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
-        for frame in stack:
-            print(file=sio)
+        print('\n----------\n', file=sio)
+        print("Stack frames (most recent call first):", file=sio)
+        for frame in stack[::-1]:
             print("Frame %s in %s at line %s" % (frame.f_code.co_name,
-                                                         frame.f_code.co_filename,
-                                                         frame.f_lineno), file=sio)
+                frame.f_code.co_filename,
+                frame.f_lineno), file=sio)
             for key, value in list(frame.f_locals.items()):
                 print("\t%20s = " % key, end=' ', file=sio)
                 try:
                     print(repr(value), file=sio)
                 except:
                     print("<ERROR WHILE PRINTING VALUE>", file=sio)
+
+        if request:
+            print('\n----------\n', file=sio)
+            print("Request context:", file=sio)
+            request_data = {
+                'form': request.form,
+                'args': request.args,
+                'cookies': request.cookies,
+                'stream': request.stream,
+                'headers': request.headers,
+                'data': request.data,
+                'files': request.files,
+                'environ': request.environ,
+                'method': request.method,
+                'is_xhr': request.is_xhr,
+                'blueprint': request.blueprint,
+                'endpoint': request.endpoint,
+                'module': request.module,
+                'view_args': request.view_args
+            }
+            pprint_with_indent(request_data, sio)
+
+        if session:
+            print('\n----------\n', file=sio)
+            print("Session cookie contents:", file=sio)
+            pprint_with_indent(session, sio)
+
+        if g:
+            print('\n----------\n', file=sio)
+            print("App context:", file=sio)
+            pprint_with_indent(vars(g), sio)
 
         s = sio.getvalue()
         sio.close()
@@ -69,13 +113,15 @@ class SMSHandler(logging.Handler):
     def emit(self, record):
         # TODO Find linenumber and function name from exception's log record
         # if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
-        if not error_throttle_timestamp['timestamp'] or (
-                (datetime.utcnow() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
+        throttle_key = (record.module, record.lineno)
+        if throttle_key not in error_throttle_timestamp_sms or (
+                (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key]) > timedelta(minutes=5)):
             for phonenumber in self.phonenumbers:
-                self.sendsms(phonenumber, 'Error in {name}. Please check your email for details'.format(name=self.app_name))
+                self.sendsms(phonenumber, 'Error in {name}: {msg}. Please check your email for details'.format(
+                    name=self.app_name, msg=record.msg))
             # error_throttle_timestamp['funcName'] = record.funcName
             # error_throttle_timestamp['lineno'] = record.lineno
-            error_throttle_timestamp['timestamp'] = datetime.utcnow()
+            error_throttle_timestamp_sms[throttle_key] = datetime.utcnow()
 
     def sendsms(self, number, message):
         try:
@@ -97,6 +143,54 @@ class SMSHandler(logging.Handler):
                         })
         except:
             pass
+
+
+class SlackHandler(logging.Handler):
+    """
+    Post an error report to Slack
+    """
+    def __init__(self, app_name, webhooks):
+        super(SlackHandler, self).__init__()
+        self.app_name = app_name
+        self.webhooks = webhooks
+
+    def emit(self, record):
+        throttle_key = (record.module, record.lineno)
+        if throttle_key not in error_throttle_timestamp_slack or (
+                (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key]) > timedelta(minutes=5)):
+
+            # Sanity check:
+            # If we're not going to be reporting this, don't bother to format the payload
+            if record.levelname not in [lname for webhook in self.webhooks for lname in webhook.get('levelnames', [])]:
+                return
+
+            sections = [s.strip().split('\n', 1) for s in record.exc_text.split('----------')] if record.exc_text else []
+
+            data = {
+                'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
+                    levelname=record.levelname, name=self.app_name, message=record.msg,
+                    info=repr(record.exc_info[1]) if record.exc_info else ''),
+                'attachments': [{
+                    'mrkdwn_in': ['text'],
+                    'fallback': section[0],
+                    'pretext': section[0],
+                    'text': '```\n' + (section[1] if len(section) > 0 else '') + '\n```',
+                    } for section in sections]}
+
+            for webhook in self.webhooks:
+                if record.levelname not in webhook.get('levelnames', []):
+                    continue
+                payload = dict(data)
+                for attr in ('channel', 'username', 'icon_emoji'):
+                    if attr in webhook:
+                        payload[attr] = webhook[attr]
+
+                try:
+                    requests.post(webhook['url'], json=payload,
+                        headers={'Content-Type': 'application/json'})
+                except:
+                    pass
+                error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
 
 
 def init_app(app):
@@ -147,6 +241,13 @@ def init_app(app):
                 phonenumbers=app.config['ADMIN_NUMBERS'])
             sms_handler.setLevel(logging.ERROR)
             app.logger.addHandler(sms_handler)
+
+    if app.config.get('SLACK_LOGGING_WEBHOOKS'):
+        logging.handlers.SlackHandler = SlackHandler
+        slack_handler = logging.handlers.SlackHandler(
+            app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS'])
+        slack_handler.setLevel(logging.NOTSET)
+        app.logger.addHandler(slack_handler)
 
     if app.config.get('ADMINS'):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail

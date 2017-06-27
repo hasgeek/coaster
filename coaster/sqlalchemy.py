@@ -1,32 +1,72 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from datetime import datetime
+import uuid as uuid_
 import simplejson
 from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
-from sqlalchemy.sql import select, func
+from sqlalchemy import event, inspect
+from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite
+from sqlalchemy.orm import composite, synonym
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.ext.hybrid import Comparator, hybrid_property
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
+from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
-from flask.ext.sqlalchemy import BaseQuery
-from .utils import make_name, uuid1mc
+from flask_sqlalchemy import BaseQuery
+from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
+from .roles import RoleMixin, set_roles, declared_attr_roles  # NOQA
 from .gfm import markdown
 import six
 
 
-__all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
-    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin']
+# --- Exceptions --------------------------------------------------------------
 
+__all_exceptions = ['InvalidId']
+
+
+class InvalidId(NotFound):
+    """Invalid id/UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
+    pass
+
+
+# --- SQL Functions -----------------------------------------------------------
+
+# Provide sqlalchemy.func.utcnow()
+# Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
+class utcnow(functions.GenericFunction):
+    type = DateTime()
+
+
+@compiles(utcnow)
+def __utcnow_default(element, compiler, **kw):
+    return 'CURRENT_TIMESTAMP'
+
+
+@compiles(utcnow, 'mysql')
+def __utcnow_mysql(element, compiler, **kw):
+    return 'UTC_TIMESTAMP()'
+
+
+@compiles(utcnow, 'postgresql')
+def __utcnow_postgresql(element, compiler, **kw):
+    return 'TIMEZONE(\'utc\', CURRENT_TIMESTAMP)'
+
+
+@compiles(utcnow, 'mssql')
+def __utcnow_mssql(element, compiler, **kw):
+    return 'SYSUTCDATETIME()'
+
+
+# --- Queries and comparators -------------------------------------------------
 
 class Query(BaseQuery):
     """
-    Extends flask.ext.sqlalchemy.BaseQuery to add additional helper methods.
+    Extends flask_sqlalchemy.BaseQuery to add additional helper methods.
     """
 
     def notempty(self):
@@ -35,7 +75,7 @@ class Query(BaseQuery):
         SQL EXISTS function, so the database stops counting after the first result
         is found.
         """
-        return self.session.query(self.exists()).first()[0]
+        return self.session.query(self.exists()).scalar()
 
     def isempty(self):
         """
@@ -43,7 +83,87 @@ class Query(BaseQuery):
         SQL EXISTS function, so the database stops counting after the first result
         is found.
         """
-        return not self.session.query(self.exists()).first()[0]
+        return not self.session.query(self.exists()).scalar()
+
+
+class SplitIndexComparator(Comparator):
+    """
+    Base class for comparators that support splitting a string and
+    comparing with one of the split values.
+    """
+
+    def __init__(self, expression, splitindex=None):
+        super(SplitIndexComparator, self).__init__(expression)
+        self.splitindex = splitindex
+
+
+class SqlSplitIdComparator(SplitIndexComparator):
+    """
+    Allows comparing an id value with a column, useful mostly because of
+    the splitindex feature, which splits an incoming string along the ``-``
+    character and picks one of the splits for comparison.
+    """
+    def operate(self, op, other):
+        if self.splitindex is not None and isinstance(other, basestring):
+            try:
+                other = int(other.split('-')[self.splitindex])
+            except ValueError:
+                raise InvalidId(other)
+        return op(self.__clause_element__(), other)
+
+
+class SqlHexUuidComparator(SplitIndexComparator):
+    """
+    Allows comparing UUID fields with hex representations of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
+            try:
+                other = uuid_.UUID(other)
+            except ValueError:
+                raise InvalidId(other)
+        return op(self.__clause_element__(), other)
+
+
+class SqlBuidComparator(SplitIndexComparator):
+    """
+    Allows comparing UUID fields with URL-safe Base64 (BUID) representations
+    of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
+            try:
+                other = buid2uuid(other)
+            except ValueError:
+                raise InvalidId(other)
+        return op(self.__clause_element__(), other)
+
+
+class SqlSuuidComparator(SplitIndexComparator):
+    """
+    Allows comparing UUID fields with ShortUUID representations of the UUID
+    """
+    def operate(self, op, other):
+        if not isinstance(other, uuid_.UUID):
+            if self.splitindex is not None:
+                other = other.split('-')[self.splitindex]
+            try:
+                other = suuid2uuid(other)
+            except ValueError:
+                raise InvalidId(other)
+        return op(self.__clause_element__(), other)
+
+
+# --- Mixins ------------------------------------------------------------------
+
+__all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
+    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
+    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
+    'UuidMixin', 'RoleMixin']
 
 
 class IdMixin(object):
@@ -51,7 +171,8 @@ class IdMixin(object):
     Provides the :attr:`id` primary key column
     """
     query_class = Query
-    #: Use UUID primary key?
+    #: Use UUID primary key? If yes, UUIDs are automatically generated without
+    #: the need to commit to the database
     __uuid_primary_key__ = False
 
     @declared_attr
@@ -60,15 +181,148 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return Column(UUIDType(binary=False), default=uuid1mc, primary_key=True)
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True)
         else:
             return Column(Integer, primary_key=True)
 
+    @declared_attr
+    def url_id(cls):
+        """The URL id"""
+        if cls.__uuid_primary_key__:
+            def url_id_func(self):
+                """The URL id, UUID primary key rendered as a hex string"""
+                return self.id.hex
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.comparator
+            def url_id_is(cls):
+                return SqlHexUuidComparator(cls.id)
+
+            return url_id_property
+        else:
+            def url_id_func(self):
+                """The URL id, integer primary key rendered as a string"""
+                return unicode(self.id)
+            url_id_property = hybrid_property(url_id_func)
+
+            @url_id_property.expression
+            def url_id_expression(cls):
+                """The URL id, integer primary key"""
+                return cls.id
+
+            return url_id_property
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.id)
+
+
+class UuidMixin(object):
+    """
+    Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
+    to the existing ``id`` column if the class uses UUID primary keys. Also
+    provides hybrid properties ``url_id``, ``buid`` and ``suuid`` that provide
+    hex, BUID and ShortUUID representations of the ``uuid`` column.
+
+    :class:`UuidMixin` must appear before other classes in the base class order::
+
+        class MyDocument(UuidMixin, BaseMixin, db.Model):
+            pass
+
+    Compatibility table:
+
+    +-----------------------+-------------+-----------------------------------------+
+    | Base class            | Compatible? | Notes                                   |
+    +=======================+=============+=========================================+
+    | BaseMixin             | Yes         |                                         |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseIdNameMixin       | Yes         |                                         |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseNameMixin         | N/A         | ``name`` is secondary key, not ``uuid`` |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedNameMixin   | N/A         | ``name`` is secondary key, not ``uuid`` |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedIdMixin     | No          | Conflicting :attr:`url_id` attribute    |
+    +-----------------------+-------------+-----------------------------------------+
+    | BaseScopedIdNameMixin | No          | Conflicting :attr:`url_id` attribute    |
+    +-----------------------+-------------+-----------------------------------------+
+    """
+    @declared_attr
+    @declared_attr_roles(read={'all'})
+    def uuid(cls):
+        """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
+        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
+            return synonym('id')
+        else:
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True)
+
+    @set_roles(read={'all'})
+    @hybrid_property
+    def url_id(self):
+        """URL-friendly UUID representation as a hex string"""
+        return self.uuid.hex
+
+    @url_id.comparator
+    def url_id(cls):
+        # For some reason the test fails if we use `cls.uuid` here
+        # but works fine in the `buid` and `suuid` comparators below
+        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id)
+        else:
+            return SqlHexUuidComparator(cls.uuid)
+
+    @set_roles(read={'all'})
+    @hybrid_property
+    def buid(self):
+        """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
+        return uuid2buid(self.uuid)
+
+    @buid.comparator
+    def buid(cls):
+        return SqlBuidComparator(cls.uuid)
+
+    @set_roles(read={'all'})
+    @hybrid_property
+    def suuid(self):
+        """URL-friendly UUID representation, using ShortUUID"""
+        return uuid2suuid(self.uuid)
+
+    @suuid.comparator
+    def suuid(cls):
+        return SqlSuuidComparator(cls.uuid)
+
+
+# Supply a default value for UUID-based id columns
+def __uuid_default_listener(uuidcolumn):
+    @event.listens_for(uuidcolumn, 'init_scalar', retval=True, propagate=True)
+    def init_scalar(target, value, dict_):
+        value = uuidcolumn.columns[0].default.arg(None)
+        dict_[uuidcolumn.key] = value
+        return value
+
+
+# Setup listeners for UUID-based subclasses
+def __configure_id_listener(mapper, class_):
+    if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
+        __uuid_default_listener(mapper.attrs.id)
+
+
+def __configure_uuid_listener(mapper, class_):
+    if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
+        return
+    # Only configure this listener if the class doesn't use UUID primary keys,
+    # as the `uuid` column will only be an alias for `id` in that case
+    __uuid_default_listener(mapper.attrs.uuid)
+
+
+event.listen(IdMixin, 'mapper_configured', __configure_id_listener, propagate=True)
+event.listen(UuidMixin, 'mapper_configured', __configure_uuid_listener, propagate=True)
+
 
 def make_timestamp_columns():
+    """Return two columns, created_at and updated_at, with appropriate defaults"""
     return (
-        Column('created_at', DateTime, default=datetime.utcnow, nullable=False),
-        Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False),
+        Column('created_at', DateTime, default=func.utcnow(), nullable=False),
+        Column('updated_at', DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False),
         )
 
 
@@ -78,9 +332,9 @@ class TimestampMixin(object):
     """
     query_class = Query
     #: Timestamp for when this instance was created, in UTC
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=func.utcnow(), nullable=False)
     #: Timestamp for when this instance was last updated (via the app), in UTC
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False)
 
 
 class PermissionMixin(object):
@@ -145,12 +399,13 @@ class UrlForMixin(object):
         return decorator
 
 
-class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, UrlForMixin):
+class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
     """
     Base mixin class for all tables that adds id and timestamp columns and includes
     stub :meth:`permissions` and :meth:`url_for` methods
     """
     def _set_fields(self, fields):
+        """Helper method for :meth:`upsert` in the various subclasses"""
         for f in fields:
             if hasattr(self, f):
                 setattr(self, f, fields[f])
@@ -174,7 +429,7 @@ class BaseNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
@@ -189,7 +444,7 @@ class BaseNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False, unique=True)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False, unique=True)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False, unique=True)
 
     @declared_attr
     def title(cls):
@@ -200,6 +455,9 @@ class BaseNameMixin(BaseMixin):
         super(BaseNameMixin, self).__init__(*args, **kw)
         if not self.name:
             self.make_name()
+
+    def __repr__(self):
+        return '<%s %s "%s">' % (self.__class__.__name__, self.name, self.title)
 
     @classmethod
     def get(cls, name):
@@ -214,7 +472,7 @@ class BaseNameMixin(BaseMixin):
             instance._set_fields(fields)
         else:
             instance = cls(name=name, **fields)
-            cls.query.session.add(instance)
+            instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
     def make_name(self, reserved=[]):
@@ -226,7 +484,7 @@ class BaseNameMixin(BaseMixin):
         :param reserved: List or set of reserved names unavailable for use
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
@@ -264,7 +522,7 @@ class BaseScopedNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Prevent use of these reserved names
     reserved_names = []
@@ -279,7 +537,7 @@ class BaseScopedNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -290,6 +548,10 @@ class BaseScopedNameMixin(BaseMixin):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
         if self.parent and not self.name:
             self.make_name()
+
+    def __repr__(self):
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.name, self.title,
+            repr(self.parent)[1:-1] if self.parent else None)
 
     @classmethod
     def get(cls, parent, name):
@@ -304,7 +566,7 @@ class BaseScopedNameMixin(BaseMixin):
             instance._set_fields(fields)
         else:
             instance = cls(parent=parent, name=name, **fields)
-            cls.query.session.add(instance)
+            instance = failsafe_add(cls.query.session, instance, parent=parent, name=name)
         return instance
 
     def make_name(self, reserved=[]):
@@ -314,7 +576,7 @@ class BaseScopedNameMixin(BaseMixin):
         until an available name is found.
         """
         if self.title:
-            if self.id:
+            if inspect(self).has_identity:
                 def checkused(c):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter(self.__class__.id != self.id).filter_by(
@@ -365,7 +627,7 @@ class BaseIdNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
@@ -378,35 +640,59 @@ class BaseIdNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
         return Column(Unicode(cls.__title_length__), nullable=False)
 
-    #: The attribute containing id numbers used in the URL in id-name syntax, for external reference
-    url_id_attr = 'id'
-
     def __init__(self, *args, **kw):
         super(BaseIdNameMixin, self).__init__(*args, **kw)
         if not self.name:
             self.make_name()
+
+    def __repr__(self):
+        return '<%s %s "%s">' % (self.__class__.__name__, self.url_name, self.title)
 
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
         if self.title:
             self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
-    @property
-    def url_id(self):
-        """Return the URL id"""
-        return self.id
+    @set_roles(read={'all'})
+    @hybrid_property
+    def url_id_name(self):
+        """
+        Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name
+        syntax. This property is also available as :attr:`url_name` for legacy
+        reasons.
+        """
+        return '%s-%s' % (self.url_id, self.name)
 
-    @property
-    def url_name(self):
-        """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
-        return '%d-%s' % (self.url_id, self.name)
+    @url_id_name.comparator
+    def url_id_name(cls):
+        if cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id, splitindex=0)
+        elif issubclass(cls, UuidMixin):
+            return SqlHexUuidComparator(cls.uuid, splitindex=0)
+        else:
+            return SqlSplitIdComparator(cls.id, splitindex=0)
+
+    url_name = url_id_name  # Legacy name
+
+    @set_roles(read={'all'})
+    @hybrid_property
+    def url_name_suuid(self):
+        """
+        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
+        To use this, the class must derive from :class:`UuidMixin`.
+        """
+        return '%s-%s' % (self.name, self.suuid)
+
+    @url_name_suuid.comparator
+    def url_name_suuid(cls):
+        return SqlSuuidComparator(cls.uuid, splitindex=-1)
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -424,17 +710,19 @@ class BaseScopedIdMixin(BaseMixin):
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
     @declared_attr
+    @declared_attr_roles(read={'all'})
     def url_id(cls):
         """Contains an id number that is unique within the parent container"""
         return Column(Integer, nullable=False)
-
-    #: The attribute containing the url id value, for external reference
-    url_id_attr = 'url_id'
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdMixin, self).__init__(*args, **kw)
         if self.parent:
             self.make_id()
+
+    def __repr__(self):
+        return '<%s %s of %s>' % (self.__class__.__name__, self.url_id,
+            repr(self.parent)[1:-1] if self.parent else None)
 
     @classmethod
     def get(cls, parent, url_id):
@@ -483,7 +771,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name!=''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
@@ -496,7 +784,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if cls.__name_blank_allowed__:
             return Column(Unicode(cls.__name_length__), nullable=False)
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name!=''"), nullable=False)
+            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -510,6 +798,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if not self.name:
             self.make_name()
 
+    def __repr__(self):
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_name, self.title,
+            repr(self.parent)[1:-1] if self.parent else None)
+
     @classmethod
     def get(cls, parent, url_id):
         """Get an instance matching the parent and name"""
@@ -520,10 +812,17 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
-    @property
-    def url_name(self):
+    @set_roles(read={'all'})
+    @hybrid_property
+    def url_id_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
-        return '%d-%s' % (self.url_id, self.name)
+        return '%s-%s' % (self.url_id, self.name)
+
+    @url_id_name.comparator
+    def url_id_name(cls):
+        return SqlSplitIdComparator(cls.url_id, splitindex=0)
+
+    url_name = url_id_name  # Legacy name
 
 
 class CoordinatesMixin(object):
@@ -553,14 +852,14 @@ class JsonType(UserDefinedType):
     """The PostgreSQL JSON type."""
 
     def get_col_spec(self):
-        return "JSON"
+        return 'JSON'
 
 
 class JsonbType(UserDefinedType):
     """The PostgreSQL JSONB type."""
 
     def get_col_spec(self):
-        return "JSONB"
+        return 'JSONB'
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
@@ -638,6 +937,7 @@ class MutableDict(Mutable, dict):
 MutableDict.associate_with(JsonDict)
 
 
+@six.python_2_unicode_compatible
 class MarkdownComposite(MutableComposite):
     """
     Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
@@ -660,12 +960,8 @@ class MarkdownComposite(MutableComposite):
     def __composite_values__(self):
         return (self.text, self._html)
 
-    # Return a string representation of the text
+    # Return a string representation of the text (see class decorator)
     def __str__(self):
-        return str(self.text)
-
-    # Return a unicode representation of the text
-    def __unicode__(self):
         return six.text_type(self.text)
 
     # Return a HTML representation of the text
@@ -719,7 +1015,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add']
+__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles']
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -729,11 +1025,16 @@ def failsafe_add(_session, _instance, **filters):
     database (which may occur due to parallel requests causing race conditions
     in a production environment with multiple workers).
 
-    Returns the instance saved to database if no error occured, or loaded from
-    database using the provided filters if an error occured. If the filters fail
+    Returns the instance saved to database if no error occurred, or loaded from
+    database using the provided filters if an error occurred. If the filters fail
     to load from the database, the original IntegrityError is re-raised, as it
     is assumed to imply that the commit failed because of missing or invalid
     data, not because of a duplicate entry.
+
+    However, when no filters are provided, nothing is returned and IntegrityError
+    is also suppressed as there is no way to distinguish between data validation
+    failure and an existing conflicting record in the database. Use this option
+    when failures are acceptable but the cost of verification is not.
 
     Usage: ``failsafe_add(db.session, instance, **filters)`` where filters
     are the parameters passed to ``Model.query.filter_by(**filters).one()``
@@ -747,16 +1048,24 @@ def failsafe_add(_session, _instance, **filters):
         database in case the commit fails (required)
     :return: Instance that is in the database
     """
+    if _instance in _session:
+        # This instance is already in the session, most likely due to a
+        # save-update cascade. SQLAlchemy will flush before beginning a
+        # nested transaction, which defeats the purpose of nesting, so
+        # remove it for now and add it back inside the SAVEPOINT.
+        _session.expunge(_instance)
     _session.begin_nested()
     try:
         _session.add(_instance)
         _session.commit()
-        return _instance
+        if filters:
+            return _instance
     except IntegrityError as e:
         _session.rollback()
-        try:
-            return _session.query(_instance.__class__).filter_by(**filters).one()
-        except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
-            raise e
+        if filters:
+            try:
+                return _session.query(_instance.__class__).filter_by(**filters).one()
+            except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
+                raise e
 
-__all__ = __all_mixins + __all_columns + __all_functions
+__all__ = __all_exceptions + __all_mixins + __all_columns + __all_functions

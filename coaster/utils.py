@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 import six
+import time
 from datetime import datetime
 from random import randint, randrange
 import uuid
@@ -9,6 +10,8 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 import hashlib
 import string
 import re
+import email.utils
+from email.header import decode_header
 from collections import namedtuple, OrderedDict
 
 import bcrypt
@@ -18,6 +21,9 @@ from unidecode import unidecode
 import html5lib
 import bleach
 from six.moves import range
+import isoweek
+
+from .shortuuid import suuid, encode as uuid2suuid, decode as suuid2uuid  # noqa
 
 if six.PY3:
     from html import unescape
@@ -31,16 +37,20 @@ else:
 
 from ._version import *  # NOQA
 
+# --- Thread safety fix -------------------------------------------------------
+
+# Force import of strptime, used in :func:`parse_isoformat`
+# http://stackoverflow.com/questions/16309650/python-importerror-for-strptime-in-spyder-for-windows-7
+datetime.strptime('20160816', '%Y%m%d')
+
 
 # --- Common delimiters and punctuation ---------------------------------------
 
-# making the raw unicode strings compatible for Py3 and Py2
-raw_unicode = lambda x: x if six.PY3 else six.text_type(x, 'utf-8')
-_strip_re = re.compile(raw_unicode(r'[\'"`‘’“”′″‴]+'))
-_punctuation_re = re.compile(raw_unicode(r'[\t +!#$%&()*\-/<=>?@\[\\\]^_{|}:;,.…‒–—―«»]+'))
-_username_valid_re = re.compile(str('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'))
-_ipv4_re = re.compile(str('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'))
-_tag_re = re.compile(str('<.*?>'))
+_strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
+_punctuation_re = re.compile(u'[\t +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
+_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
+_ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
+_tag_re = re.compile('<.*?>')
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -51,20 +61,17 @@ def buid():
     by encoding a UUID4 in URL-safe Base64. See
     http://en.wikipedia.org/wiki/Base64#Variants_summary_table
 
-    >>> len(newid())
+    >>> len(buid())
     22
-    >>> newid() == newid()
+    >>> buid() == buid()
     False
-    >>> isinstance(newid(), six.text_type)
+    >>> isinstance(buid(), six.text_type)
     True
     """
     if six.PY3:
-        return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('='))
+        return urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
     else:
         return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
-
-# Retain old name
-newid = buid
 
 
 def uuid1mc():
@@ -72,6 +79,50 @@ def uuid1mc():
     Return a UUID1 with a random multicast MAC id
     """
     return uuid.uuid1(node=uuid._random_getnode())
+
+
+def uuid1mc_from_datetime(dt):
+    """
+    Return a UUID1 with a random multicast MAC id and with a timestamp
+    matching the given datetime object or timestamp value.
+
+    .. warning::
+        This function does not consider the timezone, and is not guaranteed to
+        return a unique UUID. Use under controlled conditions only.
+
+    >>> dt = datetime.now()
+    >>> u1 = uuid1mc()
+    >>> u2 = uuid1mc_from_datetime(dt)
+    >>> # Both timestamps should be very close to each other but not an exact match
+    >>> u1.time > u2.time
+    True
+    >>> u1.time - u2.time < 3000
+    True
+    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000L) * 100 / 1e9)
+    >>> d2 == dt
+    True
+    """
+    fields = list(uuid1mc().fields)
+    if isinstance(dt, datetime):
+        timeval = time.mktime(dt.timetuple()) + dt.microsecond / 1e6
+    else:
+        # Assume we got an actual timestamp
+        timeval = dt
+
+    # The following code is borrowed from the UUID module source:
+    nanoseconds = int(timeval * 1e9)
+    # 0x01b21dd213814000 is the number of 100-ns intervals between the
+    # UUID epoch 1582-10-15 00:00:00 and the Unix epoch 1970-01-01 00:00:00.
+    timestamp = int(nanoseconds // 100) + 0x01b21dd213814000L
+    time_low = timestamp & 0xffffffffL
+    time_mid = (timestamp >> 32L) & 0xffffL
+    time_hi_version = (timestamp >> 48L) & 0x0fffL
+
+    fields[0] = time_low
+    fields[1] = time_mid
+    fields[2] = time_hi_version
+
+    return uuid.UUID(fields=tuple(fields))
 
 
 def uuid2buid(value):
@@ -83,7 +134,7 @@ def uuid2buid(value):
     True
     """
     if six.PY3:
-        return six.text_type(urlsafe_b64encode(value.bytes).decode('utf-8').rstrip('='))
+        return urlsafe_b64encode(value.bytes).decode('utf-8').rstrip('=')
     else:
         return six.text_type(urlsafe_b64encode(value.bytes).rstrip('='))
 
@@ -96,10 +147,7 @@ def buid2uuid(value):
     >>> buid2uuid(b)
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
     """
-    if six.PY3:
-        return uuid.UUID(bytes=urlsafe_b64decode(str(value + '==')))
-    else:
-        return uuid.UUID(bytes=urlsafe_b64decode(str(value + '==')))
+    return uuid.UUID(bytes=urlsafe_b64decode(str(value) + '=='))
 
 
 def newsecret():
@@ -212,53 +260,38 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     return candidate
 
 
-def make_password(password, encoding=u'BCRYPT'):
+def make_password(password, encoding='BCRYPT'):
     """
     Make a password with PLAIN, SSHA or BCRYPT (default) encoding.
 
     >>> test = make_password('foo', encoding='PLAIN')
-    >>> test == '{PLAIN}foo' if six.PY3 else test == u'{PLAIN}foo'
-    True
-    >>> test = make_password(u'bar', encoding='PLAIN')
-    >>> test == '{PLAIN}bar' if six.PY3 else test == u'{PLAIN}bar'
+    >>> test == '{PLAIN}foo'
     True
     >>> test = make_password(u're-foo', encoding='SSHA')[:6]
-    >>> test == '{SSHA}' if six.PY3 else test == u'{SSHA}'
-    True
-    >>> test = make_password('bar-foo', encoding='SSHA')[:6]
-    >>> test == '{SSHA}' if six.PY3 else test == u'{SSHA}'
+    >>> test == '{SSHA}'
     True
     >>> test = make_password(u're-foo')[:8]
-    >>> test == '{BCRYPT}' if six.PY3 else test == u'{BCRYPT}'
-    True
-    >>> test = make_password('bar-foo')[:8]
-    >>> test == '{BCRYPT}' if six.PY3 else test == u'{BCRYPT}'
+    >>> test == '{BCRYPT}'
     True
     >>> make_password('foo') == make_password('foo')
     False
-    >>> check_password(make_password('ascii'), 'ascii')
-    True
-    >>> check_password(make_password('mixed'), u'mixed')
-    True
-    >>> check_password(make_password(u'unicode'), u'unicode')
-    True
     """
-    if encoding not in [u'PLAIN', u'SSHA', u'BCRYPT']:
+    if encoding not in ['PLAIN', 'SSHA', 'BCRYPT']:
         raise ValueError("Unknown encoding %s" % encoding)
-    if encoding == u'PLAIN':
+    if encoding == 'PLAIN':
         if isinstance(password, str) and six.PY2:
             password = six.text_type(password, 'utf-8')
-        return u"{PLAIN}%s" % password
-    elif encoding == u'SSHA':
+        return '{PLAIN}%s' % password
+    elif encoding == 'SSHA':
         # SSHA is a modification of the SHA digest scheme with a salt
         # starting at byte 20 of the base64-encoded string.
         # Source: http://developer.netscape.com/docs/technote/ldap/pass_sha.html
         # This implementation is from Zope2's AccessControl.AuthEncoding.
-        
+
         salt = ''
         for n in range(7):
             salt += chr(randrange(256))
-        # b64encode - accepts only bytes string (python 3), so salt also has to be encoded
+        # b64encode accepts only bytes in Python 3, so salt also has to be encoded
         salt = salt.encode('utf-8') if six.PY3 else salt
         if isinstance(password, six.text_type):
             password = password.encode('utf-8')
@@ -266,15 +299,15 @@ def make_password(password, encoding=u'BCRYPT'):
             password = str(password)
         b64_encoded = b64encode(hashlib.sha1(password + salt).digest() + salt)
         b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
-        return u'{SSHA}%s' % b64_encoded
-    elif encoding == u'BCRYPT':
+        return '{SSHA}%s' % b64_encoded
+    elif encoding == 'BCRYPT':
         # BCRYPT is the recommended hash for secure passwords
         password_hashed = bcrypt.hashpw(
-            password.encode('utf-8') if isinstance(password, six.text_type) else password, 
+            password.encode('utf-8') if isinstance(password, six.text_type) else password,
             bcrypt.gensalt())
         if six.PY3:
             password_hashed = password_hashed.decode('utf-8')
-        return u'{BCRYPT}%s' % password_hashed
+        return '{BCRYPT}%s' % password_hashed
 
 
 def check_password(reference, attempt):
@@ -291,18 +324,14 @@ def check_password(reference, attempt):
     False
     >>> check_password(u'{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', u're-foo')
     True
-    >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
-    True
     >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.chtMTcS1s01C', 'foo')
-    True
-    >>> check_password('{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.chtMTcS1s01C', u'foo')
     True
     """
     if reference.startswith(u'{PLAIN}'):
         if reference[7:] == attempt:
             return True
     elif reference.startswith(u'{SSHA}'):
-        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2, and reutns
+        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2, and returns
         # binascii.Error as opposed to TypeError
         if six.PY3:
             try:
@@ -311,7 +340,7 @@ def check_password(reference, attempt):
                 else:
                     ref = b64decode(reference[6:])
             except binascii.Error:
-                return False # Not Base 64
+                return False  # Not Base64
         else:
             try:
                 ref = b64decode(reference[6:])
@@ -321,7 +350,7 @@ def check_password(reference, attempt):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
         b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)
-        if six.PY3: # type(b64_encoded) is bytes and can't be comapred with type(reference) which is str
+        if six.PY3:  # type(b64_encoded) is bytes and can't be comapred with type(reference) which is str
             compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
         else:
             compare = six.text_type('{SSHA}%s' % b64_encoded)
@@ -346,34 +375,34 @@ def format_currency(value, decimals=2):
     thousands separated by commas and up to two decimal points.
 
     >>> test = format_currency(1000)
-    >>> test == '1,000' if six.PY3 else test == u'1,000'
+    >>> test == '1,000'
     True
     >>> test = format_currency(100)
-    >>> test == '100' if six.PY3 else test == u'100'
+    >>> test == '100'
     True
     >>> test = format_currency(999.95)
-    >>> test == '999.95' if six.PY3 else test == u'999.95'
+    >>> test == '999.95'
     True
     >>> test = format_currency(99.95)
-    >>> test == '99.95' if six.PY3 else test == u'99.95'
+    >>> test == '99.95'
     True
     >>> test = format_currency(100000)
-    >>> test == '100,000' if six.PY3 else test == u'100,000'
+    >>> test == '100,000'
     True
     >>> test = format_currency(1000.00)
-    >>> test == '1,000' if six.PY3 else test == u'1,000'
+    >>> test == '1,000'
     True
     >>> test = format_currency(1000.41)
-    >>> test == '1,000.41' if six.PY3 else test == u'1,000.41'
+    >>> test == '1,000.41'
     True
     >>> test = format_currency(23.21, decimals=3)
-    >>> test == '23.210' if six.PY3 else test == u'23.210'
+    >>> test == '23.210'
     True
     >>> test = format_currency(1000, decimals=3)
-    >>> test == '1,000' if six.PY3 else test == u'1,000'
+    >>> test == '1,000'
     True
     >>> test = format_currency(123456789.123456789)
-    >>> test == '123,456,789.12' if six.PY3 else test == u'123,456,789.12'
+    >>> test == '123,456,789.12'
     True
     """
     number, decimal = ((u'%%.%df' % decimals) % value).split(u'.')
@@ -411,6 +440,73 @@ def parse_isoformat(text):
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S.%fZ')
     except ValueError:
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
+
+
+def isoweek_datetime(year, week, timezone='UTC', naive=False):
+    """
+    Returns a datetime matching the starting point of a specified ISO week
+    in the specified timezone (default UTC). Returns a naive datetime in
+    UTC if requested (default False).
+
+    >>> isoweek_datetime(2017, 1)
+    datetime.datetime(2017, 1, 2, 0, 0, tzinfo=<UTC>)
+    >>> isoweek_datetime(2017, 1, 'Asia/Kolkata')
+    datetime.datetime(2017, 1, 1, 18, 30, tzinfo=<UTC>)
+    >>> isoweek_datetime(2017, 1, 'Asia/Kolkata', naive=True)
+    datetime.datetime(2017, 1, 1, 18, 30)
+    >>> isoweek_datetime(2008, 1, 'Asia/Kolkata')
+    datetime.datetime(2007, 12, 30, 18, 30, tzinfo=<UTC>)
+    """
+    naivedt = datetime.combine(isoweek.Week(year, week).day(0), datetime.min.time())
+    if isinstance(timezone, basestring):
+        tz = pytz.timezone(timezone)
+    else:
+        tz = timezone
+    dt = tz.localize(naivedt).astimezone(pytz.UTC)
+    if naive:
+        return dt.replace(tzinfo=None)
+    else:
+        return dt
+
+
+def midnight_to_utc(dt, timezone=None, naive=False):
+    """
+    Returns a UTC datetime matching the midnight for the given date or datetime.
+
+    >>> from datetime import date
+    >>> midnight_to_utc(datetime(2017, 1, 1))
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)))
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(datetime(2017, 1, 1), naive=True)
+    datetime.datetime(2017, 1, 1, 0, 0)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), naive=True)
+    datetime.datetime(2016, 12, 31, 18, 30)
+    >>> midnight_to_utc(date(2017, 1, 1))
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
+    >>> midnight_to_utc(date(2017, 1, 1), naive=True)
+    datetime.datetime(2017, 1, 1, 0, 0)
+    >>> midnight_to_utc(date(2017, 1, 1), timezone='Asia/Kolkata')
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(datetime(2017, 1, 1), timezone='Asia/Kolkata')
+    datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), timezone='UTC')
+    datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
+    """
+    if timezone:
+        if isinstance(timezone, basestring):
+            tz = pytz.timezone(timezone)
+        else:
+            tz = timezone
+    elif isinstance(dt, datetime) and dt.tzinfo:
+        tz = dt.tzinfo
+    else:
+        tz = pytz.UTC
+
+    utc_dt = tz.localize(datetime.combine(dt, datetime.min.time())).astimezone(pytz.UTC)
+    if naive:
+        return utc_dt.replace(tzinfo=None)
+    return utc_dt
 
 
 def getbool(value):
@@ -476,7 +572,7 @@ def nullunicode(value):
     Return unicode(value) if bool(value) is not False. Return None otherwise.
     Useful for coercing optional values to a string.
 
-    >>> nullunicode(10) == '10' if six.PY3 else nullunicode(10) == u'10'
+    >>> nullunicode(10) == '10'
     True
     >>> nullunicode('') is None
     True
@@ -485,7 +581,20 @@ def nullunicode(value):
         return six.text_type(value)
 
 
-def get_email_domain(email):
+def unicode_http_header(value):
+    """
+    Convert an ASCII HTTP header string into a unicode string with the
+    appropriate encoding applied. Expects headers to be RFC 2047 compliant.
+
+    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=')
+    u'p\\xf6stal'
+    >>> unicode_http_header('p\xf6stal')
+    u'p\\xf6stal'
+    """
+    return u''.join([six.text_type(s, e or 'iso-8859-1') for s, e in decode_header(value)])
+
+
+def get_email_domain(emailaddr):
     """
     Return the domain component of an email address. Returns None if the
     provided string cannot be parsed as an email address.
@@ -494,13 +603,17 @@ def get_email_domain(email):
     'example.com'
     >>> get_email_domain('test+trailing@example.com')
     'example.com'
+    >>> get_email_domain('Example Address <test@example.com>')
+    'example.com'
     >>> get_email_domain('foobar')
     >>> get_email_domain('foo@bar@baz')
+    'bar'
     >>> get_email_domain('foobar@')
     >>> get_email_domain('@foobar')
     """
+    realname, address = email.utils.parseaddr(emailaddr)
     try:
-        username, domain = email.split('@')
+        username, domain = address.split('@')
         if not username:
             return None
         return domain or None
@@ -849,12 +962,11 @@ def sorted_timezones():
         if not tzname.startswith('US/') and not tzname.startswith('Canada/') and tzname not in ('GMT', 'UTC')]
     # Sort timezones by offset from UTC and their human-readable name
     presorted = [(delta, '%s%s - %s%s (%s)' % (
-            (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
-            '%02d:%02d' % hourmin(delta),
-            (pytz.country_names[timezone_country[name]] + ': ') if name in timezone_country else '',
-            name.replace('_', ' '),
-            pytz.timezone(name).tzname(now, is_dst=False)),
-        name) for delta, name in timezones]
+        (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
+        '%02d:%02d' % hourmin(delta),
+        (pytz.country_names[timezone_country[name]] + ': ') if name in timezone_country else '',
+        name.replace('_', ' '),
+        pytz.timezone(name).tzname(now, is_dst=False)), name) for delta, name in timezones]
     presorted.sort()
     # Return a list of (timezone, label) with the timezone offset included in the label.
     return [(name, label) for (delta, label, name) in presorted]
@@ -951,7 +1063,7 @@ class _LabeledEnumMeta(type):
         return cls.__labels__[key]
 
     def __setitem__(cls, key, value):
-        raise TypeError("LabeledEnum is immutable")
+        raise TypeError('LabeledEnum is immutable')
 
 
 class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):

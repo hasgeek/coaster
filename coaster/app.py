@@ -4,7 +4,6 @@ from __future__ import print_function
 
 from os import environ
 import sys
-from warnings import warn
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
 from flask import Flask, url_for, get_flashed_messages, request, session, g
 try:
@@ -28,7 +27,7 @@ _additional_config = {
 class SandboxedEnvironment(BaseSandboxedEnvironment):
     """
     Works like a regular Jinja2 sandboxed environment but has some
-    additional knowledge of how Flask's blueprint works so that it can
+    additional knowledge of how Flask's blueprint works, so that it can
     prepend the name of the blueprint to referenced templates if necessary.
     """
 
@@ -68,21 +67,19 @@ class SandboxedFlask(Flask):
         return rv
 
 
-def configure(app, env):
+def init_app(app, env=None):
     """
     Configure an app depending on the environment.
     """
-    warn("This function is deprecated. Please use init_app instead", DeprecationWarning)
-    init_app(app, environ.get(env))
-
-
-def init_app(app, env):
-    """
-    Configure an app depending on the environment.
-    """
+    # Disable Flask-SQLAlchemy events.
+    # Apps that want it can turn it back on in their config
+    app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
+    # Load config from the app's settings.py
     load_config_from_file(app, 'settings.py')
-
-    additional = _additional_config.get(env)
+    # Load additional settings from the app's environment-specific config file
+    if not env:
+        env = environ.get('FLASK_ENV', 'DEVELOPMENT')  # Uppercase for compatibility with Flask-Environments
+    additional = _additional_config.get(env.lower())  # Lowercase because that's how we define it
     if additional:
         load_config_from_file(app, additional)
 
