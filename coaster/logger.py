@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
+from __future__ import print_function
 from datetime import timedelta, datetime
 import logging.handlers
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
 import traceback
 import requests
 from pprint import pprint
+import six
 from flask import g, request, session
 
 
@@ -19,7 +17,7 @@ error_throttle_timestamp_slack = {}
 
 
 def pprint_with_indent(value, outfile, indent=4):
-    out = StringIO()
+    out = six.StringIO()
     pprint(value, out)
     lines = out.getvalue().split('\n')
     out.close()
@@ -43,25 +41,25 @@ class LocalVarFormatter(logging.Formatter):
             f = f.f_back
         stack.reverse()
 
-        sio = StringIO()
+        sio = six.StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
-        print >> sio, '\n----------\n'
-        print >> sio, "Stack frames (most recent call first):"
+        print('\n----------\n', file=sio)
+        print("Stack frames (most recent call first):", file=sio)
         for frame in stack[::-1]:
-            print >> sio, "Frame %s in %s at line %s" % (frame.f_code.co_name,
-                                                         frame.f_code.co_filename,
-                                                         frame.f_lineno)
-            for key, value in frame.f_locals.items():
-                print >> sio, "\t%20s = " % key,
+            print("Frame %s in %s at line %s" % (frame.f_code.co_name,
+                frame.f_code.co_filename,
+                frame.f_lineno), file=sio)
+            for key, value in list(frame.f_locals.items()):
+                print("\t%20s = " % key, end=' ', file=sio)
                 try:
-                    print >> sio, repr(value)
+                    print(repr(value), file=sio)
                 except:
-                    print >> sio, "<ERROR WHILE PRINTING VALUE>"
+                    print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if request:
-            print >> sio, '\n----------\n'
-            print >> sio, "Request context:"
+            print('\n----------\n', file=sio)
+            print("Request context:", file=sio)
             request_data = {
                 'form': request.form,
                 'args': request.args,
@@ -81,13 +79,13 @@ class LocalVarFormatter(logging.Formatter):
             pprint_with_indent(request_data, sio)
 
         if session:
-            print >> sio, '\n----------\n'
-            print >> sio, "Session cookie contents:"
+            print('\n----------\n', file=sio)
+            print("Session cookie contents:", file=sio)
             pprint_with_indent(session, sio)
 
         if g:
-            print >> sio, '\n----------\n'
-            print >> sio, "App context:"
+            print('\n----------\n', file=sio)
+            print("App context:", file=sio)
             pprint_with_indent(vars(g), sio)
 
         s = sio.getvalue()

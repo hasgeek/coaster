@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from sys import stdout
+from __future__ import absolute_import
+from __future__ import print_function
 
+from sys import stdout
+import six
 import flask
 from alembic.config import Config
 from alembic.script import ScriptDirectory
@@ -42,7 +45,7 @@ def set_alembic_revision(path=None):
             conn.execute(item)
         manager.db.session.commit()
         stdout.write("alembic head is set to %s \n" % head)
-    except CommandError, e:
+    except CommandError as e:
         stdout.write(e.message)
 
 
@@ -68,20 +71,20 @@ def createdb():
 @manager.command
 def sync_resources():
     """Sync the client's resources with the Lastuser server"""
-    print "Syncing resources with Lastuser..."
+    print("Syncing resources with Lastuser...")
     resources = manager.app.lastuser.sync_resources()['results']
 
-    for rname, resource in resources.iteritems():
+    for rname, resource in six.iteritems(resources):
         if resource['status'] == 'error':
-            print "Error for %s: %s" % (rname, resource['error'])
+            print("Error for %s: %s" % (rname, resource['error']))
         else:
-            print "Resource %s %s..." % (rname, resource['status'])
-            for aname, action in resource['actions'].iteritems():
+            print("Resource %s %s..." % (rname, resource['status']))
+            for aname, action in six.iteritems(resource['actions']):
                 if action['status'] == 'error':
-                    print "\tError for %s/%s: %s" % (rname, aname, action['error'])
+                    print("\tError for %s/%s: %s" % (rname, aname, action['error']))
                 else:
-                    print "\tAction %s/%s %s..." % (rname, aname, resource['status'])
-    print "Resources synced..."
+                    print("\tAction %s/%s %s..." % (rname, aname, resource['status']))
+    print("Resources synced...")
 
 
 def shell_context():

@@ -4,7 +4,7 @@ import unittest
 from flask import Flask, Response
 from jinja2 import TemplateNotFound
 from coaster.views import render_with, jsonp
-
+import six
 # --- Test setup --------------------------------------------------------------
 
 app = Flask(__name__)
@@ -100,7 +100,7 @@ class TestLoadModels(unittest.TestCase):
             self.assertEqual(response.data, jsonp({"data": "value"}).data)
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         self.assertTrue(isinstance(response, Response))
-        self.assertEqual(response.data, "{'data': 'value'}")
+        self.assertEqual(response.data.decode('utf-8') if six.PY3 else response.data, "{'data': 'value'}")
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
         self.assertTrue(isinstance(response, Response))
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])

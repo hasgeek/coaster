@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import
 from functools import wraps
-import urlparse
 import re
 from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template, jsonify)
@@ -10,6 +9,8 @@ from werkzeug.routing import BuildError
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
+import six
+from six.moves.urllib.parse import urlsplit
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -27,8 +28,8 @@ def __index_url():
 def __clean_external_url(url):
     if url.startswith('http://') or url.startswith('https://') or url.startswith('//'):
         # Do the domains and ports match?
-        pnext = urlparse.urlsplit(url)
-        preq = urlparse.urlsplit(request.url)
+        pnext = urlsplit(url)
+        preq = urlsplit(request.url)
         if pnext.port != preq.port:
             return ''
         if not (pnext.hostname == preq.hostname or pnext.hostname.endswith('.' + preq.hostname)):
@@ -184,11 +185,11 @@ def requestargs(*vars):
                                     kw[name] = [filt(v) for v in request.values.getlist(name)]
                                 else:
                                     kw[name] = filt(request.values[name])
-                            except ValueError, e:
+                            except ValueError as e:
                                 raise RequestValueError(e)
             try:
                 return f(**kw)
-            except TypeError, e:
+            except TypeError as e:
                 raise RequestTypeError(e)
         return decorated_function
     return inner
@@ -300,7 +301,7 @@ def load_models(*chain, **kwargs):
             permissions = None
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
-            if isinstance(permission_required, basestring):
+            if isinstance(permission_required, six.string_types):
                 permission_required = set([permission_required])
             elif permission_required is not None:
                 permission_required = set(permission_required)
@@ -475,7 +476,7 @@ def render_with(template, json=False, jsonp=False):
             }
     else:
         templates = {}
-    if isinstance(template, basestring):
+    if isinstance(template, six.string_types):
         templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
@@ -484,7 +485,7 @@ def render_with(template, json=False, jsonp=False):
 
     default_mimetype = '*/*'
     if '*/*' not in templates:
-        templates['*/*'] = unicode
+        templates['*/*'] = six.text_type
         default_mimetype = 'text/plain'
         for mimetype in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
             if mimetype in templates:
@@ -492,7 +493,7 @@ def render_with(template, json=False, jsonp=False):
                 default_mimetype = mimetype  # Remember which mimetype's handler is serving for */*
                 break
 
-    template_mimetypes = templates.keys()
+    template_mimetypes = list(templates.keys())
     template_mimetypes.remove('*/*')  # */* messes up matching, so supply it only as last resort
 
     def inner(f):

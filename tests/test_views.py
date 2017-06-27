@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import six
 from flask import Flask, session, json
 from coaster.app import load_config_from_file
 from coaster.views import get_current_url, get_next_url, jsonp, requestargs, BadRequest
@@ -66,7 +67,7 @@ class TestCoasterViews(unittest.TestCase):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
             response = 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % ('lang', kwargs['lang'], 'query', kwargs['query'])
-            self.assertEqual(response, r.data)
+            self.assertEqual(response, r.data.decode('utf-8') if six.PY3 else r.data)
 
         with self.app.test_request_context('/'):
             param1, param2 = 1, 2
