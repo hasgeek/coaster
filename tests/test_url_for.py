@@ -1,8 +1,12 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
+
 import unittest
 from flask import Flask
 from coaster.db import db
 
-from tests.test_models import Container, NamedDocument, ScopedNamedDocument
+from .test_models import Container, NamedDocument, ScopedNamedDocument
 
 # --- Test setup --------------------------------------------------------------
 

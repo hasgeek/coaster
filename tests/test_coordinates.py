@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import unittest
 
 from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-# changed from test_models to tests.test_models because
-# in Py3 you have also mention the subdir
-from tests.test_models import app1, app2
+from .test_models import app1, app2
 
 
 class CoordinatesData(BaseMixin, CoordinatesMixin, db.Model):

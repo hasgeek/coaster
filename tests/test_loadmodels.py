@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import unittest
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
@@ -8,7 +10,7 @@ from coaster.views import load_model, load_models
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.db import db
 
-from tests.test_models import (app1, app2, Container, NamedDocument,
+from .test_models import (app1, app2, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
     ScopedIdNamedDocument, User)
 

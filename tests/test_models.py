@@ -16,7 +16,6 @@ from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     UuidMixin)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
-import six
 
 
 app1 = Flask(__name__)
@@ -167,8 +166,7 @@ class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
 # -- Tests --------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
-    # skipping sqlite test in Py3 due to savepoint bug, so run app1 only in Py2
-    app = app2 if six.PY3 else app1
+    app = app1
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
@@ -809,7 +807,4 @@ class TestCoasterModels(unittest.TestCase):
 
 
 class TestCoasterModels2(TestCoasterModels):
-    if six.PY3:
-        pass
-    else:
-        app = app2
+    app = app2

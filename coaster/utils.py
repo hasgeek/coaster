@@ -901,10 +901,7 @@ def simplify_text(text):
     'awesome coder wanted at awesome company'
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
     'awesome coder wanted at awesome company'
-    >>> if six.PY3:
-    ...     simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == 'awesome coder wanted at awesome company'
-    ... else:
-    ...     simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == u'awesome coder wanted at awesome company'
+    >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == 'awesome coder wanted at awesome company'
     True
     """
     if isinstance(text, six.text_type):

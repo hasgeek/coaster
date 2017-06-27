@@ -66,8 +66,9 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?callback=callback'):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
-            response = 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % ('lang', kwargs['lang'], 'query', kwargs['query'])
-            self.assertEqual(response, r.data.decode('utf-8') if six.PY3 else r.data)
+            response = six.binary_type(
+                'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % ('lang', kwargs['lang'], 'query', kwargs['query']))
+            self.assertEqual(response, r.get_data())
 
         with self.app.test_request_context('/'):
             param1, param2 = 1, 2
