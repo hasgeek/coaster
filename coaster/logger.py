@@ -38,7 +38,7 @@ class LocalVarFormatter(logging.Formatter):
     """
     def formatException(self, ei):
         tb = ei[2]
-        while 1:
+        while True:
             if not tb.tb_next:
                 break
             tb = tb.tb_next
@@ -47,14 +47,13 @@ class LocalVarFormatter(logging.Formatter):
         while f:
             stack.append(f)
             f = f.f_back
-        stack.reverse()
 
         sio = six.StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
         print('\n----------\n', file=sio)
         print("Stack frames (most recent call first):", file=sio)
-        for frame in stack[::-1]:
+        for frame in stack:
             print("Frame %s in %s at line %s" % (frame.f_code.co_name,
                 frame.f_code.co_filename,
                 frame.f_lineno), file=sio)
@@ -119,16 +118,16 @@ class SMSHandler(logging.Handler):
             self.twilio_from = twilio_from
 
     def emit(self, record):
-        # TODO Find linenumber and function name from exception's log record
-        # if(record.funcName != error_throttle_timestamp['funcName'] or record.lineno != error_throttle_timestamp['lineno'] or (datetime.now() - error_throttle_timestamp['timestamp']) > timedelta(minutes=5)):
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_sms or (
                 (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key]) > timedelta(minutes=5)):
+            msg = u"{message}: {info}".format(
+                message=record.message,
+                info=repr(record.exc_info[1]) if record.exc_info else '')
             for phonenumber in self.phonenumbers:
-                self.sendsms(phonenumber, 'Error in {name}: {msg}. Please check your email for details'.format(
-                    name=self.app_name, msg=record.msg))
-            # error_throttle_timestamp['funcName'] = record.funcName
-            # error_throttle_timestamp['lineno'] = record.lineno
+                self.sendsms(phonenumber,
+                    u"Error in {name}. {msg}. Please check your email for details".format(
+                        name=self.app_name, msg=msg))
             error_throttle_timestamp_sms[throttle_key] = datetime.utcnow()
 
     def sendsms(self, number, message):
@@ -176,7 +175,7 @@ class SlackHandler(logging.Handler):
 
             data = {
                 'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
-                    levelname=record.levelname, name=self.app_name, message=record.msg,
+                    levelname=record.levelname, name=self.app_name, message=record.message,
                     info=repr(record.exc_info[1]) if record.exc_info else ''),
                 'attachments': [{
                     'mrkdwn_in': ['text'],
@@ -260,6 +259,7 @@ def init_app(app):
         logging.handlers.SlackHandler = SlackHandler
         slack_handler = logging.handlers.SlackHandler(
             app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS'])
+        slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
         app.logger.addHandler(slack_handler)
 
