@@ -43,10 +43,10 @@ Some tests are in the form of doctests within each function, and only
 accessible by running all tests via ``runtests.sh``.
 
 
-.. |travis| image:: https://secure.travis-ci.org/hasgeek/coaster.png
+.. |travis| image:: https://secure.travis-ci.org/hasgeek/coaster.svg?branch=master
     :target: https://travis-ci.org/hasgeek/coaster
     :alt: Build status
 
-.. |coveralls| image:: https://coveralls.io/repos/hasgeek/coaster/badge.png
+.. |coveralls| image:: https://coveralls.io/repos/hasgeek/coaster/badge.svg
     :target: https://coveralls.io/r/hasgeek/coaster
     :alt: Coverage status
