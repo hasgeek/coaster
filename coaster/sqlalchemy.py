@@ -35,23 +35,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy_utils.types import UUIDType
-from werkzeug.exceptions import NotFound
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
 from .roles import RoleMixin, set_roles, declared_attr_roles  # NOQA
 from .gfm import markdown
 import six
-
-
-# --- Exceptions --------------------------------------------------------------
-
-__all_exceptions = ['InvalidId']
-
-
-class InvalidId(NotFound):
-    """Invalid id/UUID. Triggers the NotFound handler when an invalid id is used in a URL."""
-    pass
 
 
 # --- SQL Functions -----------------------------------------------------------
@@ -116,6 +105,35 @@ class SplitIndexComparator(Comparator):
         super(SplitIndexComparator, self).__init__(expression)
         self.splitindex = splitindex
 
+    def _decode(self, other):
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        try:
+            other = self._decode(other)
+        except (ValueError, TypeError):
+            return False
+        return self.__clause_element__() == other
+
+    def __ne__(self, other):
+        try:
+            other = self._decode(other)
+        except (ValueError, TypeError):
+            return True
+        return self.__clause_element__() != other
+
+    def in_(self, other):
+        _marker = []
+
+        def errordecode(val):
+            try:
+                return self._decode(val)
+            except (ValueError, TypeError):
+                return _marker
+
+        otherlist = (v for v in (errordecode(val) for val in other) if v is not _marker)
+        return self.__clause_element__().in_(otherlist)
+
 
 class SqlSplitIdComparator(SplitIndexComparator):
     """
@@ -123,28 +141,26 @@ class SqlSplitIdComparator(SplitIndexComparator):
     the splitindex feature, which splits an incoming string along the ``-``
     character and picks one of the splits for comparison.
     """
-    def operate(self, op, other):
+    def _decode(self, other):
+        if other is None:
+            return
         if self.splitindex is not None and isinstance(other, six.string_types):
-            try:
-                other = int(other.split('-')[self.splitindex])
-            except ValueError:
-                raise InvalidId(other)
-        return op(self.__clause_element__(), other)
+            other = int(other.split('-')[self.splitindex])
+        return other
 
 
 class SqlHexUuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with hex representations of the UUID
     """
-    def operate(self, op, other):
+    def _decode(self, other):
+        if other is None:
+            return
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            try:
-                other = uuid_.UUID(other)
-            except ValueError:
-                raise InvalidId(other)
-        return op(self.__clause_element__(), other)
+            other = uuid_.UUID(other)
+        return other
 
 
 class SqlBuidComparator(SplitIndexComparator):
@@ -152,30 +168,28 @@ class SqlBuidComparator(SplitIndexComparator):
     Allows comparing UUID fields with URL-safe Base64 (BUID) representations
     of the UUID
     """
-    def operate(self, op, other):
+    def _decode(self, other):
+        if other is None:
+            return
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            try:
-                other = buid2uuid(other)
-            except ValueError:
-                raise InvalidId(other)
-        return op(self.__clause_element__(), other)
+            other = buid2uuid(other)
+        return other
 
 
 class SqlSuuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with ShortUUID representations of the UUID
     """
-    def operate(self, op, other):
+    def _decode(self, other):
+        if other is None:
+            return
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            try:
-                other = suuid2uuid(other)
-            except ValueError:
-                raise InvalidId(other)
-        return op(self.__clause_element__(), other)
+            other = suuid2uuid(other)
+        return other
 
 
 # --- Mixins ------------------------------------------------------------------
@@ -296,6 +310,10 @@ class UuidMixin(object):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
         return uuid2buid(self.uuid)
 
+    @buid.setter
+    def buid(self, value):
+        self.uuid = buid2uuid(value)
+
     @buid.comparator
     def buid(cls):
         return SqlBuidComparator(cls.uuid)
@@ -305,6 +323,10 @@ class UuidMixin(object):
     def suuid(self):
         """URL-friendly UUID representation, using ShortUUID"""
         return uuid2suuid(self.uuid)
+
+    @suuid.setter
+    def suuid(self, value):
+        self.uuid = suuid2uuid(value)
 
     @suuid.comparator
     def suuid(cls):
@@ -1088,4 +1110,4 @@ def failsafe_add(_session, _instance, **filters):
             except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
                 raise e
 
-__all__ = __all_exceptions + __all_mixins + __all_columns + __all_functions
+__all__ = __all_mixins + __all_columns + __all_functions

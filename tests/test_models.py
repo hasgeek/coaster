@@ -13,7 +13,7 @@ from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add, InvalidId,
+    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
     UuidMixin)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
@@ -576,7 +576,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_uuid_url_id(self):
         """
-        IdMixin provides a url_id that renders as a string of
+        IdMixin and UuidMixin provide a url_id that renders as a string of
         either the integer primary key or the UUID primary key
         """
         u1 = NonUuidKey()
@@ -636,6 +636,11 @@ class TestCoasterModels(unittest.TestCase):
             six.text_type((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        # Hex UUID with !=
+        self.assertEqual(
+            six.text_type((UuidKey.url_id != '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id != '74d588574a7611e78c27c38403d0935c'")
         # Hex UUID with dashes
         self.assertEqual(
             six.text_type((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
@@ -646,14 +651,34 @@ class TestCoasterModels(unittest.TestCase):
             six.text_type((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+        # IN clause with mixed inputs, including an invalid input
+        self.assertEqual(
+            six.text_type((UuidKey.url_id.in_(
+                ['74d588574a7611e78c27c38403d0935c', uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), 'garbage!']
+                )).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')")
 
-        # Query raises InvalidId if given an invalid value
-        with self.assertRaises(InvalidId):
-            UuidKey.url_id == 'garbage!'
-        with self.assertRaises(InvalidId):
-            NonUuidMixinKey.url_id == 'garbage!'
-        with self.assertRaises(InvalidId):
-            UuidMixinKey.url_id == 'garbage!'
+        # None value
+        self.assertEqual(
+            six.text_type((UuidKey.url_id == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_key.id IS NULL")
+        self.assertEqual(
+            six.text_type((NonUuidKey.url_id == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_key.id IS NULL")
+        self.assertEqual(
+            six.text_type((NonUuidMixinKey.url_id == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid IS NULL")
+
+        # Query returns False (or True) if given an invalid value
+        self.assertFalse(UuidKey.url_id == 'garbage!')
+        self.assertTrue(UuidKey.url_id != 'garbage!')
+        self.assertFalse(NonUuidMixinKey.url_id == 'garbage!')
+        self.assertTrue(NonUuidMixinKey.url_id != 'garbage!')
+        self.assertFalse(UuidMixinKey.url_id == 'garbage!')
+        self.assertTrue(UuidMixinKey.url_id != 'garbage!')
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
@@ -729,15 +754,33 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
-        # Query raises InvalidId if given an invalid value
-        with self.assertRaises(InvalidId):
-            NonUuidMixinKey.buid == 'garbage!'
-        with self.assertRaises(InvalidId):
-            NonUuidMixinKey.suuid == 'garbage!'
-        with self.assertRaises(InvalidId):
-            UuidMixinKey.buid == 'garbage!'
-        with self.assertRaises(InvalidId):
-            UuidMixinKey.suuid == 'garbage!'
+        # All queries work for None values as well
+        self.assertEqual(
+            six.text_type((NonUuidMixinKey.buid == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid IS NULL")
+        self.assertEqual(
+            six.text_type((UuidMixinKey.buid == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_mixin_key.id IS NULL")
+        self.assertEqual(
+            six.text_type((NonUuidMixinKey.suuid == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"non_uuid_mixin_key.uuid IS NULL")
+        self.assertEqual(
+            six.text_type((UuidMixinKey.suuid == None  # NOQA
+                ).compile(compile_kwargs={'literal_binds': True})),
+            u"uuid_mixin_key.id IS NULL")
+
+        # Query returns False (or True) if given an invalid value
+        self.assertFalse(NonUuidMixinKey.buid == 'garbage!')
+        self.assertTrue(NonUuidMixinKey.buid != 'garbage!')
+        self.assertFalse(NonUuidMixinKey.suuid == 'garbage!')
+        self.assertTrue(NonUuidMixinKey.suuid != 'garbage!')
+        self.assertFalse(UuidMixinKey.buid == 'garbage!')
+        self.assertTrue(UuidMixinKey.buid != 'garbage!')
+        self.assertFalse(UuidMixinKey.suuid == 'garbage!')
+        self.assertTrue(UuidMixinKey.suuid != 'garbage!')
 
     def test_uuid_url_id_name_suuid(self):
         """
