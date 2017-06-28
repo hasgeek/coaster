@@ -273,7 +273,7 @@ class UuidMixin(object):
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         else:
-            return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True)
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False)
 
     @set_roles(read={'all'})
     @hybrid_property
