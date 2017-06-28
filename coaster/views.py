@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 
+"""
+View helpers
+============
+
+Coaster provides functions and decorators for common scenarios in view handlers.
+"""
+
 from __future__ import absolute_import
 from functools import wraps
 import re

@@ -1,5 +1,31 @@
 # -*- coding: utf-8 -*-
 
+"""
+App management script
+=====================
+
+Coaster provides a Flask-Script-based manage.py with common management
+functions. To use in your Flask app, create a ``manage.py`` with this
+boilerplate::
+
+    from coaster.manage import manager, init_manager
+    from yourapp import app, db
+
+    @manager.command
+    def my_app_command()
+        print "Hello!"
+
+    if __name__ == "__main__":
+        # If you have no custom commands, you can skip importing manager
+        # and use the return value from init_manager
+        manager = init_manager(app, db)
+        manager.run()
+
+To see all available commands::
+
+    $ python manage.py --help
+"""
+
 from __future__ import absolute_import
 from __future__ import print_function
 

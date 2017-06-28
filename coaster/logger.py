@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import print_function
+"""
+Logger
+=======
+
+Coaster can help your application log errors at run-time. Initialize with
+:func:`coaster.logger.init_app`. If you use :func:`coaster.app.init_app`,
+this is done automatically for you.
+"""
+
+from __future__ import absolute_import, print_function
 from datetime import timedelta, datetime
 import logging.handlers
 import traceback
@@ -147,7 +155,7 @@ class SMSHandler(logging.Handler):
 
 class SlackHandler(logging.Handler):
     """
-    Post an error report to Slack
+    Custom logging handler to post error reports to Slack.
     """
     def __init__(self, app_name, webhooks):
         super(SlackHandler, self).__init__()
@@ -195,25 +203,31 @@ class SlackHandler(logging.Handler):
 
 def init_app(app):
     """
-    Enables logging for an app using :class:`LocalVarFormatter`.
-
-    This function requires an app that has already been configured
-    (perhaps using :func:`coaster.app.init_app`). It checks for the following
-    configuration parameters:
+    Enables logging for an app using :class:`LocalVarFormatter`. Requires the
+    app to be configured and checks for the following configuration parameters.
+    All are optional:
 
     * ``LOGFILE``: Name of the file to log to (default ``error.log``)
     * ``ADMINS``: List of email addresses of admins who will be mailed error reports
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
-    * ``FLUENTD_SERVER``: If specified, will enable logging to fluentd (pending)
+    * ``SLACK_LOGGING_WEBHOOKS``: If present, will send error logs to all specified Slack webhooks
     * ``ADMIN_NUMBERS``: List of mobile numbers of admin to send SMS alerts. Requires the following values too
-    * ``SMS_EXOTEL_SID``: Exotel SID for Indian numbers
+    * ``SMS_EXOTEL_SID``: Exotel SID for Indian numbers (+91 prefix)
     * ``SMS_EXOTEL_TOKEN``: Exotel token
     * ``SMS_EXOTEL_FROM``: Exotel sender's number
     * ``SMS_TWILIO_SID``: Twilio SID for non-Indian numbers
     * ``SMS_TWILIO_TOKEN``: Twilio token
     * ``SMS_TWILIO_FROM``: Twilio sender's number
+
+    Format for ``SLACK_LOGGING_WEBHOOKS``::
+
+        SLACK_LOGGING_WEBHOOKS = [{
+            'levelnames': ['WARNING', 'ERROR', 'CRITICAL'],
+            'url': 'https://hooks.slack.com/...'
+            }]
+
     """
     formatter = LocalVarFormatter()
 

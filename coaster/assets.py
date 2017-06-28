@@ -1,6 +1,19 @@
-from __future__ import absolute_import
 # -*- coding: utf-8 -*-
 
+"""
+Assets
+======
+
+Coaster provides a simple asset management system for semantically versioned
+assets using the semantic_version_ and webassets_ libraries. Many popular
+libraries such as jQuery are not semantically versioned, so you will have to
+be careful about assumptions you make around them.
+
+.. _semantic_version: http://python-semanticversion.readthedocs.org/en/latest/
+.. _webassets: http://elsdoerfer.name/docs/webassets/
+"""
+
+from __future__ import absolute_import
 import re
 from collections import defaultdict
 # Version is not used here but is made available for others to import from
@@ -11,7 +24,7 @@ import six
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 
-__all__ = ['Version', 'Spec', 'VersionedAssets']
+__all__ = ['Version', 'Spec', 'VersionedAssets', 'AssetNotFound']
 
 
 def split_namespec(namespec):

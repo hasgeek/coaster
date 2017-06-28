@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""
-GitHub Flavoured Markdown: because normal markdown has some vicious
-gotchas.
 
-Further reading on the gotchas:
+"""
+GitHub Flavoured Markdown
+=========================
+
+While not strictly a Flask-dependent module, Coaster offers an implementation
+of GitHub-flavoured Markdown (GFM) as a convenience feature.
+
+GFM exists because normal markdown has some vicious gotchas. Further reading:
 http://blog.stackoverflow.com/2009/10/markdown-one-year-later/
 
 This is a Python port of GitHub code, taken from

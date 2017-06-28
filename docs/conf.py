@@ -247,6 +247,6 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    'http://docs.python.org/': None,
-    'http://pythonhosted.org/Flask-SQLAlchemy/': None,
+    'https://docs.python.org/2/': None,
+    'http://flask-sqlalchemy.pocoo.org/2.2/': None,
     }

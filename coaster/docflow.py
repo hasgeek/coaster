@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Document workflows
+==================
+
+Coaster provides versions of the main Docflow_ classes where workflow
+exceptions map to HTTP 403 Forbidden (via werkzeug.exceptions.Forbidden_).
+
+.. _Docflow: http://docflow.readthedocs.org/
+.. _werkzeug.exceptions.Forbidden: http://werkzeug.readthedocs.org/en/latest/exceptions/#werkzeug.exceptions.Forbidden
+"""
+
 from __future__ import absolute_import
 from flask import g
 import docflow
@@ -64,8 +75,9 @@ class DocumentWorkflow(docflow.DocumentWorkflow):
         permissions to the current user.
         """
         perms = set(super(DocumentWorkflow, self).permissions())
-        if hasattr(g, 'permissions'):
-            perms.update(g.permissions or [])
-        if hasattr(self.document, 'permissions') and hasattr(g, 'user'):
-            perms = self.document.permissions(g.user, perms)
+        if g:
+            if hasattr(g, 'permissions'):
+                perms.update(g.permissions or [])
+            if hasattr(self.document, 'permissions') and hasattr(g, 'user'):
+                perms = self.document.permissions(g.user, perms)
         return perms

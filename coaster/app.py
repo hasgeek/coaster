@@ -1,6 +1,11 @@
-from __future__ import absolute_import
-from __future__ import print_function
 # -*- coding: utf-8 -*-
+
+"""
+App configuration
+=================
+"""
+
+from __future__ import absolute_import, print_function
 
 from os import environ
 import sys
@@ -40,7 +45,14 @@ class SandboxedEnvironment(BaseSandboxedEnvironment):
 
 class SandboxedFlask(Flask):
     """
-    Flask with a sandboxed environment.
+    Flask with a sandboxed_ Jinja2 environment, for when your app's templates
+    need sandboxing. Useful when your app works with externally provided
+    templates::
+
+        from coaster.app import SandboxedFlask
+        app = SandboxedFlask(__name__)
+
+    .. _sandboxed: http://jinja.pocoo.org/docs/2.9/sandbox/
     """
     def create_jinja_environment(self):
         """Creates the Jinja2 environment based on :attr:`jinja_options`
@@ -69,7 +81,24 @@ class SandboxedFlask(Flask):
 
 def init_app(app, env=None):
     """
-    Configure an app depending on the environment.
+    Configure an app depending on the environment. Loads settings from a file
+    named ``settings.py`` in the instance folder, followed by additional
+    settings from one of ``development.py``, ``production.py`` or
+    ``testing.py``. Typical usage::
+
+        from flask import Flask
+        import coaster.app
+
+        app = Flask(__name__, instance_relative_config=True)
+        coaster.app.init_app(app)  # Guess environment automatically
+
+    :func:`init_app` also configures logging by calling
+    :func:`coaster.logger.init_app`.
+
+    :param app: App to be configured
+    :param env: Environment to configure for (``'development'``,
+        ``'production'`` or ``'testing'``). If not specified, the ``FLASK_ENV``
+        environment variable is consulted. Defaults to ``'development'``.
     """
     # Disable Flask-SQLAlchemy events.
     # Apps that want it can turn it back on in their config
@@ -87,6 +116,7 @@ def init_app(app, env=None):
 
 
 def load_config_from_file(app, filepath):
+    """Helper function to load config from a specified file"""
     try:
         app.config.from_pyfile(filepath)
         return True

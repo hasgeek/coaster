@@ -1,5 +1,19 @@
 # -*- coding: utf-8 -*-
 
+"""
+Natural language processing
+===========================
+
+Provides a wrapper around NLTK to extract named entities from HTML text::
+
+    from coaster.utils import text_blocks
+    from coaster.nlp import extract_named_entities
+
+    html = "<p>This is some HTML-formatted text.</p><p>In two paragraphs.</p>"
+    textlist = text_blocks(html)  # Returns a list of paragraphs.
+    entities = extract_named_entities(textlist)
+"""
+
 import nltk
 from .utils import text_blocks as extract_text_blocks  # XXX: Deprecated  # NOQA
 

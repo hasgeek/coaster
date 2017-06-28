@@ -1,5 +1,27 @@
 # -*- coding: utf-8 -*-
 
+"""
+ShortUUIDs
+==========
+
+Provides a wrapper around the ShortUUID module with a long-term stable
+alphabet. This module may be used directly or via :mod:`coaster.utils`::
+
+    import coaster.shortuuid
+
+    # Generate a ShortUUID
+    su = coaster.shortuuid.suuid()
+
+    # Decode a ShortUUID into a UUID
+    uu = coaster.shortuuid.decode(su)
+
+    # Encode a UUID into a ShortUUID
+    su2 = coaster.shortuuid.encode(uu)
+
+    # Or use the same functions via coaster.utils (recommended)
+    from coaster.utils import suuid, suuid2uuid, uuid2suuid
+"""
+
 from __future__ import absolute_import
 from shortuuid import ShortUUID
 
