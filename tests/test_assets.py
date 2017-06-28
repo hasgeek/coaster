@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from coaster.assets import Version, VersionedAssets, AssetNotFound
+import six
+from coaster.assets import Version, VersionedAssets, AssetNotFound, UglipyJS
 
 
 class TestAssets(unittest.TestCase):
@@ -63,3 +64,16 @@ class TestAssets(unittest.TestCase):
         self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
         bundle = self.assets.require('jquery.form.js', '!jquery.js')
         self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
+
+    def test_uglipyjs(self):
+        """Test the UglipyJS filter"""
+        infile = six.StringIO("""
+            function test() {
+              alert("Hello, world!");
+            };
+            """)
+        outfile = six.StringIO()
+        filter = UglipyJS()
+        filter.setup()
+        filter.output(infile, outfile)
+        self.assertEqual(outfile.getvalue(), 'function test(){alert("Hello, world!")};')
