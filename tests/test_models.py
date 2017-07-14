@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin)
+    UuidMixin, UUIDType)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 
@@ -123,6 +123,12 @@ class NonUuidKey(BaseMixin, db.Model):
 class UuidKey(BaseMixin, db.Model):
     __tablename__ = 'uuid_key'
     __uuid_primary_key__ = True
+
+
+class UuidKeyNoDefault(BaseMixin, db.Model):
+    __tablename__ = 'uuid_key_no_default'
+    __uuid_primary_key__ = True
+    id = db.Column(UUIDType(binary=False), primary_key=True)
 
 
 class UuidForeignKey1(BaseMixin, db.Model):
@@ -830,6 +836,7 @@ class TestCoasterModels(unittest.TestCase):
         """
         uuid_no = NonUuidKey()
         uuid_yes = UuidKey()
+        uuid_no_default = UuidKeyNoDefault()
         uuidm_no = NonUuidMixinKey()
         uuidm_yes = UuidMixinKey()
         # Non-UUID primary keys are not automatically generated
@@ -841,6 +848,10 @@ class TestCoasterModels(unittest.TestCase):
         # Once generated, the key remains stable
         u3 = uuid_yes.id
         self.assertEqual(u2, u3)
+        # A UUID primary key with a custom column with no default doesn't break
+        # the default generator
+        u4 = uuid_no_default.id
+        self.assertIsNone(u4)
 
         # UuidMixin works likewise
         um1 = uuidm_no.uuid

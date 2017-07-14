@@ -215,9 +215,9 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True)
+            return Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True, nullable=False)
         else:
-            return Column(Integer, primary_key=True)
+            return Column(Integer, primary_key=True, nullable=False)
 
     @declared_attr
     def url_id(cls):
@@ -337,9 +337,12 @@ class UuidMixin(object):
 def __uuid_default_listener(uuidcolumn):
     @event.listens_for(uuidcolumn, 'init_scalar', retval=True, propagate=True)
     def init_scalar(target, value, dict_):
-        value = uuidcolumn.columns[0].default.arg(None)
-        dict_[uuidcolumn.key] = value
-        return value
+        # A subclass may override the column and not provide a default. Watch out for that.
+        default = uuidcolumn.columns[0].default
+        if default:
+            value = uuidcolumn.columns[0].default.arg(None)
+            dict_[uuidcolumn.key] = value
+            return value
 
 
 # Setup listeners for UUID-based subclasses
