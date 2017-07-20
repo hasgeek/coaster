@@ -26,6 +26,7 @@
 * ``load_models`` no longer hardcodes for ``url_name``, instead accepting an
   optional ``urlcheck`` list parameter
 * Added Python 3.6 compatibility
+* Removed the unused ``nullstr`` and renamed ``nullunicode`` to ``nullstr``
   
 
 0.5.2

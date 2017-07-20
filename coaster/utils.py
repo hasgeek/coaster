@@ -563,30 +563,19 @@ def nullint(value):
 
 def nullstr(value):
     """
-    Return str(value) if bool(value) is not False. Return None otherwise.
+    Return unicode(value) if bool(value) is not False. Return None otherwise.
     Useful for coercing optional values to a string.
 
-    >>> nullstr(10)
-    '10'
+    >>> nullstr(10) == '10'
+    True
     >>> nullstr('') is None
     True
     """
     if value:
-        return str(value)
-
-
-def nullunicode(value):
-    """
-    Return unicode(value) if bool(value) is not False. Return None otherwise.
-    Useful for coercing optional values to a string.
-
-    >>> nullunicode(10) == '10'
-    True
-    >>> nullunicode('') is None
-    True
-    """
-    if value:
         return six.text_type(value)
+
+
+nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
 def unicode_http_header(value):
