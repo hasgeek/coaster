@@ -45,7 +45,7 @@ accessible by running all tests via ``runtests.sh``.
 
 .. |docs| image:: https://readthedocs.org/projects/coaster/badge/?version=latest
     :target: http://coaster.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+    :alt: Documentation status
 
 .. |travis| image:: https://secure.travis-ci.org/hasgeek/coaster.svg?branch=master
     :target: https://travis-ci.org/hasgeek/coaster
