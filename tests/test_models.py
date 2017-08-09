@@ -8,7 +8,7 @@ from time import sleep
 from datetime import datetime, timedelta
 import six
 from flask import Flask
-from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func
+from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func, event, DDL
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
@@ -30,6 +30,7 @@ db.init_app(app2)
 
 
 # --- Models ------------------------------------------------------------------
+
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
@@ -170,7 +171,58 @@ class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
     __uuid_primary_key__ = True
 
 
-# -- Tests --------------------------------------------------------------------
+# Table name syntax is parent_table_child_table_default
+# The validator stored procedure and trigger suffix _validate and _trigger to this
+parent_child_default = db.Table(
+    'parent_for_default_child_for_default_default', db.Model.metadata,
+    db.Column('parent_for_default_id', None, db.ForeignKey('parent_for_default.id'), nullable=False, primary_key=True),
+    db.Column('child_for_default_id', None, db.ForeignKey('child_for_default.id'), nullable=False)
+    )
+
+
+class ParentForDefault(BaseMixin, db.Model):
+    __tablename__ = 'parent_for_default'
+    default_child = db.relationship('ChildForDefault', uselist=False, secondary=parent_child_default)
+
+
+class ChildForDefault(BaseMixin, db.Model):
+    __tablename__ = 'child_for_default'
+    parent_for_default_id = Column(None, ForeignKey('parent_for_default.id'), nullable=False)
+    parent_for_default = db.relationship(ParentForDefault)
+    parent = db.synonym('parent_for_default')
+
+
+@event.listens_for(ParentForDefault.default_child, 'set')
+def validate_default_child(target, value, oldvalue, initiator):
+    if value.parent != target:
+        raise ValueError("The target is not affiliated with this parent")
+
+
+event.listen(parent_child_default, 'after_create', DDL('''
+    CREATE FUNCTION parent_for_default_child_for_default_default_validate() RETURNS TRIGGER AS $$
+    DECLARE
+        target RECORD;
+    BEGIN
+        SELECT parent_for_default_id INTO target FROM child_for_default WHERE id = NEW.child_for_default_id;
+        IF (target.parent_for_default_id != NEW.parent_for_default_id) THEN
+            RAISE EXCEPTION 'The target is not affiliated with this parent';
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE TRIGGER parent_for_default_child_for_default_default_trigger BEFORE INSERT OR UPDATE
+    ON parent_for_default_child_for_default_default
+    FOR EACH ROW EXECUTE PROCEDURE parent_for_default_child_for_default_default_validate();
+    ''').execute_if(dialect='postgresql'))
+
+
+event.listen(parent_child_default, 'before_drop', DDL('''
+    DROP TRIGGER parent_for_default_child_for_default_default_trigger ON parent_for_default_child_for_default_default;
+    DROP FUNCTION parent_for_default_child_for_default_default_validate();
+    ''').execute_if(dialect='postgresql'))
+
+
+# --- Tests -------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
     app = app1
@@ -859,6 +911,40 @@ class TestCoasterModels(unittest.TestCase):
         um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
         self.assertIsInstance(um2, uuid.UUID)
         self.assertEqual(uuidm_yes.id, uuidm_yes.uuid)
+
+    def test_parent_child_default(self):
+        """
+        Test parents with multiple children and a default child
+        """
+        parent1 = ParentForDefault()
+        parent2 = ParentForDefault()
+        child1a = ChildForDefault(parent=parent1)
+        child1b = ChildForDefault(parent=parent1)
+        child2a = ChildForDefault(parent=parent2)
+        child2b = ChildForDefault(parent=parent2)
+
+        self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
+
+        self.assertIsNone(parent1.default_child)
+        self.assertIsNone(parent2.default_child)
+
+        self.session.flush()
+
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 0)
+
+        parent1.default_child = child1a
+        parent2.default_child = child2a
+
+        self.session.flush()
+
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 2)
+
+        # A parent can't have a default that is another's child
+        with self.assertRaises(ValueError):
+            parent1.default_child = child2b
+
+        # The default hasn't changed despite the validation error
+        self.assertEqual(parent1.default_child, child1a)
 
 
 class TestCoasterModels2(TestCoasterModels):
