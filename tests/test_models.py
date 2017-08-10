@@ -175,8 +175,10 @@ class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
 # The validator stored procedure and trigger suffix _validate and _trigger to this
 parent_child_default = db.Table(
     'parent_for_default_child_for_default_default', db.Model.metadata,
-    db.Column('parent_for_default_id', None, db.ForeignKey('parent_for_default.id'), nullable=False, primary_key=True),
-    db.Column('child_for_default_id', None, db.ForeignKey('child_for_default.id'), nullable=False)
+    db.Column('parent_for_default_id', None,
+        db.ForeignKey('parent_for_default.id', ondelete='CASCADE'), nullable=False, primary_key=True),
+    db.Column('child_for_default_id', None,
+        db.ForeignKey('child_for_default.id', ondelete='CASCADE'), nullable=False)
     )
 
 
@@ -194,7 +196,7 @@ class ChildForDefault(BaseMixin, db.Model):
 
 @event.listens_for(ParentForDefault.default_child, 'set')
 def validate_default_child(target, value, oldvalue, initiator):
-    if value.parent != target:
+    if value and value.parent != target:
         raise ValueError("The target is not affiliated with this parent")
 
 
@@ -205,7 +207,7 @@ event.listen(parent_child_default, 'after_create', DDL('''
     BEGIN
         SELECT parent_for_default_id INTO target FROM child_for_default WHERE id = NEW.child_for_default_id;
         IF (target.parent_for_default_id != NEW.parent_for_default_id) THEN
-            RAISE EXCEPTION 'The target is not affiliated with this parent';
+            RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
         END IF;
         RETURN NEW;
     END;
@@ -225,6 +227,7 @@ event.listen(parent_child_default, 'before_drop', DDL('''
 # --- Tests -------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
+    """SQLite tests"""
     app = app1
 
     def setUp(self):
@@ -924,20 +927,25 @@ class TestCoasterModels(unittest.TestCase):
         child2b = ChildForDefault(parent=parent2)
 
         self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
+        self.session.commit()
 
         self.assertIsNone(parent1.default_child)
         self.assertIsNone(parent2.default_child)
-
-        self.session.flush()
 
         self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 0)
 
         parent1.default_child = child1a
         parent2.default_child = child2a
 
-        self.session.flush()
+        self.session.commit()
 
+        # The change has been committed to the database
         self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 2)
+        qparent1 = ParentForDefault.query.get(parent1.id)
+        qparent2 = ParentForDefault.query.get(parent2.id)
+
+        self.assertEqual(qparent1.default_child, child1a)
+        self.assertEqual(qparent2.default_child, child2a)
 
         # A parent can't have a default that is another's child
         with self.assertRaises(ValueError):
@@ -946,6 +954,45 @@ class TestCoasterModels(unittest.TestCase):
         # The default hasn't changed despite the validation error
         self.assertEqual(parent1.default_child, child1a)
 
+        # Unsetting the default removes the relationship row,
+        # but does not remove the child instance from the db
+        parent1.default_child = None
+        self.session.commit()
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 1)
+        self.assertIsNotNone(ChildForDefault.query.get(child1a.id))
 
-class TestCoasterModels2(TestCoasterModels):
+        # Deleting a child also removes the corresponding relationship row
+        # but not the parent
+        self.session.delete(child2a)
+        self.session.commit()
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 0)
+        self.assertEqual(ParentForDefault.query.count(), 2)
+
+
+class TestCoasterModelsPG(TestCoasterModels):
+    """PostgreSQL tests"""
     app = app2
+
+    def test_parent_child_default_sql_validator(self):
+        parent1 = ParentForDefault()
+        parent2 = ParentForDefault()
+        child1a = ChildForDefault(parent=parent1)
+        child1b = ChildForDefault(parent=parent1)
+        child2a = ChildForDefault(parent=parent2)
+        child2b = ChildForDefault(parent=parent2)
+
+        parent1.default_child = child1a
+
+        self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
+        self.session.commit()
+
+        # The change has been committed to the database
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_default).scalar(), 1)
+        # Attempting a direct write to the db works for valid children and fails for invalid children
+        self.session.execute(parent_child_default.update().where(
+            parent_child_default.c.parent_for_default_id == parent1.id).values(
+            {'child_for_default_id': child1b.id}))
+        with self.assertRaises(IntegrityError):
+            self.session.execute(parent_child_default.update().where(
+                parent_child_default.c.parent_for_default_id == parent1.id).values(
+                {'child_for_default_id': child2a.id}))
