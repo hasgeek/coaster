@@ -574,3 +574,41 @@ def render_with(template, json=False, jsonp=False):
                 return result
         return decorated_function
     return inner
+
+def cors(is_origin_allowed=lambda origin: False,
+    allowed_methods='HEAD, OPTIONS, GET, POST, PUT, PATCH, DELETE',
+    allowed_headers='Accept, Accept-Language, Content-Language, Content-Type, X-Requested-With',
+    max_age=None):
+    """
+    Adds CORS headers to the decorated view function.
+
+    :param is_origin_allowed: A handler function that receives the origin as a parameter and
+    is expected to return a boolean value to assert if the given origin has access to the
+    requested resource
+    :param allowed_methods: A string of comma-separated HTTP methods that are allowed for this origin
+    :param allowed_headers: A string of comma-separated HTTP headers that are allowed for this origin
+    :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
+    """
+    @wraps(is_origin_allowed)
+    def inner(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            origin = request.headers.get('Origin')
+            if request.method not in allowed_methods or not is_origin_allowed(origin):
+                abort(401)
+
+            if request.method == 'OPTIONS':
+                # pre-flight request
+                resp = Response()
+            else:
+                resp = f(*args, **kwargs)
+
+            resp.headers['Access-Control-Allow-Origin'] = origin
+            resp.headers['Access-Control-Allow-Methods'] = allowed_methods
+            resp.headers['Access-Control-Allow-Headers'] = allowed_headers
+            if max_age:
+                resp.headers['Access-Control-Max-Age'] = max_age
+
+            return resp
+        return wrapper
+    return inner
