@@ -23,11 +23,11 @@ Mixin classes must always appear _before_ ``db.Model`` in your model's base clas
 from __future__ import absolute_import
 import uuid as uuid_
 import simplejson
-from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
-from sqlalchemy import event, inspect
+from sqlalchemy import Table, Column, ForeignKey, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric
+from sqlalchemy import event, inspect, DDL
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite, synonym
+from sqlalchemy.orm import composite, synonym, relationship
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from sqlalchemy.ext.hybrid import Comparator, hybrid_property
@@ -57,7 +57,7 @@ def __utcnow_default(element, compiler, **kw):
 
 
 @compiles(utcnow, 'mysql')
-def __utcnow_mysql(element, compiler, **kw):
+def __utcnow_mysql(element, compiler, **kw):  # pragma: no-cover
     return 'UTC_TIMESTAMP()'
 
 
@@ -67,7 +67,7 @@ def __utcnow_postgresql(element, compiler, **kw):
 
 
 @compiles(utcnow, 'mssql')
-def __utcnow_mssql(element, compiler, **kw):
+def __utcnow_mssql(element, compiler, **kw):  # pragma: no-cover
     return 'SYSUTCDATETIME()'
 
 
@@ -1060,7 +1060,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles']
+__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'primary_relationship']
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -1112,5 +1112,88 @@ def failsafe_add(_session, _instance, **filters):
                 return _session.query(_instance.__class__).filter_by(**filters).one()
             except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
                 raise e
+
+
+def primary_relationship(parent, child, parentrel, parentcol):
+    """
+    When a parent-child relationship is defined as one-to-many,
+    :func:`primary_relationship` lets the parent refer to one child as the
+    primary.
+
+    Creates a secondary table to hold the reference. Under PostgreSQL, a trigger
+    is added as well to ensure foreign key integrity.
+
+    Multi-column primary keys on either parent or child are unsupported at this time.
+
+    :param parent: The parent model (on which this relationship will be placed)
+    :param child: The child model
+    :param str parentrel: Name of the relationship on the child model that refers back to the parent model
+    :param str parentcol: Name of the table column on the child model that refers back to the parent model
+    """
+
+    parent_table_name = parent.__tablename__
+    child_table_name = child.__tablename__
+    primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
+    parent_id_columns = [c.name for c in inspect(parent).primary_key]
+    child_id_columns = [c.name for c in inspect(child).primary_key]
+
+    primary_table_columns = (
+        [Column(
+            parent_table_name + '_' + name,
+            None,
+            ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
+            primary_key=True,
+            nullable=False) for name in parent_id_columns] +
+        [Column(
+            child_table_name + '_' + name,
+            None,
+            ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
+            nullable=False) for name in child_id_columns] +
+        list(make_timestamp_columns())
+        )
+
+    primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
+    result = relationship(child, uselist=False, secondary=primary_table)
+
+    # FIXME: Setting up a listener before the relationship is added to the model breaks it.
+    # Have to do this later.
+
+    # @event.listens_for(result, 'set')
+    # def _validate_child(target, value, oldvalue, initiator):
+    #     if value and getattr(value, parentrel) != target:
+    #         raise ValueError("The target is not affiliated with this parent")
+
+    # XXX: To support multi-column primary keys, update this SQL function
+    event.listen(primary_table, 'after_create', DDL('''
+        CREATE FUNCTION {primary_table_name}_validate() RETURNS TRIGGER AS $$
+        DECLARE
+            target RECORD;
+        BEGIN
+            SELECT {parentcol} INTO target FROM {child_table_name} WHERE {child_id_column} = NEW.{rhs};
+            IF (target.{parentcol} != NEW.{lhs}) THEN
+                RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        CREATE TRIGGER {primary_table_name}_trigger BEFORE INSERT OR UPDATE
+        ON {primary_table_name}
+        FOR EACH ROW EXECUTE PROCEDURE {primary_table_name}_validate();
+        '''.format(
+        primary_table_name=primary_table_name,
+        parentcol=parentcol,
+        child_table_name=child_table_name,
+        child_id_column=child_id_columns[0],
+        lhs=parent_table_name + '_' + parent_id_columns[0],
+        rhs=child_table_name + '_' + child_id_columns[0],
+        )).execute_if(dialect='postgresql'))
+
+    event.listen(primary_table, 'before_drop', DDL('''
+        DROP TRIGGER {primary_table_name}_trigger ON {primary_table_name};
+        DROP FUNCTION {primary_table_name}_validate();
+        '''.format(primary_table_name=primary_table_name)).execute_if(dialect='postgresql'))
+
+    return result
+
 
 __all__ = __all_mixins + __all_columns + __all_functions
