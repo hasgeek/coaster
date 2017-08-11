@@ -33,7 +33,7 @@ def __index_url():
 
 
 def __clean_external_url(url):
-    if url.startswith('http://') or url.startswith('https://') or url.startswith('//'):
+    if url.startswith(('http://', 'https://', '//')):
         # Do the domains and ports match?
         pnext = urlsplit(url)
         preq = urlsplit(request.url)
