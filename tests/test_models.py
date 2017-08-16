@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin, UUIDType)
+    UuidMixin, UUIDType, add_primary_relationship)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 
@@ -30,6 +30,7 @@ db.init_app(app2)
 
 
 # --- Models ------------------------------------------------------------------
+
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
@@ -170,9 +171,28 @@ class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
     __uuid_primary_key__ = True
 
 
-# -- Tests --------------------------------------------------------------------
+class ParentForPrimary(BaseMixin, db.Model):
+    __tablename__ = 'parent_for_primary'
+
+
+class ChildForPrimary(BaseMixin, db.Model):
+    __tablename__ = 'child_for_primary'
+    parent_for_primary_id = Column(None, ForeignKey('parent_for_primary.id'), nullable=False)
+    parent_for_primary = db.relationship(ParentForPrimary)
+    parent = db.synonym('parent_for_primary')
+
+
+add_primary_relationship(ParentForPrimary, 'primary_child',
+    ChildForPrimary, 'parent', 'parent_for_primary_id')
+
+# Used for the tests below
+parent_child_primary = db.Model.metadata.tables['parent_for_primary_child_for_primary_primary']
+
+
+# --- Tests -------------------------------------------------------------------
 
 class TestCoasterModels(unittest.TestCase):
+    """SQLite tests"""
     app = app1
 
     def setUp(self):
@@ -860,6 +880,84 @@ class TestCoasterModels(unittest.TestCase):
         self.assertIsInstance(um2, uuid.UUID)
         self.assertEqual(uuidm_yes.id, uuidm_yes.uuid)
 
+    def test_parent_child_primary(self):
+        """
+        Test parents with multiple children and a primary child
+        """
+        parent1 = ParentForPrimary()
+        parent2 = ParentForPrimary()
+        child1a = ChildForPrimary(parent=parent1)
+        child1b = ChildForPrimary(parent=parent1)
+        child2a = ChildForPrimary(parent=parent2)
+        child2b = ChildForPrimary(parent=parent2)
 
-class TestCoasterModels2(TestCoasterModels):
+        self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
+        self.session.commit()
+
+        self.assertIsNone(parent1.primary_child)
+        self.assertIsNone(parent2.primary_child)
+
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 0)
+
+        parent1.primary_child = child1a
+        parent2.primary_child = child2a
+
+        self.session.commit()
+
+        # The change has been committed to the database
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 2)
+        qparent1 = ParentForPrimary.query.get(parent1.id)
+        qparent2 = ParentForPrimary.query.get(parent2.id)
+
+        self.assertEqual(qparent1.primary_child, child1a)
+        self.assertEqual(qparent2.primary_child, child2a)
+
+        # # A parent can't have a default that is another's child
+        with self.assertRaises(ValueError):
+            parent1.primary_child = child2b
+
+        # The default hasn't changed despite the validation error
+        self.assertEqual(parent1.primary_child, child1a)
+
+        # Unsetting the default removes the relationship row,
+        # but does not remove the child instance from the db
+        parent1.primary_child = None
+        self.session.commit()
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 1)
+        self.assertIsNotNone(ChildForPrimary.query.get(child1a.id))
+
+        # Deleting a child also removes the corresponding relationship row
+        # but not the parent
+        self.session.delete(child2a)
+        self.session.commit()
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 0)
+        self.assertEqual(ParentForPrimary.query.count(), 2)
+
+
+class TestCoasterModelsPG(TestCoasterModels):
+    """PostgreSQL tests"""
     app = app2
+
+    def test_parent_child_primary_sql_validator(self):
+        parent1 = ParentForPrimary()
+        parent2 = ParentForPrimary()
+        child1a = ChildForPrimary(parent=parent1)
+        child1b = ChildForPrimary(parent=parent1)
+        child2a = ChildForPrimary(parent=parent2)
+        child2b = ChildForPrimary(parent=parent2)
+
+        parent1.primary_child = child1a
+
+        self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
+        self.session.commit()
+
+        # The change has been committed to the database
+        self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 1)
+        # Attempting a direct write to the db works for valid children and fails for invalid children
+        self.session.execute(parent_child_primary.update().where(
+            parent_child_primary.c.parent_for_primary_id == parent1.id).values(
+            {'child_for_primary_id': child1b.id}))
+        with self.assertRaises(IntegrityError):
+            self.session.execute(parent_child_primary.update().where(
+                parent_child_primary.c.parent_for_primary_id == parent1.id).values(
+                {'child_for_primary_id': child2a.id}))
