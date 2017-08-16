@@ -27,6 +27,7 @@
   optional ``urlcheck`` list parameter
 * Added Python 3.6 compatibility
 * Removed the unused ``nullstr`` and renamed ``nullunicode`` to ``nullstr``
+* New: ``add_primary_relationship`` to define a primary child on parent models
   
 
 0.5.2
