@@ -1117,15 +1117,21 @@ def failsafe_add(_session, _instance, **filters):
 def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
     """
     When a parent-child relationship is defined as one-to-many,
-    :func:`primary_relationship` lets the parent refer to one child as the
-    primary.
+    :func:`add_primary_relationship` lets the parent refer to one child as the
+    primary, by creating a secondary table to hold the reference. Under
+    PostgreSQL, a trigger is added as well to ensure foreign key integrity.
 
-    Creates a secondary table to hold the reference. Under PostgreSQL, a trigger
-    is added as well to ensure foreign key integrity.
+    A SQLAlchemy relationship named ``parent.childrel`` is added that makes
+    usage seamless within SQLAlchemy.
 
-    Multi-column primary keys on either parent or child are unsupported at this time.
+    The secondary table is named after the parent and child tables, with
+    ``_primary`` appended, in the form ``parent_child_primary``. This table can
+    be found in the metadata in the ``parent.metadata.tables`` dictionary.
 
-    :param parent: The parent model (on which this relationship will be placed)
+    Multi-column primary keys on either parent or child are unsupported at
+    this time.
+
+    :param parent: The parent model (on which this relationship will be added)
     :param childrel: The name of the relationship to the child that will be
         added
     :param child: The child model
@@ -1133,6 +1139,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         that refers back to the parent model
     :param str parentcol: Name of the existing table column on the child model
         that refers back to the parent model
+    :return: None
     """
 
     parent_table_name = parent.__tablename__
@@ -1194,8 +1201,6 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         DROP TRIGGER {primary_table_name}_trigger ON {primary_table_name};
         DROP FUNCTION {primary_table_name}_validate();
         '''.format(primary_table_name=primary_table_name)).execute_if(dialect='postgresql'))
-
-    return result
 
 
 __all__ = __all_mixins + __all_columns + __all_functions
