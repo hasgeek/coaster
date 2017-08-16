@@ -882,7 +882,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_parent_child_primary(self):
         """
-        Test parents with multiple children and a default child
+        Test parents with multiple children and a primary child
         """
         parent1 = ParentForPrimary()
         parent2 = ParentForPrimary()

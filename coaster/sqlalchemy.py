@@ -1164,10 +1164,10 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         )
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
-    result = relationship(child, uselist=False, secondary=primary_table)
-    setattr(parent, childrel, result)
+    rel = relationship(child, uselist=False, secondary=primary_table)
+    setattr(parent, childrel, rel)
 
-    @event.listens_for(result, 'set')
+    @event.listens_for(rel, 'set')
     def _validate_child(target, value, oldvalue, initiator):
         if value and getattr(value, parentrel) != target:
             raise ValueError("The target is not affiliated with this parent")
