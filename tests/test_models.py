@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin, UUIDType, primary_relationship)
+    UuidMixin, UUIDType, add_primary_relationship)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 
@@ -182,8 +182,8 @@ class ChildForPrimary(BaseMixin, db.Model):
     parent = db.synonym('parent_for_primary')
 
 
-ParentForPrimary.primary_child = primary_relationship(ParentForPrimary, ChildForPrimary,
-    'parent', 'parent_for_primary_id')
+add_primary_relationship(ParentForPrimary, 'primary_child',
+    ChildForPrimary, 'parent', 'parent_for_primary_id')
 
 # Used for the tests below
 parent_child_primary = db.Model.metadata.tables['parent_for_primary_child_for_primary_primary']
@@ -913,8 +913,8 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(qparent2.primary_child, child2a)
 
         # # A parent can't have a default that is another's child
-        # with self.assertRaises(ValueError):
-        #     parent1.primary_child = child2b
+        with self.assertRaises(ValueError):
+            parent1.primary_child = child2b
 
         # The default hasn't changed despite the validation error
         self.assertEqual(parent1.primary_child, child1a)

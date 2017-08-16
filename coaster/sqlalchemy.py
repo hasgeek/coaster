@@ -1060,7 +1060,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'primary_relationship']
+__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'add_primary_relationship']
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -1114,7 +1114,7 @@ def failsafe_add(_session, _instance, **filters):
                 raise e
 
 
-def primary_relationship(parent, child, parentrel, parentcol):
+def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
     """
     When a parent-child relationship is defined as one-to-many,
     :func:`primary_relationship` lets the parent refer to one child as the
@@ -1126,9 +1126,13 @@ def primary_relationship(parent, child, parentrel, parentcol):
     Multi-column primary keys on either parent or child are unsupported at this time.
 
     :param parent: The parent model (on which this relationship will be placed)
+    :param childrel: The name of the relationship to the child that will be
+        added
     :param child: The child model
-    :param str parentrel: Name of the relationship on the child model that refers back to the parent model
-    :param str parentcol: Name of the table column on the child model that refers back to the parent model
+    :param str parentrel: Name of the existing relationship on the child model
+        that refers back to the parent model
+    :param str parentcol: Name of the existing table column on the child model
+        that refers back to the parent model
     """
 
     parent_table_name = parent.__tablename__
@@ -1154,14 +1158,12 @@ def primary_relationship(parent, child, parentrel, parentcol):
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
     result = relationship(child, uselist=False, secondary=primary_table)
+    setattr(parent, childrel, result)
 
-    # FIXME: Setting up a listener before the relationship is added to the model breaks it.
-    # Have to do this later.
-
-    # @event.listens_for(result, 'set')
-    # def _validate_child(target, value, oldvalue, initiator):
-    #     if value and getattr(value, parentrel) != target:
-    #         raise ValueError("The target is not affiliated with this parent")
+    @event.listens_for(result, 'set')
+    def _validate_child(target, value, oldvalue, initiator):
+        if value and getattr(value, parentrel) != target:
+            raise ValueError("The target is not affiliated with this parent")
 
     # XXX: To support multi-column primary keys, update this SQL function
     event.listen(primary_table, 'after_create', DDL('''
