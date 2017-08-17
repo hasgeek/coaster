@@ -575,26 +575,26 @@ def render_with(template, json=False, jsonp=False):
         return decorated_function
     return inner
 
-def cors(validator,
+def cors(check_origin,
     methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
     max_age=None):
     """
     Adds CORS headers to the decorated view function.
 
-    :param validator: A function that receives the origin as a parameter and
+    :param check_origin: A function that receives the origin as a parameter and
     is expected to return a boolean value to assert if the given origin has access to the
     requested resource
     :param methods: A list of HTTP methods that are allowed for this origin
     :param headers: A list of HTTP headers that are allowed for this origin
     :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
     """
-    @wraps(validator)
+    @wraps(check_origin)
     def inner(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             origin = request.headers.get('Origin')
-            if request.method not in methods or not validator(origin):
+            if request.method not in methods or not check_origin(origin):
                 abort(401)
 
             if request.method == 'OPTIONS':
