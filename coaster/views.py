@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from functools import wraps
 import re
 from flask import (session as request_session, request, url_for, json, Response,
-    redirect, abort, g, current_app, render_template, jsonify)
+    redirect, abort, g, current_app, render_template, jsonify, make_response)
 from werkzeug.routing import BuildError
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
@@ -573,4 +573,53 @@ def render_with(template, json=False, jsonp=False):
             else:
                 return result
         return decorated_function
+    return inner
+
+def cors(check_origin,
+    methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
+    max_age=None):
+    """
+    Adds CORS headers to the decorated view function.
+
+    :param check_origin: A function that receives the origin as a parameter and
+    is expected to return a boolean value to assert if the given origin has access to the
+    requested resource
+    :param methods: A list of HTTP methods that are allowed for this origin
+    :param headers: A list of HTTP headers that are allowed for this origin
+    :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
+    """
+    @wraps(check_origin)
+    def inner(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            origin = request.headers.get('Origin')
+            if request.method not in methods or not check_origin(origin):
+                abort(401)
+
+            if request.method == 'OPTIONS':
+                # pre-flight request
+                resp = Response()
+            else:
+                result = f(*args, **kwargs)
+                resp = make_response(result) if not isinstance(result,
+                    (Response, WerkzeugResponse, current_app.response_class)) else result
+
+            resp.headers['Access-Control-Allow-Origin'] = origin if origin else ''
+            resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
+            resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
+            if max_age:
+                resp.headers['Access-Control-Max-Age'] = max_age
+            if 'Vary' in resp.headers:
+                # This is to indicate to clients that server responses will differ
+                # based on the Origin
+                vary_values = [item.strip() for item in resp.headers['Vary'].split(',')]
+                if 'Origin' not in vary_values:
+                    vary_values.append('Origin')
+                resp.headers['Vary'] = ', '.join(vary_values)
+            else:
+                resp.headers['Vary'] = 'Origin'
+
+            return resp
+        return wrapper
     return inner
