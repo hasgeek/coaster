@@ -575,14 +575,14 @@ def render_with(template, json=False, jsonp=False):
         return decorated_function
     return inner
 
-def cors(allowed_origin,
+def cors(origins,
     methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
     max_age=None):
     """
     Adds CORS headers to the decorated view function.
 
-    :param allowed_origin: Either of (a) a callable that receives the origin as a parameter. The callable
+    :param origins: Either of (a) a callable that receives the origin as a parameter. The callable
     is expected to check if the given origin has access to the
     requested resource and return a boolean value (b) A list of origins
     (c) '*', indicating that this resource is accessible by any origin
@@ -620,13 +620,16 @@ def cors(allowed_origin,
         @wraps(f)
         def wrapper(*args, **kwargs):
             origin = request.headers.get('Origin')
+            if request.method not in methods:
+                abort(401)
 
-            def is_origin_valid():
-                return ((callable(allowed_origin) and allowed_origin(origin))
-                or (isinstance(allowed_origin, list) and origin in allowed_origin)
-                or (isinstance(allowed_origin, str) and allowed_origin is '*'))
-
-            if request.method not in methods or not is_origin_valid():
+            if origins == '*':
+                pass
+            elif isinstance(origins, (list, tuple, set)) and origin in origins:
+                pass
+            elif callable(origins) and origins(origin):
+                pass
+            else:
                 abort(401)
 
             if request.method == 'OPTIONS':
