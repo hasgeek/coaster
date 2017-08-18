@@ -575,26 +575,61 @@ def render_with(template, json=False, jsonp=False):
         return decorated_function
     return inner
 
-def cors(check_origin,
+def cors(origins,
     methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
     max_age=None):
     """
     Adds CORS headers to the decorated view function.
 
-    :param check_origin: A function that receives the origin as a parameter and
-    is expected to return a boolean value to assert if the given origin has access to the
-    requested resource
+    :param origins: Either of (a) a callable that receives the origin as a parameter. The callable
+    is expected to check if the given origin has access to the
+    requested resource and return a boolean value (b) A list of origins
+    (c) '*', indicating that this resource is accessible by any origin
     :param methods: A list of HTTP methods that are allowed for this origin
     :param headers: A list of HTTP headers that are allowed for this origin
     :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
+
+    Example use::
+        from flask import Flask, Response
+        from coaster.views import cors
+
+        app = Flask(__name__)
+
+        @app.route('/any')
+        @cors('*')
+        def any_origin():
+            return Response()
+
+        @app.route('/static', methods=['GET', 'POST'])
+        @cors(['https://hasgeek.com'], methods=['GET'], headers=['Content-Type', 'X-Requested-With'],
+            max_age=3600)
+        def static_list():
+            return Response()
+
+        def check_origin(origin):
+            # check if origin should be allowed
+            return True
+
+        @app.route('/callable')
+        @cors(check_origin)
+        def callable_function():
+            return Response()
     """
-    @wraps(check_origin)
     def inner(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             origin = request.headers.get('Origin')
-            if request.method not in methods or not check_origin(origin):
+            if request.method not in methods:
+                abort(401)
+
+            if origins == '*':
+                pass
+            elif isinstance(origins, (list, tuple, set)) and origin in origins:
+                pass
+            elif callable(origins) and origins(origin):
+                pass
+            else:
                 abort(401)
 
             if request.method == 'OPTIONS':
@@ -609,7 +644,7 @@ def cors(check_origin,
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
             if max_age:
-                resp.headers['Access-Control-Max-Age'] = max_age
+                resp.headers['Access-Control-Max-Age'] = str(max_age)
             if 'Vary' in resp.headers:
                 # This is to indicate to clients that server responses will differ
                 # based on the Origin
