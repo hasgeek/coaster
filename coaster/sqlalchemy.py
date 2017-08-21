@@ -195,7 +195,7 @@ class SqlSuuidComparator(SplitIndexComparator):
 # --- Mixins ------------------------------------------------------------------
 
 __all_mixins = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
-    'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
+    'NoIdMixin', 'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
     'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
     'UuidMixin', 'RoleMixin']
 
@@ -444,10 +444,11 @@ class UrlForMixin(object):
         return decorator
 
 
-class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
+class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
     """
-    Base mixin class for all tables that adds id and timestamp columns and includes
-    stub :meth:`permissions` and :meth:`url_for` methods
+    Mixin that combines :class:`TimestampMixin`, :class:`PermissionMixin`,
+    :class:`RoleMixin` and :class:`UrlForMixin`, for use anywhere where the
+    timestamp columns and helper methods are required, but an id column is not.
     """
     def _set_fields(self, fields):
         """Helper method for :meth:`upsert` in the various subclasses"""
@@ -456,6 +457,13 @@ class BaseMixin(IdMixin, TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin
                 setattr(self, f, fields[f])
             else:
                 raise TypeError("'{arg}' is an invalid argument for {instance_type}".format(arg=f, instance_type=self.__class__.__name__))
+
+
+class BaseMixin(IdMixin, NoIdMixin):
+    """
+    Base mixin class for all tables that have an id column.
+    """
+    pass
 
 
 class BaseNameMixin(BaseMixin):
