@@ -141,7 +141,7 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_uuidmixin_roles(self):
         """A model with UuidMixin provides 'all' read access to uuid, url_id, buid and suuid"""
-        self.assertTrue({'uuid', 'url_id', 'buid', 'suuid'} <= UuidModel.__roles__['all']['read'])
+        self.assertLessEqual({'uuid', 'url_id', 'buid', 'suuid'}, UuidModel.__roles__['all']['read'])
 
     def test_roles_for_anon(self):
         """An anonymous user should have 'all' and 'anon' roles"""
