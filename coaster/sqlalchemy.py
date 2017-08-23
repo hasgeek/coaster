@@ -1186,9 +1186,11 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         DECLARE
             target RECORD;
         BEGIN
-            SELECT {parentcol} INTO target FROM {child_table_name} WHERE {child_id_column} = NEW.{rhs};
-            IF (target.{parentcol} != NEW.{lhs}) THEN
-                RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+            IF (NEW.{rhs} IS NOT NULL) THEN
+                SELECT {parentcol} INTO target FROM {child_table_name} WHERE {child_id_column} = NEW.{rhs};
+                IF (target.{parentcol} != NEW.{lhs}) THEN
+                    RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+                END IF;
             END IF;
             RETURN NEW;
         END;
