@@ -226,24 +226,24 @@ class IdMixin(object):
             def url_id_func(self):
                 """The URL id, UUID primary key rendered as a hex string"""
                 return self.id.hex
-            url_id_property = hybrid_property(url_id_func)
 
-            @url_id_property.comparator
             def url_id_is(cls):
                 return SqlHexUuidComparator(cls.id)
 
+            url_id_property = hybrid_property(url_id_func)
+            url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
         else:
             def url_id_func(self):
                 """The URL id, integer primary key rendered as a string"""
                 return six.text_type(self.id)
-            url_id_property = hybrid_property(url_id_func)
 
-            @url_id_property.expression
             def url_id_expression(cls):
                 """The URL id, integer primary key"""
                 return cls.id
 
+            url_id_property = hybrid_property(url_id_func)
+            url_id_property = url_id_property.expression(url_id_expression)
             return url_id_property
 
     def __repr__(self):
@@ -289,7 +289,6 @@ class UuidMixin(object):
         else:
             return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False)
 
-    @set_roles(read={'all'})
     @hybrid_property
     def url_id(self):
         """URL-friendly UUID representation as a hex string"""
@@ -304,7 +303,8 @@ class UuidMixin(object):
         else:
             return SqlHexUuidComparator(cls.uuid)
 
-    @set_roles(read={'all'})
+    set_roles(url_id, read={'all'})
+
     @hybrid_property
     def buid(self):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
@@ -318,7 +318,8 @@ class UuidMixin(object):
     def buid(cls):
         return SqlBuidComparator(cls.uuid)
 
-    @set_roles(read={'all'})
+    set_roles(buid, read={'all'})
+
     @hybrid_property
     def suuid(self):
         """URL-friendly UUID representation, using ShortUUID"""
@@ -331,6 +332,8 @@ class UuidMixin(object):
     @suuid.comparator
     def suuid(cls):
         return SqlSuuidComparator(cls.uuid)
+
+    set_roles(suuid, read={'all'})
 
 
 # Supply a default value for UUID-based id columns
