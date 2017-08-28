@@ -12,6 +12,8 @@
 * When using UUID primary keys in ``IdMixin``, a UUID is automatically
   generated the first time the ``id`` column is accessed, without the need
   to commit to the database
+* The underlying implementaiton, ``auto_init_default``, is also available
+  for use on other models
 * The ``url_id`` property is now part of ``IdMixin``  and supports SQL queries
   as well. This makes it compatible with the support for ``url_name`` in
   ``load_models``

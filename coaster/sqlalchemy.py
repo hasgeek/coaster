@@ -27,7 +27,7 @@ from sqlalchemy import Table, Column, ForeignKey, Integer, DateTime, Unicode, Un
 from sqlalchemy import event, inspect, DDL
 from sqlalchemy.sql import select, func, functions
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite, synonym, relationship
+from sqlalchemy.orm import composite, synonym, relationship, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from sqlalchemy.ext.hybrid import Comparator, hybrid_property
@@ -336,22 +336,10 @@ class UuidMixin(object):
     set_roles(suuid, read={'all'})
 
 
-# Supply a default value for UUID-based id columns
-def __uuid_default_listener(uuidcolumn):
-    @event.listens_for(uuidcolumn, 'init_scalar', retval=True, propagate=True)
-    def init_scalar(target, value, dict_):
-        # A subclass may override the column and not provide a default. Watch out for that.
-        default = uuidcolumn.columns[0].default
-        if default:
-            value = uuidcolumn.columns[0].default.arg(None)
-            dict_[uuidcolumn.key] = value
-            return value
-
-
 # Setup listeners for UUID-based subclasses
 def __configure_id_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
-        __uuid_default_listener(mapper.attrs.id)
+        auto_init_default(mapper.column_attrs.id)
 
 
 def __configure_uuid_listener(mapper, class_):
@@ -359,7 +347,7 @@ def __configure_uuid_listener(mapper, class_):
         return
     # Only configure this listener if the class doesn't use UUID primary keys,
     # as the `uuid` column will only be an alias for `id` in that case
-    __uuid_default_listener(mapper.attrs.uuid)
+    auto_init_default(mapper.column_attrs.uuid)
 
 
 event.listen(IdMixin, 'mapper_configured', __configure_id_listener, propagate=True)
@@ -1071,7 +1059,8 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'add_primary_relationship']
+__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'add_primary_relationship',
+    'auto_init_default']
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -1214,6 +1203,30 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         DROP TRIGGER {primary_table_name}_trigger ON {primary_table_name};
         DROP FUNCTION {primary_table_name}_validate();
         '''.format(primary_table_name=primary_table_name)).execute_if(dialect='postgresql'))
+
+
+def auto_init_default(column):
+    """
+    Set the default value for a column when it's first accessed rather than
+    first committed to the database.
+    """
+    if isinstance(column, ColumnProperty):
+        default = column.columns[0].default
+    else:
+        default = column.default
+
+    @event.listens_for(column, 'init_scalar', retval=True, propagate=True)
+    def init_scalar(target, value, dict_):
+        # A subclass may override the column and not provide a default. Watch out for that.
+        if default:
+            if default.is_callable:
+                value = default.arg(None)
+            elif default.is_scalar:
+                value = default.arg
+            else:
+                raise NotImplementedError("Can't invoke pre-default for a SQL-level column default")
+            dict_[column.key] = value
+            return value
 
 
 __all__ = __all_mixins + __all_columns + __all_functions

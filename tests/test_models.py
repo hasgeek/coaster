@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin, UUIDType, add_primary_relationship)
+    UuidMixin, UUIDType, add_primary_relationship, auto_init_default)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 
@@ -187,6 +187,13 @@ add_primary_relationship(ParentForPrimary, 'primary_child',
 
 # Used for the tests below
 parent_child_primary = db.Model.metadata.tables['parent_for_primary_child_for_primary_primary']
+
+
+class DefaultValue(BaseMixin, db.Model):
+    __tablename__ = 'default_value'
+    value = db.Column(db.Unicode(100), default=u'default')
+
+auto_init_default(DefaultValue.value)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -932,6 +939,38 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(self.session.query(func.count()).select_from(parent_child_primary).scalar(), 0)
         self.assertEqual(ParentForPrimary.query.count(), 2)
+
+    def test_auto_init_default(self):
+        """
+        Calling ``auto_init_default`` on a column makes it load defaults automatically
+        """
+        d1 = DefaultValue()
+        d2 = DefaultValue(value='not-default')
+        d3 = DefaultValue()
+        d4 = DefaultValue(value='not-default')
+
+        self.assertEqual(d1.value, u'default')
+        self.assertEqual(d1.value, u'default')  # Also works on second access
+        self.assertEqual(d2.value, u'not-default')
+        self.assertEqual(d3.value, u'default')
+        self.assertEqual(d4.value, u'not-default')
+
+        d3.value = 'changed'
+        d4.value = 'changed'
+
+        self.assertEqual(d3.value, u'changed')
+        self.assertEqual(d4.value, u'changed')
+
+        db.session.add_all([d1, d2, d3, d4])
+        db.session.commit()
+
+        for d in DefaultValue.query.all():
+            if d.id == d1.id:
+                self.assertEqual(d.value, 'default')
+            elif d.id == d2.id:
+                self.assertEqual(d.value, 'not-default')
+            elif d.id in (d3.id, d4.id):
+                self.assertEqual(d.value, 'changed')
 
 
 class TestCoasterModelsPG(TestCoasterModels):
