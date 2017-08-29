@@ -142,5 +142,5 @@ class TestCoasterUtils(unittest.TestCase):
         with self.assertRaises(TypeError):
             require_one_of(first='first', second='second', third='third')
         # Ask for which was passed in
-        self.assertEqual(require_one_of(True, first='a', second=None), 'first')
-        self.assertEqual(require_one_of(True, first=None, second='b'), 'second')
+        self.assertEqual(require_one_of(True, first='a', second=None), ('first', 'a'))
+        self.assertEqual(require_one_of(True, first=None, second='b'), ('second', 'b'))

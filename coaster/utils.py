@@ -578,7 +578,7 @@ def nullstr(value):
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
-def require_one_of(_which=False, **kwargs):
+def require_one_of(_return=False, **kwargs):
     """
     Validator that raises :exc:`TypeError` unless one and only one parameter is
     not ``None``. Use this inside functions that take multiple parameters, but
@@ -595,9 +595,11 @@ def require_one_of(_which=False, **kwargs):
             # Carry on with function logic
             pass
 
-    :param _which: Return the name of the parameter which was passed in
+    :param _return: Return the matching parameter
     :param kwargs: Parameters, of which one and only one is mandatory
-    :raises TypeError: If the count of parameters that aren't ``None`` is not one
+    :return: If `_return`, matching parameter name and value
+    :rtype: tuple
+    :raises TypeError: If the count of parameters that aren't ``None`` is not 1
     """
 
     # Two ways to count number of non-None parameters:
@@ -624,9 +626,10 @@ def require_one_of(_which=False, **kwargs):
     elif count != 1:
         raise TypeError("Only one of these parameters is allowed: " + ', '.join(kwargs.keys()))
 
-    if _which:
+    if _return:
         keys, values = zip(*[(k, 1 if v is not None else 0) for k, v in kwargs.items()])
-        return keys[values.index(1)]
+        k = keys[values.index(1)]
+        return k, kwargs[k]
 
 
 def unicode_http_header(value):
