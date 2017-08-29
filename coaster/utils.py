@@ -589,8 +589,7 @@ def require_one_of(_return=False, **kwargs):
             require_one_of(this=this, that=that)
 
             # If we need to know which parameter was passed in:
-            which = require_one_of(True, this=this, that=that)
-            # `which` will be one of 'this' or 'that'
+            param, value = require_one_of(True, this=this, that=that)
 
             # Carry on with function logic
             pass
