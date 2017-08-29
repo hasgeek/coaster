@@ -578,6 +578,39 @@ def nullstr(value):
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
+def require_one_of(_which=False, **kwargs):
+    """
+    Validator that raises :exc:`TypeError` unless one and only one parameter is
+    not ``None``. Use this inside functions that take multiple parameters, but
+    allow only one of them to be specified::
+
+        def my_func(this=None, that=None, other=None):
+            # Require one and only one of `this` or `that`
+            require_one_of(this=this, that=that)
+
+            # If we need to know which parameter was passed in:
+            which = require_one_of(True, this=this, that=that)
+            # `which` will be one of 'this' or 'that'
+
+            # Carry on with function logic
+            pass
+
+    :param _which: Return the name of the parameter which was passed in
+    :param kwargs: Parameters, of which one and only one is mandatory
+    :raises TypeError: If the count of parameters that aren't ``None`` is not one
+    """
+    count = len(kwargs) - kwargs.values().count(None)
+
+    if count == 0:
+        raise TypeError("One of these parameters is required: " + ', '.join(kwargs.keys()))
+    elif count != 1:
+        raise TypeError("Only one of these parameters is allowed: " + ', '.join(kwargs.keys()))
+
+    if _which:
+        keys, values = zip(*[(k, 1 if v is not None else 0) for k, v in kwargs.items()])
+        return keys[values.index(1)]
+
+
 def unicode_http_header(value):
     """
     Convert an ASCII HTTP header string into a unicode string with the

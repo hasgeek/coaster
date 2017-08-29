@@ -6,7 +6,7 @@ import six
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    suuid, suuid2uuid, uuid2suuid)
+    suuid, suuid2uuid, uuid2suuid, require_one_of)
 
 
 class MY_ENUM(LabeledEnum):
@@ -123,3 +123,24 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(u1.version, 4)  # ShortUUID uses v4 UUIDs by default
         s2 = uuid2suuid(u1)
         self.assertEqual(s1, s2)
+
+    def test_require_one_of(self):
+        # Valid scenarios
+        require_one_of(solo='solo')
+        require_one_of(first='first', second=None)
+        # Invalid scenarios
+        with self.assertRaises(TypeError):
+            require_one_of()
+        with self.assertRaises(TypeError):
+            require_one_of(solo=None)
+        with self.assertRaises(TypeError):
+            require_one_of(first=None, second=None)
+        with self.assertRaises(TypeError):
+            require_one_of(first='first', second='second')
+        with self.assertRaises(TypeError):
+            require_one_of(first='first', second='second', third=None)
+        with self.assertRaises(TypeError):
+            require_one_of(first='first', second='second', third='third')
+        # Ask for which was passed in
+        self.assertEqual(require_one_of(True, first='a', second=None), 'first')
+        self.assertEqual(require_one_of(True, first=None, second='b'), 'second')
