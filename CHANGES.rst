@@ -31,7 +31,8 @@
 * Removed the unused ``nullstr`` and renamed ``nullunicode`` to ``nullstr``
 * New: ``add_primary_relationship`` to define a primary child on parent models
 * Added ``NoIdMixin`` that is BaseMixin minus the id column
-  
+* New: ``require_one_of`` util for functions that require any one of many
+  parameters
 
 0.5.2
 -----

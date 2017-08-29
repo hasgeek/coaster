@@ -578,6 +578,59 @@ def nullstr(value):
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
+def require_one_of(_return=False, **kwargs):
+    """
+    Validator that raises :exc:`TypeError` unless one and only one parameter is
+    not ``None``. Use this inside functions that take multiple parameters, but
+    allow only one of them to be specified::
+
+        def my_func(this=None, that=None, other=None):
+            # Require one and only one of `this` or `that`
+            require_one_of(this=this, that=that)
+
+            # If we need to know which parameter was passed in:
+            param, value = require_one_of(True, this=this, that=that)
+
+            # Carry on with function logic
+            pass
+
+    :param _return: Return the matching parameter
+    :param kwargs: Parameters, of which one and only one is mandatory
+    :return: If `_return`, matching parameter name and value
+    :rtype: tuple
+    :raises TypeError: If the count of parameters that aren't ``None`` is not 1
+    """
+
+    # Two ways to count number of non-None parameters:
+    #
+    # 1. sum([1 if v is not None else 0 for v in kwargs.values()])
+    #
+    #    Using a list comprehension instead of a generator comprehension as the
+    #    parameter to `sum` is faster on both Python 2 and 3.
+    #
+    # 2. len(kwargs) - kwargs.values().count(None)
+    #
+    #    This is 2x faster than the first method under Python 2.7. Unfortunately,
+    #    it doesn't work in Python 3 because `kwargs.values()` is a view that doesn't
+    #    have a `count` method. It needs to be cast into a tuple/list first, but
+    #    remains faster despite the cast's slowdown. Tuples are faster than lists.
+
+    if six.PY3:
+        count = len(kwargs) - tuple(kwargs.values()).count(None)
+    else:
+        count = len(kwargs) - kwargs.values().count(None)
+
+    if count == 0:
+        raise TypeError("One of these parameters is required: " + ', '.join(kwargs.keys()))
+    elif count != 1:
+        raise TypeError("Only one of these parameters is allowed: " + ', '.join(kwargs.keys()))
+
+    if _return:
+        keys, values = zip(*[(k, 1 if v is not None else 0) for k, v in kwargs.items()])
+        k = keys[values.index(1)]
+        return k, kwargs[k]
+
+
 def unicode_http_header(value):
     """
     Convert an ASCII HTTP header string into a unicode string with the
