@@ -599,7 +599,25 @@ def require_one_of(_which=False, **kwargs):
     :param kwargs: Parameters, of which one and only one is mandatory
     :raises TypeError: If the count of parameters that aren't ``None`` is not one
     """
-    count = len(kwargs) - kwargs.values().count(None)
+
+    # Two ways to count number of non-None parameters:
+    #
+    # 1. sum([1 if v is not None else 0 for v in kwargs.values()])
+    #
+    #    Using a list comprehension instead of a generator comprehension as the
+    #    parameter to `sum` is faster on both Python 2 and 3.
+    #
+    # 2. len(kwargs) - kwargs.values().count(None)
+    #
+    #    This is 2x faster than the first method under Python 2.7. Unfortunately,
+    #    it doesn't work in Python 3 because `kwargs.values()` is a view that doesn't
+    #    have a `count` method. It needs to be cast into a tuple/list first, but
+    #    remains faster despite the cast's slowdown. Tuples are faster than lists.
+
+    if six.PY3:
+        count = len(kwargs) - tuple(kwargs.values()).count(None)
+    else:
+        count = len(kwargs) - kwargs.values().count(None)
 
     if count == 0:
         raise TypeError("One of these parameters is required: " + ', '.join(kwargs.keys()))
