@@ -303,7 +303,7 @@ class UuidMixin(object):
         else:
             return SqlHexUuidComparator(cls.uuid)
 
-    set_roles(url_id, read={'all'})
+    url_id = with_roles(url_id, read={'all'})
 
     @hybrid_property
     def buid(self):
@@ -318,7 +318,7 @@ class UuidMixin(object):
     def buid(cls):
         return SqlBuidComparator(cls.uuid)
 
-    set_roles(buid, read={'all'})
+    buid = with_roles(buid, read={'all'})
 
     @hybrid_property
     def suuid(self):
@@ -333,7 +333,7 @@ class UuidMixin(object):
     def suuid(cls):
         return SqlSuuidComparator(cls.uuid)
 
-    set_roles(suuid, read={'all'})
+    suuid = with_roles(suuid, read={'all'})
 
 
 # Setup listeners for UUID-based subclasses

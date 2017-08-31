@@ -25,7 +25,7 @@ Example use::
 
     from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
-    from coaster.sqlalchemy import BaseMixin, with_roles, set_roles
+    from coaster.sqlalchemy import BaseMixin, with_roles
 
     app = Flask(__name__)
     db = SQLAlchemy(app)
@@ -52,8 +52,10 @@ Example use::
     class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
         __tablename__ = 'role_model'
 
-        # Approach one, declare roles in advance.
-        # 'all' is a special role that is always granted from the base class
+        # The low level approach is to declare roles in advance.
+        # 'all' is a special role that is always granted from the base class.
+        # Avoid this approach because you may accidentally lose roles defined
+        # in base classes.
 
         __roles__ = {
             'all': {
@@ -61,17 +63,16 @@ Example use::
             }
         }
 
-        # Approach two, annotate roles on the attributes.
-        # These annotations always add to anything specified in __roles__
+        # Recommended: annotate roles on the attributes using ``with_roles``.
+        # These annotations always add to anything specified in ``__roles__``.
 
         id = db.Column(db.Integer, primary_key=True)
         name = with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})  # Specify read+write access
 
-        # with_roles can also be called later, using the alias set_roles
-        # for clarity. Both are the same. This is typically required for
-        # properties, where roles must be assigned after the property is
-        # fully described
+        # ``with_roles`` can also be called later. This is typically required
+        # for properties, where roles must be assigned after the property is
+        # fully described.
 
         _title = db.Column('title', db.Unicode(250))
 
@@ -83,10 +84,10 @@ Example use::
         def title(self, value):
             self._title = value
 
-        set_roles(title, write={'owner', 'editor'})  # This grants 'owner' and 'editor' write but not read access
+        title = with_roles(title, write={'owner', 'editor'})  # This grants 'owner' and 'editor' write but not read access
 
-        # with_roles can be used as a decorator on functions.
-        # 'call' is an alias for 'read', to be used for clarity
+        # ``with_roles`` can be used as a decorator on functions.
+        # 'call' is an alias for 'read', to be used for clarity.
 
         @with_roles(call={'all'})
         def hello(self):
@@ -111,7 +112,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import QueryableAttribute
 
-__all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'set_roles', 'declared_attr_roles']
+__all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
 __cache__ = {}

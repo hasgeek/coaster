@@ -3,7 +3,7 @@
 import unittest
 from flask import Flask
 from sqlalchemy.ext.declarative import declared_attr
-from coaster.sqlalchemy import RoleMixin, with_roles, set_roles, declared_attr_roles, BaseMixin, UuidMixin
+from coaster.sqlalchemy import RoleMixin, with_roles, declared_attr_roles, BaseMixin, UuidMixin
 from coaster.db import db
 
 app = Flask(__name__)
@@ -34,7 +34,7 @@ class DeclaredAttrMixin(object):
 
     # A regular column from the mixin
     mixed_in4 = db.Column(db.Unicode(250))
-    with_roles(mixed_in4, rw={'owner'})
+    mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
 class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
@@ -53,8 +53,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     # These annotations always add to anything specified in __roles__
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Unicode(250))
-    set_roles(name, rw={'owner'})  # Specify read+write access
+    name = with_roles(db.Column(db.Unicode(250)),
+        rw={'owner'})  # Specify read+write access
 
     title = with_roles(db.Column(db.Unicode(250)),
         write={'owner', 'editor'})  # Grant 'owner' and 'editor' write but not read access
