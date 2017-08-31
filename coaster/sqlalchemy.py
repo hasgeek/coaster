@@ -38,7 +38,7 @@ from sqlalchemy_utils.types import UUIDType
 from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
-from .roles import RoleMixin, set_roles, declared_attr_roles  # NOQA
+from .roles import RoleMixin, with_roles, set_roles, declared_attr_roles  # NOQA
 from .gfm import markdown
 import six
 
@@ -280,8 +280,8 @@ class UuidMixin(object):
     | BaseScopedIdNameMixin | No          | Conflicting :attr:`url_id` attribute    |
     +-----------------------+-------------+-----------------------------------------+
     """
+    @with_roles(read={'all'})
     @declared_attr
-    @declared_attr_roles(read={'all'})
     def uuid(cls):
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -303,7 +303,7 @@ class UuidMixin(object):
         else:
             return SqlHexUuidComparator(cls.uuid)
 
-    set_roles(url_id, read={'all'})
+    url_id = with_roles(url_id, read={'all'})
 
     @hybrid_property
     def buid(self):
@@ -318,7 +318,7 @@ class UuidMixin(object):
     def buid(cls):
         return SqlBuidComparator(cls.uuid)
 
-    set_roles(buid, read={'all'})
+    buid = with_roles(buid, read={'all'})
 
     @hybrid_property
     def suuid(self):
@@ -333,7 +333,7 @@ class UuidMixin(object):
     def suuid(cls):
         return SqlSuuidComparator(cls.uuid)
 
-    set_roles(suuid, read={'all'})
+    suuid = with_roles(suuid, read={'all'})
 
 
 # Setup listeners for UUID-based subclasses
@@ -704,7 +704,7 @@ class BaseIdNameMixin(BaseMixin):
         if self.title:
             self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
-    @set_roles(read={'all'})
+    @with_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """
@@ -725,7 +725,7 @@ class BaseIdNameMixin(BaseMixin):
 
     url_name = url_id_name  # Legacy name
 
-    @set_roles(read={'all'})
+    @with_roles(read={'all'})
     @hybrid_property
     def url_name_suuid(self):
         """
@@ -753,8 +753,8 @@ class BaseScopedIdMixin(BaseMixin):
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
+    @with_roles(read={'all'})
     @declared_attr
-    @declared_attr_roles(read={'all'})
     def url_id(cls):
         """Contains an id number that is unique within the parent container"""
         return Column(Integer, nullable=False)
@@ -856,7 +856,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
 
-    @set_roles(read={'all'})
+    @with_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
@@ -1059,8 +1059,8 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 # --- Helper functions --------------------------------------------------------
 
-__all_functions = ['failsafe_add', 'set_roles', 'declared_attr_roles', 'add_primary_relationship',
-    'auto_init_default']
+__all_functions = ['failsafe_add', 'with_roles', 'set_roles', 'declared_attr_roles',
+    'add_primary_relationship', 'auto_init_default']
 
 
 def failsafe_add(_session, _instance, **filters):

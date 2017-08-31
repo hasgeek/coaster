@@ -1,6 +1,9 @@
 0.6.1
 -----
 
+* Renamed ``coaster.roles.set_roles`` to ``with_roles`` and added support for
+  wrapping ``declared_attr`` and column properties
+
 
 0.6.0
 -----

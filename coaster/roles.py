@@ -25,30 +25,37 @@ Example use::
 
     from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
-    from coaster.sqlalchemy import BaseMixin, set_roles
+    from coaster.sqlalchemy import BaseMixin, with_roles
 
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
     class DeclaredAttrMixin(object):
-        # The ugly way to work with declared_attr
-        @declared_attr
+        # Standard usage
+        @with_roles(rw={'owner'})
         def mixed_in1(cls):
-            return set_roles(db.Column(db.Unicode(250)),
+            return db.Column(db.Unicode(250))
+
+        # Roundabout approach
+        @declared_attr
+        def mixed_in2(cls):
+            return with_roles(db.Column(db.Unicode(250)),
                 rw={'owner'})
 
-        # The clean way to work with declared_attr
+        # Deprecated since 0.6.1
         @declared_attr
         @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
-        def mixed_in2(cls):
+        def mixed_in3(cls):
             return db.Column(db.Unicode(250))
 
 
     class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
         __tablename__ = 'role_model'
 
-        # Approach one, declare roles in advance.
-        # 'all' is a special role that is always granted from the base class
+        # The low level approach is to declare roles in advance.
+        # 'all' is a special role that is always granted from the base class.
+        # Avoid this approach because you may accidentally lose roles defined
+        # in base classes.
 
         __roles__ = {
             'all': {
@@ -56,17 +63,33 @@ Example use::
             }
         }
 
-        # Approach two, annotate roles on the attributes.
-        # These annotations always add to anything specified in __roles__
+        # Recommended: annotate roles on the attributes using ``with_roles``.
+        # These annotations always add to anything specified in ``__roles__``.
 
         id = db.Column(db.Integer, primary_key=True)
-        name = db.Column(db.Unicode(250))
-        set_roles(name, rw={'owner'})  # Specify read+write access
+        name = with_roles(db.Column(db.Unicode(250)),
+            rw={'owner'})  # Specify read+write access
 
-        title = db.Column(db.Unicode(250))
-        set_roles(title, write={'owner', 'editor'})  # Grant 'owner' and 'editor' write but not read access
+        # ``with_roles`` can also be called later. This is typically required
+        # for properties, where roles must be assigned after the property is
+        # fully described.
 
-        @set_roles(call={'all'})  # 'call' is an alias for 'read', to be used for clarity
+        _title = db.Column('title', db.Unicode(250))
+
+        @property
+        def title(self):
+            return self._title
+
+        @title.setter
+        def title(self, value):
+            self._title = value
+
+        title = with_roles(title, write={'owner', 'editor'})  # This grants 'owner' and 'editor' write but not read access
+
+        # ``with_roles`` can be used as a decorator on functions.
+        # 'call' is an alias for 'read', to be used for clarity.
+
+        @with_roles(call={'all'})
         def hello(self):
             return "Hello!"
 
@@ -86,8 +109,13 @@ from functools import wraps
 import collections
 from copy import deepcopy
 from sqlalchemy import event
+from sqlalchemy.orm import mapper
+from sqlalchemy.orm.attributes import QueryableAttribute
 
-__all__ = ['RoleAccessProxy', 'RoleMixin', 'set_roles', 'declared_attr_roles']
+__all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
+
+# Global dictionary for temporary storage of roles until the mapper_configured events
+__cache__ = {}
 
 
 class RoleAccessProxy(collections.Mapping):
@@ -132,7 +160,7 @@ class RoleAccessProxy(collections.Mapping):
         self.__dict__['_write'] = write
 
     def __repr__(self):  # pragma: no-cover
-        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
+        return '<RoleAccessProxy(obj={obj}, roles={roles})>'.format(
             obj=repr(self._obj), roles=repr(self._roles))
 
     def __getattr__(self, attr):
@@ -170,7 +198,7 @@ class RoleAccessProxy(collections.Mapping):
             yield key
 
 
-def set_roles(obj=None, rw=None, call=None, read=None, write=None):
+def with_roles(obj=None, rw=None, call=None, read=None, write=None):
     """
     Convenience function and decorator to define roles on an attribute. Only
     works with :class:`RoleMixin`, which reads the annotations made by this
@@ -179,9 +207,9 @@ def set_roles(obj=None, rw=None, call=None, read=None, write=None):
     Examples::
 
         id = db.Column(Integer, primary_key=True)
-        set_roles(id, read={'all'})
+        with_roles(id, read={'all'})
 
-        @set_roles(read={'all'})
+        @with_roles(read={'all'})
         @hybrid_property
         def url_id(self):
             return str(self.id)
@@ -206,7 +234,14 @@ def set_roles(obj=None, rw=None, call=None, read=None, write=None):
     write.update(rw)
 
     def inner(attr):
-        attr._coaster_roles = {'read': read, 'write': write}
+        __cache__[attr] = {'read': read, 'write': write}
+        try:
+            attr._coaster_roles = {'read': read, 'write': write}
+            # If the attr has a restrictive __slots__, we'll get an attribute error.
+            # Use of _coaster_roles is now legacy, for declared_attr_roles, so we
+            # can safely ignore the error.
+        except AttributeError:
+            pass
         return attr
 
     if isinstance(obj, (list, tuple, set)):
@@ -217,28 +252,35 @@ def set_roles(obj=None, rw=None, call=None, read=None, write=None):
     else:
         return inner
 
+# with_roles was set_roles when originally introduced in 0.6.0
+set_roles = with_roles
+
 
 def declared_attr_roles(rw=None, call=None, read=None, write=None):
     """
-    Equivalent of :func:`set_roles` for use with ``@declared_attr``::
+    Equivalent of :func:`with_roles` for use with ``@declared_attr``::
 
         @declared_attr
         @declared_attr_roles(read={'all'})
         def my_column(cls):
             return Column(Integer)
 
-    While :func:`set_roles` is always the outermost decorator on properties
+    While :func:`with_roles` is always the outermost decorator on properties
     and functions, :func:`declared_attr_roles` must appear below
     ``@declared_attr`` to work correctly.
+
+    .. deprecated:: 0.6.1
+        Use :func:`with_roles` instead. It works for
+        :class:`~sqlalchemy.ext.declarative.declared_attr` since 0.6.1
     """
     def inner(f):
         @wraps(f)
         def attr(cls):
-            # Pass f(cls) as a parameter to set_roles.inner to avoid the test for
-            # iterables within set_roles. We have no idea about the use cases for
+            # Pass f(cls) as a parameter to with_roles.inner to avoid the test for
+            # iterables within with_roles. We have no idea about the use cases for
             # declared_attr in downstream code. There could be a declared_attr
             # that returns a list that should be accessible via the proxy.
-            return set_roles(rw=rw, call=call, read=read, write=write)(f(cls))
+            return with_roles(rw=rw, call=call, read=read, write=write)(f(cls))
         return attr
     return inner
 
@@ -326,7 +368,7 @@ class RoleMixin(object):
 def __configure_roles(mapper, cls):
     """
     Run through attributes of the class looking for role decorations from
-    :func:`set_roles` and add them to :attr:`cls.__roles__`
+    :func:`with_roles` and add them to :attr:`cls.__roles__`
     """
     # Don't mutate __roles__ in the base class.
     # The subclass must have its own.
@@ -345,9 +387,26 @@ def __configure_roles(mapper, cls):
         for name, attr in base.__dict__.items():
             if name in processed or name.startswith('__'):
                 continue
-            processed.add(name)
-            if hasattr(attr, '_coaster_roles'):
-                for role in attr._coaster_roles.get('read', []):
+
+            if isinstance(attr, collections.Hashable) and attr in __cache__:
+                data = __cache__[attr]
+                del __cache__[attr]
+            elif isinstance(attr, QueryableAttribute) and attr.property in __cache__:
+                data = __cache__[attr.property]
+                del __cache__[attr.property]
+            elif hasattr(attr, '_coaster_roles'):  # XXX: Deprecated
+                data = attr._coaster_roles
+            else:
+                data = None
+            if data is not None:
+                for role in data.get('read', []):
                     cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(name)
-                for role in attr._coaster_roles.get('write', []):
+                for role in data.get('write', []):
                     cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(name)
+                processed.add(name)
+
+
+@event.listens_for(mapper, 'after_configured')
+def __clear_cache():
+    for key in tuple(__cache__):
+        del __cache__[key]

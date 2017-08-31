@@ -3,7 +3,7 @@
 import unittest
 from flask import Flask
 from sqlalchemy.ext.declarative import declared_attr
-from coaster.sqlalchemy import RoleMixin, set_roles, declared_attr_roles, BaseMixin, UuidMixin
+from coaster.sqlalchemy import RoleMixin, with_roles, declared_attr_roles, BaseMixin, UuidMixin
 from coaster.db import db
 
 app = Flask(__name__)
@@ -18,7 +18,7 @@ class DeclaredAttrMixin(object):
     # The ugly way to work with declared_attr
     @declared_attr
     def mixed_in1(cls):
-        return set_roles(db.Column(db.Unicode(250)),
+        return with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})
 
     # The clean way to work with declared_attr
@@ -26,6 +26,15 @@ class DeclaredAttrMixin(object):
     @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
     def mixed_in2(cls):
         return db.Column(db.Unicode(250))
+
+    @with_roles(rw={'owner'})
+    @declared_attr
+    def mixed_in3(cls):
+        return db.Column(db.Unicode(250))
+
+    # A regular column from the mixin
+    mixed_in4 = db.Column(db.Unicode(250))
+    mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
 class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
@@ -44,13 +53,16 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     # These annotations always add to anything specified in __roles__
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Unicode(250))
-    set_roles(name, rw={'owner'})  # Specify read+write access
+    name = with_roles(db.Column(db.Unicode(250)),
+        rw={'owner'})  # Specify read+write access
 
-    title = db.Column(db.Unicode(250))
-    set_roles(title, write={'owner', 'editor'})  # Grant 'owner' and 'editor' write but not read access
+    title = with_roles(db.Column(db.Unicode(250)),
+        write={'owner', 'editor'})  # Grant 'owner' and 'editor' write but not read access
 
-    @set_roles(call={'all'})  # 'call' is an alias for 'read', to be used for clarity
+    defval = with_roles(db.deferred(db.Column(db.Unicode(250))),
+        rw={'owner'})
+
+    @with_roles(call={'all'})  # 'call' is an alias for 'read', to be used for clarity
     def hello(self):
         return "Hello!"
 
@@ -68,13 +80,13 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 class AutoRoleModel(RoleMixin, db.Model):
     __tablename__ = 'auto_role_model'
 
-    # This model doesn't specify __roles__. It only uses set_roles.
+    # This model doesn't specify __roles__. It only uses with_roles.
     # It should still work
     id = db.Column(db.Integer, primary_key=True)
-    set_roles(id, read={'all'})
+    with_roles(id, read={'all'})
 
     name = db.Column(db.Unicode(250))
-    set_roles(name, rw={'owner'}, read={'all'})
+    with_roles(name, rw={'owner'}, read={'all'})
 
 
 class BaseModel(BaseMixin, db.Model):
@@ -118,13 +130,13 @@ class TestCoasterRoles(unittest.TestCase):
                 'write': {'title', 'mixed_in2'},
                 },
             'owner': {
-                'read': {'name', 'mixed_in1', 'mixed_in2'},
-                'write': {'name', 'title', 'mixed_in1', 'mixed_in2'},
+                'read': {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
+                'write': {'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
                 },
             })
 
     def test_autorole_dict(self):
-        """A model without __roles__, using only set_roles, also works as expected"""
+        """A model without __roles__, using only with_roles, also works as expected"""
         self.assertEqual(AutoRoleModel.__roles__, {
             'all': {
                 'read': {'id', 'name'},
@@ -192,8 +204,9 @@ class TestCoasterRoles(unittest.TestCase):
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
         self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2', 'hello'})
-        self.assertEqual(set(proxy2), {'name', 'mixed_in1', 'mixed_in2'})
-        self.assertEqual(set(proxy3), {'id', 'name', 'title', 'mixed_in1', 'mixed_in2', 'hello'})
+        self.assertEqual(set(proxy2), {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
+        self.assertEqual(set(proxy3),
+            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4', 'hello'})
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
@@ -243,9 +256,9 @@ class TestCoasterRoles(unittest.TestCase):
             )
 
     def test_bad_decorator(self):
-        """Prevent set_roles from being used with a positional parameter"""
+        """Prevent with_roles from being used with a positional parameter"""
         with self.assertRaises(TypeError):
-            @set_roles({'all'})
+            @with_roles({'all'})
             def foo():
                 pass
 
