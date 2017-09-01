@@ -61,8 +61,8 @@ class TestCoasterAnnotations(unittest.TestCase):
 
     def test_has_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
-            self.assertTrue(hasattr(IdOnly, '__annotations__'))
-            self.assertTrue(hasattr(IdOnly, '__annotations_by_attr__'))
+            self.assertTrue(hasattr(model, '__annotations__'))
+            self.assertTrue(hasattr(model, '__annotations_by_attr__'))
 
     def test_annotation_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):

@@ -8,10 +8,9 @@ SQLAlchemy column annotations
 from __future__ import absolute_import
 import collections
 from copy import deepcopy
-from flask.signals import Namespace
+from blinker import Namespace
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
-from sqlalchemy.orm.properties import ColumnProperty
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.util.langhelpers import symbol
 
