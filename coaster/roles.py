@@ -238,8 +238,8 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         try:
             attr._coaster_roles = {'read': read, 'write': write}
             # If the attr has a restrictive __slots__, we'll get an attribute error.
-            # Use of _coaster_roles is now legacy, for declared_attr_roles, so we
-            # can safely ignore the error.
+            # Unfortunately, because of the way SQLAlchemy works, by copying objects
+            # into subclasses, the cache alone is not a reliable mechanism. We need both.
         except AttributeError:
             pass
         return attr
