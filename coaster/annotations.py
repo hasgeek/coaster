@@ -30,36 +30,23 @@ annotations_configured = annotation_signals.signal('annotations-configured',
     doc="Signal raised after all annotations on a class are configured")
 
 
-# --- Base class --------------------------------------------------------------
-
-class AnnotationMixin(object):
-    """
-    Base class for models that allow annotations on columns.
-    """
-
-    __annotations_by_attr__ = {}
-    __annotations__ = {}
-
-
 # --- SQLAlchemy signals for base class ---------------------------------------
 
-@event.listens_for(AnnotationMixin, 'mapper_configured', propagate=True)
+@event.listens_for(mapper, 'mapper_configured')
 def __configure_annotations(mapper, cls):
     """
     Run through attributes of the class looking for annotations from
     :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
     and :attr:`cls.__annotations_by_attr__`
     """
-    # Don't mutate dictionaries in the base class.
-    # The subclass must have its own.
-    # If the following lines are confusing, it's because reading an
-    # attribute on an object invokes the Method Resolution Order (MRO)
-    # mechanism to find it on base classes, while writing always writes
-    # to the current object.
-    if '__annotations__' not in cls.__dict__:
-        cls.__annotations__ = deepcopy(cls.__annotations__)
-    if '__annotations_by_attr__' not in cls.__dict__:
-        cls.__annotations_by_attr__ = deepcopy(cls.__annotations_by_attr__)
+    if hasattr(cls, '__annotations__'):
+        annotations = deepcopy(cls.__annotations__)
+    else:
+        annotations = {}
+    if hasattr(cls, '__annotations_by_attr__'):
+        annotations_by_attr = deepcopy(cls.__annotations_by_attr__)
+    else:
+        annotations_by_attr = {}
 
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
@@ -82,11 +69,15 @@ def __configure_annotations(mapper, cls):
             else:
                 data = None
             if data is not None:
-                cls.__annotations_by_attr__.setdefault(name, []).extend(data)
+                annotations_by_attr.setdefault(name, []).extend(data)
                 for a in data:
-                    cls.__annotations__.setdefault(a, []).append(name)
+                    annotations.setdefault(a, []).append(name)
                 processed.add(name)
 
+    if annotations:
+        cls.__annotations__ = annotations
+    if annotations_by_attr:
+        cls.__annotations_by_attr__ = annotations_by_attr
     annotations_configured.send(cls)
 
 
@@ -146,10 +137,20 @@ class ImmutableColumnError(AttributeError):
 
 @annotations_configured.connect
 def __make_immutable(cls):
-    for attr in cls.__annotations__.get(immutable.name, []):
-        col = getattr(cls, attr)
+    if hasattr(cls, '__annotations__') and immutable.name in cls.__annotations__:
+        for attr in cls.__annotations__[immutable.name]:
+            col = getattr(cls, attr)
 
-        @event.listens_for(col, 'set')
-        def immutable_column_set_listener(target, value, old_value, initiator):
-            if old_value != symbol('NEVER_SET') and old_value != symbol('NO_VALUE') and old_value != value:
-                raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
+            @event.listens_for(col, 'set')
+            def immutable_column_set_listener(target, value, old_value, initiator):
+                if old_value != symbol('NEVER_SET') and old_value != symbol('NO_VALUE') and old_value != value:
+                    raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
+
+
+# --- Base class --------------------------------------------------------------
+
+class AnnotationMixin(object):
+    """
+    Base class for models that allow annotations on columns.
+    """
+    pass
