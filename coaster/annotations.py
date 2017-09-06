@@ -143,14 +143,14 @@ def __make_immutable(cls):
 
             @event.listens_for(col, 'set')
             def immutable_column_set_listener(target, value, old_value, initiator):
-                identity = inspect(target).identity
+                has_identity = inspect(target).has_identity
                 # Pass conditions:
                 # old_value == value
                 # old_value == symbol('NEVER_SET')
-                # old_value == symbol('NO_VALUE') and identity is None
+                # old_value == symbol('NO_VALUE') and has_identity is False
                 if not (old_value == value or
                         old_value == symbol('NEVER_SET') or
-                        (old_value == symbol('NO_VALUE') and identity is None)):
+                        (old_value == symbol('NO_VALUE') and has_identity is False)):
                     raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
 
 
