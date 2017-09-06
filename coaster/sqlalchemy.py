@@ -39,7 +39,7 @@ from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
 from .roles import RoleMixin, with_roles, set_roles, declared_attr_roles  # NOQA
-from .annotations import AnnotationMixin, immutable
+from .annotations import immutable
 from .gfm import markdown
 import six
 
@@ -436,7 +436,7 @@ class UrlForMixin(object):
         return decorator
 
 
-class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin, AnnotationMixin):
+class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
     """
     Mixin that combines :class:`TimestampMixin`, :class:`PermissionMixin`,
     :class:`RoleMixin` and :class:`UrlForMixin`, for use anywhere where the

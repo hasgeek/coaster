@@ -15,7 +15,7 @@ from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 __all__ = [
-    'annotations_configured', 'AnnotationMixin',
+    'annotations_configured',
     'annotation_wrapper', 'immutable', 'cached',
     'ImmutableColumnError'
     ]
@@ -91,8 +91,7 @@ def __clear_cache():
 
 def annotation_wrapper(annotation, doc=None):
     """
-    Defines an annotation, which can be applied to attributes in a class
-    derived from :class:`AnnotationMixin`.
+    Defines an annotation, which can be applied to attributes in a database model.
     """
     def decorator(attr):
         __cache__.setdefault(attr, []).append(annotation)
@@ -152,12 +151,3 @@ def __make_immutable(cls):
                         old_value is NEVER_SET or
                         (old_value is NO_VALUE and has_identity is False)):
                     raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
-
-
-# --- Base class --------------------------------------------------------------
-
-class AnnotationMixin(object):
-    """
-    Base class for models that allow annotations on columns.
-    """
-    pass
