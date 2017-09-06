@@ -2,6 +2,8 @@
 
 from __future__ import unicode_literals
 import unittest
+from sqlalchemy import inspect
+from sqlalchemy.orm.attributes import NO_VALUE
 from flask import Flask
 from coaster.sqlalchemy import BaseMixin, UuidMixin
 from coaster.annotations import immutable, cached
@@ -195,10 +197,16 @@ class TestCoasterAnnotations(unittest.TestCase):
         # Delete objects so SQLAlchemy's session cache can't populate fields from them
         del i1, i2, i3
 
-        # Using `query.get` appears to ignore the `load_only` option
-        pi1 = IdOnly.query.options(db.load_only('id'), db.defer('is_immutable')).filter_by(id=id1).one()
-        pi2 = IdUuid.query.options(db.load_only('id'), db.defer('is_immutable')).filter_by(id=id2).one()
-        pi3 = UuidOnly.query.options(db.load_only('id'), db.defer('is_immutable')).filter_by(id=id3).one()
+        # Using `query.get` appears to ignore the `load_only` option,
+        # so we use `query.filter_by`
+        pi1 = IdOnly.query.options(db.load_only('id')).filter_by(id=id1).one()
+        pi2 = IdUuid.query.options(db.load_only('id')).filter_by(id=id2).one()
+        pi3 = UuidOnly.query.options(db.load_only('id')).filter_by(id=id3).one()
+
+        # Confirm there is no value for is_immutable
+        self.assertIs(inspect(pi1).attrs.is_immutable.loaded_value, NO_VALUE)
+        self.assertIs(inspect(pi2).attrs.is_immutable.loaded_value, NO_VALUE)
+        self.assertIs(inspect(pi3).attrs.is_immutable.loaded_value, NO_VALUE)
 
         # Immutable columns are immutable even if not loaded
         with self.assertRaises(AttributeError):

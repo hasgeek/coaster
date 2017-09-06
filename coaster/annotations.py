@@ -12,7 +12,7 @@ from blinker import Namespace
 from sqlalchemy import event, inspect
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import QueryableAttribute
-from sqlalchemy.util.langhelpers import symbol
+from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 __all__ = [
     'annotations_configured', 'AnnotationMixin',
@@ -146,11 +146,11 @@ def __make_immutable(cls):
                 has_identity = inspect(target).has_identity
                 # Pass conditions:
                 # old_value == value
-                # old_value == symbol('NEVER_SET')
-                # old_value == symbol('NO_VALUE') and has_identity is False
+                # old_value is symbol('NEVER_SET')
+                # old_value is symbol('NO_VALUE') and has_identity is False
                 if not (old_value == value or
-                        old_value == symbol('NEVER_SET') or
-                        (old_value == symbol('NO_VALUE') and has_identity is False)):
+                        old_value is NEVER_SET or
+                        (old_value is NO_VALUE and has_identity is False)):
                     raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
 
 
