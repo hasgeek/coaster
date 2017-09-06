@@ -9,7 +9,7 @@ from __future__ import absolute_import
 import collections
 from copy import deepcopy
 from blinker import Namespace
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.util.langhelpers import symbol
@@ -143,7 +143,14 @@ def __make_immutable(cls):
 
             @event.listens_for(col, 'set')
             def immutable_column_set_listener(target, value, old_value, initiator):
-                if old_value != symbol('NEVER_SET') and old_value != symbol('NO_VALUE') and old_value != value:
+                identity = inspect(target).identity
+                # Pass conditions:
+                # old_value == value
+                # old_value == symbol('NEVER_SET')
+                # old_value == symbol('NO_VALUE') and identity is None
+                if not (old_value == value or
+                        old_value == symbol('NEVER_SET') or
+                        (old_value == symbol('NO_VALUE') and identity is None)):
                     raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
 
 
