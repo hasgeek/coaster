@@ -17,6 +17,11 @@ db.init_app(app)
 
 # --- Models ------------------------------------------------------------------
 
+class ReferralTarget(BaseMixin, db.Model):
+    __tablename__ = 'referral_target'
+    pass
+
+
 class IdOnly(BaseMixin, db.Model):
     __tablename__ = 'id_only'
     __uuid_primary_key__ = False
@@ -24,6 +29,10 @@ class IdOnly(BaseMixin, db.Model):
     is_regular = db.Column(db.Integer)
     is_immutable = immutable(db.Column(db.Integer))
     is_cached = cached(db.Column(db.Integer))
+
+    # Make the raw column immutable, but allow changes via the relationship
+    referral_target_id = immutable(db.Column(None, db.ForeignKey('referral_target.id'), nullable=True))
+    referral_target = db.relationship(ReferralTarget)
 
 
 class IdUuid(UuidMixin, BaseMixin, db.Model):
@@ -34,6 +43,10 @@ class IdUuid(UuidMixin, BaseMixin, db.Model):
     is_immutable = immutable(db.Column(db.Unicode(250)))
     is_cached = cached(db.Column(db.Unicode(250)))
 
+    # Only block changes via the relationship; raw column remains mutable
+    referral_target_id = db.Column(None, db.ForeignKey('referral_target.id'), nullable=True)
+    referral_target = immutable(db.relationship(ReferralTarget))
+
 
 class UuidOnly(UuidMixin, BaseMixin, db.Model):
     __tablename__ = 'uuid_only'
@@ -42,6 +55,10 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
     is_regular = db.Column(db.Unicode(250))
     is_immutable = immutable(db.Column(db.Unicode(250)))
     is_cached = cached(db.Column(db.Unicode(250)))
+
+    # Make both raw column and relationship immutable
+    referral_target_id = immutable(db.Column(None, db.ForeignKey('referral_target.id'), nullable=True))
+    referral_target = immutable(db.relationship(ReferralTarget))
 
 
 # --- Tests -------------------------------------------------------------------
@@ -215,3 +232,55 @@ class TestCoasterAnnotations(unittest.TestCase):
             pi2.is_immutable = 'bb'
         with self.assertRaises(AttributeError):
             pi3.is_immutable = 'yy'
+
+    def test_immutable_foreignkey(self):
+        rt1 = ReferralTarget()
+        rt2 = ReferralTarget()
+        self.session.add_all([rt1, rt2])
+        self.session.commit()  # This gets us rt1.id and rt2.id
+
+        i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
+        i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
+        i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
+
+        i1.referral_target_id = rt1.id
+        i2.referral_target_id = rt1.id
+        i3.referral_target_id = rt1.id
+
+        self.session.add_all([i1, i2, i3])
+        self.session.commit()
+
+        # Now try changing the value. i1 and i3 should block, i2 should allow
+        with self.assertRaises(AttributeError):
+            i1.referral_target_id = rt2.id
+        i2.referral_target_id = rt2.id
+        with self.assertRaises(AttributeError):
+            i3.referral_target_id = rt2.id
+
+    def test_immutable_relationship(self):
+        rt1 = ReferralTarget()
+        rt2 = ReferralTarget()
+        self.session.add_all([rt1, rt2])
+        self.session.commit()  # This gets us rt1.id and rt2.id
+
+        i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
+        i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
+        i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
+
+        i1.referral_target_id = rt1.id
+        i2.referral_target_id = rt1.id
+        i3.referral_target_id = rt1.id
+
+        self.session.add_all([i1, i2, i3])
+        # If we don't commit and flush session cache, i2.referral_target
+        # will be in NEVER_SET state and hence mutable
+        self.session.commit()
+
+        # Now try changing the value. i1 will not block because the
+        # immutable validator only listens for direct changes, not
+        # via relationships
+        i1.referral_target = rt2
+        with self.assertRaises(AttributeError):
+            i2.referral_target = rt2
+        with self.assertRaises(AttributeError):
+            i3.referral_target = rt2

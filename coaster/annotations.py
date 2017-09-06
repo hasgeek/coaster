@@ -115,11 +115,11 @@ def annotation_wrapper(annotation, doc=None):
 
 # --- Annotations -------------------------------------------------------------
 
-immutable = annotation_wrapper('immutable', "Makes a column immutable once set")
+immutable = annotation_wrapper('immutable', "Marks a column as immutable once set. "
+    "Only blocks direct changes; columns may still be updated via relationships or SQL")
 cached = annotation_wrapper('cached', "Marks the column's contents as a cached value from another source")
 
 
-# This code borrowed from https://stackoverflow.com/a/35352471/78903
 class ImmutableColumnError(AttributeError):
     def __init__(self, class_name, column_name, old_value, new_value, message=None):
         self.class_name = class_name
@@ -142,11 +142,15 @@ def __make_immutable(cls):
 
             @event.listens_for(col, 'set')
             def immutable_column_set_listener(target, value, old_value, initiator):
-                has_identity = inspect(target).has_identity
-                # Pass conditions:
+                # Note:
+                # NEVER_SET is status for relationships that have never been set.
+                # NO_VALUE is for columns that have no value (either never set, or not loaded).
+                # Because of this ambiguity, we pair it with a has_identity test.
+                # Pass conditions (any of these):
                 # old_value == value
-                # old_value is symbol('NEVER_SET')
-                # old_value is symbol('NO_VALUE') and has_identity is False
+                # old_value is NEVER_SET
+                # old_value is NO_VALUE and has_identity is False
+                has_identity = inspect(target).has_identity
                 if not (old_value == value or
                         old_value is NEVER_SET or
                         (old_value is NO_VALUE and has_identity is False)):
