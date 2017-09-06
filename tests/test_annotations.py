@@ -61,6 +61,23 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
     referral_target = immutable(db.relationship(ReferralTarget))
 
 
+class PolymorphicParent(BaseMixin, db.Model):
+    __tablename__ = 'polymorphic_parent'
+    type = db.Column(db.Unicode(30), index=True)
+    is_immutable = immutable(db.Column(db.Unicode(250)))
+    also_immutable = immutable(db.Column(db.Unicode(250)))
+
+    __mapper_args__ = {'polymorphic_on': type, 'polymorphic_identity': u'parent'}
+
+
+class PolymorphicChild(PolymorphicParent):
+    __tablename__ = 'polymorphic_child'
+    id = db.Column(None, db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    # Redefining a column will keep existing annotations, even if not specified here
+    also_immutable = db.Column(db.Unicode(250))
+    __mapper_args__ = {'polymorphic_identity': u'child'}
+
+
 # --- Tests -------------------------------------------------------------------
 
 class TestCoasterAnnotations(unittest.TestCase):
@@ -284,3 +301,21 @@ class TestCoasterAnnotations(unittest.TestCase):
             i2.referral_target = rt2
         with self.assertRaises(AttributeError):
             i3.referral_target = rt2
+
+    def test_polymorphic_annotations(self):
+        self.assertIn('is_immutable', PolymorphicParent.__annotations__['immutable'])
+        self.assertIn('also_immutable', PolymorphicParent.__annotations__['immutable'])
+        self.assertIn('is_immutable', PolymorphicChild.__annotations__['immutable'])
+        self.assertIn('also_immutable', PolymorphicChild.__annotations__['immutable'])
+
+    def test_polymorphic_immutable(self):
+        parent = PolymorphicParent(is_immutable='a', also_immutable='b')
+        child = PolymorphicChild(is_immutable='x', also_immutable='y')
+        with self.assertRaises(AttributeError):
+            parent.is_immutable = 'aa'
+        with self.assertRaises(AttributeError):
+            parent.also_immutable = 'bb'
+        with self.assertRaises(AttributeError):
+            child.is_immutable = 'xx'
+        with self.assertRaises(AttributeError):
+            child.also_immutable = 'yy'

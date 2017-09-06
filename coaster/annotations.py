@@ -7,11 +7,10 @@ SQLAlchemy column annotations
 
 from __future__ import absolute_import
 import collections
-from copy import deepcopy
 from blinker import Namespace
 from sqlalchemy import event, inspect
 from sqlalchemy.orm import mapper
-from sqlalchemy.orm.attributes import QueryableAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 __all__ = [
@@ -39,14 +38,8 @@ def __configure_annotations(mapper, cls):
     :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
     and :attr:`cls.__annotations_by_attr__`
     """
-    if hasattr(cls, '__annotations__'):
-        annotations = deepcopy(cls.__annotations__)
-    else:
-        annotations = {}
-    if hasattr(cls, '__annotations_by_attr__'):
-        annotations_by_attr = deepcopy(cls.__annotations_by_attr__)
-    else:
-        annotations_by_attr = {}
+    annotations = {}
+    annotations_by_attr = {}
 
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
@@ -61,7 +54,7 @@ def __configure_annotations(mapper, cls):
             if isinstance(attr, collections.Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
-            elif isinstance(attr, QueryableAttribute) and attr.property in __cache__:
+            elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
                 data = __cache__[attr.property]
                 del __cache__[attr.property]
             elif hasattr(attr, '_coaster_annotations'):
@@ -74,6 +67,8 @@ def __configure_annotations(mapper, cls):
                     annotations.setdefault(a, []).append(name)
                 processed.add(name)
 
+    # Classes specifying ``__annotations__`` directly isn't supported,
+    # so we don't bother preserving existing content, if any.
     if annotations:
         cls.__annotations__ = annotations
     if annotations_by_attr:

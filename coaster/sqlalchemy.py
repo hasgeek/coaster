@@ -231,6 +231,7 @@ class IdMixin(object):
             def url_id_is(cls):
                 return SqlHexUuidComparator(cls.id)
 
+            url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
@@ -243,6 +244,7 @@ class IdMixin(object):
                 """The URL id, integer primary key"""
                 return cls.id
 
+            url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.expression(url_id_expression)
             return url_id_property
