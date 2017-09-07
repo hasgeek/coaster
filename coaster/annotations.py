@@ -154,7 +154,7 @@ class ImmutableColumnError(AttributeError):
 
         if message is None:
             self.message = (
-                u"Cannot update column {column_name} on model {class_name} from {old_value} to {new_value}: "
+                u"Cannot update column {class_name}.{column_name} from {old_value} to {new_value}: "
                 u"column is immutable.".format(
                     column_name=column_name, class_name=class_name, old_value=old_value, new_value=new_value))
 

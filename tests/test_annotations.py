@@ -5,7 +5,7 @@ import unittest
 from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 from flask import Flask
-from coaster.sqlalchemy import BaseMixin, UuidMixin, immutable, cached
+from coaster.sqlalchemy import BaseMixin, UuidMixin, immutable, cached, ImmutableColumnError
 from coaster.db import db
 
 app = Flask(__name__)
@@ -151,11 +151,11 @@ class TestCoasterAnnotations(unittest.TestCase):
         i3.is_immutable = 'y'
 
         # Immutable columns are immutable if the value changes
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i1.is_immutable = 20
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i2.is_immutable = 'bb'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i3.is_immutable = 'yy'
 
         # No special behaviour for cached columns, despite the annotation
@@ -209,11 +209,11 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.assertEqual(i3.is_regular, 'xx')
 
         # Immutable columns are immutable
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i1.is_immutable = 20
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i2.is_immutable = 'bb'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i3.is_immutable = 'yy'
 
         # No special behaviour for cached columns, despite the annotation
@@ -250,11 +250,11 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.assertIs(inspect(pi3).attrs.is_immutable.loaded_value, NO_VALUE)
 
         # Immutable columns are immutable even if not loaded
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             pi1.is_immutable = 20
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             pi2.is_immutable = 'bb'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             pi3.is_immutable = 'yy'
 
     def test_immutable_foreignkey(self):
@@ -275,10 +275,10 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.session.commit()
 
         # Now try changing the value. i1 and i3 should block, i2 should allow
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i1.referral_target_id = rt2.id
         i2.referral_target_id = rt2.id
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i3.referral_target_id = rt2.id
 
     def test_immutable_relationship(self):
@@ -304,9 +304,9 @@ class TestCoasterAnnotations(unittest.TestCase):
         # immutable validator only listens for direct changes, not
         # via relationships
         i1.referral_target = rt2
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i2.referral_target = rt2
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             i3.referral_target = rt2
 
     def test_polymorphic_annotations(self):
@@ -318,11 +318,11 @@ class TestCoasterAnnotations(unittest.TestCase):
     def test_polymorphic_immutable(self):
         parent = PolymorphicParent(is_immutable='a', also_immutable='b')
         child = PolymorphicChild(is_immutable='x', also_immutable='y')
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             parent.is_immutable = 'aa'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             parent.also_immutable = 'bb'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             child.is_immutable = 'xx'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(ImmutableColumnError):
             child.also_immutable = 'yy'
