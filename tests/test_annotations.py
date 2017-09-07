@@ -5,8 +5,7 @@ import unittest
 from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 from flask import Flask
-from coaster.sqlalchemy import BaseMixin, UuidMixin
-from coaster.annotations import immutable, cached
+from coaster.sqlalchemy import BaseMixin, UuidMixin, immutable, cached
 from coaster.db import db
 
 app = Flask(__name__)
@@ -53,7 +52,7 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
     __uuid_primary_key__ = True
 
     is_regular = db.Column(db.Unicode(250))
-    is_immutable = immutable(db.Column(db.Unicode(250)))
+    is_immutable = immutable(db.deferred(db.Column(db.Unicode(250))))
     is_cached = cached(db.Column(db.Unicode(250)))
 
     # Make both raw column and relationship immutable
@@ -63,11 +62,14 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
 
 class PolymorphicParent(BaseMixin, db.Model):
     __tablename__ = 'polymorphic_parent'
-    type = db.Column(db.Unicode(30), index=True)
-    is_immutable = immutable(db.Column(db.Unicode(250)))
+    type = immutable(db.Column(db.Unicode(30), index=True))
+    is_immutable = immutable(db.Column(db.Unicode(250), default='my_default'))
     also_immutable = immutable(db.Column(db.Unicode(250)))
 
-    __mapper_args__ = {'polymorphic_on': type, 'polymorphic_identity': u'parent'}
+    __mapper_args__ = {
+        'polymorphic_on': type,  # The ``type`` column in this model, not the ``type`` builtin
+        'polymorphic_identity': 'parent'
+        }
 
 
 class PolymorphicChild(PolymorphicParent):
@@ -75,7 +77,7 @@ class PolymorphicChild(PolymorphicParent):
     id = db.Column(None, db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'), primary_key=True, nullable=False)
     # Redefining a column will keep existing annotations, even if not specified here
     also_immutable = db.Column(db.Unicode(250))
-    __mapper_args__ = {'polymorphic_identity': u'child'}
+    __mapper_args__ = {'polymorphic_identity': 'child'}
 
 
 # --- Tests -------------------------------------------------------------------
@@ -143,7 +145,12 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.assertEqual(i2.is_regular, 'aa')
         self.assertEqual(i3.is_regular, 'xx')
 
-        # Immutable columns are immutable
+        # Immutable columns won't complain if they're updated with the same value
+        i1.is_immutable = 2
+        i2.is_immutable = 'b'
+        i3.is_immutable = 'y'
+
+        # Immutable columns are immutable if the value changes
         with self.assertRaises(AttributeError):
             i1.is_immutable = 20
         with self.assertRaises(AttributeError):

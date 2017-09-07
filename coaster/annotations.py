@@ -1,8 +1,38 @@
 # -*- coding: utf-8 -*-
 
 """
-SQLAlchemy column annotations
-=============================
+SQLAlchemy attribute annotations
+================================
+
+Annotations are strings attached to attributes that serve as a programmer
+reference on how those attributes are meant to be used. They can be used to
+indicate that a column's value should be :attr:`immutable` and should never
+change, or that it's a cached copy of :attr:`cached` copy of a value from
+another source that can be safely discarded in case of a conflict.
+
+This module's exports may be imported via :mod:`coaster.sqlalchemy`.
+
+Sample usage::
+
+    from coaster.db import db
+    from coaster.sqlalchemy import annotation_wrapper, immutable
+
+    natural_key = annotation_wrapper('natural_key', "Natural key for this model")
+
+    class MyModel(db.Model):
+        __tablename__ = 'my_model'
+        id = immutable(db.Column(db.Integer, primary_key=True))
+        name = natural_key(db.Column(db.Unicode(250), unique=True))
+
+        @classmethod
+        def get(cls, **kwargs):
+            for key in kwargs:
+                if key in cls.__annotations__[natural_key.name]:
+                    return cls.query.filter_by(**{key: kwargs[key]}).one_or_none()
+
+Annotations are saved to the model's class as an ``__annotations__``
+dictionary, mapping annotation names to a list of attribute names, and to a
+reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
 """
 
 from __future__ import absolute_import
@@ -138,15 +168,14 @@ def __make_immutable(cls):
             @event.listens_for(col, 'set')
             def immutable_column_set_listener(target, value, old_value, initiator):
                 # Note:
-                # NEVER_SET is status for relationships that have never been set.
+                # NEVER_SET is for columns getting a default value during a commit.
                 # NO_VALUE is for columns that have no value (either never set, or not loaded).
-                # Because of this ambiguity, we pair it with a has_identity test.
-                # Pass conditions (any of these):
-                # old_value == value
-                # old_value is NEVER_SET
-                # old_value is NO_VALUE and has_identity is False
-                has_identity = inspect(target).has_identity
-                if not (old_value == value or
-                        old_value is NEVER_SET or
-                        (old_value is NO_VALUE and has_identity is False)):
+                # Because of this ambiguity, we pair NO_VALUE with a has_identity test.
+                if old_value == value:
+                    pass
+                elif old_value is NEVER_SET:
+                    pass
+                elif old_value is NO_VALUE and inspect(target).has_identity is False:
+                    pass
+                else:
                     raise ImmutableColumnError(cls.__name__, col.name, old_value, value)

@@ -39,7 +39,7 @@ from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
 from .roles import RoleMixin, with_roles, set_roles, declared_attr_roles  # NOQA
-from .annotations import immutable
+from .annotations import annotation_wrapper, immutable, cached, annotations_configured, ImmutableColumnError  # NOQA
 from .gfm import markdown
 import six
 
