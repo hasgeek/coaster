@@ -2,7 +2,7 @@
 
 """
 Role-based access control
-=========================
+-------------------------
 
 Coaster provides a :class:`RoleMixin` class that can be used to define role-based access
 control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin` is a

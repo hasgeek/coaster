@@ -3,6 +3,8 @@
 
 * Renamed ``coaster.roles.set_roles`` to ``with_roles`` and added support for
   wrapping ``declared_attr`` and column properties
+* Added SQLAlchemy column annotations
+* Reorganised ``coaster.utils`` and ``coaster.sqlalchemy`` into sub-packages
 
 
 0.6.0
