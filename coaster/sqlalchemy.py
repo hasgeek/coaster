@@ -39,6 +39,7 @@ from flask import Markup, url_for
 from flask_sqlalchemy import BaseQuery
 from .utils import make_name, uuid2buid, uuid2suuid, buid2uuid, suuid2uuid
 from .roles import RoleMixin, with_roles, set_roles, declared_attr_roles  # NOQA
+from .annotations import annotation_wrapper, immutable, cached, annotations_configured, ImmutableColumnError  # NOQA
 from .gfm import markdown
 import six
 
@@ -215,9 +216,9 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True, nullable=False)
+            return immutable(Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True, nullable=False))
         else:
-            return Column(Integer, primary_key=True, nullable=False)
+            return immutable(Column(Integer, primary_key=True, nullable=False))
 
     @declared_attr
     def url_id(cls):
@@ -230,6 +231,7 @@ class IdMixin(object):
             def url_id_is(cls):
                 return SqlHexUuidComparator(cls.id)
 
+            url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
@@ -242,6 +244,7 @@ class IdMixin(object):
                 """The URL id, integer primary key"""
                 return cls.id
 
+            url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.expression(url_id_expression)
             return url_id_property
@@ -287,7 +290,7 @@ class UuidMixin(object):
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         else:
-            return Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False)
+            return immutable(Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False))
 
     @hybrid_property
     def url_id(self):
@@ -368,7 +371,7 @@ class TimestampMixin(object):
     """
     query_class = Query
     #: Timestamp for when this instance was created, in UTC
-    created_at = Column(DateTime, default=func.utcnow(), nullable=False)
+    created_at = immutable(Column(DateTime, default=func.utcnow(), nullable=False))
     #: Timestamp for when this instance was last updated (via the app), in UTC
     updated_at = Column(DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False)
 

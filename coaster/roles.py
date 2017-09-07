@@ -110,7 +110,7 @@ import collections
 from copy import deepcopy
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
-from sqlalchemy.orm.attributes import QueryableAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 __all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
 
@@ -238,8 +238,8 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         try:
             attr._coaster_roles = {'read': read, 'write': write}
             # If the attr has a restrictive __slots__, we'll get an attribute error.
-            # Use of _coaster_roles is now legacy, for declared_attr_roles, so we
-            # can safely ignore the error.
+            # Unfortunately, because of the way SQLAlchemy works, by copying objects
+            # into subclasses, the cache alone is not a reliable mechanism. We need both.
         except AttributeError:
             pass
         return attr
@@ -370,8 +370,10 @@ def __configure_roles(mapper, cls):
     Run through attributes of the class looking for role decorations from
     :func:`with_roles` and add them to :attr:`cls.__roles__`
     """
-    # Don't mutate __roles__ in the base class.
+    # Don't mutate ``__roles__`` in the base class.
     # The subclass must have its own.
+    # Since classes may specify ``__roles__`` directly without
+    # using :func:`with_roles`, we must preserve existing content.
     if '__roles__' not in cls.__dict__:
         # If the following line is confusing, it's because reading an
         # attribute on an object invokes the Method Resolution Order (MRO)
@@ -391,10 +393,10 @@ def __configure_roles(mapper, cls):
             if isinstance(attr, collections.Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
-            elif isinstance(attr, QueryableAttribute) and attr.property in __cache__:
+            elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
                 data = __cache__[attr.property]
                 del __cache__[attr.property]
-            elif hasattr(attr, '_coaster_roles'):  # XXX: Deprecated
+            elif hasattr(attr, '_coaster_roles'):
                 data = attr._coaster_roles
             else:
                 data = None

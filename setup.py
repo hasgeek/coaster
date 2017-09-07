@@ -41,6 +41,7 @@ requires = [
     'simplejson',
     'werkzeug',
     'markupsafe',
+    'blinker',
     'Flask',
     'six',
     ]

@@ -24,6 +24,7 @@ Coaster is available under the BSD license, the same license as Flask.
    docflow
    sqlalchemy
    roles
+   annotations
    db
    utils
    shortuuid
