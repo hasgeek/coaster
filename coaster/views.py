@@ -575,22 +575,24 @@ def render_with(template, json=False, jsonp=False):
         return decorated_function
     return inner
 
+
 def cors(origins,
-    methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
-    max_age=None):
+        methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+        headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
+        max_age=None):
     """
     Adds CORS headers to the decorated view function.
 
-    :param origins: Either of (a) a callable that receives the origin as a parameter. The callable
-    is expected to check if the given origin has access to the
-    requested resource and return a boolean value (b) A list of origins
-    (c) '*', indicating that this resource is accessible by any origin
+    :param origins: One of: (A) A callable that receives the origin as a parameter. The callable
+        is expected to check if the given origin has access to the
+        requested resource, and return a boolean value. (B) A list of origins.
+        (C) '*', indicating that this resource is accessible by any origin
     :param methods: A list of HTTP methods that are allowed for this origin
     :param headers: A list of HTTP headers that are allowed for this origin
     :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
 
     Example use::
+
         from flask import Flask, Response
         from coaster.views import cors
 

@@ -22,11 +22,9 @@ Coaster is available under the BSD license, the same license as Flask.
    assets
    views
    docflow
-   sqlalchemy
-   roles
-   annotations
+   sqlalchemy/index
    db
-   utils
+   utils/index
    shortuuid
    gfm
    nlp
@@ -37,4 +35,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

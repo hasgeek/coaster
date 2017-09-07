@@ -1,2 +1,0 @@
-.. automodule:: coaster.sqlalchemy
-   :members:
