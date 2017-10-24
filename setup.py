@@ -15,6 +15,7 @@ else:
 
 
 requires = [
+    'six',
     'nltk>=3.0',
     'shortuuid',
     'isoweek',
@@ -43,7 +44,6 @@ requires = [
     'markupsafe',
     'blinker',
     'Flask',
-    'six',
     ]
 
 
