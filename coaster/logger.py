@@ -230,10 +230,12 @@ def init_app(app):
     """
     formatter = LocalVarFormatter()
 
-    file_handler = logging.FileHandler(app.config.get('LOGFILE', 'error.log'))
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.WARNING)
-    app.logger.addHandler(file_handler)
+    error_log_file = app.config.get('LOGFILE', 'error.log')
+    if error_log_file:  # Specify a falsy value in config to disable the log file
+        file_handler = logging.FileHandler(error_log_file)
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.WARNING)
+        app.logger.addHandler(file_handler)
 
     if app.config.get('ADMIN_NUMBERS'):
         if all(key in app.config for key in ['SMS_EXOTEL_SID', 'SMS_EXOTEL_TOKEN', 'SMS_EXOTEL_FROM',
