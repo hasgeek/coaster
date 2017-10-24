@@ -36,6 +36,18 @@ class LocalVarFormatter(logging.Formatter):
     """
     Custom log formatter that logs the contents of local variables in the stack frame.
     """
+    def format(self, record):
+        """
+        Format the specified record as text. Overrides
+        :meth:`logging.Formatter.format` to remove cache of
+        :attr:`record.exc_text` unless it was produced by this formatter.
+        """
+        if record.exc_info:
+            if record.exc_text:
+                if "Stack frames (most recent call first)" not in record.exc_text:
+                    record.exc_text = None
+        return super(LocalVarFormatter, self).format(record)
+
     def formatException(self, ei):
         tb = ei[2]
         while True:
@@ -52,6 +64,7 @@ class LocalVarFormatter(logging.Formatter):
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
         print('\n----------\n', file=sio)
+        # XXX: The following text is used as a signature in :meth:`format` above
         print("Stack frames (most recent call first):", file=sio)
         for frame in stack:
             print("Frame %s in %s at line %s" % (frame.f_code.co_name,
