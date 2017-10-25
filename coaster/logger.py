@@ -67,6 +67,7 @@ class LocalVarFormatter(logging.Formatter):
         # XXX: The following text is used as a signature in :meth:`format` above
         print("Stack frames (most recent call first):", file=sio)
         for frame in stack:
+            print('\n----\n', file=sio)
             print("Frame %s in %s at line %s" % (frame.f_code.co_name,
                 frame.f_code.co_filename,
                 frame.f_lineno), file=sio)
@@ -184,7 +185,14 @@ class SlackHandler(logging.Handler):
             if record.levelname not in [lname for webhook in self.webhooks for lname in webhook.get('levelnames', [])]:
                 return
 
-            sections = [s.strip().split('\n', 1) for s in record.exc_text.split('----------')] if record.exc_text else []
+            if record.exc_text:
+                double_split = [s.split('----') for s in record.exc_text.split('----------')]
+                flat_list = [item for sublist in double_split for item in sublist]
+                # Separate out the first line of each section. It'll be used as the "pretext"
+                # while the rest will be used as a "text" attachment.
+                sections = [s.strip().split('\n', 1) for s in flat_list]
+            else:
+                sections = []
 
             data = {
                 'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
@@ -194,7 +202,7 @@ class SlackHandler(logging.Handler):
                     'mrkdwn_in': ['text'],
                     'fallback': section[0],
                     'pretext': section[0],
-                    'text': '```\n' + (section[1] if len(section) > 0 else '') + '\n```',
+                    'text': ('```\n' + section[1] + '\n```') if len(section) > 1 else '',
                     } for section in sections]}
 
             for webhook in self.webhooks:
