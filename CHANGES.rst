@@ -5,6 +5,7 @@
   wrapping ``declared_attr`` and column properties
 * Added SQLAlchemy column annotations
 * Reorganised ``coaster.utils`` and ``coaster.sqlalchemy`` into sub-packages
+* ``LabeledEnum`` now supports grouped values if declared as a set
 
 
 0.6.0
