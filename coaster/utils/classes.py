@@ -21,12 +21,16 @@ class _LabeledEnumMeta(type):
         labels = {}
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
+                # value = tuple of actual value (0), label/name (1), optional title (2)
                 if len(value) == 2:
                     labels[value[0]] = value[1]
                     attrs[key] = value[0]
                 elif len(value) == 3:
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = value[0]
+            elif key != '__order__' and isinstance(value, set):
+                # value = set of other unprocessed values
+                attrs[key] = {v[0] if isinstance(v, tuple) else v for v in value}
 
         if '__order__' in attrs:
             sorted_labels = OrderedDict()
@@ -78,7 +82,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         True
 
     Retrieve a full list of values and labels with ``.items()``. Items are
-    sorted by value regardless of the original definition order since Python
+    sorted by value regardless of the original definition order, since Python
     doesn't provide a way to preserve that order::
 
         >>> MY_ENUM.items()
@@ -95,7 +99,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         ...     RSVP_Y = ('Y', "Yes")
         ...     RSVP_N = ('N', "No")
         ...     RSVP_M = ('M', "Maybe")
-        ...     RSVP_B = ('U', "Unknown")
+        ...     RSVP_U = ('U', "Unknown")
         ...     RSVP_A = ('A', "Awaiting")
         ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M)
 
@@ -125,6 +129,29 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         1
         >>> NAME_ENUM.value_for('second')
         2
+
+    Values can be grouped together using a set, for performing "in" operations.
+    These do not have labels and cannot be accessed via dictionary access::
+
+        >>> class RSVP_EXTRA(LabeledEnum):
+        ...     RSVP_Y = ('Y', "Yes")
+        ...     RSVP_N = ('N', "No")
+        ...     RSVP_M = ('M', "Maybe")
+        ...     RSVP_U = ('U', "Unknown")
+        ...     RSVP_A = ('A', "Awaiting")
+        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M)
+        ...     UNCERTAIN = {RSVP_M, RSVP_U, 'A'}
+
+        >>> isinstance(RSVP_EXTRA.UNCERTAIN, set)
+        True
+        >>> sorted(RSVP_EXTRA.UNCERTAIN)
+        ['A', 'M', 'U']
+        >>> 'N' in RSVP_EXTRA.UNCERTAIN
+        False
+        >>> 'M' in RSVP_EXTRA.UNCERTAIN
+        True
+        >>> RSVP_EXTRA.RSVP_U in RSVP_EXTRA.UNCERTAIN
+        True
     """
 
     @classmethod
