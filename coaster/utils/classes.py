@@ -46,8 +46,8 @@ class _LabeledEnumMeta(type):
     def __getitem__(cls, key):
         return cls.__labels__[key]
 
-    def __setitem__(cls, key, value):
-        raise TypeError('LabeledEnum is immutable')
+    def __contains__(cls, key):
+        return key in cls.__labels__
 
 
 class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):

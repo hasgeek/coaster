@@ -20,3 +20,4 @@ from .annotations import *  # NOQA
 from .immutable_annotation import *  # NOQA
 from .mixins import *  # NOQA
 from .columns import *  # NOQA
+from .properties import *  # NOQA
