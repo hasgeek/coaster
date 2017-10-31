@@ -59,7 +59,7 @@ class StateProperty(object):
         post.state.is_draft     # True (is_* attrs are uppercased before retrieval from the LabeledEnum)
         post.state.PENDING      # False (since it's a draft)
         post.state.UNPUBLISHED  # True (grouped state values work as expected)
-        post.state.publish()    # Change state from DRAFT to PUBLISHED
+        post.publish()          # Change state from DRAFT to PUBLISHED
         post.state.RECENT       # True (this one calls the validator if the base state matches)
 
     States can also be used for database queries when accessed from the class::
@@ -107,8 +107,8 @@ class StateProperty(object):
 
     # Since __get__ never returns self, the following methods will only be available
     # within the owning class's namespace. It will not be possible to call them outside
-    # the class to add additional states or transitions. If you really must do that,
-    # use cls.__dict__['state_property'].add_state, etc.
+    # the class to add additional states or transitions. If a use case arises,
+    # add wrapper methods to _StatePropertyWrapper.
 
     def add_state(self, name, value, validator, class_validator=None):
         """
