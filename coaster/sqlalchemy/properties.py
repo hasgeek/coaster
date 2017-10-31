@@ -39,10 +39,19 @@ class StateProperty(object):
             def publish(self):
                 self.datetime = datetime.utcnow()
 
-    The current state of the object can now be retrieved by calling the state attribute::
+    The current state of the object can now be retrieved by calling the state attribute
+    or reading its ``value`` attribute::
 
         post = MyPost(state=MY_STATE.DRAFT)
         post.state() == MY_STATE.DRAFT
+        post.state.value == MY_STATE.DRAFT
+
+    The label associated with the state value can be accessed from the ``label`` attribute::
+
+        post.state.label == "Draft"          # This is the string label from MY_STATE.DRAFT
+        post.submit()                        # Change state from DRAFT to PENDING
+        post.state.label.name == 'pending'   # Ths is the NameTitle tuple from MY_STATE.PENDING
+        post.state.label.title == "Pending"  # The title part of NameTitle
 
     States can be tested by direct reference using their names from the LabeledEnum::
 
@@ -50,9 +59,10 @@ class StateProperty(object):
         post.state.is_draft     # True (is_* attrs are uppercased before retrieval from the LabeledEnum)
         post.state.PENDING      # False (since it's a draft)
         post.state.UNPUBLISHED  # True (grouped state values work as expected)
-        post.state.RECENT       # False (this one calls the validator if the base state matches)
+        post.state.publish()    # Change state from DRAFT to PUBLISHED
+        post.state.RECENT       # True (this one calls the validator if the base state matches)
 
-    States can also be used for database queries from the class::
+    States can also be used for database queries when accessed from the class::
 
         # Generates MyPost._state == MY_STATE.DRAFT
         MyPost.query.filter(*MyPost.state.DRAFT)
@@ -95,6 +105,11 @@ class StateProperty(object):
 
         type(obj).__dict__[self.propname].__set__(obj, value)
 
+    # Since __get__ never returns self, the following methods will only be available
+    # within the owning class's namespace. It will not be possible to call them outside
+    # the class to add additional states or transitions. If you really must do that,
+    # use cls.__dict__['state_property'].add_state, etc.
+
     def add_state(self, name, value, validator, class_validator=None):
         """
         Add an additional state that combines an existing state with a validator
@@ -136,15 +151,23 @@ class StateProperty(object):
 class _StatePropertyWrapper(object):
     def __init__(self, stateprop, obj, cls):
         self.stateprop = stateprop  # StateProperty
-        self.obj = obj
-        self.cls = cls
+        self.obj = obj  # Instance we're being called on, None if called on the class instead
+        self.cls = cls  # The class of the instance we're being called on
 
     def __call__(self):
+        """The state value"""
         return self.cls.__dict__[self.stateprop.propname].__get__(self.obj, self.cls)
+
+    value = property(__call__)
+
+    @property
+    def label(self):
+        """Label for this state value"""
+        return self.stateprop.lenum[self()]
 
     def __getattr__(self, attr):
         if attr.startswith('is_'):
-            attr = attr[3:].upper()  # Support casting `is_draft` into `DRAFT`
+            attr = attr[3:].upper()  # Support casting `is_draft` to `DRAFT`
 
         if attr in self.stateprop.states:
             value, validator, class_validator = self.stateprop.states[attr]

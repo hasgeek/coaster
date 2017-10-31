@@ -73,6 +73,7 @@ class TestStateProperty(unittest.TestCase):
         """
         self.assertEqual(self.post._state, MY_STATE.DRAFT)
         self.assertEqual(self.post.state(), MY_STATE.DRAFT)
+        self.assertEqual(self.post.state.value, MY_STATE.DRAFT)
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.PENDING)
         self.assertFalse(self.post.state.PUBLISHED)
@@ -170,3 +171,10 @@ class TestStateProperty(unittest.TestCase):
         self.post.datetime = None
         self.post.publish()
         self.assertIsNotNone(self.post.datetime)
+
+    def test_state_labels(self):
+        self.assertTrue(self.post.state.is_draft)
+        self.assertEqual(self.post.state.label, "Draft")
+        self.post.submit()
+        self.assertEqual(self.post.state.label.name, 'pending')
+        self.assertEqual(self.post.state.label.title, "Pending")
