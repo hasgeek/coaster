@@ -9,7 +9,7 @@ from __future__ import absolute_import
 import six
 from collections import namedtuple, OrderedDict
 
-__all__ = ['NameTitle', 'LabeledEnum']
+__all__ = ['NameTitle', 'LabeledEnum', 'AttributeDict']
 
 
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
@@ -175,3 +175,22 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+
+
+class AttributeDict(dict):
+    """
+    Dictionary with attribute access for convenience.
+
+    >>> d = AttributeDict()
+    >>> d['one'] = 1
+    >>> d.one
+    1
+    >>> d.two = 2
+    >>> d['two']
+    2
+    """
+    def __getattr__(self, attr):
+        return self[attr]
+
+    def __setattr__(self, attr, value):
+        self[attr] = value

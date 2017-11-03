@@ -11,4 +11,4 @@
    annotations
    immutable_annotation
    comparators
-   properties
+   stateproperty

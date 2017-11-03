@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
-from coaster.sqlalchemy import BaseMixin, StateProperty
+from coaster.sqlalchemy import BaseMixin, StateProperty, StateTransitionError, StateChangeError, StateReadonlyError
 
 
 app = Flask(__name__)
@@ -28,22 +28,27 @@ class MY_STATE(LabeledEnum):
 
 class MyPost(BaseMixin, db.Model):
     _state = db.Column('state', db.Integer, default=MY_STATE.DRAFT, nullable=False)
-    state = StateProperty('_state', MY_STATE, doc="Post state")
+    state = StateProperty('_state', MY_STATE, doc="The post's state")
+    rwstate = StateProperty('_state', MY_STATE, readonly=False, doc="The post's state (with write access)")
     datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     state.add_state('RECENT', MY_STATE.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
-    @state.transition(MY_STATE.DRAFT, MY_STATE.PENDING)
-    def submit(self):
-        pass
+    submit = state.add_transition('submit', MY_STATE.DRAFT, MY_STATE.PENDING)
 
     @state.transition(MY_STATE.UNPUBLISHED, MY_STATE.PUBLISHED)
     def publish(self):
         if self.state.DRAFT:
-            # Use TypeError to distinguish from the wrapper's ValueError in tests below
-            raise TypeError("We don't actually support transitioning from draft to published")
+            # Use AssertionError to distinguish from the wrapper's StateTransitionError (a TypeError) in tests below
+            raise AssertionError("We don't actually support transitioning from draft to published")
         self.datetime = datetime.utcnow()
+
+    @state.transition(state.added.RECENT, MY_STATE.PENDING)
+    def undo(self):  # Since this has no content, it could just be an `add_transition` call, as below
+        pass
+
+    redraft = state.add_transition('redraft', [MY_STATE.DRAFT, MY_STATE.PENDING, state.added.RECENT], MY_STATE.DRAFT)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -67,6 +72,20 @@ class TestStateProperty(unittest.TestCase):
         db.drop_all()
         self.ctx.pop()
 
+    def test_added_state_already_exists(self):
+        """
+        Adding a state that already exists will raise an error
+        """
+        with self.assertRaises(AttributeError):
+            MyPost.__dict__['state'].add_state('PENDING', MY_STATE.DRAFT, lambda post: True)
+
+    def test_transition_invalid_to(self):
+        """
+        Adding a transition with an invalid `to` state will raise an error
+        """
+        with self.assertRaises(StateTransitionError):
+            MyPost.__dict__['state'].add_transition('invalid', MY_STATE.DRAFT, 'invalid_state')
+
     def test_has_state(self):
         """
         A post has a state that can be tested with stateproperty.NAME
@@ -81,10 +100,13 @@ class TestStateProperty(unittest.TestCase):
 
     def test_change_state(self):
         """
-        When a post's state changes, the tests continue to work
+        StateProperty is read-only unless write access is requested
         """
         self.assertTrue(self.post.state.DRAFT)
-        self.post.state = MY_STATE.PENDING
+        with self.assertRaises(StateReadonlyError):
+            self.post.state = MY_STATE.PENDING
+        self.assertTrue(self.post.state.DRAFT)
+        self.post.rwstate = MY_STATE.PENDING
         self.assertFalse(self.post.state.DRAFT)
         self.assertTrue(self.post.state.PENDING)
 
@@ -92,8 +114,8 @@ class TestStateProperty(unittest.TestCase):
         """
         State cannot be changed to an invalid value
         """
-        with self.assertRaises(ValueError):
-            self.post.state = 100
+        with self.assertRaises(StateChangeError):
+            self.post.rwstate = 100
 
     def test_is_state(self):
         """
@@ -101,7 +123,7 @@ class TestStateProperty(unittest.TestCase):
         """
         self.assertTrue(self.post.state.is_draft)
         self.assertTrue(self.post.state.is_unpublished)
-        self.post.state = MY_STATE.PUBLISHED
+        self.post.rwstate = MY_STATE.PUBLISHED
         self.assertFalse(self.post.state.is_unpublished)
         self.assertTrue(self.post.state.is_published)
 
@@ -111,7 +133,7 @@ class TestStateProperty(unittest.TestCase):
         """
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.RECENT)
-        self.post.state = MY_STATE.PUBLISHED
+        self.post.rwstate = MY_STATE.PUBLISHED
         self.assertTrue(self.post.state.RECENT)
         self.assertTrue(self.post.state.is_recent)
         self.post.datetime = datetime.utcnow() - timedelta(hours=2)
@@ -119,52 +141,73 @@ class TestStateProperty(unittest.TestCase):
         self.assertFalse(self.post.state.is_recent)
 
     def test_sql_query_filter_length(self):
+        """
+        State inspection on the class returns one or two query filters
+        """
         self.assertEqual(len(MyPost.state.DRAFT), 1)
         self.assertEqual(len(MyPost.state.PENDING), 1)
         self.assertEqual(len(MyPost.state.UNPUBLISHED), 1)
         self.assertEqual(len(MyPost.state.RECENT), 2)  # This one has two filter conditions
 
     def test_sql_query_single_value(self):
+        """
+        Different queries with the same state value work as expected
+        """
         post1 = MyPost.query.filter(*MyPost.state.DRAFT).first()
         self.assertEqual(post1.id, self.post.id)
         post2 = MyPost.query.filter(*MyPost.state.PENDING).first()
         self.assertIsNone(post2)
 
     def test_sql_query_multi_value(self):
+        """
+        Same queries with different state values work as expected
+        """
         post1 = MyPost.query.filter(*MyPost.state.UNPUBLISHED).first()
         self.assertEqual(post1.id, self.post.id)
-        self.post.state = MY_STATE.PUBLISHED
+        self.post.rwstate = MY_STATE.PUBLISHED
         self.session.commit()
         post2 = MyPost.query.filter(*MyPost.state.UNPUBLISHED).first()
         self.assertIsNone(post2)
 
     def test_sql_query_added_state(self):
+        """
+        Querying for an added state works as expected (with two filter conditions)
+        """
         post1 = MyPost.query.filter(*MyPost.state.RECENT).first()
         self.assertIsNone(post1)
-        self.post.state = MY_STATE.PUBLISHED
+        self.post.rwstate = MY_STATE.PUBLISHED
         self.session.commit()
         post2 = MyPost.query.filter(*MyPost.state.RECENT).first()
         self.assertEqual(post2.id, self.post.id)
 
     def test_transition_submit(self):
+        """
+        `submit` transition works
+        """
         self.assertEqual(self.post.state(), MY_STATE.DRAFT)
         self.post.submit()
         self.assertEqual(self.post.state(), MY_STATE.PENDING)
-        with self.assertRaises(ValueError):
+        with self.assertRaises(StateTransitionError):
             # Can only be called in draft state, which we are no longer in
             self.post.submit()
         # If there's an error, the state does not change
         self.assertEqual(self.post.state(), MY_STATE.PENDING)
 
     def test_transition_publish_invalid(self):
+        """
+        An exception in the transition aborts it
+        """
         self.assertTrue(self.post.state.is_draft)
-        with self.assertRaises(TypeError):
-            # publish() should raise TypeError if we're a draft (custom exception, not decorator's)
+        with self.assertRaises(AssertionError):
+            # publish() should raise AssertionError if we're a draft (custom exception, not decorator's)
             self.post.publish()
         # If there's an error, the state does not change
         self.assertTrue(self.post.state.is_draft)
 
     def test_transition_publish_datetime(self):
+        """
+        `publish` transition amends `datetime`
+        """
         self.assertTrue(self.post.state.is_draft)
         self.post.submit()
         self.assertTrue(self.post.state.is_pending)
@@ -173,8 +216,55 @@ class TestStateProperty(unittest.TestCase):
         self.assertIsNotNone(self.post.datetime)
 
     def test_state_labels(self):
+        """
+        The current state's label can be accessed from the `.label` attribute
+        """
         self.assertTrue(self.post.state.is_draft)
         self.assertEqual(self.post.state.label, "Draft")
         self.post.submit()
         self.assertEqual(self.post.state.label.name, 'pending')
         self.assertEqual(self.post.state.label.title, "Pending")
+
+    def test_added_state_transition(self):
+        """
+        Transition works with added states as a `from` state
+        """
+        self.assertTrue(self.post.state.DRAFT)
+        self.post.submit()  # Change from DRAFT to PENDING
+        self.post.publish()  # Change from PENDING to PUBLISHED
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertTrue(self.post.state.RECENT)
+        self.post.undo()  # Change from RECENT to PENDING
+
+        self.post.publish()  # Change from PENDING to PUBLISHED
+        self.assertTrue(self.post.state.RECENT)
+        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.assertFalse(self.post.state.RECENT)
+        # `undo` shouldn't work anymore because the post is no longer RECENT
+        with self.assertRaises(StateTransitionError):
+            self.post.undo()
+
+    def test_added_regular_state_transition(self):
+        """
+        Transitions work with mixed use of regular and added states in the `from` state
+        """
+        self.assertTrue(self.post.state.DRAFT)
+        self.post.submit()  # Change from DRAFT to PENDING
+        self.assertTrue(self.post.state.PENDING)
+        self.post.redraft()  # Change from PENDING back to DRAFT
+        self.assertTrue(self.post.state.DRAFT)
+
+        self.post.submit()  # Change from DRAFT to PENDING
+        self.post.publish()  # Change from PENDING to PUBLISHED
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertTrue(self.post.state.RECENT)
+        self.post.redraft()  # Change from RECENT to DRAFT
+
+        self.post.submit()  # Change from DRAFT to PENDING
+        self.post.publish()  # Change from PENDING to PUBLISHED
+        self.assertTrue(self.post.state.RECENT)
+        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.assertFalse(self.post.state.RECENT)
+        # `redraft` shouldn't work anymore because the post is no longer RECENT
+        with self.assertRaises(StateTransitionError):
+            self.post.redraft()
