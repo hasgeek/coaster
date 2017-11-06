@@ -72,9 +72,9 @@ class TestStateManager(unittest.TestCase):
         db.drop_all()
         self.ctx.pop()
 
-    def test_added_state_already_exists(self):
+    def test_state_already_exists(self):
         """
-        Adding a state that already exists will raise an error
+        Adding a conditional state with the name of an existing state will raise an error
         """
         with self.assertRaises(AttributeError):
             MyPost.__dict__['state'].add_conditional_state('PENDING', MY_STATE.DRAFT, lambda post: True)

@@ -24,7 +24,7 @@ control state change via transitions. Sample usage::
         #: Datetime for the additional states and transitions
         datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-        #: Additional states:
+        #: Conditional states:
 
         #: RECENT = PUBLISHED + in the last one hour
         state.add_conditional_state('RECENT', MY_STATE.PUBLISHED,
@@ -53,14 +53,15 @@ Adding a :class:`StateManager` to the class links the underlying column
 (specified as an object). The StateManager is read-only unless it receives
 ``readonly=False`` as a parameter.
 
-Additional states can be defined with :meth:`~StateManager.add_conditional_state` as a
-combination of an existing state value and a validator that receives the object
-(the instance of the class the StateManager is present on). This can be used
-to evaluate for additional conditions to confirm the added state. For example,
-to distinguish between a static "published" state and a dynamic "recently
-published" state. Added states are available during the class definition
-process as attributes of the ``added`` attribute, as in the ``undo`` transition
-in the example above. :meth:`~StateManager.add_conditional_state` also takes an optional
+Conditional states can be defined with
+:meth:`~StateManager.add_conditional_state` as a combination of an existing
+state value and a validator that receives the object (the instance of the class
+the StateManager is present on). This can be used to evaluate for additional
+conditions. For example, to distinguish between a static "published" state and
+a dynamic "recently published" state. Conditional states are available during
+the class definition process as attributes of the ``conditional`` attribute, as
+in the ``undo`` transition in the example above.
+:meth:`~StateManager.add_conditional_state` also takes an optional
 ``class_validator`` parameter that is used for queries against the class (see
 below for query examples).
 
@@ -69,7 +70,7 @@ on the instance that must be called for the state to change. Transitions
 can be defined by using the :meth:`~StateManager.transition` decorator on an
 existing method, or with :meth:`~StateManager.add_transition` if no additional
 processing is required. If the transition method raises an exception, the state
-change is aborted. Transitions can be defined from added states as in the
+change is aborted. Transitions can be defined from conditional states as in the
 ``undo`` and ``redraft`` examples above.
 
 
@@ -110,7 +111,7 @@ States can also be used for database queries when accessed from the class::
     # Generates MyPost._state == MY_STATE.PUBLISHED, MyPost.datetime > datetime.utcnow() - timedelta(hours=1))
     MyPost.query.filter(*MyPost.state.RECENT)
 
-Since added states with a validator have more than one condition that must match,
+Since conditional states with a validator have more than one condition that must match,
 the class-level property returns a tuple of filter conditions.
 
 States can be set by directly changing the attribute, but only if declared
@@ -119,8 +120,8 @@ with ``readonly=False``::
     post.state = MY_STATE.PENDING
     post.state = 'some_invalid_value'  # This will raise a StateChangeError
 
-State change via :meth:`~StateManager.transition` or
-:meth:`~StateManager.add_transition` adds more power:
+State change via the :meth:`~StateManager.transition` decorator
+adds more power:
 
 1. Original and final states can be specified, prohibiting arbitrary state
    changes.
@@ -209,7 +210,7 @@ class StateManager(object):
         :param class_validator: Function that will be called when the state is queried
             on the class instead of the instance. Falls back to ``validator`` if not specified
         """
-        if name in self.lenum.__dict__:
+        if name in self.lenum.__dict__ or name in self.conditional:
             raise AttributeError("State %s already exists" % name)
         self.conditional[name] = ConditionalState(value, validator, class_validator)
 
