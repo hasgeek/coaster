@@ -35,7 +35,9 @@ class MyPost(BaseMixin, db.Model):
     state.add_conditional_state('RECENT', MY_STATE.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
-    submit = state.add_transition('submit', MY_STATE.DRAFT, MY_STATE.PENDING)
+    @state.transition(MY_STATE.DRAFT, MY_STATE.PENDING)
+    def submit(self):
+        pass
 
     @state.transition(MY_STATE.UNPUBLISHED, MY_STATE.PUBLISHED)
     def publish(self):
@@ -45,10 +47,12 @@ class MyPost(BaseMixin, db.Model):
         self.datetime = datetime.utcnow()
 
     @state.transition(state.conditional.RECENT, MY_STATE.PENDING)
-    def undo(self):  # Since this has no content, it could just be an `add_transition` call, as below
+    def undo(self):
         pass
 
-    redraft = state.add_transition('redraft', [MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT], MY_STATE.DRAFT)
+    @state.transition([MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT], MY_STATE.DRAFT)
+    def redraft(self):
+        pass
 
 
 # --- Tests -------------------------------------------------------------------
@@ -84,7 +88,7 @@ class TestStateManager(unittest.TestCase):
         Adding a transition with an invalid `to` state will raise an error
         """
         with self.assertRaises(StateTransitionError):
-            MyPost.__dict__['state'].add_transition('invalid', MY_STATE.DRAFT, 'invalid_state')
+            MyPost.__dict__['state'].transition(MY_STATE.DRAFT, 'invalid_state')(lambda: None)
 
     def test_has_state(self):
         """

@@ -32,17 +32,21 @@ control state change via transitions. Sample usage::
 
         #: Transitions to change from one state to another:
 
-        submit = state.add_transition('submit', MY_STATE.DRAFT, MY_STATE.PENDING)
+        @state.transition(MY_STATE.DRAFT, MY_STATE.PENDING)
+        def submit(self):
+            pass
 
         @state.transition(MY_STATE.UNPUBLISHED, MY_STATE.PUBLISHED)
         def publish(self):
             self.datetime = datetime.utcnow()
 
-        undo = state.add_transition('undo', state.conditional.RECENT, MY_STATE.PENDING)
+        @state.transition(state.conditional.RECENT, MY_STATE.PENDING)
+        def undo(self):
+            pass
 
-        redraft = state.add_transition('redraft',
-            [MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT],
-            MY_STATE.DRAFT)
+        @state.transition([MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT], MY_STATE.DRAFT)
+        def redraft(self):
+            pass
 
 
 Defining states and transitions
@@ -67,11 +71,10 @@ below for query examples).
 
 Transitions connect one or more states to another. Transitions are methods
 on the instance that must be called for the state to change. Transitions
-can be defined by using the :meth:`~StateManager.transition` decorator on an
-existing method, or with :meth:`~StateManager.add_transition` if no additional
-processing is required. If the transition method raises an exception, the state
-change is aborted. Transitions can be defined from conditional states as in the
-``undo`` and ``redraft`` examples above.
+can be defined by using the :meth:`~StateManager.transition` decorator. If the
+transition method raises an exception, the state change is aborted. Transitions
+can be defined from conditional states as in the ``undo`` and ``redraft``
+examples above.
 
 
 Queries
@@ -243,7 +246,7 @@ class StateManager(object):
         def decorator(f):
             transition_name = name or f.__name__
 
-            @wraps(f if f is not None else lambda: None)
+            @wraps(f)
             def inner(obj, *args, **kwargs):
                 current_state = type(obj).__dict__[self.propname].__get__(obj, type(obj))
                 state_valid = (current_state in regular_states) or (
@@ -251,18 +254,12 @@ class StateManager(object):
                 if not state_valid:
                     raise StateTransitionError(
                         "Invalid state for transition %s: %s" % (transition_name, self.lenum[current_state]))
-                result = f(obj, *args, **kwargs) if f is not None else None
+                result = f(obj, *args, **kwargs)
                 self.__set(obj, to, force=True)  # Change state
                 return result
             self.transitions[transition_name] = (from_, to, inner)
             return inner
         return decorator
-
-    def add_transition(self, name, from_, to):
-        """
-        Add a transition between states, with no wrapped function. See :meth:`transition` for details.
-        """
-        return self.transition(from_, to, name)(None)
 
 
 class _StateManagerWrapper(object):
