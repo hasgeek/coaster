@@ -20,4 +20,4 @@ from .annotations import *  # NOQA
 from .immutable_annotation import *  # NOQA
 from .mixins import *  # NOQA
 from .columns import *  # NOQA
-from .stateproperty import *  # NOQA
+from .statemanager import *  # NOQA

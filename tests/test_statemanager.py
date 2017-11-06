@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
-from coaster.sqlalchemy import BaseMixin, StateProperty, StateTransitionError, StateChangeError, StateReadonlyError
+from coaster.sqlalchemy import BaseMixin, StateManager, StateTransitionError, StateChangeError, StateReadonlyError
 
 
 app = Flask(__name__)
@@ -28,8 +28,8 @@ class MY_STATE(LabeledEnum):
 
 class MyPost(BaseMixin, db.Model):
     _state = db.Column('state', db.Integer, default=MY_STATE.DRAFT, nullable=False)
-    state = StateProperty('_state', MY_STATE, doc="The post's state")
-    rwstate = StateProperty('_state', MY_STATE, readonly=False, doc="The post's state (with write access)")
+    state = StateManager('_state', MY_STATE, doc="The post's state")
+    rwstate = StateManager('_state', MY_STATE, readonly=False, doc="The post's state (with write access)")
     datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     state.add_state('RECENT', MY_STATE.PUBLISHED,
@@ -53,7 +53,7 @@ class MyPost(BaseMixin, db.Model):
 
 # --- Tests -------------------------------------------------------------------
 
-class TestStateProperty(unittest.TestCase):
+class TestStateManager(unittest.TestCase):
     """SQLite tests"""
     app = app
 
@@ -88,7 +88,7 @@ class TestStateProperty(unittest.TestCase):
 
     def test_has_state(self):
         """
-        A post has a state that can be tested with stateproperty.NAME
+        A post has a state that can be tested with statemanager.NAME
         """
         self.assertEqual(self.post._state, MY_STATE.DRAFT)
         self.assertEqual(self.post.state(), MY_STATE.DRAFT)
@@ -100,7 +100,7 @@ class TestStateProperty(unittest.TestCase):
 
     def test_change_state(self):
         """
-        StateProperty is read-only unless write access is requested
+        StateManager is read-only unless write access is requested
         """
         self.assertTrue(self.post.state.DRAFT)
         with self.assertRaises(StateReadonlyError):

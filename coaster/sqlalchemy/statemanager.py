@@ -4,7 +4,7 @@
 States and transitions
 ----------------------
 
-:class:`StateProperty` wraps a SQLAlchemy column (or any property) with a
+:class:`StateManager` wraps a SQLAlchemy column (or any property) with a
 :class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection, and
 control state change via transitions. Sample usage::
 
@@ -20,7 +20,7 @@ control state change via transitions. Sample usage::
         #: The underlying state value column
         _state = db.Column('state', db.Integer, default=MY_STATE.DRAFT, nullable=False)
         #: The state property
-        state = StateProperty('_state', MY_STATE, doc="The post's state")
+        state = StateManager('_state', MY_STATE, doc="The post's state")
         #: Datetime for the additional states and transitions
         datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -48,26 +48,26 @@ control state change via transitions. Sample usage::
 Defining states and transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Adding a :class:`StateProperty` to the class links the underlying column
+Adding a :class:`StateManager` to the class links the underlying column
 (specified as a string) to the :class:`~coaster.utils.classes.LabeledEnum`
-(specified as an object). The StateProperty is read-only unless it receives
+(specified as an object). The StateManager is read-only unless it receives
 ``readonly=False`` as a parameter.
 
-Additional states can be defined with :meth:`~StateProperty.add_state` as a
+Additional states can be defined with :meth:`~StateManager.add_state` as a
 combination of an existing state value and a validator that receives the object
-(the instance of the class the StateProperty is present on). This can be used
+(the instance of the class the StateManager is present on). This can be used
 to evaluate for additional conditions to confirm the added state. For example,
 to distinguish between a static "published" state and a dynamic "recently
 published" state. Added states are available during the class definition
 process as attributes of the ``added`` attribute, as in the ``undo`` transition
-in the example above. :meth:`~StateProperty.add_state` also takes an optional
+in the example above. :meth:`~StateManager.add_state` also takes an optional
 ``class_validator`` parameter that is used for queries against the class (see
 below for query examples).
 
 Transitions connect one or more states to another. Transitions are methods
 on the instance that must be called for the state to change. Transitions
-can be defined by using the :meth:`~StateProperty.transition` decorator on an
-existing method, or with :meth:`~StateProperty.add_transition` if no additional
+can be defined by using the :meth:`~StateManager.transition` decorator on an
+existing method, or with :meth:`~StateManager.add_transition` if no additional
 processing is required. If the transition method raises an exception, the state
 change is aborted. Transitions can be defined from added states as in the
 ``undo`` and ``redraft`` examples above.
@@ -119,8 +119,8 @@ with ``readonly=False``::
     post.state = MY_STATE.PENDING
     post.state = 'some_invalid_value'  # This will raise a StateChangeError
 
-State change via :meth:`~StateProperty.transition` or
-:meth:`~StateProperty.add_transition` adds more power:
+State change via :meth:`~StateManager.transition` or
+:meth:`~StateManager.add_transition` adds more power:
 
 1. Original and final states can be specified, prohibiting arbitrary state
    changes.
@@ -129,11 +129,11 @@ State change via :meth:`~StateProperty.transition` or
    and :class:`~coaster.sqlalchemy.roles.RoleMixin`, it provides
    access control for state changes.
 
-A mechanism by which StateProperty and RoleMixin can be combined to determine
+A mechanism by which StateManager and RoleMixin can be combined to determine
 currently available transitions is pending.
 """
 
-__all__ = ['StateProperty', 'StateTransitionError', 'StateChangeError', 'StateReadonlyError']
+__all__ = ['StateManager', 'StateTransitionError', 'StateChangeError', 'StateReadonlyError']
 
 from functools import wraps
 from collections import namedtuple
@@ -151,14 +151,14 @@ class StateChangeError(ValueError):
 
 
 class StateReadonlyError(AttributeError):
-    """Raised if the StateProperty is read-only and a direct state value change was attempted"""
+    """Raised if the StateManager is read-only and a direct state value change was attempted"""
     pass
 
 
 AddedState = namedtuple('AddedState', ['value', 'validator', 'class_validator'])
 
 
-class StateProperty(object):
+class StateManager(object):
     """
     Wraps a property with a :class:`~coaster.utils.classes.LabeledEnum` to
     facilitate state inspection and control state changes.
@@ -177,7 +177,7 @@ class StateProperty(object):
         self.transitions = {}  # name: (from_, to, func)
 
     def __get__(self, obj, cls=None):
-        return _StatePropertyWrapper(self, obj, cls)
+        return _StateManagerWrapper(self, obj, cls)
 
     def __set(self, obj, value, force=False):
         """Internal method to set state, called by :meth:`__set__` and meth:`transition`"""
@@ -195,7 +195,7 @@ class StateProperty(object):
     # Since __get__ never returns self, the following methods will only be available
     # within the owning class's namespace. It will not be possible to call them outside
     # the class to add additional states or transitions. If a use case arises,
-    # add wrapper methods to _StatePropertyWrapper.
+    # add wrapper methods to _StateManagerWrapper.
 
     def add_state(self, name, value, validator, class_validator=None):
         """
@@ -264,11 +264,11 @@ class StateProperty(object):
         return self.transition(from_, to, name)(None)
 
 
-class _StatePropertyWrapper(object):
-    """Wraps StateProperty with the context of the containing object"""
+class _StateManagerWrapper(object):
+    """Wraps StateManager with the context of the containing object"""
 
     def __init__(self, stateprop, obj, cls):
-        self.stateprop = stateprop  # StateProperty
+        self.stateprop = stateprop  # StateManager
         self.obj = obj  # Instance we're being called on, None if called on the class instead
         self.cls = cls  # The class of the instance we're being called on
 

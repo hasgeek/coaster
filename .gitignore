@@ -11,3 +11,4 @@ docs/_build
 build/
 dist/
 error.log
+__pycache__
