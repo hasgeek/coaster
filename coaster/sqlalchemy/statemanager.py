@@ -27,7 +27,7 @@ control state change via transitions. Sample usage::
         #: Additional states:
 
         #: RECENT = PUBLISHED + in the last one hour
-        state.add_state('RECENT', MY_STATE.PUBLISHED,
+        state.add_conditional_state('RECENT', MY_STATE.PUBLISHED,
             lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
         #: Transitions to change from one state to another:
@@ -38,10 +38,10 @@ control state change via transitions. Sample usage::
         def publish(self):
             self.datetime = datetime.utcnow()
 
-        undo = state.add_transition('undo', state.added.RECENT, MY_STATE.PENDING)
+        undo = state.add_transition('undo', state.conditional.RECENT, MY_STATE.PENDING)
 
         redraft = state.add_transition('redraft',
-            [MY_STATE.DRAFT, MY_STATE.PENDING, state.added.RECENT],
+            [MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT],
             MY_STATE.DRAFT)
 
 
@@ -53,14 +53,14 @@ Adding a :class:`StateManager` to the class links the underlying column
 (specified as an object). The StateManager is read-only unless it receives
 ``readonly=False`` as a parameter.
 
-Additional states can be defined with :meth:`~StateManager.add_state` as a
+Additional states can be defined with :meth:`~StateManager.add_conditional_state` as a
 combination of an existing state value and a validator that receives the object
 (the instance of the class the StateManager is present on). This can be used
 to evaluate for additional conditions to confirm the added state. For example,
 to distinguish between a static "published" state and a dynamic "recently
 published" state. Added states are available during the class definition
 process as attributes of the ``added`` attribute, as in the ``undo`` transition
-in the example above. :meth:`~StateManager.add_state` also takes an optional
+in the example above. :meth:`~StateManager.add_conditional_state` also takes an optional
 ``class_validator`` parameter that is used for queries against the class (see
 below for query examples).
 
@@ -155,7 +155,7 @@ class StateReadonlyError(AttributeError):
     pass
 
 
-AddedState = namedtuple('AddedState', ['value', 'validator', 'class_validator'])
+ConditionalState = namedtuple('ConditionalState', ['value', 'validator', 'class_validator'])
 
 
 class StateManager(object):
@@ -173,7 +173,7 @@ class StateManager(object):
         self.lenum = lenum
         self.readonly = readonly
         self.__doc__ = doc
-        self.added = AttributeDict()  # name: AddedState
+        self.conditional = AttributeDict()  # name: ConditionalState
         self.transitions = {}  # name: (from_, to, func)
 
     def __get__(self, obj, cls=None):
@@ -194,12 +194,12 @@ class StateManager(object):
 
     # Since __get__ never returns self, the following methods will only be available
     # within the owning class's namespace. It will not be possible to call them outside
-    # the class to add additional states or transitions. If a use case arises,
+    # the class to add conditional states or transitions. If a use case arises,
     # add wrapper methods to _StateManagerWrapper.
 
-    def add_state(self, name, value, validator, class_validator=None):
+    def add_conditional_state(self, name, value, validator, class_validator=None):
         """
-        Add an additional state that combines an existing state with a validator
+        Add a conditional state that combines an existing state with a validator
         that must also pass. The validator receives the object on which the property
         is present as a parameter.
 
@@ -211,7 +211,7 @@ class StateManager(object):
         """
         if name in self.lenum.__dict__:
             raise AttributeError("State %s already exists" % name)
-        self.added[name] = AddedState(value, validator, class_validator)
+        self.conditional[name] = ConditionalState(value, validator, class_validator)
 
     def transition(self, from_, to, name=None):
         """
@@ -229,14 +229,14 @@ class StateManager(object):
             raise StateTransitionError("Invalid transition `to` state: %s" % to)
 
         # Evaluate `from_` and decide how to compare with it
-        if isinstance(from_, AddedState):
-            added_states = {from_.value: from_}
+        if isinstance(from_, ConditionalState):
+            conditional_states = {from_.value: from_}
             regular_states = []
         elif isinstance(from_, (set, frozenset, list, tuple)):
-            added_states = {stateval.value: stateval for stateval in from_ if isinstance(stateval, AddedState)}
-            regular_states = [stateval for stateval in from_ if not isinstance(stateval, AddedState)]
+            conditional_states = {stateval.value: stateval for stateval in from_ if isinstance(stateval, ConditionalState)}
+            regular_states = [stateval for stateval in from_ if not isinstance(stateval, ConditionalState)]
         else:
-            added_states = {}
+            conditional_states = {}
             regular_states = [from_]
 
         def decorator(f):
@@ -246,7 +246,7 @@ class StateManager(object):
             def inner(obj, *args, **kwargs):
                 current_state = type(obj).__dict__[self.propname].__get__(obj, type(obj))
                 state_valid = (current_state in regular_states) or (
-                    current_state in added_states and added_states[current_state].validator(obj))
+                    current_state in conditional_states and conditional_states[current_state].validator(obj))
                 if not state_valid:
                     raise StateTransitionError(
                         "Invalid state for transition %s: %s" % (transition_name, self.lenum[current_state]))

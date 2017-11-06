@@ -32,7 +32,7 @@ class MyPost(BaseMixin, db.Model):
     rwstate = StateManager('_state', MY_STATE, readonly=False, doc="The post's state (with write access)")
     datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    state.add_state('RECENT', MY_STATE.PUBLISHED,
+    state.add_conditional_state('RECENT', MY_STATE.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
     submit = state.add_transition('submit', MY_STATE.DRAFT, MY_STATE.PENDING)
@@ -44,11 +44,11 @@ class MyPost(BaseMixin, db.Model):
             raise AssertionError("We don't actually support transitioning from draft to published")
         self.datetime = datetime.utcnow()
 
-    @state.transition(state.added.RECENT, MY_STATE.PENDING)
+    @state.transition(state.conditional.RECENT, MY_STATE.PENDING)
     def undo(self):  # Since this has no content, it could just be an `add_transition` call, as below
         pass
 
-    redraft = state.add_transition('redraft', [MY_STATE.DRAFT, MY_STATE.PENDING, state.added.RECENT], MY_STATE.DRAFT)
+    redraft = state.add_transition('redraft', [MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT], MY_STATE.DRAFT)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -77,7 +77,7 @@ class TestStateManager(unittest.TestCase):
         Adding a state that already exists will raise an error
         """
         with self.assertRaises(AttributeError):
-            MyPost.__dict__['state'].add_state('PENDING', MY_STATE.DRAFT, lambda post: True)
+            MyPost.__dict__['state'].add_conditional_state('PENDING', MY_STATE.DRAFT, lambda post: True)
 
     def test_transition_invalid_to(self):
         """
