@@ -287,8 +287,8 @@ class _StateManagerWrapper(object):
         if attr.startswith('is_'):
             attr = attr[3:].upper()  # Support casting `is_draft` to `DRAFT`
 
-        if attr in self.stateprop.added:
-            value, validator, class_validator = self.stateprop.added[attr]
+        if attr in self.stateprop.conditional:
+            value, validator, class_validator = self.stateprop.conditional[attr]
         else:
             value = getattr(self.stateprop.lenum, attr)  # Get value for this state attr from the LabeledEnum
             validator = class_validator = None
