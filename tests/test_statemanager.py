@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 
+# TODO: Test reviewstate changes in transitions
+# Remove readonly parameter and all direct write capability
+# Make calling the state manager return a managed state, not raw value
+# Cover missing lines
+# Update documentation
+
 from __future__ import absolute_import
 
 import unittest
@@ -7,7 +13,8 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
-from coaster.sqlalchemy import BaseMixin, StateManager, StateTransitionError, StateChangeError, StateReadonlyError
+from coaster.sqlalchemy import (with_roles, BaseMixin,
+    StateManager, StateTransitionError, StateChangeError, StateReadonlyError)
 
 
 app = Flask(__name__)
@@ -26,32 +33,77 @@ class MY_STATE(LabeledEnum):
     UNPUBLISHED = {DRAFT, PENDING}
 
 
+class REVIEW_STATE(LabeledEnum):
+    UNSUBMITTED = (0, "Unsubmitted")
+    PENDING = (1, "Pending")
+    LOCKED = (2, "Locked")
+
+    UNLOCKED = {UNSUBMITTED, PENDING}
+
+
 class MyPost(BaseMixin, db.Model):
-    _state = db.Column('state', db.Integer, default=MY_STATE.DRAFT, nullable=False)
+    # Database state columns
+    _state = db.Column('state', db.Integer, StateManager.check_constraint('state', MY_STATE),
+        default=MY_STATE.DRAFT, nullable=False)
+    _reviewstate = db.Column('reviewstate', db.Integer, StateManager.check_constraint('state', REVIEW_STATE),
+        default=REVIEW_STATE.UNSUBMITTED, nullable=False)
+    # State managers
     state = StateManager('_state', MY_STATE, doc="The post's state")
     rwstate = StateManager('_state', MY_STATE, readonly=False, doc="The post's state (with write access)")
+    reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
+
+    # We do not use the LabeledEnum from now on. States must be accessed from the
+    # state manager instead.
+
+    # Model's data columns (used for tests)
     datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    state.add_conditional_state('RECENT', MY_STATE.PUBLISHED,
+    # Conditional states (adds ManagedState instances)
+    state.add_conditional_state('RECENT', state.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
-    @state.transition(MY_STATE.DRAFT, MY_STATE.PENDING)
+    # State groups (apart from those in the LabeledEnum), used here to include the
+    # conditional state in a group. Adds ManagedStateGroup instances
+    state.add_state_group('REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT)
+
+    # State transitions. When multiple state managers are involved, all of them
+    # must be in a matching "from" state for the transition to be valid.
+    # Specifying `None` for "from" state indicates that any "from" state is valid.
+    @with_roles(call={'author'})
+    @state.transition(state.DRAFT, state.PENDING)
+    @reviewstate.transition(None, reviewstate.UNSUBMITTED, title="Submit")
     def submit(self):
         pass
 
-    @state.transition(MY_STATE.UNPUBLISHED, MY_STATE.PUBLISHED)
+    @with_roles(call={'author'})
+    @state.transition(state.UNPUBLISHED, state.PUBLISHED)
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def publish(self):
         if self.state.DRAFT:
             # Use AssertionError to distinguish from the wrapper's StateTransitionError (a TypeError) in tests below
             raise AssertionError("We don't actually support transitioning from draft to published")
         self.datetime = datetime.utcnow()
 
-    @state.transition(state.conditional.RECENT, MY_STATE.PENDING)
+    @with_roles(call={'author'})
+    @state.transition(state.RECENT, state.PENDING, title="Undo")
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.UNSUBMITTED)
     def undo(self):
         pass
 
-    @state.transition([MY_STATE.DRAFT, MY_STATE.PENDING, state.conditional.RECENT], MY_STATE.DRAFT)
+    @with_roles(call={'author'})
+    @state.transition(state.REDRAFTABLE, state.DRAFT, title="Redraft")
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.UNSUBMITTED)
     def redraft(self):
+        pass
+
+    @with_roles(call={'reviewer'})
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.LOCKED, if_=state.PUBLISHED, title="Lock")
+    def review_lock(self):
+        pass
+
+    @with_roles(call={'reviewer'})
+    @reviewstate.transition(reviewstate.LOCKED, reviewstate.PENDING, title="Unlock")
+    def review_unlock(self):
         pass
 
 
@@ -144,44 +196,35 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(self.post.state.RECENT)
         self.assertFalse(self.post.state.is_recent)
 
-    def test_sql_query_filter_length(self):
-        """
-        State inspection on the class returns one or two query filters
-        """
-        self.assertEqual(len(MyPost.state.DRAFT), 1)
-        self.assertEqual(len(MyPost.state.PENDING), 1)
-        self.assertEqual(len(MyPost.state.UNPUBLISHED), 1)
-        self.assertEqual(len(MyPost.state.RECENT), 2)  # This one has two filter conditions
-
     def test_sql_query_single_value(self):
         """
         Different queries with the same state value work as expected
         """
-        post1 = MyPost.query.filter(*MyPost.state.DRAFT).first()
+        post1 = MyPost.query.filter(MyPost.state.DRAFT).first()
         self.assertEqual(post1.id, self.post.id)
-        post2 = MyPost.query.filter(*MyPost.state.PENDING).first()
+        post2 = MyPost.query.filter(MyPost.state.PENDING).first()
         self.assertIsNone(post2)
 
     def test_sql_query_multi_value(self):
         """
         Same queries with different state values work as expected
         """
-        post1 = MyPost.query.filter(*MyPost.state.UNPUBLISHED).first()
+        post1 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         self.assertEqual(post1.id, self.post.id)
         self.post.rwstate = MY_STATE.PUBLISHED
         self.session.commit()
-        post2 = MyPost.query.filter(*MyPost.state.UNPUBLISHED).first()
+        post2 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         self.assertIsNone(post2)
 
     def test_sql_query_added_state(self):
         """
         Querying for an added state works as expected (with two filter conditions)
         """
-        post1 = MyPost.query.filter(*MyPost.state.RECENT).first()
+        post1 = MyPost.query.filter(MyPost.state.RECENT).first()
         self.assertIsNone(post1)
         self.post.rwstate = MY_STATE.PUBLISHED
         self.session.commit()
-        post2 = MyPost.query.filter(*MyPost.state.RECENT).first()
+        post2 = MyPost.query.filter(MyPost.state.RECENT).first()
         self.assertEqual(post2.id, self.post.id)
 
     def test_transition_submit(self):
@@ -272,3 +315,15 @@ class TestStateManager(unittest.TestCase):
         # `redraft` shouldn't work anymore because the post is no longer RECENT
         with self.assertRaises(StateTransitionError):
             self.post.redraft()
+
+    def test_reviewstate_also_changes(self):
+        """Transitions with two decorators change state on both managers"""
+        pass
+
+    def test_transition_data(self):
+        """Additional data defined on a transition works regardless of decorator order"""
+        pass
+
+    def test_role_proxy_transitions(self):
+        """with_roles works on the transition decorator"""
+        pass

@@ -7,7 +7,6 @@
 * Reorganised ``coaster.utils`` and ``coaster.sqlalchemy`` into sub-packages
 * ``LabeledEnum`` now supports grouped values if declared as a set
 * New: ``coaster.sqlalchemy.StateManager`` adds state management to models
-* New: ``coaster.utils.AttributeDict`` provides attribute access to a dict
 
 
 0.6.0
