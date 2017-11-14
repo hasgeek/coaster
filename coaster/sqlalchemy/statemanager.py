@@ -5,7 +5,7 @@ States and transitions
 ----------------------
 
 :class:`StateManager` wraps a SQLAlchemy column with a
-:class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection and
+:class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection, and
 control state change via transitions. Sample usage::
 
     class MY_STATE(LabeledEnum):
@@ -185,7 +185,7 @@ context:
 
 States can be changed via transitions, defined as methods with the
 :meth:`~StateManager.transition` decorator. They add more power and safeguards
-over direct state value changes::
+over direct state value changes:
 
 1. Original and final states can be specified, prohibiting arbitrary state
    changes.
@@ -195,9 +195,6 @@ over direct state value changes::
    access control for state changes.
 4. Signals are raised before and after a successful transition, or in case
    of failures, allowing for the attempts to be logged.
-
-A mechanism by which StateManager and RoleMixin can be combined to determine
-currently available transitions is pending.
 """
 
 from __future__ import absolute_import
@@ -601,14 +598,15 @@ class StateManager(object):
         :param ManagedState state: Existing state that this is based on
         :param validator: Function that will be called with the host object as a parameter
         :param class_validator: Function that will be called when the state is queried
-            on the class instead of the instance. Falls back to ``validator`` if not specified
+            on the class instead of the instance. Falls back to ``validator`` if not specified.
+            Receives the class as the parameter
         :param cache_for: Integer or function that indicates how long ``validator``'s
             result can be cached (not applicable to ``class_validator``). ``None`` implies
             no cache, ``0`` implies indefinite cache (until invalidated by a transition)
             and any other integer is the number of seconds for which to cache the assertion
 
-        TODO: cache_for's implementation is currently pending a clear sense of how the
-        cache will be used.
+        TODO: cache_for's implementation is currently pending a test case demonstrating
+        how it will be used.
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
