@@ -203,7 +203,7 @@ def requestargs(*vars):
 
 
 def load_model(model, attributes=None, parameter=None,
-        workflow=False, kwargs=False, permission=None, addlperms=None, urlcheck=[]):
+        kwargs=False, permission=None, addlperms=None, urlcheck=[]):
     """
     Decorator to load a model given a query parameter.
 
@@ -237,10 +237,6 @@ def load_model(model, attributes=None, parameter=None,
         the result is passed. Usually the same as the attribute. If the parameter name
         is prefixed with 'g.', the parameter is also made available as g.<parameter>
 
-    :param workflow: If True, the method ``workflow()`` of the instance is
-        called and the resulting workflow object is passed to the decorated
-        function instead of the instance itself
-
     :param kwargs: If True, the original request parameters are passed to the decorated
         function as a ``kwargs`` parameter
 
@@ -264,7 +260,7 @@ def load_model(model, attributes=None, parameter=None,
         ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may change
     """
     return load_models((model, attributes, parameter),
-        workflow=workflow, kwargs=kwargs, permission=permission, addlperms=addlperms, urlcheck=urlcheck)
+        kwargs=kwargs, permission=permission, addlperms=addlperms, urlcheck=urlcheck)
 
 
 def load_models(*chain, **kwargs):
@@ -275,10 +271,6 @@ def load_models(*chain, **kwargs):
     :param chain: The chain is a list of tuples of (``model``, ``attributes``, ``parameter``).
         Lists and tuples can be used interchangeably. All retrieved instances are passed as
         parameters to the decorated function
-
-    :param workflow: Like with :func:`load_model`, ``workflow()`` is called on the last
-        instance in the chain, and *only* the resulting workflow object is passed to the
-        decorated function
 
     :param permission: Same as in :func:`load_model`, except
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
@@ -379,22 +371,12 @@ def load_models(*chain, **kwargs):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
                 result[parameter] = item
-            if kwargs.get('workflow'):
-                # Get workflow for the last item in the chain
-                wf = item.workflow()
-                if permission_required and not (permission_required & permissions):
-                    abort(403)
-                if kwargs.get('kwargs'):
-                    return f(wf, kwargs=kw)
-                else:
-                    return f(wf)
+            if permission_required and not (permission_required & permissions):
+                abort(403)
+            if kwargs.get('kwargs'):
+                return f(kwargs=kw, **result)
             else:
-                if permission_required and not (permission_required & permissions):
-                    abort(403)
-                if kwargs.get('kwargs'):
-                    return f(kwargs=kw, **result)
-                else:
-                    return f(**result)
+                return f(**result)
         return decorated_function
     return inner
 

@@ -9,6 +9,8 @@
 * New: ``coaster.sqlalchemy.StateManager`` adds state management to models
 * Discontinued: ``coaster.utils.*`` is no longer available directly as
   ``coaster.*``
+* Discontinued: ``coaster.views.load_models`` no longer accepts the
+  ``workflow`` parameter
 
 
 0.6.0
