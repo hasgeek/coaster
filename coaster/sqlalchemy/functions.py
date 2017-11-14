@@ -30,7 +30,7 @@ def __utcnow_default(element, compiler, **kw):
 
 
 @compiles(utcnow, 'mysql')
-def __utcnow_mysql(element, compiler, **kw):  # pragma: no-cover
+def __utcnow_mysql(element, compiler, **kw):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
@@ -40,7 +40,7 @@ def __utcnow_postgresql(element, compiler, **kw):
 
 
 @compiles(utcnow, 'mssql')
-def __utcnow_mssql(element, compiler, **kw):  # pragma: no-cover
+def __utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 

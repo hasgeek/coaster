@@ -159,7 +159,7 @@ class RoleAccessProxy(collections.Mapping):
         self.__dict__['_read'] = read
         self.__dict__['_write'] = write
 
-    def __repr__(self):  # pragma: no-cover
+    def __repr__(self):  # pragma: no cover
         return '<RoleAccessProxy(obj={obj}, roles={roles})>'.format(
             obj=repr(self._obj), roles=repr(self._roles))
 
