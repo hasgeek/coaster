@@ -26,13 +26,13 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(MY_ENUM[MY_ENUM.SECOND], "Second")
         self.assertEqual(MY_ENUM[MY_ENUM.THIRD], "Third")
 
-        self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
+        if six.PY2:
+            self.assertEqual(sorted(MY_ENUM.items()), [(1, "First"), (2, "Second"), (3, "Third")])
+        else:
+            self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
 
-        # self.assertRaises doesn't work so workaround
-        try:
+        with self.assertRaises(TypeError):
             MY_ENUM[2] = "SECOND"
-        except TypeError:
-            pass
 
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes.
