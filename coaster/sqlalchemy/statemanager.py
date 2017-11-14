@@ -201,6 +201,7 @@ from __future__ import absolute_import
 
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
+from werkzeug.exceptions import BadRequest
 from ..signals import coaster_signals
 
 __all__ = ['StateManager', 'StateTransitionError',
@@ -226,7 +227,7 @@ transition_exception = coaster_signals.signal('transition-exception',
 
 # --- Exceptions --------------------------------------------------------------
 
-class StateTransitionError(TypeError):
+class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state"""
     pass
 
