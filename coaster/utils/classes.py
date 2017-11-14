@@ -17,7 +17,11 @@ NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
-    def __new__(cls, name, bases, attrs):
+    @classmethod
+    def __prepare__(metacls, name, bases, **kwargs):  # pragma: no cover
+        return OrderedDict()
+
+    def __new__(cls, name, bases, attrs, **kwargs):
         labels = {}
         names = {}
         for key, value in tuple(attrs.items()):
@@ -34,14 +38,14 @@ class _LabeledEnumMeta(type):
                 attrs[key] = names[key] = {v[0] if isinstance(v, tuple) else v for v in value}
 
         if '__order__' in attrs:
-            sorted_labels = OrderedDict()
+            ordered_labels = OrderedDict()
             for value in attrs['__order__']:
-                sorted_labels[value[0]] = labels.pop(value[0])
-            for key, value in sorted(labels.items()):  # Left over items after processing the list in __order__
-                sorted_labels[key] = value
+                ordered_labels[value[0]] = labels.pop(value[0])
+            for key, value in labels.items():  # Left over items after processing the list in __order__
+                ordered_labels[key] = value
         else:
-            sorted_labels = OrderedDict(sorted(labels.items()))
-        attrs['__labels__'] = sorted_labels
+            ordered_labels = labels
+        attrs['__labels__'] = ordered_labels
         attrs['__names__'] = names
         return type.__new__(cls, name, bases, attrs)
 
@@ -83,19 +87,18 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         >>> MY_ENUM.get(4) is None
         True
 
-    Retrieve a full list of values and labels with ``.items()``. Items are
-    sorted by value regardless of the original definition order, since Python
-    doesn't provide a way to preserve that order::
+    Retrieve a full list of values and labels with ``.items()``. Definition order is
+    preserved in Python 3.x, but not in 2.x::
 
-        >>> MY_ENUM.items()
+        >>> sorted(MY_ENUM.items())
         [(1, 'First'), (2, 'Second'), (3, 'Third')]
-        >>> MY_ENUM.keys()
+        >>> sorted(MY_ENUM.keys())
         [1, 2, 3]
-        >>> MY_ENUM.values()
+        >>> sorted(MY_ENUM.values())
         ['First', 'Second', 'Third']
 
-    However, if you really want manual sorting, add an __order__ list. Anything not in it will
-    be sorted by value as usual::
+    However, if you really want ordering in Python 2.x, add an __order__ list.
+    Anything not in it will default to Python's ordering::
 
         >>> class RSVP(LabeledEnum):
         ...     RSVP_Y = ('Y', "Yes")
@@ -103,7 +106,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         ...     RSVP_M = ('M', "Maybe")
         ...     RSVP_U = ('U', "Unknown")
         ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M)
+        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_A)
 
         >>> RSVP.items()
         [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
