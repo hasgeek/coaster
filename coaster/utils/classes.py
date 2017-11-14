@@ -19,18 +19,19 @@ class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
     def __new__(cls, name, bases, attrs):
         labels = {}
+        names = {}
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
                 # value = tuple of actual value (0), label/name (1), optional title (2)
                 if len(value) == 2:
                     labels[value[0]] = value[1]
-                    attrs[key] = value[0]
+                    attrs[key] = names[key] = value[0]
                 elif len(value) == 3:
                     labels[value[0]] = NameTitle(value[1], value[2])
-                    attrs[key] = value[0]
+                    attrs[key] = names[key] = value[0]
             elif key != '__order__' and isinstance(value, set):
                 # value = set of other unprocessed values
-                attrs[key] = {v[0] if isinstance(v, tuple) else v for v in value}
+                attrs[key] = names[key] = {v[0] if isinstance(v, tuple) else v for v in value}
 
         if '__order__' in attrs:
             sorted_labels = OrderedDict()
@@ -41,13 +42,14 @@ class _LabeledEnumMeta(type):
         else:
             sorted_labels = OrderedDict(sorted(labels.items()))
         attrs['__labels__'] = sorted_labels
+        attrs['__names__'] = names
         return type.__new__(cls, name, bases, attrs)
 
     def __getitem__(cls, key):
         return cls.__labels__[key]
 
-    def __setitem__(cls, key, value):
-        raise TypeError('LabeledEnum is immutable')
+    def __contains__(cls, key):
+        return key in cls.__labels__
 
 
 class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
@@ -152,6 +154,19 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         True
         >>> RSVP_EXTRA.RSVP_U in RSVP_EXTRA.UNCERTAIN
         True
+
+    Labels are stored internally in a dictionary named ``__labels__``, mapping
+    the value to the label. Symbol names are stored in ``__names__``, mapping
+    name to the value. The label dictionary will only contain values processed
+    using the tuple syntax, which excludes grouped values, while the names
+    dictionary will contain both, but will exclude anything else found in the
+    class that could not be processed (use ``__dict__`` for everything)::
+
+        >>> sorted(RSVP_EXTRA.__labels__.keys())
+        ['A', 'M', 'N', 'U', 'Y']
+        >>> sorted(RSVP_EXTRA.__names__.keys())
+        ['RSVP_A', 'RSVP_M', 'RSVP_N', 'RSVP_U', 'RSVP_Y', 'UNCERTAIN']
+
     """
 
     @classmethod

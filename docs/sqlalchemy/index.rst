@@ -11,3 +11,4 @@
    annotations
    immutable_annotation
    comparators
+   statemanager

@@ -37,10 +37,10 @@ reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
 
 from __future__ import absolute_import
 import collections
-from blinker import Namespace
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from ..signals import coaster_signals
 
 __all__ = [
     'annotations_configured',
@@ -52,8 +52,7 @@ __cache__ = {}
 
 # --- Signals -----------------------------------------------------------------
 
-annotation_signals = Namespace()
-annotations_configured = annotation_signals.signal('annotations-configured',
+annotations_configured = coaster_signals.signal('annotations-configured',
     doc="Signal raised after all annotations on a class are configured")
 
 
