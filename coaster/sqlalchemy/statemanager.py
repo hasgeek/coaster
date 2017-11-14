@@ -200,12 +200,14 @@ A mechanism by which StateManager and RoleMixin can be combined to determine
 currently available transitions is pending.
 """
 
-__all__ = ['StateManager', 'StateTransitionError',
-    'transition_error', 'transition_before', 'transition_after', 'transition_exception']
+from __future__ import absolute_import
 
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from ..signals import coaster_signals
+
+__all__ = ['StateManager', 'StateTransitionError',
+    'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
 iterables = (set, frozenset, list, tuple)  # Used for various isinstance checks
 
@@ -236,7 +238,8 @@ class StateTransitionError(TypeError):
 
 class ManagedState(object):
     """
-    Represents a state managed by a StateManager.
+    Represents a state managed by a StateManager. Do not use this class
+    directly. Use :meth:`~StateManager.add_conditional_state` instead.
     """
     def __init__(self, name, statemanager, value, label=None,
             validator=None, class_validator=None, cache_for=None):
@@ -599,8 +602,13 @@ class StateManager(object):
         :param validator: Function that will be called with the host object as a parameter
         :param class_validator: Function that will be called when the state is queried
             on the class instead of the instance. Falls back to ``validator`` if not specified
-        :param cache_for: Integer or function that indicates the number of seconds for which
-            ``validator``'s result can be cached (not applicable to ``class_validator``)
+        :param cache_for: Integer or function that indicates how long ``validator``'s
+            result can be cached (not applicable to ``class_validator``). ``None`` implies
+            no cache, ``0`` implies indefinite cache (until invalidated by a transition)
+            and any other integer is the number of seconds for which to cache the assertion
+
+        TODO: cache_for's implementation is currently pending a clear sense of how the
+        cache will be used.
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
