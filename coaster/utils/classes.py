@@ -22,8 +22,8 @@ class _LabeledEnumMeta(type):
         return OrderedDict()
 
     def __new__(cls, name, bases, attrs, **kwargs):
-        labels = {}
-        names = {}
+        labels = OrderedDict()
+        names = OrderedDict()
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
                 # value = tuple of actual value (0), label/name (1), optional title (2)
@@ -33,6 +33,8 @@ class _LabeledEnumMeta(type):
                 elif len(value) == 3:
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = names[key] = value[0]
+                else:  # pragma: no cover
+                    raise AttributeError("Unprocessed attribute %s" % key)
             elif key != '__order__' and isinstance(value, set):
                 # value = set of other unprocessed values
                 attrs[key] = names[key] = {v[0] if isinstance(v, tuple) else v for v in value}
