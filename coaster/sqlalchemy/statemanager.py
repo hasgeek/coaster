@@ -4,8 +4,8 @@
 States and transitions
 ----------------------
 
-:class:`StateManager` wraps a SQLAlchemy column (or any property) with a
-:class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection, and
+:class:`StateManager` wraps a SQLAlchemy column with a
+:class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection and
 control state change via transitions. Sample usage::
 
     class MY_STATE(LabeledEnum):
@@ -16,37 +16,66 @@ control state change via transitions. Sample usage::
         UNPUBLISHED = {DRAFT, PENDING}
 
 
+    # Classes can have more than one state variable
+    class REVIEW_STATE(LabeledEnum):
+        UNSUBMITTED = (0, "Unsubmitted")
+        PENDING = (1, "Pending")
+        REVIEWED = (2, "Reviewed")
+
+
     class MyPost(BaseMixin, db.Model):
-        #: The underlying state value column
-        _state = db.Column('state', db.Integer, StateManager.check_constraint('state', MY_STATE),
+        __tablename__ = 'my_post'
+
+        # The underlying state value columns (more than one state variable can exist)
+        _state = db.Column('state', db.Integer,
+            StateManager.check_constraint('state', MY_STATE),
             default=MY_STATE.DRAFT, nullable=False)
-        #: The state manager
+        _reviewstate = db.Column('reviewstate', db.Integer,
+            StateManager.check_constraint('state', REVIEW_STATE),
+            default=REVIEW_STATE.UNSUBMITTED, nullable=False)
+
+        # The state managers controlling the columns
         state = StateManager('_state', MY_STATE, doc="The post's state")
-        #: Datetime for the additional states and transitions
+        reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
+
+        # Datetime for the additional states and transitions
         datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-        #: Additional states:
+        # Additional states:
 
-        #: RECENT = PUBLISHED + in the last one hour
+        # RECENT = PUBLISHED + in the last one hour
         state.add_conditional_state('RECENT', state.PUBLISHED,
             lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
-        #: REDRAFTABLE = DRAFT or PENDING or RECENT
+
+        # REDRAFTABLE = DRAFT or PENDING or RECENT
         state.add_state_group('REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT)
 
-        #: Transitions to change from one state to another:
-
-        @state.transition(state.DRAFT, state.PENDING)
+        # Transitions change FROM one state TO another, and can have
+        # an additional if_ condition (a callable) that must return True
+        @state.transition(state.DRAFT, state.PENDING, if_=reviewstate.UNSUBMITTED)
         def submit(self):
             pass
 
-        @state.transition(state.UNPUBLISHED, state.PUBLISHED)
+        # Transitions can coordinate across state managers. All of them
+        # must be in a valid FROM state for the transition to be available.
+        # Transitions can also specify arbitrary metadata such as this `title`
+        # attribute (on any of the decorators). These are made available in a
+        # `data` dictionary, accessible here as `publish.data`
+        @state.transition(state.UNPUBLISHED, state.PUBLISHED, title="Publish")
+        @reviewstate.transition(reviewstate.UNSUBMITTED, reviewstate.PENDING)
         def publish(self):
+            # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
+        # A transition can use a conditional state. The condition is evaluated
+        # before the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
+        @reviewstate.transition(reviewstate.PENDING, reviewstate.UNSUBMITTED)
         def undo(self):
             pass
 
+        # Transitions can be defined FROM a group of states, but the TO
+        # state must always be an individual state
         @state.transition(state.REDRAFTABLE, state.DRAFT)
         def redraft(self):
             pass
@@ -75,6 +104,8 @@ below for query examples).
 State groups can be defined with :meth:`~StateManager.add_state_group`. These
 are similar to grouped values in a LabeledEnum, but can also contain
 conditional states, and are stored as instances of :class:`ManagedStateGroup`.
+Grouped values in a LabeledEnum are more efficient for testing state against,
+so those should be preferred if the group does not contain a conditional state.
 
 Transitions connect one managed state or group to another state (but not
 group). Transitions are defined as methods and decorated with
@@ -86,6 +117,12 @@ which indicates if the transition is currently available, and
 :attr:`~StateTransition.data`, a dictionary that contains all additional
 parameters passed to the @transition decorator.
 
+Transitions can be chained to coordinate a state change across state managers
+if the class has more than one. All state managers must be in a valid from
+state for the transition to be available. A dictionary of currently available
+transitions can be obtained from the state manager using the
+:meth:`~StateManagerWrapper.transitions` method.
+
 
 Queries
 ~~~~~~~
@@ -93,7 +130,7 @@ Queries
 The current state of the object can be retrieved by calling the state
 attribute or reading its ``value`` attribute::
 
-    post = MyPost(state=MY_STATE.DRAFT)
+    post = MyPost(_state=MY_STATE.DRAFT)
     post.state() == MY_STATE.DRAFT
     post.state.value == MY_STATE.DRAFT
 
@@ -104,11 +141,11 @@ The label associated with the state value can be accessed from the ``label`` att
     post.state.label.name == 'pending'   # Ths is the NameTitle tuple from MY_STATE.PENDING
     post.state.label.title == "Pending"  # The title part of NameTitle
 
-States can be tested by direct reference using their names from the
-LabeledEnum::
+States can be tested by direct reference using the names they were originally
+defined with in the LabeledEnum::
 
     post.state.DRAFT        # True
-    post.state.is_draft     # True (is_* attrs are uppercased before retrieval from the LabeledEnum)
+    post.state.is_draft     # True (is_* attrs are lowercased aliases to states)
     post.state.PENDING      # False (since it's a draft)
     post.state.UNPUBLISHED  # True (grouped state values work as expected)
     post.publish()          # Change state from DRAFT to PUBLISHED
@@ -125,8 +162,9 @@ States can also be used for database queries when accessed from the class::
     # Generates and_(MyPost._state == MY_STATE.PUBLISHED, MyPost.datetime > datetime.utcnow() - timedelta(hours=1))
     MyPost.query.filter(MyPost.state.RECENT)
 
-This works because :class:`StateManager` and :class:`ManagedState`
-behave in three different ways, depending on context:
+This works because :class:`StateManager`, :class:`ManagedState`
+and :class:`ManagedStateGroup` behave in four different ways, depending on
+context:
 
 1. During class definition, the state manager returns the managed state. All
    methods on the state manager recognise these managed states and handle them
@@ -136,8 +174,14 @@ behave in three different ways, depending on context:
    managed state instance. If accessed via the class, the managed state returns
    a SQLAlchemy filter condition.
 
-3. If accessed via an instance, the managed state tests if it is
-   currently active and returns a boolean result.
+3. After class definition, if accessed via an instance, the managed state tests
+   if it is currently active and returns a boolean result.
+
+4. :meth:`StateManager.current` returns a dictionary of all currently valid
+   managed states and state groups, wrapped in
+   :class:`ManagedStateWrapper` which holds the context of the object on which
+   the method was called. Calling these states will return True as long as the
+   state remains unchanged.
 
 States can be changed via transitions, defined as methods with the
 :meth:`~StateManager.transition` decorator. They add more power and safeguards
@@ -449,6 +493,8 @@ class StateManager(object):
     Wraps a property with a :class:`~coaster.utils.classes.LabeledEnum` to
     facilitate state inspection and control state changes.
 
+    This is the main export of this module.
+
     :param str propname: Name of the property that is to be wrapped
     :param LabeledEnum lenum: The LabeledEnum containing valid values
     :param str doc: Optional docstring
@@ -463,7 +509,7 @@ class StateManager(object):
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a ManagedState.
-        # We do NOT convert grouped states into a ManagedStateGroup instance as ManagedState
+        # We do NOT convert grouped states into a ManagedStateGroup instance, as ManagedState
         # is more efficient at testing whether a value is in a group: it uses the `in` operator
         # while ManagedStateGroup does `any(s() for s in states)`.
         for state_name, value in lenum.__names__.items():

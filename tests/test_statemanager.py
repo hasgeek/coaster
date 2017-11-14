@@ -1,10 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# TODO:
-# Make calling the state manager return a managed state, not raw value
-# Update documentation
-# Add cache_for support
-
 from __future__ import absolute_import
 
 import unittest
@@ -42,6 +37,7 @@ class REVIEW_STATE(LabeledEnum):
 
 
 class MyPost(BaseMixin, db.Model):
+    __tablename__ = 'my_post'
     # Database state columns
     _state = db.Column('state', db.Integer, StateManager.check_constraint('state', MY_STATE),
         default=MY_STATE.DRAFT, nullable=False)
@@ -485,10 +481,6 @@ class TestStateManager(unittest.TestCase):
             def dupe_decorator(self):
                 pass
 
-    def test_role_proxy_transitions(self):
-        """with_roles works on the transition decorator"""
-        pass
-
     def test_available_transitions(self):
         """State managers indicate the currently available transitions"""
         self.assertTrue(self.post.state.DRAFT)
@@ -520,3 +512,34 @@ class TestStateManager(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)
+
+    def test_role_proxy_transitions(self):
+        """with_roles works on the transition decorator"""
+        self.assertTrue(self.post.state.DRAFT)
+        # Create access proxies for each of these roles
+        author = self.post.access_for({'author'})
+        reviewer = self.post.access_for({'reviewer'})
+
+        # Transitions are listed in the proxy even if not callable
+        self.assertIn('submit', author)
+        self.assertIn('publish', author)
+        self.assertIn('undo', author)
+        self.assertIn('redraft', author)
+        self.assertNotIn('review_lock', author)
+        self.assertNotIn('review_unlock', author)
+
+        self.assertNotIn('submit', reviewer)
+        self.assertNotIn('publish', reviewer)
+        self.assertNotIn('undo', reviewer)
+        self.assertNotIn('redraft', reviewer)
+        self.assertIn('review_lock', reviewer)
+        self.assertIn('review_unlock', reviewer)
+
+        # The `is_available` test can be accessed through the proxy
+        self.assertTrue(author.submit.is_available)
+        self.assertFalse(author.undo.is_available)
+        # Transitions can be accessed through the proxy
+        author.submit()
+        author.publish()
+        self.assertFalse(author.submit.is_available)
+        self.assertTrue(author.undo.is_available)
