@@ -23,7 +23,7 @@ __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 def __index_url():
     if request:
-        return request.script_root
+        return request.script_root or '/'
     else:
         return '/'
 
