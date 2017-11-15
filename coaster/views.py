@@ -121,7 +121,7 @@ class RequestValueError(BadRequest, ValueError):
     pass
 
 
-def requestargs(*vars):
+def requestargs(*vars, **config):
     """
     Decorator that loads parameters from request.values if not specified in the
     function's keyword arguments. Usage::
@@ -166,36 +166,64 @@ def requestargs(*vars):
         ...     f(p1='1', p2='2')
         ...
         ('1', '2', [1, 2])
+        >>> with app.test_request_context('/?p2=100&p3=1&p3=2'):
+        ...     f(p1='1', p2=200)
+        ...
+        ('1', 200, [1, 2])
     """
+    if config and list(config.keys()) != ['source']:
+        raise TypeError("Unrecognised parameters: %s" % repr(config.keys()))
+
     def inner(f):
         namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
             for name, filt in
                 [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]]
 
+        if config and config.get('source') == 'form':
+            def datasource():
+                return request.form if request else {}
+        elif config and config.get('source') == 'query':
+            def datasource():
+                return request.args if request else {}
+        else:
+            def datasource():
+                return request.values if request else {}
+
         @wraps(f)
         def decorated_function(**kw):
+            values = datasource()
             for name, filt, is_list in namefilt:
-                if name not in kw:
-                    if request and name in request.values:
-                        if filt is None:
-                            if is_list:
-                                kw[name] = request.values.getlist(name)
-                            else:
-                                kw[name] = request.values[name]
+                # Process name if
+                # (a) it's not in the function's parameters, and
+                # (b) is in the form/query
+                if name not in kw and name in values:
+                    try:
+                        if is_list:
+                            kw[name] = values.getlist(name, type=filt)
                         else:
-                            try:
-                                if is_list:
-                                    kw[name] = [filt(v) for v in request.values.getlist(name)]
-                                else:
-                                    kw[name] = filt(request.values[name])
-                            except ValueError as e:
-                                raise RequestValueError(e)
+                            kw[name] = values.get(name, type=filt)
+                    except ValueError as e:
+                        raise RequestValueError(e)
             try:
                 return f(**kw)
             except TypeError as e:
                 raise RequestTypeError(e)
         return decorated_function
     return inner
+
+
+def requestform(*vars):
+    """
+    Like :func:`requestargs`, but loads from request.form (the form submission).
+    """
+    return requestargs(*vars, **{'source': 'form'})
+
+
+def requestquery(*vars):
+    """
+    Like :func:`requestargs`, but loads from request.args (the query string).
+    """
+    return requestargs(*vars, **{'source': 'query'})
 
 
 def load_model(model, attributes=None, parameter=None,

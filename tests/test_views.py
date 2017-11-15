@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import six
 from flask import Flask, session, json
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs, BadRequest
+from coaster.views import get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform, BadRequest
 
 
 def index():
@@ -20,13 +19,29 @@ def somewhere():
 
 
 @requestargs('p1', ('p2', int), ('p3[]', int))
-def f(p1, p2=None, p3=None):
+def requestargs_test1(p1, p2=None, p3=None):
     return p1, p2, p3
 
 
 @requestargs('p1', ('p2', int), ('p3[]'))
-def f1(p1, p2=None, p3=None):
+def requestargs_test2(p1, p2=None, p3=None):
     return p1, p2, p3
+
+
+@requestquery('p1', ('p2', int), ('p3[]', int))
+def requestquery_test(p1, p2=None, p3=None):
+    return p1, p2, p3
+
+
+@requestform('p1', ('p2', int), ('p3[]', int))
+def requestform_test(p1, p2=None, p3=None):
+    return p1, p2, p3
+
+
+@requestquery('query1')
+@requestform('form1')
+def requestcombo_test(query1, form1):
+    return query1, form1
 
 
 class TestCoasterViews(unittest.TestCase):
@@ -90,14 +105,31 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_requestargs(self):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            self.assertEqual(f(), (u'1', 3, [1, 2]))
+            self.assertEqual(requestargs_test1(), (u'1', 3, [1, 2]))
 
         with self.app.test_request_context('/?p2=2'):
-            self.assertEqual(f(p1='1'), (u'1', 2, None))
+            self.assertEqual(requestargs_test1(p1='1'), (u'1', 2, None))
+
+        with self.app.test_request_context('/?p2=2'):
+            self.assertEqual(requestargs_test1(p1='1', p2=3), (u'1', 3, None))
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            self.assertEqual(f1(), (u'1', 3, [u'1', u'2']))
+            self.assertEqual(requestargs_test2(), (u'1', 3, [u'1', u'2']))
 
         with self.app.test_request_context('/?p2=2&p4=4'):
-            self.assertRaises(TypeError, f, p4='4')
-            self.assertRaises(BadRequest, f, p4='4')
+            with self.assertRaises(TypeError):
+                requestargs_test1(p4='4')
+            with self.assertRaises(BadRequest):
+                requestargs_test1(p4='4')
+
+        with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+            self.assertEqual(requestquery_test(), (u'1', 3, [1, 2]))
+
+        with self.app.test_request_context('/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'):
+            self.assertEqual(requestform_test(), (u'1', 3, [1, 2]))
+
+        with self.app.test_request_context('/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'):
+            self.assertEqual(requestcombo_test(), ('foo', 'bar'))
+
+        # Calling without a request context works as well
+        self.assertEqual(requestargs_test1(p1='1', p2=3, p3=[1, 2]), ('1', 3, [1, 2]))

@@ -11,6 +11,8 @@
   ``coaster.*``
 * Discontinued: ``coaster.views.load_models`` no longer accepts the
   ``workflow`` parameter
+* New: ``requestquery`` and ``requestform`` to complement
+  ``coaster.views.requestargs``
 
 
 0.6.0
