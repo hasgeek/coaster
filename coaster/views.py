@@ -12,7 +12,6 @@ from functools import wraps
 import re
 from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template, jsonify, make_response)
-from werkzeug.routing import BuildError
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
@@ -23,13 +22,10 @@ __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 
 def __index_url():
-    try:
-        return url_for('index')
-    except BuildError:
-        if request:
-            return request.script_root
-        else:
-            return '/'
+    if request:
+        return request.script_root
+    else:
+        return '/'
 
 
 def __clean_external_url(url):
