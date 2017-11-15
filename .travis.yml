@@ -11,13 +11,13 @@ services:
 # command to install dependencies
 install:
   - pip install --upgrade setuptools
-  - python setup.py develop
   - pip install -r test_requirements.txt
   - 'if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then pip install PySqlite; fi'
+  - python setup.py install
 # command to run tests
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
-script: ./runtests.sh
+script: ./runtests.sh; pip uninstall -y coaster
 after_success:
   - coveralls
 notifications:
