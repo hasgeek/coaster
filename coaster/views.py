@@ -633,7 +633,7 @@ def cors(origins,
 
             if origins == '*':
                 pass
-            elif isinstance(origins, (list, tuple, set)) and origin in origins:
+            elif isinstance(origins, (list, tuple, set, frozenset)) and origin in origins:
                 pass
             elif callable(origins) and origins(origin):
                 pass
