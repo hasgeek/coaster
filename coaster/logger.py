@@ -17,6 +17,7 @@ import requests
 from pprint import pprint
 import six
 from flask import g, request, session
+from .user import current_user
 
 
 # global var as lazy in-memory cache
@@ -108,6 +109,10 @@ class LocalVarFormatter(logging.Formatter):
             print('\n----------\n', file=sio)
             print("App context:", file=sio)
             pprint_with_indent(vars(g), sio)
+
+        print('\n----------\n', file=sio)
+        print("Current user:", file=sio)
+        pprint_with_indent(vars(current_user), sio)
 
         s = sio.getvalue()
         sio.close()

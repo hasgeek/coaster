@@ -15,6 +15,7 @@ from __future__ import absolute_import
 from flask import g
 import docflow
 from werkzeug.exceptions import Forbidden
+from .user import current_user
 
 __all__ = ['WorkflowStateException', 'WorkflowTransitionException',
     'WorkflowPermissionException', 'WorkflowState', 'WorkflowStateGroup',
@@ -78,6 +79,6 @@ class DocumentWorkflow(docflow.DocumentWorkflow):
         if g:
             if hasattr(g, 'permissions'):
                 perms.update(g.permissions or [])
-            if hasattr(self.document, 'permissions') and hasattr(g, 'user'):
-                perms = self.document.permissions(g.user, perms)
+            if hasattr(self.document, 'permissions'):
+                perms = self.document.permissions(current_user.self, perms)
         return perms

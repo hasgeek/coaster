@@ -1,0 +1,2 @@
+.. automodule:: coaster.user
+   :members: 
