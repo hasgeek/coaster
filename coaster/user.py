@@ -58,6 +58,9 @@ class UserProxy(object):
     def __setattr__(self, attr, value):
         setattr(self.self, attr, value)
 
+    def __repr__(self):  # pragma: no cover
+        return 'UserProxy(%s)' % repr(self.self)
+
     @property
     def is_anonymous(self):
         """
