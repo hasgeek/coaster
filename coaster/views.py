@@ -70,8 +70,8 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
     This function looks for a ``next`` parameter in the request or in the session
     (depending on whether parameter ``session`` is True). If no ``next`` is present,
     it checks the referrer (if enabled), and finally returns either the provided
-    default (which can be any value including ``None``) or ``url_for('index')``.
-    If your app does not have a URL endpoint named ``index``, ``/`` is returned.
+    default (which can be any value including ``None``) or the script root
+    (typically ``/``).
     """
     if session:
         next_url = request_session.pop('next', None) or request.args.get('next', '')
