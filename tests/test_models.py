@@ -18,7 +18,7 @@ from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     UuidMixin, UUIDType, add_primary_relationship, auto_init_default)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
-from .test_user import LoginManager
+from .test_auth import LoginManager
 
 
 app1 = Flask(__name__)
