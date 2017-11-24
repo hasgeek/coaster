@@ -110,7 +110,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
 
-        # Additional auth details (username only in thi test) exposed by the login manager
+        # Additional auth details (username only in this test) exposed by the login manager
         self.assertEqual(current_auth.username, 'foo')
         with self.assertRaises(AttributeError):
             self.assertEqual(current_auth.fullname, 'Mr Foo')
