@@ -17,6 +17,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 import six
 from six.moves.urllib.parse import urlsplit
+from .auth import current_auth
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -266,12 +267,10 @@ def load_model(model, attributes=None, parameter=None,
 
     :param permission: If present, ``load_model`` calls the
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` method of the
-        retrieved object with ``g.user`` as a parameter. If ``permission`` is not
-        present in the result, ``load_model`` aborts with a 403. ``g`` is the Flask
-        request context object and you are expected to setup a request environment
-        in which ``g.user`` is the currently logged in user. Flask-Lastuser does this
-        automatically for you. The permission may be a string or a list of strings,
-        in which case access is allowed if any of the listed permissions are available
+        retrieved object with ``current_auth.user`` as a parameter. If
+        ``permission`` is not present in the result, ``load_model`` aborts with
+        a 403. The permission may be a string or a list of strings, in which
+        case access is allowed if any of the listed permissions are available
 
     :param addlperms: Iterable or callable that returns an iterable containing additional
         permissions available to the user, apart from those granted by the models. In an app
@@ -307,7 +306,7 @@ def load_models(*chain, **kwargs):
 
     In the following example, load_models loads a Folder with a name matching the name in the
     URL, then loads a Page with a matching name and with the just-loaded Folder as parent.
-    If the Page provides a 'view' permission to the current user (`g.user`), the decorated
+    If the Page provides a 'view' permission to the current user, the decorated
     function is called::
 
         @app.route('/<folder_name>/<page_name>')
@@ -369,7 +368,7 @@ def load_models(*chain, **kwargs):
                     return redirect(location, code=307)
 
                 if permission_required:
-                    permissions = item.permissions(g.user, inherited=permissions)
+                    permissions = item.permissions(current_auth.user, inherited=permissions)
                     addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms() or []

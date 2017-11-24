@@ -6,16 +6,16 @@ import unittest
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 
+from werkzeug.exceptions import Forbidden, NotFound
+from flask import Flask, g
+
 from coaster.views import load_model, load_models
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.db import db
 
 from .test_models import (app1, app2, Container, NamedDocument,
     ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
-    ScopedIdNamedDocument, User)
-
-from werkzeug.exceptions import Forbidden, NotFound
-from flask import Flask, g
+    ScopedIdNamedDocument, User, login_manager)
 
 
 # --- Models ------------------------------------------------------------------
@@ -253,7 +253,7 @@ class TestLoadModels(unittest.TestCase):
 
     def test_container(self):
         with self.app.test_request_context():
-            g.user = User(username='test')
+            login_manager.set_user_for_testing(User(username='test'), load=True)
             self.assertEqual(t_container(container=u'c'), self.container)
 
     def test_named_document(self):
@@ -335,7 +335,7 @@ class TestLoadModels(unittest.TestCase):
 
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():
-            g.user = User(username='foo')
+            login_manager.set_user_for_testing(User(username='foo'), load=True)
             self.assertEqual(t_dotted_document_view(document=u'parent', child=1), self.child1)
             self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
             self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)

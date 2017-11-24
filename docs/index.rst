@@ -20,14 +20,15 @@ Coaster is available under the BSD license, the same license as Flask.
    logger
    manage
    assets
-   views
-   docflow
-   sqlalchemy/index
-   db
    utils/index
    shortuuid
+   auth
+   views
+   sqlalchemy/index
+   db
    gfm
    nlp
+   docflow
 
 Indices and tables
 ==================

@@ -15,7 +15,8 @@ try:
     from flask.helpers import _tojson_filter
 except ImportError:
     from flask.json import tojson_filter as _tojson_filter
-import coaster.logger
+from . import logger
+from .auth import current_auth
 
 __all__ = ['SandboxedFlask', 'init_app']
 
@@ -100,6 +101,8 @@ def init_app(app, env=None):
         ``'production'`` or ``'testing'``). If not specified, the ``FLASK_ENV``
         environment variable is consulted. Defaults to ``'development'``.
     """
+    # Make current_auth available to app templates
+    app.jinja_env.globals['current_auth'] = current_auth
     # Disable Flask-SQLAlchemy events.
     # Apps that want it can turn it back on in their config
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
@@ -112,7 +115,7 @@ def init_app(app, env=None):
     if additional:
         load_config_from_file(app, additional)
 
-    coaster.logger.init_app(app)
+    logger.init_app(app)
 
 
 def load_config_from_file(app, filepath):

@@ -13,6 +13,8 @@
   ``workflow`` parameter
 * New: ``requestquery`` and ``requestform`` to complement
   ``coaster.views.requestargs``
+* New: ``coaster.auth`` module with a ``current_auth`` proxy that provides
+  a standardised API for login managers to use
 
 
 0.6.0

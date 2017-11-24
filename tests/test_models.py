@@ -18,6 +18,7 @@ from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     UuidMixin, UUIDType, add_primary_relationship, auto_init_default)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
+from .test_auth import LoginManager
 
 
 app1 = Flask(__name__)
@@ -28,6 +29,8 @@ app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///coaster_test'
 app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app1)
 db.init_app(app2)
+login_manager = LoginManager(app1)
+LoginManager(app2)
 
 
 # --- Models ------------------------------------------------------------------

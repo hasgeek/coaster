@@ -353,9 +353,9 @@ class RoleMixin(object):
         called::
 
             # This typical call:
-            obj.access_for(user=current_user)
+            obj.access_for(user=current_auth.user)
             # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(user=current_user))
+            obj.access_for(roles=obj.roles_for(user=current_auth.user))
         """
         if roles is None:
             roles = self.roles_for(user=user, token=token)

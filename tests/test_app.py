@@ -3,7 +3,7 @@
 import unittest
 from os import environ
 import sys
-from flask import Flask
+from flask import Flask, render_template_string
 from coaster.app import _additional_config, init_app, load_config_from_file, SandboxedFlask
 from coaster.logger import init_app as logger_init_app, LocalVarFormatter
 
@@ -45,6 +45,14 @@ class TestCoasterUtils(unittest.TestCase):
     def test_load_config_from_file_IOError(self):
         app = Flask(__name__)
         self.assertFalse(load_config_from_file(app, "notfound.py"))
+
+    def test_current_auth(self):
+        env = "testing"
+        init_app(self.app, env)
+        with self.app.test_request_context():
+            self.assertEqual(
+                render_template_string('{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'),
+                'No')
 
 
 class TestSandBoxedFlask(unittest.TestCase):

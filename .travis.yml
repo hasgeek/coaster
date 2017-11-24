@@ -17,7 +17,7 @@ install:
 # command to run tests
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
-script: ./runtests.sh; pip uninstall -y coaster
+script: ./runtests.sh && pip uninstall -y coaster
 after_success:
   - coveralls
 notifications:
