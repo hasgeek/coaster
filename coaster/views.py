@@ -17,7 +17,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 import six
 from six.moves.urllib.parse import urlsplit
-from .user import current_user
+from .auth import current_auth
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -267,7 +267,7 @@ def load_model(model, attributes=None, parameter=None,
 
     :param permission: If present, ``load_model`` calls the
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` method of the
-        retrieved object with ``current_user.self`` as a parameter. If
+        retrieved object with ``current_auth.user`` as a parameter. If
         ``permission`` is not present in the result, ``load_model`` aborts with
         a 403. The permission may be a string or a list of strings, in which
         case access is allowed if any of the listed permissions are available
@@ -368,7 +368,7 @@ def load_models(*chain, **kwargs):
                     return redirect(location, code=307)
 
                 if permission_required:
-                    permissions = item.permissions(current_user, inherited=permissions)
+                    permissions = item.permissions(current_auth.user, inherited=permissions)
                     addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms() or []

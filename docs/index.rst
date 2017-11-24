@@ -22,7 +22,7 @@ Coaster is available under the BSD license, the same license as Flask.
    assets
    utils/index
    shortuuid
-   user
+   auth
    views
    sqlalchemy/index
    db
