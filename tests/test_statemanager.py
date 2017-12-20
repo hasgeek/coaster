@@ -271,6 +271,10 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(post1.id, self.post.id)
         post2 = MyPost.query.filter(MyPost.state.PENDING).first()
         self.assertIsNone(post2)
+        post3 = MyPost.query.filter(~MyPost.state.DRAFT).first()
+        self.assertIsNone(post3)
+        post4 = MyPost.query.filter(~MyPost.state.PENDING).first()
+        self.assertEqual(post4.id, self.post.id)
 
     def test_sql_query_multi_value(self):
         """
