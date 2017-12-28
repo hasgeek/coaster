@@ -183,9 +183,9 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     dictionary will contain both, but will exclude anything else found in the
     class that could not be processed (use ``__dict__`` for everything)::
 
-        >>> RSVP_EXTRA.__labels__.keys()
+        >>> list(RSVP_EXTRA.__labels__.keys())
         ['Y', 'N', 'M', 'U', 'A']
-        >>> RSVP_EXTRA.__names__.keys()
+        >>> list(RSVP_EXTRA.__names__.keys())
         ['RSVP_Y', 'RSVP_N', 'RSVP_M', 'RSVP_U', 'RSVP_A', 'UNCERTAIN']
     """
 
