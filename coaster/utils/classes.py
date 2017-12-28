@@ -24,6 +24,13 @@ class _LabeledEnumMeta(type):
     def __new__(cls, name, bases, attrs, **kwargs):
         labels = OrderedDict()
         names = OrderedDict()
+
+        def pop_name_by_value(value):
+            for k, v in list(names.items()):
+                if v == value:
+                    names.pop(k)
+                    return k
+
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
                 # value = tuple of actual value (0), label/name (1), optional title (2)
@@ -41,14 +48,23 @@ class _LabeledEnumMeta(type):
 
         if '__order__' in attrs:
             ordered_labels = OrderedDict()
+            ordered_names = OrderedDict()
             for value in attrs['__order__']:
                 ordered_labels[value[0]] = labels.pop(value[0])
+                attr_name = pop_name_by_value(value[0])
+                if attr_name is not None:
+                    ordered_names[attr_name] = value[0]
             for key, value in labels.items():  # Left over items after processing the list in __order__
                 ordered_labels[key] = value
-        else:
+                attr_name = pop_name_by_value(value)
+                if attr_name is not None:
+                    ordered_names[attr_name] = value
+            ordered_names.update(names)  # Left over names that don't have a label
+        else:  # This enum doesn't care about ordering, or is using Py3 with __prepare__
             ordered_labels = labels
+            ordered_names = names
         attrs['__labels__'] = ordered_labels
-        attrs['__names__'] = names
+        attrs['__names__'] = ordered_names
         return type.__new__(cls, name, bases, attrs)
 
     def __getitem__(cls, key):
@@ -146,7 +162,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         ...     RSVP_M = ('M', "Maybe")
         ...     RSVP_U = ('U', "Unknown")
         ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M)
+        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_U, RSVP_A)
         ...     UNCERTAIN = {RSVP_M, RSVP_U, 'A'}
 
         >>> isinstance(RSVP_EXTRA.UNCERTAIN, set)
@@ -167,11 +183,10 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     dictionary will contain both, but will exclude anything else found in the
     class that could not be processed (use ``__dict__`` for everything)::
 
-        >>> sorted(RSVP_EXTRA.__labels__.keys())
-        ['A', 'M', 'N', 'U', 'Y']
-        >>> sorted(RSVP_EXTRA.__names__.keys())
-        ['RSVP_A', 'RSVP_M', 'RSVP_N', 'RSVP_U', 'RSVP_Y', 'UNCERTAIN']
-
+        >>> RSVP_EXTRA.__labels__.keys()
+        ['Y', 'N', 'M', 'U', 'A']
+        >>> RSVP_EXTRA.__names__.keys()
+        ['RSVP_Y', 'RSVP_N', 'RSVP_M', 'RSVP_U', 'RSVP_A', 'UNCERTAIN']
     """
 
     @classmethod
