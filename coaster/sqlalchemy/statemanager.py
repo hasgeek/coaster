@@ -199,6 +199,7 @@ over direct state value changes:
 
 from __future__ import absolute_import
 
+from collections import OrderedDict
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from werkzeug.exceptions import BadRequest
@@ -249,6 +250,14 @@ class ManagedState(object):
         self.class_validator = class_validator
         self.cache_for = cache_for
 
+    @property
+    def is_conditional(self):
+        return self.validator is not None
+
+    @property
+    def is_scalar(self):
+        return self.validator is None and not isinstance(self.value, iterables)
+
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
 
@@ -288,9 +297,9 @@ class ManagedStateGroup(object):
             if not isinstance(state, ManagedState) or state.statemanager != statemanager:
                 raise ValueError("Invalid state %s for state group %s" % (repr(state), repr(self)))
 
-        # Second, separate conditional from regular states
-        regular_states = [s for s in states if not s.validator]
-        conditional_states = [s for s in states if s.validator]
+        # Second, separate conditional from regular states (regular states may still be grouped states)
+        regular_states = [s for s in states if not s.is_conditional]
+        conditional_states = [s for s in states if s.is_conditional]
 
         # Third, add all the regular states and keep a copy of their state values
         values = set()
@@ -506,7 +515,8 @@ class StateManager(object):
         self.name = propname  # Incorrect, so we depend on __set_name__ to correct this
         self.lenum = lenum
         self.__doc__ = doc
-        self.states = {}  # name: ManagedState/ManagedStateGroup
+        self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
+        self.states_by_value = OrderedDict()  # value: ManagedState (no conditional states or groups)
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a ManagedState.
@@ -566,6 +576,8 @@ class StateManager(object):
         # depend on it being permanent for the lifetime of the process in typical use (or
         # for advanced memory management that can detect loops).
         self.states[name] = mstate
+        if mstate.is_scalar:
+            self.states_by_value[value] = mstate
         # Make the ManagedState available as `statemanager.STATE` (assuming original was uppercased)
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)  # Also make available as `statemanager.is_state`
@@ -703,6 +715,32 @@ class StateManagerWrapper(object):
         return {name: transition for name, transition in
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
             if transition.is_available}
+
+    def group(self, items, keep_empty=False):
+        """
+        Given an iterable of instances, groups them by state using `ManagedState` instances
+        as dictionary keys. Returns an OrderedDict that preserves the order of states from
+        the source LabeledEnum.
+        """
+        cls = self.cls if self.cls is not None else type(self.obj)  # Class of the item being managed
+        groups = OrderedDict()
+        for mstate in self.statemanager.states_by_value.values():
+            # Ensure we sort groups using the order of states in the source LabeledEnum.
+            # We'll discard the unused states later.
+            groups[mstate] = []
+        # Now process the items by state
+        for item in items:
+            # Use isinstance instead of `type(item) != cls` to account for subclasses
+            if not isinstance(item, cls):
+                raise TypeError("Item %s is not an instance of type %s" % (repr(item), repr(self.cls)))
+            statevalue = self.statemanager(item)
+            mstate = self.statemanager.states_by_value[statevalue]
+            groups[mstate].append(item)
+        if not keep_empty:
+            for key, value in list(groups.items()):
+                if not value:
+                    del groups[key]
+        return groups
 
     def __getattr__(self, attr):
         """
