@@ -328,7 +328,7 @@ class ManagedStateWrapper(object):
     """
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
-            raise ValueError("Parameter is not a managed state: %s" % repr(mstate))
+            raise TypeError("Parameter is not a managed state: %s" % repr(mstate))
         self.__mstate = mstate
         self.__obj = obj
         self.__cls = cls
@@ -611,7 +611,7 @@ class StateManager(object):
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
-            raise ValueError("Not a managed state: %s" % repr(state))
+            raise TypeError("Not a managed state: %s" % repr(state))
         elif state.statemanager != self:
             raise ValueError("State %s is not associated with this state manager" % repr(state))
         self._add_state_internal(name, state.value,

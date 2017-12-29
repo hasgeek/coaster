@@ -135,7 +135,7 @@ class TestStateManager(unittest.TestCase):
         """Conditional states require a managed state as base"""
         state = MyPost.__dict__['state']
         reviewstate = MyPost.__dict__['reviewstate']
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             state.add_conditional_state('TEST_STATE1', MY_STATE.DRAFT, lambda post: True)
         with self.assertRaises(ValueError):
             state.add_conditional_state('TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True)
@@ -514,7 +514,7 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(wdraft())
         self.assertEqual(self.post.state.DRAFT, wdraft())
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)
 
     def test_role_proxy_transitions(self):
