@@ -664,7 +664,16 @@ class StateManager(object):
     def check_constraint(column, lenum, **kwargs):
         """
         Returns a SQL CHECK constraint string given a column name and a
-        :class:`~coaster.utils.classes.LabeledEnum`
+        :class:`~coaster.utils.classes.LabeledEnum`.
+
+        Alembic may not detect the CHECK constraint when autogenerating
+        migrations, so you may need to do this manually using the Python
+        console to extract the SQL string::
+
+            from coaster.sqlalchemy import StateManager
+            from your_app.models import YOUR_ENUM
+
+            print str(StateManager.check_constraint('your_column', YOUR_ENUM).sqltext)
 
         :param str column: Column name
         :param LabeledEnum lenum: LabeledEnum to retrieve valid values from
