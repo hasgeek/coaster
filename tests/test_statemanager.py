@@ -20,11 +20,15 @@ db = SQLAlchemy(app)
 
 # --- Models ------------------------------------------------------------------
 
+# This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
+# code for your own sanity. We're doing this here only to test that
+# StateManager is agnostic to which syntax you use.
 class MY_STATE(LabeledEnum):
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
     PUBLISHED = (2, "Published")
 
+    __order__ = (DRAFT, PENDING, PUBLISHED)
     UNPUBLISHED = {DRAFT, PENDING}
 
 
@@ -135,7 +139,7 @@ class TestStateManager(unittest.TestCase):
         """Conditional states require a managed state as base"""
         state = MyPost.__dict__['state']
         reviewstate = MyPost.__dict__['reviewstate']
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             state.add_conditional_state('TEST_STATE1', MY_STATE.DRAFT, lambda post: True)
         with self.assertRaises(ValueError):
             state.add_conditional_state('TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True)
@@ -514,7 +518,7 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(wdraft())
         self.assertEqual(self.post.state.DRAFT, wdraft())
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)
 
     def test_role_proxy_transitions(self):
@@ -547,3 +551,26 @@ class TestStateManager(unittest.TestCase):
         author.publish()
         self.assertFalse(author.submit.is_available)
         self.assertTrue(author.undo.is_available)
+
+    def test_group_by_state(self):
+        """StateManager.group returns a dictionary grouping items by their state."""
+        self.assertTrue(self.post.state.DRAFT)
+        post2 = MyPost(_state=MY_STATE.PUBLISHED)
+        post3 = MyPost(_state=MY_STATE.PUBLISHED)
+        self.session.add_all([post2, post3])
+        self.session.commit()
+        groups1 = MyPost.state.group(MyPost.query.all())
+        # Order is preserved. Draft before Published. No Pending.
+        self.assertEqual([g.label for g in groups1.keys()],
+            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PUBLISHED]])
+        # Order is preserved. Draft before Pending before Published.
+        groups2 = MyPost.state.group(MyPost.query.all(), keep_empty=True)
+        self.assertEqual([g.label for g in groups2.keys()],
+            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PENDING], MY_STATE[MY_STATE.PUBLISHED]])
+        self.assertEqual(list(groups1.values()),
+            [[self.post], [post2, post3]])
+        self.assertEqual(list(groups2.values()),
+            [[self.post], [], [post2, post3]])
+
+        with self.assertRaises(TypeError):
+            MyPost.state.group([self.post, "Invalid type"])
