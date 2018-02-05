@@ -319,9 +319,6 @@ class RoleMixin(object):
         specified, the role ``principal`` is granted. If not, ``anon`` is
         granted.
         """
-        if principal is not None and anchor is not None:
-            raise TypeError('Either principal or anchor must be specified, not both')
-
         if principal is None:
             result = {'all', 'anon'}
         else:

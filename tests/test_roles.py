@@ -265,12 +265,6 @@ class TestCoasterRoles(unittest.TestCase):
             def foo():
                 pass
 
-    def test_roles_for_principal_and_anchor(self):
-        """roles_for accepts principal or anchor, not both"""
-        rm = RoleModel(name=u'test', title=u'Test')
-        with self.assertRaises(TypeError):
-            rm.roles_for(principal=1, anchor='owner-secret')
-
     def test_access_for_roles_and_principal_or_anchor(self):
         """access_for accepts roles or principal/anchor, not both/all"""
         rm = RoleModel(name=u'test', title=u'Test')
