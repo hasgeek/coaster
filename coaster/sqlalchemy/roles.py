@@ -10,12 +10,12 @@ base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived
 Access is defined as one of 'call' (for methods), 'read' or 'write' (both for attributes).
 
 Roles are freeform string tokens. A model may freely define and grant roles to
-users based on internal criteria. The following standard tokens are
+users and other principals based on internal criteria. The following standard tokens are
 recommended. Required tokens are granted by :class:`RoleMixin` itself.
 
-1. ``all``: Any user, authenticated or anonymous (required)
-2. ``anon``: Anonymous user (required)
-3. ``user``: Logged in user or user token (required)
+1. ``all``: Any principal, authenticated or anonymous (required)
+2. ``anon``: Anonymous principal (required)
+3. ``principal``: Authenticated principal (required)
 4. ``creator``: The creator of an object (may or may not be the current owner)
 5. ``owner``: The current owner of an object
 6. ``author``: Author of the object's contents
@@ -95,13 +95,13 @@ Example use::
         def hello(self):
             return "Hello!"
 
-        # Your model is responsible for granting roles given a user or
-        # user token. The format of tokens is not specified by RoleMixin.
+        # Your model is responsible for granting roles given a principal or
+        # an anchor. The format of anchors is not specified by RoleMixin.
 
-        def roles_for(self, user=None, token=None):
+        def roles_for(self, principal=None, anchor=None):
             # Calling super give us a result set with the standard roles
-            result = super(RoleModel, self).roles_for(user, token)
-            if token == 'owner-secret':
+            result = super(RoleModel, self).roles_for(principal, anchor)
+            if anchor == 'owner-secret':
                 result.add('owner')  # Grant owner role
             return result
 """
@@ -308,39 +308,39 @@ class RoleMixin(object):
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
 
-    def roles_for(self, user=None, token=None):
+    def roles_for(self, principal=None, anchor=None):
         """
-        Return roles available to the given ``user`` or ``token`` on this
+        Return roles available to the given ``principal`` or ``anchor`` on this
         object. The data type for both parameters are intentionally undefined
-        here. Subclasses are free to define them in any way appropriate. Users
-        and tokens are assumed to be valid.
+        here. Subclasses are free to define them in any way appropriate. Principals
+        and anchors are assumed to be valid.
 
-        The role ``all`` is always granted. If either ``user`` or ``token`` is
-        specified, the role ``user`` is granted. If neither, ``anon`` is
+        The role ``all`` is always granted. If ``principal`` is
+        specified, the role ``principal`` is granted. If not, ``anon`` is
         granted.
         """
-        if user is not None and token is not None:
-            raise TypeError('Either user or token must be specified, not both')
+        if principal is not None and anchor is not None:
+            raise TypeError('Either principal or anchor must be specified, not both')
 
-        if user is None and token is None:
+        if principal is None:
             result = {'all', 'anon'}
         else:
-            result = {'all', 'user'}
+            result = {'all', 'principal'}
         return result
 
-    def users_with(self, roles):
+    def principals_with(self, roles):
         """
-        Return an iterable of all users who have the specified roles on this
+        Return an iterable of all principals who have the specified roles on this
         object. The iterable may be a list, tuple, set or SQLAlchemy query.
 
         Must be implemented by subclasses.
         """
-        raise NotImplementedError('Subclasses must implement users_with')
+        raise NotImplementedError('Subclasses must implement principals_with')
 
-    def make_token_for(self, user, roles=None, token=None):
+    def make_token_for(self, principal, roles=None, token=None):
         """
-        Generate a token for the specified user that grants access to this
-        object alone, with either all roles available to the user, or just
+        Generate a token for the specified principal that grants access to this
+        object alone, with either all roles available to the principal, or just
         the specified subset. If an existing token is available, add to it.
 
         This method should return ``None`` if a token cannot be generated.
@@ -351,22 +351,22 @@ class RoleMixin(object):
         # libmacaroons.
         raise NotImplementedError('Subclasses must implement make_token_for')
 
-    def access_for(self, roles=None, user=None, token=None):
+    def access_for(self, roles=None, principal=None, anchor=None):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the user's roles. If the ``roles`` parameter isn't provided,
-        but a ``user`` or ``token`` is provided instead, :meth:`roles_for` is
+        based on the principal's roles. If the ``roles`` parameter isn't provided,
+        but a ``principal`` or ``anchor`` is provided instead, :meth:`roles_for` is
         called::
 
             # This typical call:
-            obj.access_for(user=current_auth.user)
+            obj.access_for(principal=current_auth.principal)
             # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(user=current_auth.user))
+            obj.access_for(roles=obj.roles_for(principal=current_auth.principal))
         """
         if roles is None:
-            roles = self.roles_for(user=user, token=token)
-        elif user is not None or token is not None:
-            raise TypeError('If roles are specified, user and token must not be specified')
+            roles = self.roles_for(principal=principal, anchor=anchor)
+        elif principal is not None or anchor is not None:
+            raise TypeError('If roles are specified, principal and anchor must not be specified')
         return RoleAccessProxy(self, roles=roles)
 
 
