@@ -62,16 +62,16 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     defval = with_roles(db.deferred(db.Column(db.Unicode(250))),
         rw={'owner'})
 
-    @with_roles(call={'all'})  # 'call' is an alias for 'read', to be used for clarity
+    @with_roles(call={'all'})  # 'call' grants call access to the decorated method
     def hello(self):
         return "Hello!"
 
-    # Your model is responsible for granting roles given an actor, agent or
-    # anchors (an iterable). The format for anchors is not specified by RoleMixin.
+    # Your model is responsible for granting roles given an actor or anchors
+    # (an iterable). The format for anchors is not specified by RoleMixin.
 
-    def roles_for(self, actor=None, agent=None, anchors=()):
+    def roles_for(self, actor=None, anchors=()):
         # Calling super give us a result set with the standard roles
-        result = super(RoleModel, self).roles_for(actor, agent, anchors)
+        result = super(RoleModel, self).roles_for(actor, anchors)
         if 'owner-secret' in anchors:
             result.add('owner')  # Grant owner role
         return result
@@ -266,7 +266,7 @@ class TestCoasterRoles(unittest.TestCase):
                 pass
 
     def test_access_for_roles_and_actor_or_anchors(self):
-        """access_for accepts roles or actor/agent/anchors, not both/all"""
+        """access_for accepts roles or actor/anchors, not both/all"""
         rm = RoleModel(name=u'test', title=u'Test')
         with self.assertRaises(TypeError):
             rm.access_for(roles={'all'}, actor=1)

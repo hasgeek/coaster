@@ -95,12 +95,12 @@ Example use::
         def hello(self):
             return "Hello!"
 
-        # Your model is responsible for granting roles given an actor, agent or
-        # an anchor. The format of anchors is not specified by RoleMixin.
+        # Your model is responsible for granting roles given an actor or anchors
+        # (an iterable). The format for anchors is not specified by RoleMixin.
 
-        def roles_for(self, actor=None, agent=None, anchors=()):
+        def roles_for(self, actor=None, anchors=()):
             # Calling super give us a result set with the standard roles
-            result = super(RoleModel, self).roles_for(actor, agent, anchors)
+            result = super(RoleModel, self).roles_for(actor, anchors)
             if 'owner-secret' in anchors:
                 result.add('owner')  # Grant owner role
             return result
@@ -147,8 +147,8 @@ class RoleAccessProxy(collections.Mapping):
 
     """
     def __init__(self, obj, roles):
-        self.__dict__['_obj'] = obj
-        self.__dict__['_roles'] = roles
+        object.__setattr__(self, '_obj', obj)
+        object.__setattr__(self, '_roles', roles)
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -160,9 +160,9 @@ class RoleAccessProxy(collections.Mapping):
             read.update(obj.__roles__.get(role, {}).get('read', set()))
             write.update(obj.__roles__.get(role, {}).get('write', set()))
 
-        self.__dict__['_call'] = call
-        self.__dict__['_read'] = read
-        self.__dict__['_write'] = write
+        object.__setattr__(self, '_call', call)
+        object.__setattr__(self, '_read', read)
+        object.__setattr__(self, '_write', write)
 
     def __repr__(self):  # pragma: no cover
         return '<RoleAccessProxy(obj={obj}, roles={roles})>'.format(
@@ -308,15 +308,12 @@ class RoleMixin(object):
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
 
-    def roles_for(self, actor=None, agent=None, anchors=()):
+    def roles_for(self, actor=None, anchors=()):
         """
-        Return roles available to the given ``actor``, ``agent`` or ``anchors``
-        on this object. The data type for both parameters are intentionally
-        undefined here. Subclasses are free to define them in any way
-        appropriate. Actors, agents and anchors are assumed to be valid.
-
-        Agents should not normally be granted roles, but the parameter is
-        included to accommodate unforeseen requirements.
+        Return roles available to the given ``actor`` or ``anchors`` on this
+        object. The data type for both parameters are intentionally undefined
+        here. Subclasses are free to define them in any way appropriate. Actors
+        and anchors are assumed to be valid.
 
         The role ``all`` is always granted. If ``actor`` is
         specified, the role ``auth`` is granted. If not, ``anon`` is
@@ -337,10 +334,10 @@ class RoleMixin(object):
         """
         raise NotImplementedError('Subclasses must implement actors_with')
 
-    def access_for(self, roles=None, actor=None, agent=None, anchors=[]):
+    def access_for(self, roles=None, actor=None, anchors=[]):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the actor's and agent's roles. If the ``roles`` parameter isn't
+        based on the actor's roles. If the ``roles`` parameter isn't
         provided, :meth:`roles_for` is called with the other parameters::
 
             # This typical call:
@@ -349,9 +346,9 @@ class RoleMixin(object):
             obj.access_for(roles=obj.roles_for(actor=current_auth.actor))
         """
         if roles is None:
-            roles = self.roles_for(actor=actor, agent=agent, anchors=anchors)
-        elif actor is not None or agent is not None or anchors != []:
-            raise TypeError('If roles are specified, actor/agent/anchors must not be specified')
+            roles = self.roles_for(actor=actor, anchors=anchors)
+        elif actor is not None or anchors != []:
+            raise TypeError('If roles are specified, actor/anchors must not be specified')
         return RoleAccessProxy(self, roles=roles)
 
 
