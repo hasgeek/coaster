@@ -193,7 +193,7 @@ class RoleAccessProxy(collections.Mapping):
         return len(self._read)
 
     def __contains__(self, key):
-        return key in self._read
+        return key in self._read or key in self._call
 
     def __setitem__(self, key, value):
         # See also __setattr__
