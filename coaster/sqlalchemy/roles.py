@@ -7,6 +7,7 @@ Role-based access control
 Coaster provides a :class:`RoleMixin` class that can be used to define role-based access
 control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin` is a
 base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived classes.
+Access is defined as one of 'call' (for methods), 'read' or 'write' (both for attributes).
 
 Roles are freeform string tokens. A model may freely define and grant roles to
 users based on internal criteria. The following standard tokens are
@@ -84,10 +85,11 @@ Example use::
         def title(self, value):
             self._title = value
 
-        title = with_roles(title, write={'owner', 'editor'})  # This grants 'owner' and 'editor' write but not read access
+        # This grants 'owner' and 'editor' write but not read access
+        title = with_roles(title, write={'owner', 'editor'})
 
-        # ``with_roles`` can be used as a decorator on functions.
-        # 'call' is an alias for 'read', to be used for clarity.
+        # ``with_roles`` can be used as a decorator on methods, in which case
+        # access is controlled with the 'call' action.
 
         @with_roles(call={'all'})
         def hello(self):
@@ -125,9 +127,9 @@ class RoleAccessProxy(collections.Mapping):
     Consults the ``__roles__`` dictionary on the object for determining which roles can
     access which attributes. Provides both attribute and dictionary interfaces.
 
-    Note that if the underlying attribute is a callable, calls are controlled
-    by the read action. Care should be taken when the callable mutates the
-    object.
+    Note that if the underlying attribute is a callable and is specified with
+    the 'call' action, it will be available via attribute access but not
+    dictionary access.
 
     :class:`RoleAccessProxy` is typically accessed directly from the target
     object via :meth:`~RoleMixin.access_for` (from :class:`RoleMixin`).
@@ -148,14 +150,17 @@ class RoleAccessProxy(collections.Mapping):
         self.__dict__['_obj'] = obj
         self.__dict__['_roles'] = roles
 
-        # Read and write access attributes for the given roles
+        # Call, read and write access attributes for the given roles
+        call = set()
         read = set()
         write = set()
 
         for role in roles:
+            call.update(obj.__roles__.get(role, {}).get('call', set()))
             read.update(obj.__roles__.get(role, {}).get('read', set()))
             write.update(obj.__roles__.get(role, {}).get('write', set()))
 
+        self.__dict__['_call'] = call
         self.__dict__['_read'] = read
         self.__dict__['_write'] = write
 
@@ -164,21 +169,24 @@ class RoleAccessProxy(collections.Mapping):
             obj=repr(self._obj), roles=repr(self._roles))
 
     def __getattr__(self, attr):
-        if attr in self._read:
+        # See also __getitem__, which doesn't consult _call
+        if attr in self._read or attr in self._call:
             return getattr(self._obj, attr)
         else:
             raise AttributeError(attr)
 
     def __setattr__(self, attr, value):
+        # See also __setitem__
         if attr in self._write:
             return setattr(self._obj, attr, value)
         else:
             raise AttributeError(attr)
 
     def __getitem__(self, key):
-        try:
-            return self.__getattr__(key)
-        except AttributeError:
+        # See also __getattr__, which also looks in _call
+        if key in self._read:
+            return getattr(self._obj, key)
+        else:
             raise KeyError(key)
 
     def __len__(self):
@@ -188,9 +196,10 @@ class RoleAccessProxy(collections.Mapping):
         return key in self._read
 
     def __setitem__(self, key, value):
-        try:
-            self.__setattr__(key, value)
-        except AttributeError:
+        # See also __setattr__
+        if key in self._write:
+            return setattr(self._obj, key, value)
+        else:
             raise KeyError(key)
 
     def __iter__(self):
@@ -216,9 +225,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
 
     :param set rw: Roles which get read and write access to the decorated
         attribute
-    :param set call: Roles which get call access to the decorated method.
-        Due to technical limitations, ``call`` is just an alias for ``read``.
-        Any role with read access to a method can also call it
+    :param set call: Roles which get call access to the decorated method
     :param set read: Roles which get read access to the decorated attribute
     :param set write: Roles which get write access to the decorated attribute
     """
@@ -227,16 +234,14 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
     call = set(call) if call else set()
     read = set(read) if read else set()
     write = set(write) if write else set()
-    # `call` is just an alias for `read` due to limitations in RoleAccessProxy.
-    read.update(call)
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
 
     def inner(attr):
-        __cache__[attr] = {'read': read, 'write': write}
+        __cache__[attr] = {'call': call, 'read': read, 'write': write}
         try:
-            attr._coaster_roles = {'read': read, 'write': write}
+            attr._coaster_roles = {'call': call, 'read': read, 'write': write}
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
             # into subclasses, the cache alone is not a reliable mechanism. We need both.
@@ -294,8 +299,9 @@ class RoleMixin(object):
 
         __roles__ = {
             'role_name': {
-                'read': {'attr1', 'attr2'}
-                'write': {'attr1', 'attr2'}
+                'call': {'meth1', 'meth2'},
+                'read': {'attr1', 'attr2'},
+                'write': {'attr1', 'attr2'},
                 },
             }
     """
@@ -401,6 +407,8 @@ def __configure_roles(mapper, cls):
             else:
                 data = None
             if data is not None:
+                for role in data.get('call', []):
+                    cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(name)
                 for role in data.get('read', []):
                     cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(name)
                 for role in data.get('write', []):

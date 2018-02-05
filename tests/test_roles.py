@@ -123,7 +123,8 @@ class TestCoasterRoles(unittest.TestCase):
         """Roles may be declared multiple ways and they all work"""
         self.assertEqual(RoleModel.__roles__, {
             'all': {
-                'read': {'hello', 'id', 'name', 'title', 'mixed_in2'},
+                'call': {'hello', },
+                'read': {'id', 'name', 'title', 'mixed_in2'},
                 },
             'editor': {
                 'read': {'mixed_in2'},
@@ -203,10 +204,10 @@ class TestCoasterRoles(unittest.TestCase):
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
-        self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2', 'hello'})
+        self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2'})
         self.assertEqual(set(proxy2), {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
         self.assertEqual(set(proxy3),
-            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4', 'hello'})
+            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
@@ -252,7 +253,7 @@ class TestCoasterRoles(unittest.TestCase):
         rm = RoleModel(name=u'test', title=u'Test')
         proxy = rm.access_for(roles={'all'})
         self.assertEqual(proxy,
-            {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None, 'hello': rm.hello}
+            {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None}
             )
 
     def test_bad_decorator(self):
