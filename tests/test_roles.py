@@ -216,6 +216,8 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertEqual(rm.title, u'Test')
         proxy.title = u'Changed'
         self.assertEqual(rm.title, u'Changed')
+        proxy['title'] = u'Changed again'
+        self.assertEqual(rm.title, u'Changed again')
         with self.assertRaises(AttributeError):
             proxy.title
         with self.assertRaises(KeyError):
