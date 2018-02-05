@@ -3,6 +3,8 @@
 
 * Renamed ``coaster.roles.set_roles`` to ``with_roles`` and added support for
   wrapping ``declared_attr`` and column properties
+* Restructured roles to match current understanding of principals, actors,
+  agents and anchors
 * Added SQLAlchemy column annotations
 * Reorganised ``coaster.utils`` and ``coaster.sqlalchemy`` into sub-packages
 * ``LabeledEnum`` now supports grouped values if declared as a set

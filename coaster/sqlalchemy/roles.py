@@ -9,16 +9,16 @@ control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin
 base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived classes.
 Access is defined as one of 'call' (for methods), 'read' or 'write' (both for attributes).
 
-Roles are freeform string tokens. A model may freely define and grant roles to
-users and other principals based on internal criteria. The following standard tokens are
-recommended. Required tokens are granted by :class:`RoleMixin` itself.
+Roles are freeform string tokens. A model may freely define and grant roles to actors
+(users and sometimes clients) based on internal criteria. The following standard tokens
+are recommended. Required tokens are granted by :class:`RoleMixin` itself.
 
-1. ``all``: Any principal, authenticated or anonymous (required)
-2. ``anon``: Anonymous principal (required)
-3. ``principal``: Authenticated principal (required)
+1. ``all``: Any actor, authenticated or anonymous (required)
+2. ``anon``: Anonymous actor (required)
+3. ``auth``: Authenticated actor (required)
 4. ``creator``: The creator of an object (may or may not be the current owner)
 5. ``owner``: The current owner of an object
-6. ``author``: Author of the object's contents
+6. ``author``: Author of the object's contents (all creators are authors)
 7. ``editor``: Someone authorised to edit the object
 8. ``reader``: Someone authorised to read the object (assuming it's not public)
 
@@ -95,13 +95,13 @@ Example use::
         def hello(self):
             return "Hello!"
 
-        # Your model is responsible for granting roles given a principal or
+        # Your model is responsible for granting roles given an actor, agent or
         # an anchor. The format of anchors is not specified by RoleMixin.
 
-        def roles_for(self, principal=None, anchor=None):
+        def roles_for(self, actor=None, agent=None, anchors=()):
             # Calling super give us a result set with the standard roles
-            result = super(RoleModel, self).roles_for(principal, anchor)
-            if anchor == 'owner-secret':
+            result = super(RoleModel, self).roles_for(actor, agent, anchors)
+            if 'owner-secret' in anchors:
                 result.add('owner')  # Grant owner role
             return result
 """
@@ -295,7 +295,7 @@ class RoleMixin(object):
     Provides methods for role-based access control.
 
     Subclasses must define a :attr:`__roles__` dictionary with roles
-    and the attributes they have read and write access to::
+    and the attributes they have call, read and write access to::
 
         __roles__ = {
             'role_name': {
@@ -308,62 +308,50 @@ class RoleMixin(object):
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
 
-    def roles_for(self, principal=None, anchor=None):
+    def roles_for(self, actor=None, agent=None, anchors=()):
         """
-        Return roles available to the given ``principal`` or ``anchor`` on this
-        object. The data type for both parameters are intentionally undefined
-        here. Subclasses are free to define them in any way appropriate. Principals
-        and anchors are assumed to be valid.
+        Return roles available to the given ``actor``, ``agent`` or ``anchors``
+        on this object. The data type for both parameters are intentionally
+        undefined here. Subclasses are free to define them in any way
+        appropriate. Actors, agents and anchors are assumed to be valid.
 
-        The role ``all`` is always granted. If ``principal`` is
-        specified, the role ``principal`` is granted. If not, ``anon`` is
+        Agents should not normally be granted roles, but the parameter is
+        included to accommodate unforeseen requirements.
+
+        The role ``all`` is always granted. If ``actor`` is
+        specified, the role ``auth`` is granted. If not, ``anon`` is
         granted.
         """
-        if principal is None:
+        if actor is None:
             result = {'all', 'anon'}
         else:
-            result = {'all', 'principal'}
+            result = {'all', 'auth'}
         return result
 
-    def principals_with(self, roles):
+    def actors_with(self, roles):
         """
-        Return an iterable of all principals who have the specified roles on this
+        Return an iterable of all actors who have the specified roles on this
         object. The iterable may be a list, tuple, set or SQLAlchemy query.
 
         Must be implemented by subclasses.
         """
-        raise NotImplementedError('Subclasses must implement principals_with')
+        raise NotImplementedError('Subclasses must implement actors_with')
 
-    def make_token_for(self, principal, roles=None, token=None):
-        """
-        Generate a token for the specified principal that grants access to this
-        object alone, with either all roles available to the principal, or just
-        the specified subset. If an existing token is available, add to it.
-
-        This method should return ``None`` if a token cannot be generated.
-        Must be implemented by subclasses.
-        """
-        # TODO: Consider implementing this method so subclasses don't have to.
-        # This is where we introduce a standard implementation such as JWT or
-        # libmacaroons.
-        raise NotImplementedError('Subclasses must implement make_token_for')
-
-    def access_for(self, roles=None, principal=None, anchor=None):
+    def access_for(self, roles=None, actor=None, agent=None, anchors=[]):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the principal's roles. If the ``roles`` parameter isn't provided,
-        but a ``principal`` or ``anchor`` is provided instead, :meth:`roles_for` is
-        called::
+        based on the actor's and agent's roles. If the ``roles`` parameter isn't
+        provided, :meth:`roles_for` is called with the other parameters::
 
             # This typical call:
-            obj.access_for(principal=current_auth.principal)
+            obj.access_for(actor=current_auth.actor)
             # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(principal=current_auth.principal))
+            obj.access_for(roles=obj.roles_for(actor=current_auth.actor))
         """
         if roles is None:
-            roles = self.roles_for(principal=principal, anchor=anchor)
-        elif principal is not None or anchor is not None:
-            raise TypeError('If roles are specified, principal and anchor must not be specified')
+            roles = self.roles_for(actor=actor, agent=agent, anchors=anchors)
+        elif actor is not None or agent is not None or anchors != []:
+            raise TypeError('If roles are specified, actor/agent/anchors must not be specified')
         return RoleAccessProxy(self, roles=roles)
 
 

@@ -66,13 +66,13 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     def hello(self):
         return "Hello!"
 
-    # Your model is responsible for granting roles given a principal or
-    # anchor. The format of anchors is not specified by RoleMixin.
+    # Your model is responsible for granting roles given an actor, agent or
+    # anchors (an iterable). The format for anchors is not specified by RoleMixin.
 
-    def roles_for(self, principal=None, anchor=None):
+    def roles_for(self, actor=None, agent=None, anchors=()):
         # Calling super give us a result set with the standard roles
-        result = super(RoleModel, self).roles_for(principal, anchor)
-        if anchor == 'owner-secret':
+        result = super(RoleModel, self).roles_for(actor, agent, anchors)
+        if 'owner-secret' in anchors:
             result.add('owner')  # Grant owner role
         return result
 
@@ -157,43 +157,43 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertLessEqual({'uuid', 'url_id', 'buid', 'suuid'}, UuidModel.__roles__['all']['read'])
 
     def test_roles_for_anon(self):
-        """An anonymous principal should have 'all' and 'anon' roles"""
+        """An anonymous actor should have 'all' and 'anon' roles"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(principal=None)
+        roles = rm.roles_for(actor=None)
         self.assertEqual(roles, {'all', 'anon'})
 
-    def test_roles_for_principal(self):
-        """A principal (but not anchor) must have 'all' and 'principal' roles"""
+    def test_roles_for_actor(self):
+        """An actor (but anchors) must have 'all' and 'auth' roles"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(principal=1)
-        self.assertEqual(roles, {'all', 'principal'})
-        roles = rm.roles_for(anchor=1)
+        roles = rm.roles_for(actor=1)
+        self.assertEqual(roles, {'all', 'auth'})
+        roles = rm.roles_for(anchors=(1,))
         self.assertEqual(roles, {'all', 'anon'})
 
     def test_roles_for_owner(self):
         """Presenting the correct anchor grants 'owner' role"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(anchor='owner-secret')
+        roles = rm.roles_for(anchors=('owner-secret',))
         self.assertEqual(roles, {'all', 'anon', 'owner'})
 
     def test_access_for_syntax(self):
-        """access_for can be called with either roles or principal for identical outcomes"""
+        """access_for can be called with either roles or actor for identical outcomes"""
         rm = RoleModel(name=u'test', title=u'Test')
-        proxy1 = rm.access_for(roles=rm.roles_for(principal=None))
-        proxy2 = rm.access_for(principal=None)
+        proxy1 = rm.access_for(roles=rm.roles_for(actor=None))
+        proxy2 = rm.access_for(actor=None)
         self.assertEqual(proxy1, proxy2)
 
     def test_access_for_all(self):
-        """All principals should be able to read some fields"""
+        """All actors should be able to read some fields"""
         arm = AutoRoleModel(name=u'test')
-        proxy = arm.access_for(principal=None)
+        proxy = arm.access_for(actor=None)
         self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""
         rm = RoleModel(name=u'test', title=u'Test')
-        proxy = rm.access_for(principal=None)
+        proxy = rm.access_for(actor=None)
         self.assertIn('name', proxy)
         self.assertEqual(proxy.name, u'test')
         self.assertEqual(proxy['name'], u'test')
@@ -265,12 +265,12 @@ class TestCoasterRoles(unittest.TestCase):
             def foo():
                 pass
 
-    def test_access_for_roles_and_principal_or_anchor(self):
-        """access_for accepts roles or principal/anchor, not both/all"""
+    def test_access_for_roles_and_actor_or_anchors(self):
+        """access_for accepts roles or actor/agent/anchors, not both/all"""
         rm = RoleModel(name=u'test', title=u'Test')
         with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, principal=1)
+            rm.access_for(roles={'all'}, actor=1)
         with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, anchor='owner-secret')
+            rm.access_for(roles={'all'}, anchors=('owner-secret',))
         with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, principal=1, anchor='owner-secret')
+            rm.access_for(roles={'all'}, actor=1, anchors=('owner-secret',))
