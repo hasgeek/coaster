@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+from werkzeug.exceptions import BadRequest
 from flask import Flask, session, json
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform, BadRequest
+from coaster.views import get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform
 
 
 def index():
