@@ -1,115 +1,31 @@
 # -*- coding: utf-8 -*-
 
 """
-View helpers
-============
+View decorators
+---------------
 
-Coaster provides functions and decorators for common scenarios in view handlers.
+Decorators for view handlers.
+
+All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from __future__ import absolute_import
 from functools import wraps
-import re
-from flask import (session as request_session, request, url_for, json, Response,
-    redirect, abort, g, current_app, render_template, jsonify, make_response)
+import six
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
-import six
-from six.moves.urllib.parse import urlsplit
-from .auth import current_auth
+from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
+    request, Response, url_for)
+from ..auth import current_auth
+from .misc import jsonp as render_jsonp
 
-__jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
-
-
-def __index_url():
-    if request:
-        return request.script_root or '/'
-    else:
-        return '/'
-
-
-def __clean_external_url(url):
-    if url.startswith(('http://', 'https://', '//')):
-        # Do the domains and ports match?
-        pnext = urlsplit(url)
-        preq = urlsplit(request.url)
-        if pnext.port != preq.port:
-            return ''
-        if not (pnext.hostname == preq.hostname or pnext.hostname.endswith('.' + preq.hostname)):
-            return ''
-    return url
-
-
-def get_current_url():
-    """
-    Return the current URL including the query string as a relative path. If the app uses subdomains,
-    return an absolute path
-    """
-    if current_app.config.get('SERVER_NAME') and (
-            # Check current hostname against server name, ignoring port numbers, if any (split on ':')
-            request.environ['HTTP_HOST'].split(':', 1)[0] != current_app.config['SERVER_NAME'].split(':', 1)[0]):
-        return request.url
-
-    url = url_for(request.endpoint, **request.view_args)
-    query = request.query_string
-    if query:
-        return url + '?' + query.decode()
-    else:
-        return url
-
-
-__marker = []
-
-
-def get_next_url(referrer=False, external=False, session=False, default=__marker):
-    """
-    Get the next URL to redirect to. Don't return external URLs unless
-    explicitly asked for. This is to protect the site from being an unwitting
-    redirector to external URLs. Subdomains are okay, however.
-
-    This function looks for a ``next`` parameter in the request or in the session
-    (depending on whether parameter ``session`` is True). If no ``next`` is present,
-    it checks the referrer (if enabled), and finally returns either the provided
-    default (which can be any value including ``None``) or the script root
-    (typically ``/``).
-    """
-    if session:
-        next_url = request_session.pop('next', None) or request.args.get('next', '')
-    else:
-        next_url = request.args.get('next', '')
-    if next_url and not external:
-        next_url = __clean_external_url(next_url)
-    if next_url:
-        return next_url
-
-    if default is __marker:
-        usedefault = False
-    else:
-        usedefault = True
-
-    if referrer and request.referrer:
-        if external:
-            return request.referrer
-        else:
-            return __clean_external_url(request.referrer) or (default if usedefault else __index_url())
-    else:
-        return (default if usedefault else __index_url())
-
-
-def jsonp(*args, **kw):
-    """
-    Returns a JSON response with a callback wrapper, if asked for.
-    """
-    data = json.dumps(dict(*args, **kw),
-        indent=None if request.is_xhr else 2)
-    callback = request.args.get('callback', request.args.get('jsonp'))
-    if callback and __jsoncallback_re.search(callback) is not None:
-        data = callback + u'(' + data + u');'
-        mimetype = 'application/javascript'
-    else:
-        mimetype = 'application/json'
-    return Response(data, mimetype=mimetype)
+__all__ = [
+    'RequestTypeError', 'RequestValueError',
+    'requestargs', 'requestform', 'requestquery',
+    'load_model', 'load_models',
+    'render_with', 'cors',
+    ]
 
 
 class RequestTypeError(BadRequest, TypeError):
@@ -404,8 +320,6 @@ def load_models(*chain, **kwargs):
     return inner
 
 
-__render_with_jsonp = jsonp  # So we can take a jsonp parameter in render_with
-
 
 def _best_mimetype_match(available_list, accept_mimetypes, default=None):
     for use_mimetype, quality in accept_mimetypes:
@@ -476,9 +390,9 @@ def render_with(template, json=False, jsonp=False):
     """
     if jsonp:
         templates = {
-            'application/json': __render_with_jsonp,
-            'text/json': __render_with_jsonp,
-            'text/x-json': __render_with_jsonp,
+            'application/json': render_jsonp,
+            'text/json': render_jsonp,
+            'text/x-json': render_jsonp,
             }
     elif json:
         templates = {
