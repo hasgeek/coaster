@@ -6,18 +6,20 @@ Role-based access control
 
 Coaster provides a :class:`RoleMixin` class that can be used to define role-based access
 control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin` is a
-base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived classes.
+base class for :class:`~coaster.sqlalchemy.mixins.BaseMixin` and applies to all derived
+classes. Access is defined as one of 'call' (for methods), 'read' or 'write' (both for
+attributes).
 
-Roles are freeform string tokens. A model may freely define and grant roles to
-users based on internal criteria. The following standard tokens are
-recommended. Required tokens are granted by :class:`RoleMixin` itself.
+Roles are freeform string tokens. A model may freely define and grant roles to actors
+(users and sometimes client apps) based on internal criteria. The following standard tokens
+are recommended. Required tokens are granted by :class:`RoleMixin` itself.
 
-1. ``all``: Any user, authenticated or anonymous (required)
-2. ``anon``: Anonymous user (required)
-3. ``user``: Logged in user or user token (required)
+1. ``all``: Any actor, authenticated or anonymous (required)
+2. ``anon``: Anonymous actor (required)
+3. ``auth``: Authenticated actor (required)
 4. ``creator``: The creator of an object (may or may not be the current owner)
 5. ``owner``: The current owner of an object
-6. ``author``: Author of the object's contents
+6. ``author``: Author of the object's contents (all creators are authors)
 7. ``editor``: Someone authorised to edit the object
 8. ``reader``: Someone authorised to read the object (assuming it's not public)
 
@@ -30,32 +32,28 @@ Example use::
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
-    class DeclaredAttrMixin(object):
-        # Standard usage
+    class ColumnMixin(object):
+        '''
+        Mixin class that offers some columns to the RoleModel class below,
+        demonstrating two ways to use with_roles.
+        '''
         @with_roles(rw={'owner'})
         def mixed_in1(cls):
             return db.Column(db.Unicode(250))
 
-        # Roundabout approach
         @declared_attr
         def mixed_in2(cls):
             return with_roles(db.Column(db.Unicode(250)),
                 rw={'owner'})
 
-        # Deprecated since 0.6.1
-        @declared_attr
-        @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
-        def mixed_in3(cls):
-            return db.Column(db.Unicode(250))
 
-
-    class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
+    class RoleModel(ColumnMixin, RoleMixin, db.Model):
         __tablename__ = 'role_model'
 
         # The low level approach is to declare roles in advance.
         # 'all' is a special role that is always granted from the base class.
-        # Avoid this approach because you may accidentally lose roles defined
-        # in base classes.
+        # Avoid this approach because you may accidentally lose roles if a
+        # subclass does not copy __roles__ from parent classes.
 
         __roles__ = {
             'all': {
@@ -70,8 +68,8 @@ Example use::
         name = with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})  # Specify read+write access
 
-        # ``with_roles`` can also be called later. This is typically required
-        # for properties, where roles must be assigned after the property is
+        # ``with_roles`` can also be called later. This is required for
+        # properties, where roles must be assigned after the property is
         # fully described.
 
         _title = db.Column('title', db.Unicode(250))
@@ -84,22 +82,23 @@ Example use::
         def title(self, value):
             self._title = value
 
-        title = with_roles(title, write={'owner', 'editor'})  # This grants 'owner' and 'editor' write but not read access
+        # This grants 'owner' and 'editor' write but not read access
+        title = with_roles(title, write={'owner', 'editor'})
 
-        # ``with_roles`` can be used as a decorator on functions.
-        # 'call' is an alias for 'read', to be used for clarity.
+        # ``with_roles`` can be used as a decorator on methods, in which case
+        # access is controlled with the 'call' action.
 
         @with_roles(call={'all'})
         def hello(self):
             return "Hello!"
 
-        # Your model is responsible for granting roles given a user or
-        # user token. The format of tokens is not specified by RoleMixin.
+        # Your model is responsible for granting roles given an actor or anchors
+        # (an iterable).
 
-        def roles_for(self, user=None, token=None):
+        def roles_for(self, actor=None, anchors=()):
             # Calling super give us a result set with the standard roles
-            result = super(RoleModel, self).roles_for(user, token)
-            if token == 'owner-secret':
+            result = super(RoleModel, self).roles_for(actor, anchors)
+            if 'owner-secret' in anchors:
                 result.add('owner')  # Grant owner role
             return result
 """
@@ -108,9 +107,12 @@ from __future__ import absolute_import
 from functools import wraps
 import collections
 from copy import deepcopy
+import warnings
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from ..utils import InspectableSet
+from ..auth import current_auth
 
 __all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
 
@@ -125,9 +127,9 @@ class RoleAccessProxy(collections.Mapping):
     Consults the ``__roles__`` dictionary on the object for determining which roles can
     access which attributes. Provides both attribute and dictionary interfaces.
 
-    Note that if the underlying attribute is a callable, calls are controlled
-    by the read action. Care should be taken when the callable mutates the
-    object.
+    Note that if the underlying attribute is a callable and is specified with
+    the 'call' action, it will be available via attribute access but not
+    dictionary access.
 
     :class:`RoleAccessProxy` is typically accessed directly from the target
     object via :meth:`~RoleMixin.access_for` (from :class:`RoleMixin`).
@@ -145,52 +147,59 @@ class RoleAccessProxy(collections.Mapping):
 
     """
     def __init__(self, obj, roles):
-        self.__dict__['_obj'] = obj
-        self.__dict__['_roles'] = roles
+        object.__setattr__(self, '_obj', obj)
+        object.__setattr__(self, 'current_roles', InspectableSet(roles))
 
-        # Read and write access attributes for the given roles
+        # Call, read and write access attributes for the given roles
+        call = set()
         read = set()
         write = set()
 
         for role in roles:
+            call.update(obj.__roles__.get(role, {}).get('call', set()))
             read.update(obj.__roles__.get(role, {}).get('read', set()))
             write.update(obj.__roles__.get(role, {}).get('write', set()))
 
-        self.__dict__['_read'] = read
-        self.__dict__['_write'] = write
+        object.__setattr__(self, '_call', call)
+        object.__setattr__(self, '_read', read)
+        object.__setattr__(self, '_write', write)
 
     def __repr__(self):  # pragma: no cover
-        return '<RoleAccessProxy(obj={obj}, roles={roles})>'.format(
-            obj=repr(self._obj), roles=repr(self._roles))
+        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
+            obj=repr(self._obj), roles=repr(self.current_roles))
 
     def __getattr__(self, attr):
-        if attr in self._read:
+        # See also __getitem__, which doesn't consult _call
+        if attr in self._read or attr in self._call:
             return getattr(self._obj, attr)
         else:
             raise AttributeError(attr)
 
     def __setattr__(self, attr, value):
+        # See also __setitem__
         if attr in self._write:
             return setattr(self._obj, attr, value)
         else:
             raise AttributeError(attr)
 
     def __getitem__(self, key):
-        try:
-            return self.__getattr__(key)
-        except AttributeError:
+        # See also __getattr__, which also looks in _call
+        if key in self._read:
+            return getattr(self._obj, key)
+        else:
             raise KeyError(key)
 
     def __len__(self):
         return len(self._read)
 
     def __contains__(self, key):
-        return key in self._read
+        return key in self._read or key in self._call
 
     def __setitem__(self, key, value):
-        try:
-            self.__setattr__(key, value)
-        except AttributeError:
+        # See also __setattr__
+        if key in self._write:
+            return setattr(self._obj, key, value)
+        else:
             raise KeyError(key)
 
     def __iter__(self):
@@ -214,11 +223,28 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         def url_id(self):
             return str(self.id)
 
+    When used with properties, with_roles must always be applied after the
+    property is fully described::
+
+        @property
+        def title(self):
+            return self._title
+
+        @title.setter
+        def title(self, value):
+            self._title = value
+
+        # Either of the following is fine, since with_roles annotates objects
+        # instead of wrapping them. The return value can be discarded if it's
+        # already present on the host object:
+
+        with_roles(title, read={'all'}, write={'owner', 'editor'})
+        title = with_roles(title, read={'all'}, write={'owner', 'editor'})
+
+
     :param set rw: Roles which get read and write access to the decorated
         attribute
-    :param set call: Roles which get call access to the decorated method.
-        Due to technical limitations, ``call`` is just an alias for ``read``.
-        Any role with read access to a method can also call it
+    :param set call: Roles which get call access to the decorated method
     :param set read: Roles which get read access to the decorated attribute
     :param set write: Roles which get write access to the decorated attribute
     """
@@ -227,16 +253,14 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
     call = set(call) if call else set()
     read = set(read) if read else set()
     write = set(write) if write else set()
-    # `call` is just an alias for `read` due to limitations in RoleAccessProxy.
-    read.update(call)
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
 
     def inner(attr):
-        __cache__[attr] = {'read': read, 'write': write}
+        __cache__[attr] = {'call': call, 'read': read, 'write': write}
         try:
-            attr._coaster_roles = {'read': read, 'write': write}
+            attr._coaster_roles = {'call': call, 'read': read, 'write': write}
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
             # into subclasses, the cache alone is not a reliable mechanism. We need both.
@@ -253,6 +277,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         return inner
 
 # with_roles was set_roles when originally introduced in 0.6.0
+# set_roles is deprecated since 0.6.1
 set_roles = with_roles
 
 
@@ -282,6 +307,7 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
             # that returns a list that should be accessible via the proxy.
             return with_roles(rw=rw, call=call, read=read, write=write)(f(cls))
         return attr
+    warnings.warn("declared_attr_roles is deprecated; use with_roles", stacklevel=2)
     return inner
 
 
@@ -290,78 +316,99 @@ class RoleMixin(object):
     Provides methods for role-based access control.
 
     Subclasses must define a :attr:`__roles__` dictionary with roles
-    and the attributes they have read and write access to::
+    and the attributes they have call, read and write access to::
 
         __roles__ = {
             'role_name': {
-                'read': {'attr1', 'attr2'}
-                'write': {'attr1', 'attr2'}
+                'call': {'meth1', 'meth2'},
+                'read': {'attr1', 'attr2'},
+                'write': {'attr1', 'attr2'},
                 },
             }
+
+    The :func:`with_roles` decorator is recommended over :attr:`__roles__`.
     """
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
 
-    def roles_for(self, user=None, token=None):
+    def roles_for(self, actor=None, anchors=()):
         """
-        Return roles available to the given ``user`` or ``token`` on this
+        Return roles available to the given ``actor`` or ``anchors`` on this
         object. The data type for both parameters are intentionally undefined
-        here. Subclasses are free to define them in any way appropriate. Users
-        and tokens are assumed to be valid.
+        here. Subclasses are free to define them in any way appropriate. Actors
+        and anchors are assumed to be valid.
 
-        The role ``all`` is always granted. If either ``user`` or ``token`` is
-        specified, the role ``user`` is granted. If neither, ``anon`` is
+        The role ``all`` is always granted. If ``actor`` is
+        specified, the role ``auth`` is granted. If not, ``anon`` is
         granted.
-        """
-        if user is not None and token is not None:
-            raise TypeError('Either user or token must be specified, not both')
 
-        if user is None and token is None:
+        Subclasses overriding :meth:`roles_for` must always call :func:`super`
+        to ensure they are receiving the standard roles. Recommended
+        boilerplate::
+
+            def roles_for(self, actor=None, anchors=()):
+                roles = super(YourClass, self).roles_for(actor, anchors)
+                # 'roles' is a set. Add more roles here
+                # ...
+                return roles
+        """
+        if actor is None:
             result = {'all', 'anon'}
         else:
-            result = {'all', 'user'}
+            result = {'all', 'auth'}
         return result
 
-    def users_with(self, roles):
+    @property
+    def current_roles(self):
         """
-        Return an iterable of all users who have the specified roles on this
+        :class:`~coaster.utils.classes.InspectableSet` containing currently
+        available roles on this object, using
+        :obj:`~coaster.auth.current_auth`. Use in the view layer to inspect
+        for a role being present:
+
+            if obj.current_roles.editor:
+                pass
+
+            {% if obj.current_roles.editor %}...{% endif %}
+
+        This property is also available in :class:`RoleAccessProxy`.
+        """
+        # TODO: current_auth must recognise and host anchors
+        return InspectableSet(self.roles_for(actor=current_auth.user))
+
+    def actors_with(self, roles):
+        """
+        Return an iterable of all actors who have the specified roles on this
         object. The iterable may be a list, tuple, set or SQLAlchemy query.
 
         Must be implemented by subclasses.
         """
-        raise NotImplementedError('Subclasses must implement users_with')
+        raise NotImplementedError('Subclasses must implement actors_with')
 
-    def make_token_for(self, user, roles=None, token=None):
-        """
-        Generate a token for the specified user that grants access to this
-        object alone, with either all roles available to the user, or just
-        the specified subset. If an existing token is available, add to it.
-
-        This method should return ``None`` if a token cannot be generated.
-        Must be implemented by subclasses.
-        """
-        # TODO: Consider implementing this method so subclasses don't have to.
-        # This is where we introduce a standard implementation such as JWT or
-        # libmacaroons.
-        raise NotImplementedError('Subclasses must implement make_token_for')
-
-    def access_for(self, roles=None, user=None, token=None):
+    def access_for(self, roles=None, actor=None, anchors=[]):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the user's roles. If the ``roles`` parameter isn't provided,
-        but a ``user`` or ``token`` is provided instead, :meth:`roles_for` is
-        called::
+        based on the actor's roles. If the ``roles`` parameter isn't
+        provided, :meth:`roles_for` is called with the other parameters::
 
             # This typical call:
-            obj.access_for(user=current_auth.user)
+            obj.access_for(actor=current_auth.actor)
             # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(user=current_auth.user))
+            obj.access_for(roles=obj.roles_for(actor=current_auth.actor))
         """
         if roles is None:
-            roles = self.roles_for(user=user, token=token)
-        elif user is not None or token is not None:
-            raise TypeError('If roles are specified, user and token must not be specified')
+            roles = self.roles_for(actor=actor, anchors=anchors)
+        elif actor is not None or anchors != []:
+            raise TypeError('If roles are specified, actor/anchors must not be specified')
         return RoleAccessProxy(self, roles=roles)
+
+    def current_access(self):
+        """
+        Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
+        return a proxy for the currently authenticated user.
+        """
+        # TODO: current_auth must recognise and host anchors
+        return self.access_for(actor=current_auth.user)
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
@@ -401,6 +448,8 @@ def __configure_roles(mapper, cls):
             else:
                 data = None
             if data is not None:
+                for role in data.get('call', []):
+                    cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(name)
                 for role in data.get('read', []):
                     cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(name)
                 for role in data.get('write', []):

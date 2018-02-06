@@ -15,13 +15,14 @@ db.init_app(app)
 # --- Models ------------------------------------------------------------------
 
 class DeclaredAttrMixin(object):
-    # The ugly way to work with declared_attr
+    # with_roles can be used within a declared attr
     @declared_attr
     def mixed_in1(cls):
         return with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})
 
-    # The clean way to work with declared_attr
+    # declared_attr_roles is deprecated since 0.6.1. Use with_roles
+    # as the outer decorator now. It remains here for the test case.
     @declared_attr
     @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
     def mixed_in2(cls):
@@ -62,17 +63,17 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     defval = with_roles(db.deferred(db.Column(db.Unicode(250))),
         rw={'owner'})
 
-    @with_roles(call={'all'})  # 'call' is an alias for 'read', to be used for clarity
+    @with_roles(call={'all'})  # 'call' grants call access to the decorated method
     def hello(self):
         return "Hello!"
 
-    # Your model is responsible for granting roles given a user or
-    # user token. The format of tokens is not specified by RoleMixin.
+    # Your model is responsible for granting roles given an actor or anchors
+    # (an iterable). The format for anchors is not specified by RoleMixin.
 
-    def roles_for(self, user=None, token=None):
+    def roles_for(self, actor=None, anchors=()):
         # Calling super give us a result set with the standard roles
-        result = super(RoleModel, self).roles_for(user, token)
-        if token == 'owner-secret':
+        result = super(RoleModel, self).roles_for(actor, anchors)
+        if 'owner-secret' in anchors:
             result.add('owner')  # Grant owner role
         return result
 
@@ -123,7 +124,8 @@ class TestCoasterRoles(unittest.TestCase):
         """Roles may be declared multiple ways and they all work"""
         self.assertEqual(RoleModel.__roles__, {
             'all': {
-                'read': {'hello', 'id', 'name', 'title', 'mixed_in2'},
+                'call': {'hello', },
+                'read': {'id', 'name', 'title', 'mixed_in2'},
                 },
             'editor': {
                 'read': {'mixed_in2'},
@@ -156,43 +158,65 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertLessEqual({'uuid', 'url_id', 'buid', 'suuid'}, UuidModel.__roles__['all']['read'])
 
     def test_roles_for_anon(self):
-        """An anonymous user should have 'all' and 'anon' roles"""
+        """An anonymous actor should have 'all' and 'anon' roles"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(user=None)
+        roles = rm.roles_for(actor=None)
         self.assertEqual(roles, {'all', 'anon'})
 
-    def test_roles_for_user(self):
-        """A user or token must have 'all' and 'user' roles"""
+    def test_roles_for_actor(self):
+        """An actor (but anchors) must have 'all' and 'auth' roles"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(user=1)
-        self.assertEqual(roles, {'all', 'user'})
-        roles = rm.roles_for(token=1)
-        self.assertEqual(roles, {'all', 'user'})
+        roles = rm.roles_for(actor=1)
+        self.assertEqual(roles, {'all', 'auth'})
+        roles = rm.roles_for(anchors=(1,))
+        self.assertEqual(roles, {'all', 'anon'})
 
     def test_roles_for_owner(self):
-        """Presenting the correct owner token grants 'owner' role"""
+        """Presenting the correct anchor grants 'owner' role"""
         rm = RoleModel(name=u'test', title=u'Test')
-        roles = rm.roles_for(token='owner-secret')
-        self.assertEqual(roles, {'all', 'user', 'owner'})
+        roles = rm.roles_for(anchors=('owner-secret',))
+        self.assertEqual(roles, {'all', 'anon', 'owner'})
+
+    def test_current_roles(self):
+        """Current roles are available"""
+        rm = RoleModel(name=u'test', title=u'Test')
+        roles = rm.current_roles
+        self.assertEqual(roles, {'all', 'anon'})
+        self.assertTrue(roles.all)
+        self.assertTrue(roles.anon)
+        self.assertFalse(roles.owner)
 
     def test_access_for_syntax(self):
-        """access_for can be called with either roles or user for identical outcomes"""
+        """access_for can be called with either roles or actor for identical outcomes"""
         rm = RoleModel(name=u'test', title=u'Test')
-        proxy1 = rm.access_for(roles=rm.roles_for(user=None))
-        proxy2 = rm.access_for(user=None)
+        proxy1 = rm.access_for(roles=rm.roles_for(actor=None))
+        proxy2 = rm.access_for(actor=None)
         self.assertEqual(proxy1, proxy2)
 
     def test_access_for_all(self):
-        """All users should be able to read some fields"""
+        """All actors should be able to read some fields"""
         arm = AutoRoleModel(name=u'test')
-        proxy = arm.access_for(user=None)
+        proxy = arm.access_for(actor=None)
         self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
+
+    def test_current_access(self):
+        """Current access is available"""
+        arm = AutoRoleModel(name=u'test')
+        proxy = arm.current_access()
+        self.assertEqual(len(proxy), 2)
+        self.assertEqual(set(proxy.keys()), {'id', 'name'})
+
+        roles = proxy.current_roles
+        self.assertEqual(roles, {'all', 'anon'})
+        self.assertTrue(roles.all)
+        self.assertTrue(roles.anon)
+        self.assertFalse(roles.owner)
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""
         rm = RoleModel(name=u'test', title=u'Test')
-        proxy = rm.access_for(user=None)
+        proxy = rm.access_for(actor=None)
         self.assertIn('name', proxy)
         self.assertEqual(proxy.name, u'test')
         self.assertEqual(proxy['name'], u'test')
@@ -203,10 +227,10 @@ class TestCoasterRoles(unittest.TestCase):
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
-        self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2', 'hello'})
+        self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2'})
         self.assertEqual(set(proxy2), {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
         self.assertEqual(set(proxy3),
-            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4', 'hello'})
+            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
@@ -215,6 +239,8 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertEqual(rm.title, u'Test')
         proxy.title = u'Changed'
         self.assertEqual(rm.title, u'Changed')
+        proxy['title'] = u'Changed again'
+        self.assertEqual(rm.title, u'Changed again')
         with self.assertRaises(AttributeError):
             proxy.title
         with self.assertRaises(KeyError):
@@ -252,7 +278,7 @@ class TestCoasterRoles(unittest.TestCase):
         rm = RoleModel(name=u'test', title=u'Test')
         proxy = rm.access_for(roles={'all'})
         self.assertEqual(proxy,
-            {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None, 'hello': rm.hello}
+            {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None}
             )
 
     def test_bad_decorator(self):
@@ -262,18 +288,12 @@ class TestCoasterRoles(unittest.TestCase):
             def foo():
                 pass
 
-    def test_roles_for_user_and_token(self):
-        """roles_for accepts user or token, not both"""
+    def test_access_for_roles_and_actor_or_anchors(self):
+        """access_for accepts roles or actor/anchors, not both/all"""
         rm = RoleModel(name=u'test', title=u'Test')
         with self.assertRaises(TypeError):
-            rm.roles_for(user=1, token='owner-secret')
-
-    def test_access_for_roles_and_user_or_token(self):
-        """access_for accepts roles or user/token, not both/all"""
-        rm = RoleModel(name=u'test', title=u'Test')
+            rm.access_for(roles={'all'}, actor=1)
         with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, user=1)
+            rm.access_for(roles={'all'}, anchors=('owner-secret',))
         with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, token='owner-secret')
-        with self.assertRaises(TypeError):
-            rm.access_for(roles={'all'}, user=1, token='owner-secret')
+            rm.access_for(roles={'all'}, actor=1, anchors=('owner-secret',))

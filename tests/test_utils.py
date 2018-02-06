@@ -7,7 +7,7 @@ import six
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    suuid, suuid2uuid, uuid2suuid, require_one_of)
+    suuid, suuid2uuid, uuid2suuid, require_one_of, InspectableSet)
 
 
 class MY_ENUM(LabeledEnum):
@@ -145,3 +145,28 @@ class TestCoasterUtils(unittest.TestCase):
         # Ask for which was passed in
         self.assertEqual(require_one_of(True, first='a', second=None), ('first', 'a'))
         self.assertEqual(require_one_of(True, first=None, second='b'), ('second', 'b'))
+
+    def test_inspectable_set(self):
+        s1 = InspectableSet(['all', 'anon'])
+        self.assertTrue('all' in s1)
+        self.assertFalse('auth' in s1)
+        self.assertTrue(s1['all'])
+        self.assertFalse(s1['auth'])
+        self.assertTrue(s1.all)
+        self.assertFalse(s1.auth)
+
+        s2 = InspectableSet({'all', 'anon', 'other'})
+        self.assertTrue('all' in s2)
+        self.assertFalse('auth' in s2)
+        self.assertTrue(s2['all'])
+        self.assertFalse(s2['auth'])
+        self.assertTrue(s2.all)
+        self.assertFalse(s2.auth)
+
+        self.assertEqual(len(s1), 2)
+        self.assertEqual(len(s2), 3)
+        self.assertEqual(s1, {'all', 'anon'})
+        self.assertEqual(s2, {'all', 'anon', 'other'})
+
+        with self.assertRaises(AttributeError):
+            s1.auth = True
