@@ -6,8 +6,9 @@ Role-based access control
 
 Coaster provides a :class:`RoleMixin` class that can be used to define role-based access
 control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin` is a
-base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived classes.
-Access is defined as one of 'call' (for methods), 'read' or 'write' (both for attributes).
+base class for :class:`~coaster.sqlalchemy.mixins.BaseMixin` and applies to all derived
+classes. Access is defined as one of 'call' (for methods), 'read' or 'write' (both for
+attributes).
 
 Roles are freeform string tokens. A model may freely define and grant roles to actors
 (users and sometimes client apps) based on internal criteria. The following standard tokens
@@ -31,32 +32,28 @@ Example use::
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
-    class DeclaredAttrMixin(object):
-        # Standard usage
+    class ColumnMixin(object):
+        '''
+        Mixin class that offers some columns to the RoleModel class below,
+        demonstrating two ways to use with_roles.
+        '''
         @with_roles(rw={'owner'})
         def mixed_in1(cls):
             return db.Column(db.Unicode(250))
 
-        # Roundabout approach
         @declared_attr
         def mixed_in2(cls):
             return with_roles(db.Column(db.Unicode(250)),
                 rw={'owner'})
 
-        # Deprecated since 0.6.1
-        @declared_attr
-        @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
-        def mixed_in3(cls):
-            return db.Column(db.Unicode(250))
 
-
-    class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
+    class RoleModel(ColumnMixin, RoleMixin, db.Model):
         __tablename__ = 'role_model'
 
         # The low level approach is to declare roles in advance.
         # 'all' is a special role that is always granted from the base class.
-        # Avoid this approach because you may accidentally lose roles defined
-        # in base classes.
+        # Avoid this approach because you may accidentally lose roles if a
+        # subclass does not copy __roles__ from parent classes.
 
         __roles__ = {
             'all': {
@@ -71,8 +68,8 @@ Example use::
         name = with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})  # Specify read+write access
 
-        # ``with_roles`` can also be called later. This is typically required
-        # for properties, where roles must be assigned after the property is
+        # ``with_roles`` can also be called later. This is required for
+        # properties, where roles must be assigned after the property is
         # fully described.
 
         _title = db.Column('title', db.Unicode(250))
@@ -96,7 +93,7 @@ Example use::
             return "Hello!"
 
         # Your model is responsible for granting roles given an actor or anchors
-        # (an iterable). The format for anchors is not specified by RoleMixin.
+        # (an iterable).
 
         def roles_for(self, actor=None, anchors=()):
             # Calling super give us a result set with the standard roles
@@ -225,6 +222,25 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         def url_id(self):
             return str(self.id)
 
+    When used with properties, with_roles must always be applied after the
+    property is fully described::
+
+        @property
+        def title(self):
+            return self._title
+
+        @title.setter
+        def title(self, value):
+            self._title = value
+
+        # Either of the following is fine, since with_roles annotates objects
+        # instead of wrapping them. The return value can be discarded if it's
+        # already present on the host object:
+
+        with_roles(title, read={'all'}, write={'owner', 'editor'})
+        title = with_roles(title, read={'all'}, write={'owner', 'editor'})
+
+
     :param set rw: Roles which get read and write access to the decorated
         attribute
     :param set call: Roles which get call access to the decorated method
@@ -260,6 +276,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
         return inner
 
 # with_roles was set_roles when originally introduced in 0.6.0
+# set_roles is deprecated since 0.6.1
 set_roles = with_roles
 
 
@@ -306,6 +323,8 @@ class RoleMixin(object):
                 'write': {'attr1', 'attr2'},
                 },
             }
+
+    The :func:`with_roles` decorator is recommended over :attr:`__roles__`.
     """
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
