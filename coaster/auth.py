@@ -147,24 +147,20 @@ class CurrentAuth(object):
     @property
     def is_anonymous(self):
         """
-        Property that returns ``True`` if the login manager did not report an
-        actor, or if an actor is present but has an ``is_anonymous`` attribute
-        set to ``True``. Login managers can supply a special anonymous user
-        object with this attribute set, if required in the app.
+        Property that returns ``True`` if an actor is not present, or if an
+        actor is present but has an ``is_anonymous`` attribute
+        set to ``True``.
         """
-        if self.actor:
+        if self.actor is not None:
             return getattr(self.actor, 'is_anonymous', False)
         return True
 
     @property
     def is_authenticated(self):
         """
-        Property that returns the opposite of :attr:`is_anonymous`. Using this
-        property is recommended for compatibility with Flask-Login and Django.
+        Property that returns ``True`` if an actor is present.
         """
-        if self.actor:
-            return not getattr(self.actor, 'is_anonymous', False)
-        return False
+        return self.actor is not None
 
 
 def _get_current_auth():

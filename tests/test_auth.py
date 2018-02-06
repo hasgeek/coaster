@@ -193,9 +193,12 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
         # is_anonymous == True, but current_auth.user is not None
         self.assertTrue(current_auth.is_anonymous)
-        self.assertFalse(current_auth.is_authenticated)
         self.assertIsNotNone(current_auth.user)
-        self.assertEqual(current_auth.user.username, 'anon')
+        # is_authenticated == True, since there is an actor
+        self.assertTrue(current_auth.is_authenticated)
+        self.assertIsNotNone(current_auth.actor)
+        self.assertEqual(current_auth.user, user)
+        self.assertEqual(current_auth.actor, user)
 
     def test_invalid_auth_attribute(self):
         for attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
