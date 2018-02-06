@@ -17,7 +17,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
     request, Response, url_for)
-from ..auth import current_auth
+from ..auth import current_auth, add_auth_attribute
 from .misc import jsonp as render_jsonp
 
 __all__ = [
@@ -183,7 +183,7 @@ def load_model(model, attributes=None, parameter=None,
 
     :param permission: If present, ``load_model`` calls the
         :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` method of the
-        retrieved object with ``current_auth.user`` as a parameter. If
+        retrieved object with ``current_auth.actor`` as a parameter. If
         ``permission`` is not present in the result, ``load_model`` aborts with
         a 403. The permission may be a string or a list of strings, in which
         case access is allowed if any of the listed permissions are available
@@ -284,13 +284,15 @@ def load_models(*chain, **kwargs):
                     return redirect(location, code=307)
 
                 if permission_required:
-                    permissions = item.permissions(current_auth.user, inherited=permissions)
+                    permissions = item.permissions(current_auth.actor, inherited=permissions)
                     addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms() or []
                     permissions.update(addlperms)
-                if g:
+                if g:  # XXX: Deprecated
                     g.permissions = permissions
+                if request:
+                    add_auth_attribute('permissions', permissions)
                 if url_check and request.method == 'GET':  # Only do urlcheck redirects on GET requests
                     url_redirect = False
                     view_args = None
