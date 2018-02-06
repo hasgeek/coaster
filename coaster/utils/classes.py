@@ -7,9 +7,9 @@ Classes
 
 from __future__ import absolute_import
 import six
-from collections import namedtuple, OrderedDict
+from collections import namedtuple, OrderedDict, Set
 
-__all__ = ['NameTitle', 'LabeledEnum']
+__all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet']
 
 
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
@@ -210,3 +210,51 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+
+
+class InspectableSet(Set):
+    """
+    Given a set, mimics a dictionary where the items are keys and have a value
+    of ``True``, and any other key has a value of ``False``. Also supports
+    attribute access. Useful in templates to simplify membership inspection::
+
+        >>> myset = InspectableSet({'member', 'other'})
+        >>> 'member' in myset
+        True
+        >>> 'random' in myset
+        False
+        >>> myset.member
+        True
+        >>> myset.random
+        False
+        >>> myset['member']
+        True
+        >>> myset['random']
+        False
+    """
+    def __init__(self, members):
+        if not isinstance(members, set):
+            members = set(members)
+        object.__setattr__(self, '_members', members)
+
+    def __repr__(self):  # pragma: no cover
+        return 'InspectableSet({members})'.format(members=repr(self._members))
+
+    def __len__(self):
+        return len(self._members)
+
+    def __contains__(self, key):
+        return key in self._members
+
+    def __iter__(self):
+        for key in self._members:
+            yield key
+
+    def __getitem__(self, key):
+        return key in self._members  # Returns True if present, False otherwise
+
+    def __getattr__(self, attr):
+        return attr in self._members  # Returns True if present, False otherwise
+
+    def __setattr__(self, attr, value):
+        raise AttributeError(attr)

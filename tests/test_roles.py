@@ -176,6 +176,15 @@ class TestCoasterRoles(unittest.TestCase):
         roles = rm.roles_for(anchors=('owner-secret',))
         self.assertEqual(roles, {'all', 'anon', 'owner'})
 
+    def test_current_roles(self):
+        """Current roles are available"""
+        rm = RoleModel(name=u'test', title=u'Test')
+        roles = rm.current_roles
+        self.assertEqual(roles, {'all', 'anon'})
+        self.assertTrue(roles.all)
+        self.assertTrue(roles.anon)
+        self.assertFalse(roles.owner)
+
     def test_access_for_syntax(self):
         """access_for can be called with either roles or actor for identical outcomes"""
         rm = RoleModel(name=u'test', title=u'Test')
@@ -189,6 +198,19 @@ class TestCoasterRoles(unittest.TestCase):
         proxy = arm.access_for(actor=None)
         self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
+
+    def test_current_access(self):
+        """Current access is available"""
+        arm = AutoRoleModel(name=u'test')
+        proxy = arm.current_access()
+        self.assertEqual(len(proxy), 2)
+        self.assertEqual(set(proxy.keys()), {'id', 'name'})
+
+        roles = proxy.current_roles
+        self.assertEqual(roles, {'all', 'anon'})
+        self.assertTrue(roles.all)
+        self.assertTrue(roles.anon)
+        self.assertFalse(roles.owner)
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""

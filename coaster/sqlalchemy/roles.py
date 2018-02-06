@@ -10,7 +10,7 @@ base class for :class:`~coaster.sqlalchemy.BaseMixin` and applies to all derived
 Access is defined as one of 'call' (for methods), 'read' or 'write' (both for attributes).
 
 Roles are freeform string tokens. A model may freely define and grant roles to actors
-(users and sometimes clients) based on internal criteria. The following standard tokens
+(users and sometimes client apps) based on internal criteria. The following standard tokens
 are recommended. Required tokens are granted by :class:`RoleMixin` itself.
 
 1. ``all``: Any actor, authenticated or anonymous (required)
@@ -113,6 +113,8 @@ from copy import deepcopy
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from ..utils import InspectableSet
+from ..auth import current_auth
 
 __all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
 
@@ -148,7 +150,7 @@ class RoleAccessProxy(collections.Mapping):
     """
     def __init__(self, obj, roles):
         object.__setattr__(self, '_obj', obj)
-        object.__setattr__(self, '_roles', roles)
+        object.__setattr__(self, 'current_roles', InspectableSet(roles))
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -165,8 +167,8 @@ class RoleAccessProxy(collections.Mapping):
         object.__setattr__(self, '_write', write)
 
     def __repr__(self):  # pragma: no cover
-        return '<RoleAccessProxy(obj={obj}, roles={roles})>'.format(
-            obj=repr(self._obj), roles=repr(self._roles))
+        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
+            obj=repr(self._obj), roles=repr(self.current_roles))
 
     def __getattr__(self, attr):
         # See also __getitem__, which doesn't consult _call
@@ -325,6 +327,24 @@ class RoleMixin(object):
             result = {'all', 'auth'}
         return result
 
+    @property
+    def current_roles(self):
+        """
+        :class:`~coaster.utils.classes.InspectableSet` containing currently
+        available roles on this object, using
+        :obj:`~coaster.auth.current_auth`. Use in the view layer to inspect
+        for a role being present:
+
+            if obj.current_roles.editor:
+                pass
+
+            {% if obj.current_roles.editor %}...{% endif %}
+
+        This property is also available in :class:`RoleAccessProxy`.
+        """
+        # TODO: current_auth must recognise and host anchors
+        return InspectableSet(self.roles_for(actor=current_auth.user))
+
     def actors_with(self, roles):
         """
         Return an iterable of all actors who have the specified roles on this
@@ -350,6 +370,14 @@ class RoleMixin(object):
         elif actor is not None or anchors != []:
             raise TypeError('If roles are specified, actor/anchors must not be specified')
         return RoleAccessProxy(self, roles=roles)
+
+    def current_access(self):
+        """
+        Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
+        return a proxy for the currently authenticated user.
+        """
+        # TODO: current_auth must recognise and host anchors
+        return self.access_for(actor=current_auth.user)
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
