@@ -15,13 +15,14 @@ db.init_app(app)
 # --- Models ------------------------------------------------------------------
 
 class DeclaredAttrMixin(object):
-    # The ugly way to work with declared_attr
+    # with_roles can be used within a declared attr
     @declared_attr
     def mixed_in1(cls):
         return with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})
 
-    # The clean way to work with declared_attr
+    # declared_attr_roles is deprecated since 0.6.1. Use with_roles
+    # as the outer decorator now. It remains here for the test case.
     @declared_attr
     @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
     def mixed_in2(cls):

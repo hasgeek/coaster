@@ -107,6 +107,7 @@ from __future__ import absolute_import
 from functools import wraps
 import collections
 from copy import deepcopy
+import warnings
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -306,6 +307,7 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
             # that returns a list that should be accessible via the proxy.
             return with_roles(rw=rw, call=call, read=read, write=write)(f(cls))
         return attr
+    warnings.warn("declared_attr_roles is deprecated; use with_roles", stacklevel=2)
     return inner
 
 
@@ -339,6 +341,16 @@ class RoleMixin(object):
         The role ``all`` is always granted. If ``actor`` is
         specified, the role ``auth`` is granted. If not, ``anon`` is
         granted.
+
+        Subclasses overriding :meth:`roles_for` must always call :func:`super`
+        to ensure they are receiving the standard roles. Recommended
+        boilerplate::
+
+            def roles_for(self, actor=None, anchors=()):
+                roles = super(YourClass, self).roles_for(actor, anchors)
+                # 'roles' is a set. Add more roles here
+                # ...
+                return roles
         """
         if actor is None:
             result = {'all', 'anon'}
