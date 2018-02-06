@@ -373,8 +373,7 @@ class RoleMixin(object):
 
         This property is also available in :class:`RoleAccessProxy`.
         """
-        # TODO: current_auth must recognise and host anchors
-        return InspectableSet(self.roles_for(actor=current_auth.user))
+        return InspectableSet(self.roles_for(actor=current_auth.actor, anchors=current_auth.anchors))
 
     def actors_with(self, roles):
         """
@@ -398,7 +397,7 @@ class RoleMixin(object):
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
-        elif actor is not None or anchors != []:
+        elif actor is not None or anchors:
             raise TypeError('If roles are specified, actor/anchors must not be specified')
         return RoleAccessProxy(self, roles=roles)
 
@@ -407,8 +406,7 @@ class RoleMixin(object):
         Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
         return a proxy for the currently authenticated user.
         """
-        # TODO: current_auth must recognise and host anchors
-        return self.access_for(actor=current_auth.user)
+        return self.access_for(actor=current_auth.actor, anchors=current_auth.anchors)
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)

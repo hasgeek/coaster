@@ -2,9 +2,9 @@
 
 from __future__ import absolute_import, unicode_literals
 import unittest
-from flask import Flask, has_request_context
+from flask import Flask, has_request_context, _request_ctx_stack
 from flask_sqlalchemy import SQLAlchemy
-from coaster.auth import add_auth_attribute, current_auth
+from coaster.auth import add_auth_attribute, add_auth_anchor, request_has_auth, current_auth, AuthAnchors
 from coaster.sqlalchemy import BaseMixin
 
 
@@ -45,7 +45,40 @@ class AnonymousUser(BaseMixin, db.Model):
     fullname = 'Anonymous'
 
 
+class Client(BaseMixin, db.Model):
+    __tablename__ = 'client'
+
+
 # --- Tests -------------------------------------------------------------------
+
+class TestAuthAnchors(unittest.TestCase):
+    """Tests for the AuthAnchors class"""
+    def test_empty(self):
+        """Test the AuthAnchors container"""
+        empty = AuthAnchors()
+        self.assertEqual(len(empty), 0)
+        self.assertFalse(empty)
+        self.assertEqual(empty, set())
+
+    def test_prefilled(self):
+        prefilled = AuthAnchors({1, 2})
+        self.assertEqual(len(prefilled), 2)
+        self.assertTrue(prefilled)
+        self.assertIn(1, prefilled)
+        self.assertIn(2, prefilled)
+        self.assertNotIn(3, prefilled)
+        self.assertEqual(prefilled, {1, 2})
+
+    def test_postfilled(self):
+        postfilled = AuthAnchors()
+        self.assertEqual(len(postfilled), 0)
+        postfilled._add(1)
+        self.assertIn(1, postfilled)
+        self.assertNotIn(2, postfilled)
+        postfilled._add(2)
+        self.assertIn(2, postfilled)
+        self.assertEqual(postfilled, {1, 2})
+
 
 class TestCurrentUserNoRequest(unittest.TestCase):
     def test_current_auth_no_request(self):
@@ -100,6 +133,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
         self.assertIsNone(current_auth.user)
+        self.assertIsNone(current_auth.actor)
 
     def test_current_auth_with_user_unloaded(self):
         user = User(username='foo', fullname='Mr Foo')
@@ -109,6 +143,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertTrue(current_auth.is_authenticated)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
+        self.assertEqual(current_auth.actor, user)
 
         # Additional auth details (username only in this test) exposed by the login manager
         self.assertEqual(current_auth.username, 'foo')
@@ -123,10 +158,21 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertEqual(current_auth.user.username, 'foo')
         self.assertEqual(current_auth.user.fullname, 'Mr Foo')
 
+    def test_current_auth_with_flask_login_user(self):
+        user = User(username='foo', fullname='Mr Foo')
+        _request_ctx_stack.top.user = user
+
+        self.assertFalse(current_auth.is_anonymous)
+        self.assertTrue(current_auth.is_authenticated)
+        self.assertIsNotNone(current_auth.user)
+        self.assertEqual(current_auth.user, user)
+        self.assertEqual(current_auth.actor, user)
+
     def test_current_auth_with_user_loaded(self):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
         self.assertIsNone(current_auth.user)
+        self.assertIsNone(current_auth.actor)
 
         user = User(username='foo', fullname='Mr Foo')
         self.login_manager.set_user_for_testing(user, load=True)
@@ -135,6 +181,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertTrue(current_auth.is_authenticated)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
+        self.assertEqual(current_auth.actor, user)
 
     def test_anonymous_user(self):
         self.assertTrue(current_auth.is_anonymous)
@@ -149,3 +196,35 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertFalse(current_auth.is_authenticated)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user.username, 'anon')
+
+    def test_invalid_auth_attribute(self):
+        for attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
+            with self.assertRaises(AttributeError):
+                add_auth_attribute(attr, None)
+
+    def test_other_actor_authenticated(self):
+        self.assertTrue(current_auth.is_anonymous)
+        self.assertFalse(current_auth.is_authenticated)
+        self.assertIsNone(current_auth.user)
+
+        client = Client()
+        add_auth_attribute('client', client, actor=True)
+
+        self.assertFalse(current_auth.is_anonymous)
+        self.assertTrue(current_auth.is_authenticated)
+        self.assertIsNone(current_auth.user)  # It's not the user
+        self.assertEqual(current_auth.client, client)  # There's now a client attribute
+        self.assertEqual(current_auth.actor, client)   # The client is also the actor
+
+    def test_auth_anchor(self):
+        """A request starts with zero anchors, but they can be added"""
+        self.assertFalse(current_auth.anchors)
+        add_auth_anchor('test-anchor')
+        self.assertTrue(current_auth.anchors)
+        self.assertEqual(current_auth.anchors, {'test-anchor'})
+
+    def test_has_current_auth(self):
+        """request_has_auth indicates if current_auth was invoked during a request"""
+        self.assertFalse(request_has_auth())
+        current_auth.is_anonymous  # Invoke current_auth
+        self.assertTrue(request_has_auth())
