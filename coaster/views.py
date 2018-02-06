@@ -12,12 +12,15 @@ from functools import wraps
 import re
 from flask import (session as request_session, request, url_for, json, Response,
     redirect, abort, g, current_app, render_template, jsonify, make_response)
+from flask.views import View
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 import six
 from six.moves.urllib.parse import urlsplit
 from .auth import current_auth
+from .db import db
+
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -665,3 +668,192 @@ def cors(origins,
             return resp
         return wrapper
     return inner
+
+
+class CrudView(View):
+    """
+    Provides a base class with methods to READ, CREATE, UPDATE and DELETE
+    an object in the database.
+
+    Example::
+        class ArticleView(CrudView):
+            model = Article
+            template = 'article.html.jinja2'
+            parent_identity_field = 'id'
+            identity_field = 'id'
+
+        AdminItemView.register_api(app,
+            endpoint='admin_item',
+            resource='item',
+            prefix='admin',
+            parent_scope='ic',
+            parent_identifier='ic')
+    """
+    parent = None
+    model = None
+    parent_identifier = 'org'
+    identifier = 'id'
+    template = None
+
+    def render_form(self, form, title, submit):
+        raise NotImplementedError()
+
+    def get_user(self):
+        # Over-ride this in the sub-class with a method that returns `g.user`
+        raise NotImplementedError()
+
+    def after_delete_url(self):
+        raise NotImplementedError()
+
+    def read(self, current_user=None, identifier_dict={}):
+        """
+        Provides an interface to retrieve an instance from
+        the database, and render it as JSON or as part of a HTML template
+        """
+        obj = self.loader(identifier_dict)
+        if not obj:
+            abort(404)
+        result = dict(obj.access_for(user=current_user))
+        # FIXME: Pass obj along too
+        result['obj'] = obj
+        def _inner(*args, **kwargs):
+            return result
+        # Invoke the `render_with` decorator as a function since `template` is only available at run time
+        return render_with(self.template, json=True)(_inner)()
+
+    def new(self, current_user=None, identifier_dict={}):
+        parent_obj = None
+        if identifier_dict.get(self.parent_identifier):
+            parent_obj = self.load_parent(identifier_dict)
+
+        if parent_obj:
+            form = self.form(model=self.model, parent=parent_obj)
+        else:
+            form = self.form(model=self.model)
+
+        if request.method == 'POST':
+            if form.validate_on_submit():
+                if parent_obj:
+                    obj = self.model(parent=parent_obj)
+                else:
+                    obj = self.model()
+                form.populate_obj(obj)
+                # FIXME: Why isn't name being created
+                if hasattr(obj, 'name') and not obj.name:
+                    obj.make_name()
+                db.session.add(obj)
+                db.session.commit()
+                return redirect(obj.url_for('read'))
+
+        form_title = self.form_title if hasattr(self, 'form_title') else "New {model}".format(model=self.model.__name__)
+        form_submit = self.form_submit if hasattr(self, 'form_submit') else "New {model}".format(model=self.model.__name__)
+        return self.render_form(form=form,
+            title=form_title,
+            submit=form_submit)
+
+    def edit(self, current_user, identifier_dict):
+        parent_obj = None
+        if identifier_dict.get(self.parent_identifier):
+            parent_obj = self.load_parent(identifier_dict)
+        obj = self.loader(identifier_dict)
+
+        if parent_obj:
+            form = self.form(obj=obj, model=self.model, parent=parent_obj)
+        else:
+            form = self.form(obj=obj, model=self.model)
+
+        if request.method == 'POST':
+            if form.validate_on_submit():
+                form.populate_obj(obj)
+                db.session.commit()
+                return redirect(obj.url_for('read'))
+
+        form_title = self.form_title if hasattr(self, 'form_title') else "Edit {model}".format(model=self.model.__name__)
+        form_submit = self.form_submit if hasattr(self, 'form_submit') else "Edit {model}".format(model=self.model.__name__)
+        return self.render_form(form=form,
+            title=form_title,
+            submit=form_submit)
+
+    def delete(self, current_user, identifier_dict):
+        parent_obj = None
+        # TODO: What about access control?
+        if identifier_dict.get(self.parent_identifier):
+            parent_obj = self.load_parent(identifier_dict)
+        obj = self.loader(identifier_dict)
+        db.session.delete(obj)
+        db.session.commit()
+        return redirect(self.after_delete_url())
+
+    @classmethod
+    def register_api(cls, app, endpoint, resource, resource_identifier='id', prefix=None, parent_scope=None, parent_identifier=None):
+        read_endpoint = cls.as_view("{endpoint}_read".format(endpoint=endpoint))
+        new_endpoint = cls.as_view("{endpoint}_new".format(endpoint=endpoint))
+        edit_endpoint = cls.as_view("{endpoint}_edit".format(endpoint=endpoint))
+        delete_endpoint = cls.as_view("{endpoint}_delete".format(endpoint=endpoint))
+        if parent_scope:
+            # Endpoint for read
+            app.add_url_rule('/{prefix}{parent_scope}/<{parent_identifier}>/{resource}/<{resource_identifier}>'.format(
+                prefix=prefix + '/' if prefix else '',
+                parent_scope=parent_scope,
+                parent_identifier=parent_identifier,
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=read_endpoint)
+            # Endpoint for new
+            app.add_url_rule('/{prefix}{parent_scope}/<{parent_identifier}>/{resource}/new'.format(
+                prefix=prefix + '/' if prefix else '',
+                parent_scope=parent_scope,
+                parent_identifier=parent_identifier,
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=new_endpoint, methods=['GET', 'POST'])
+            # Endpoint for edit
+            app.add_url_rule('/{prefix}{parent_scope}/<{parent_identifier}>/{resource}/<{resource_identifier}>/edit'.format(
+                prefix=prefix + '/' if prefix else '',
+                parent_scope=parent_scope,
+                parent_identifier=parent_identifier,
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=edit_endpoint, methods=['GET', 'POST'])
+            # Endpoint for delete
+            app.add_url_rule('/{prefix}{parent_scope}/<{parent_identifier}>/{resource}/<{resource_identifier}>/delete'.format(
+                prefix=prefix + '/' if prefix else '',
+                parent_scope=parent_scope,
+                parent_identifier=parent_identifier,
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=delete_endpoint, methods=['POST'])
+        else:
+            # Endpoint for read
+            app.add_url_rule('/{prefix}{resource}/<{resource_identifier}>'.format(
+                prefix=prefix+'/' if prefix else '',
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=read_endpoint)
+            # Endpoint for new
+            app.add_url_rule('/{prefix}{resource}/new'.format(
+                prefix=prefix + '/' if prefix else '',
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=new_endpoint, methods=['GET', 'POST'])
+            # Endpoint for edit
+            app.add_url_rule('/{prefix}{resource}/<{resource_identifier}>/edit'.format(
+                prefix=prefix + '/' if prefix else '',
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=edit_endpoint, methods=['GET', 'POST'])
+            # Endpoint for delete
+            app.add_url_rule('/{prefix}{resource}/<{resource_identifier}>/delete'.format(
+                prefix=prefix + '/' if prefix else '',
+                resource=resource,
+                resource_identifier=resource_identifier), view_func=delete_endpoint, methods=['POST'])
+
+    def dispatch_request(self, **kwargs):
+        current_user = self.get_user()
+        if request.method == 'GET':
+            if request.url.endswith('edit'):
+                return self.edit(current_user, kwargs)
+            if request.url.endswith('new'):
+                return self.new(current_user, kwargs)
+            if kwargs.get(self.identifier):
+                return self.read(current_user, kwargs)
+        elif request.method == 'POST':
+            if not kwargs.get(self.identifier):
+                return self.new(current_user, kwargs)
+            if request.url.endswith('edit'):
+                return self.edit(current_user, kwargs)
+            if request.url.endswith('delete'):
+                return self.delete(current_user, kwargs)
