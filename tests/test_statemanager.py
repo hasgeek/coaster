@@ -30,6 +30,7 @@ class MY_STATE(LabeledEnum):
 
     __order__ = (DRAFT, PENDING, PUBLISHED)
     UNPUBLISHED = {DRAFT, PENDING}
+    PUBLISHED_AND_AFTER = {PUBLISHED}
 
 
 class REVIEW_STATE(LabeledEnum):
@@ -268,9 +269,8 @@ class TestStateManager(unittest.TestCase):
         with self.assertRaises(ValueError):
             state.add_state_group('MIXED1', state.PUBLISHED, state.RECENT)
         # Can't group a conditional state with group containing main state
-        state.add_conditional_state('TEST', state.DRAFT, lambda obj: True)
         with self.assertRaises(ValueError):
-            state.add_state_group('MIXED2', state.UNPUBLISHED, state.TEST)
+            state.add_state_group('MIXED2', state.PUBLISHED_AND_AFTER, state.RECENT)
 
     def test_sql_query_single_value(self):
         """
