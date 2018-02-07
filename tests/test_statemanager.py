@@ -59,7 +59,8 @@ class MyPost(BaseMixin, db.Model):
 
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state('RECENT', state.PUBLISHED,
-        lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
+        lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
+        label=('recent', "Recently published"))
 
     # State groups (apart from those in the LabeledEnum), used here to include the
     # conditional state in a group. Adds ManagedStateGroup instances
@@ -143,6 +144,10 @@ class TestStateManager(unittest.TestCase):
             state.add_conditional_state('TEST_STATE1', MY_STATE.DRAFT, lambda post: True)
         with self.assertRaises(ValueError):
             state.add_conditional_state('TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True)
+
+    def test_conditional_state_label(self):
+        """Conditional states can have labels"""
+        self.assertEqual(MyPost.__dict__['state'].RECENT.label.name, 'recent')
 
     def test_transition_invalid_from_to(self):
         """

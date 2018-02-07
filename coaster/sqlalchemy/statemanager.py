@@ -203,6 +203,7 @@ from collections import OrderedDict
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from werkzeug.exceptions import BadRequest
+from ..utils import NameTitle
 from ..signals import coaster_signals
 
 __all__ = ['StateManager', 'StateTransitionError',
@@ -601,7 +602,7 @@ class StateManager(object):
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)
 
-    def add_conditional_state(self, name, state, validator, class_validator=None, cache_for=None):
+    def add_conditional_state(self, name, state, validator, class_validator=None, cache_for=None, label=None):
         """
         Add a conditional state that combines an existing state with a validator
         that must also pass. The validator receives the object on which the property
@@ -617,6 +618,7 @@ class StateManager(object):
             result can be cached (not applicable to ``class_validator``). ``None`` implies
             no cache, ``0`` implies indefinite cache (until invalidated by a transition)
             and any other integer is the number of seconds for which to cache the assertion
+        :param label: Label for this state (string or 2-tuple)
 
         TODO: cache_for's implementation is currently pending a test case demonstrating
         how it will be used.
@@ -626,7 +628,9 @@ class StateManager(object):
             raise TypeError("Not a managed state: %s" % repr(state))
         elif state.statemanager != self:
             raise ValueError("State %s is not associated with this state manager" % repr(state))
-        self._add_state_internal(name, state.value,
+        if isinstance(label, tuple) and len(label) == 2:
+            label = NameTitle(*label)
+        self._add_state_internal(name, state.value, label=label,
             validator=validator, class_validator=class_validator, cache_for=cache_for)
 
     def transition(self, from_, to, if_=None, **data):
