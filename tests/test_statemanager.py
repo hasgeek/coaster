@@ -148,6 +148,7 @@ class TestStateManager(unittest.TestCase):
     def test_conditional_state_label(self):
         """Conditional states can have labels"""
         self.assertEqual(MyPost.__dict__['state'].RECENT.label.name, 'recent')
+        self.assertEqual(self.post.state.RECENT.label.name, 'recent')
 
     def test_transition_invalid_from_to(self):
         """
@@ -515,13 +516,13 @@ class TestStateManager(unittest.TestCase):
     def test_managed_state_wrapper(self):
         """ManagedStateWrapper will only wrap a managed state or group"""
         draft = MyPost.__dict__['state'].DRAFT
-        wdraft = ManagedStateWrapper(draft, self.post)
+        wdraft = ManagedStateWrapper(draft, self.post, MyPost)
         self.assertEqual(draft.value, wdraft.value)
         self.assertTrue(wdraft())
-        self.assertEqual(self.post.state.DRAFT, wdraft())
+        self.assertEqual(self.post.state.DRAFT, wdraft)
         self.post.submit()
         self.assertFalse(wdraft())
-        self.assertEqual(self.post.state.DRAFT, wdraft())
+        self.assertEqual(self.post.state.DRAFT, wdraft)
 
         with self.assertRaises(TypeError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)

@@ -262,7 +262,7 @@ class ManagedState(object):
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
 
-    def __call__(self, obj, cls=None):
+    def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
         if obj is not None:  # We're being called with an instance
             if isinstance(self.value, iterables):
@@ -286,8 +286,18 @@ class ManagedState(object):
             else:
                 return valuematch
 
+    def __call__(self, obj, cls=None):
+        if obj is not None:
+            return ManagedStateWrapper(self, obj, cls)
+        else:
+            return self._eval(obj, cls)
+
 
 class ManagedStateGroup(object):
+    """
+    Represents a group of managed states in a StateManager. Do not use this
+    class directly. Use :meth:`~StateManager.add_state_group` instead.
+    """
     def __init__(self, name, statemanager, states):
         self.name = name
         self.statemanager = statemanager
@@ -324,33 +334,53 @@ class ManagedStateGroup(object):
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
 
-    def __call__(self, obj, cls=None):
+    def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
         else:
             return or_(*[s(obj, cls) for s in self.states])
 
+    def __call__(self, obj, cls=None):
+        if obj is not None:
+            return ManagedStateWrapper(self, obj, cls)
+        else:
+            return self._eval(obj, cls)
+
 
 class ManagedStateWrapper(object):
     """
     Wraps a :class:`ManagedState` or :class:`ManagedStateGroup` with
-    an object or class and otherwise provides transparent access to contents
+    an object or class, and otherwise provides transparent access to contents.
     """
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
             raise TypeError("Parameter is not a managed state: %s" % repr(mstate))
-        self.__mstate = mstate
-        self.__obj = obj
-        self.__cls = cls
+        self._mstate = mstate
+        self._obj = obj
+        self._cls = cls
 
     def __repr__(self):
-        return '<ManagedStateWrapper %s>' % repr(self.__mstate)
+        return '<ManagedStateWrapper %s>' % repr(self._mstate)
 
     def __call__(self):
-        return self.__mstate(self.__obj, self.__cls)
+        return self._mstate._eval(self._obj, self._cls)
 
     def __getattr__(self, attr):
-        return getattr(self.__mstate, attr)
+        return getattr(self._mstate, attr)
+
+    def __eq__(self, other):
+        return (isinstance(other, ManagedStateWrapper) and
+            self._mstate == other._mstate and
+            self._obj == other._obj and
+            self._cls == other._cls)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __bool__(self):
+        return self()
+
+    __nonzero__ = __bool__
 
 
 class StateTransition(object):
