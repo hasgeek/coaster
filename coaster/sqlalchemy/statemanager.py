@@ -266,18 +266,18 @@ class ManagedState(object):
         # TODO: Respect cache as specified in `cache_for`
         if obj is not None:  # We're being called with an instance
             if isinstance(self.value, iterables):
-                valuematch = self.statemanager(obj, cls) in self.value
+                valuematch = self.statemanager._value(obj, cls) in self.value
             else:
-                valuematch = self.statemanager(obj, cls) == self.value
+                valuematch = self.statemanager._value(obj, cls) == self.value
             if self.validator is not None:
                 return valuematch and self.validator(obj)
             else:
                 return valuematch
         else:  # We have a class, so return a filter condition, for use as cls.query.filter(result)
             if isinstance(self.value, iterables):
-                valuematch = self.statemanager(obj, cls).in_(self.value)
+                valuematch = self.statemanager._value(obj, cls).in_(self.value)
             else:
-                valuematch = self.statemanager(obj, cls) == self.value
+                valuematch = self.statemanager._value(obj, cls) == self.value
             cv = self.class_validator
             if cv is None:
                 cv = self.validator
@@ -687,7 +687,7 @@ class StateManager(object):
 
         return decorator
 
-    def __call__(self, obj, cls=None):
+    def _value(self, obj, cls=None):
         """The state value (called from the wrapper)"""
         if obj is not None:
             return getattr(obj, self.propname)
@@ -729,16 +729,15 @@ class StateManagerWrapper(object):
     def __repr__(self):
         return '<StateManagerWrapper(%s.%s)>' % (type(self.obj).__name__, self.statemanager.name)
 
-    def __call__(self):
+    @property
+    def value(self):
         """The state value"""
-        return self.statemanager(self.obj, self.cls)
-
-    value = property(__call__)
+        return self.statemanager._value(self.obj, self.cls)
 
     @property
     def label(self):
         """Label for this state value"""
-        return self.statemanager.lenum[self()]
+        return self.statemanager.lenum[self.value]
 
     def current(self):
         """
@@ -776,7 +775,7 @@ class StateManagerWrapper(object):
             # Use isinstance instead of `type(item) != cls` to account for subclasses
             if not isinstance(item, cls):
                 raise TypeError("Item %s is not an instance of type %s" % (repr(item), repr(self.cls)))
-            statevalue = self.statemanager(item)
+            statevalue = self.statemanager._value(item)
             mstate = self.statemanager.states_by_value[statevalue]
             groups[mstate].append(item)
         if not keep_empty:

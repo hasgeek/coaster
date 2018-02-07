@@ -183,7 +183,6 @@ class TestStateManager(unittest.TestCase):
         A post has a state that can be tested with statemanager.NAME
         """
         self.assertEqual(self.post._state, MY_STATE.DRAFT)
-        self.assertEqual(self.post.state(), MY_STATE.DRAFT)
         self.assertEqual(self.post.state.value, MY_STATE.DRAFT)
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.PENDING)
@@ -327,14 +326,14 @@ class TestStateManager(unittest.TestCase):
         """
         `submit` transition works
         """
-        self.assertEqual(self.post.state(), MY_STATE.DRAFT)
+        self.assertEqual(self.post.state.value, MY_STATE.DRAFT)
         self.post.submit()
-        self.assertEqual(self.post.state(), MY_STATE.PENDING)
+        self.assertEqual(self.post.state.value, MY_STATE.PENDING)
         with self.assertRaises(StateTransitionError):
             # Can only be called in draft state, which we are no longer in
             self.post.submit()
         # If there's an error, the state does not change
-        self.assertEqual(self.post.state(), MY_STATE.PENDING)
+        self.assertEqual(self.post.state.value, MY_STATE.PENDING)
 
     def test_transition_publish_invalid(self):
         """
