@@ -163,7 +163,7 @@ States can also be used for database queries when accessed from the class::
     MyPost.query.filter(MyPost.state.RECENT)
 
 This works because :class:`StateManager`, :class:`ManagedState`
-and :class:`ManagedStateGroup` behave in four different ways, depending on
+and :class:`ManagedStateGroup` behave in three different ways, depending on
 context:
 
 1. During class definition, the state manager returns the managed state. All
@@ -174,14 +174,11 @@ context:
    managed state instance. If accessed via the class, the managed state returns
    a SQLAlchemy filter condition.
 
-3. After class definition, if accessed via an instance, the managed state tests
-   if it is currently active and returns a boolean result.
-
-4. :meth:`StateManager.current` returns a dictionary of all currently valid
-   managed states and state groups, wrapped in
-   :class:`ManagedStateWrapper` which holds the context of the object on which
-   the method was called. Calling these states will return True as long as the
-   state remains unchanged.
+3. After class definition, if accessed via an instance, the managed state
+   returns itself wrapped in :class:`ManagedStateWrapper` (which holds context
+   for the instance). This is an object that evaluates to ``True`` if the state
+   is active, ``False`` otherwise. It also provides pass-through access to
+   all attributes of the managed state.
 
 States can be changed via transitions, defined as methods with the
 :meth:`~StateManager.transition` decorator. They add more power and safeguards
