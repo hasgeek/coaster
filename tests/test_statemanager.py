@@ -26,7 +26,7 @@ db = SQLAlchemy(app)
 class MY_STATE(LabeledEnum):
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
-    PUBLISHED = (2, "Published")
+    PUBLISHED = (2, 'published', "Published")
 
     __order__ = (DRAFT, PENDING, PUBLISHED)
     UNPUBLISHED = {DRAFT, PENDING}
@@ -230,9 +230,9 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(self.post.state.is_unpublished)
         self.assertTrue(self.post.state.is_published)
 
-    def test_added_state(self):
+    def test_conditional_state(self):
         """
-        Added states include custom validators which are called to confirm the state
+        Conditional states include custom validators which are called to confirm the state
         """
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.RECENT)
@@ -242,6 +242,30 @@ class TestStateManager(unittest.TestCase):
         self.post.datetime = datetime.utcnow() - timedelta(hours=2)
         self.assertFalse(self.post.state.RECENT)
         self.assertFalse(self.post.state.is_recent)
+
+    def test_bestmatch_state(self):
+        """
+        The best matching state prioritises conditional over direct
+        """
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.DRAFT)
+        self.assertFalse(self.post.state.RECENT)
+
+        self.post._state = MY_STATE.PUBLISHED
+
+        self.assertTrue(self.post.state.RECENT)
+        self.assertTrue(self.post.state.is_recent)
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.RECENT)
+        self.assertEqual(self.post.state.label.name, 'recent')
+
+        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+
+        self.assertFalse(self.post.state.RECENT)
+        self.assertFalse(self.post.state.is_recent)
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.label.name, 'published')
 
     def test_added_state_group(self):
         """Added state groups can be tested"""

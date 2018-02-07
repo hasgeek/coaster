@@ -250,10 +250,17 @@ class ManagedState(object):
 
     @property
     def is_conditional(self):
+        """This is a conditional state"""
         return self.validator is not None
 
     @property
     def is_scalar(self):
+        """This is a scalar state (not a group of states)"""
+        return not isinstance(self.value, iterables)
+
+    @property
+    def is_direct(self):
+        """This is a direct state (scalar state without a condition)"""
         return self.validator is None and not isinstance(self.value, iterables)
 
     def __repr__(self):
@@ -545,6 +552,7 @@ class StateManager(object):
         self.__doc__ = doc
         self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
         self.states_by_value = OrderedDict()  # value: ManagedState (no conditional states or groups)
+        self.all_states_by_value = OrderedDict()  # Same, but as a list including conditional states
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a ManagedState.
@@ -604,8 +612,10 @@ class StateManager(object):
         # depend on it being permanent for the lifetime of the process in typical use (or
         # for advanced memory management that can detect loops).
         self.states[name] = mstate
-        if mstate.is_scalar:
+        if mstate.is_direct:
             self.states_by_value[value] = mstate
+        if mstate.is_scalar:
+            self.all_states_by_value.setdefault(value, []).insert(0, mstate)
         # Make the ManagedState available as `statemanager.STATE` (assuming original was uppercased)
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)  # Also make available as `statemanager.is_state`
@@ -734,14 +744,24 @@ class StateManagerWrapper(object):
     @property
     def label(self):
         """Label for this state value"""
-        return self.statemanager.lenum[self.value]
+        return self.bestmatch().label
+
+    def bestmatch(self):
+        """
+        Best matching scalar state (direct or conditional)
+        """
+        if self.obj is not None:
+            for mstate in self.statemanager.all_states_by_value[self.value]:
+                msw = mstate(self.obj, self.cls)  # This returns a wrapper
+                if msw:  # If the wrapper evaluates to True, it's our best match
+                    return msw
 
     def current(self):
         """
         All states and state groups that are currently active.
         """
         if self.obj is not None:
-            return {name: ManagedStateWrapper(mstate, self.obj, self.cls)
+            return {name: mstate(self.obj, self.cls)
                 for name, mstate in self.statemanager.states.items()
                 if mstate(self.obj, self.cls)}
 
