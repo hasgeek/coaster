@@ -517,11 +517,16 @@ class TestStateManager(unittest.TestCase):
         draft = MyPost.__dict__['state'].DRAFT
         wdraft = ManagedStateWrapper(draft, self.post, MyPost)
         self.assertEqual(draft.value, wdraft.value)
-        self.assertTrue(wdraft())
+        self.assertTrue(wdraft())  # Result is False
+        self.assertTrue(wdraft)    # Object is falsy
         self.assertEqual(self.post.state.DRAFT, wdraft)
         self.post.submit()
         self.assertFalse(wdraft())
-        self.assertEqual(self.post.state.DRAFT, wdraft)
+        self.assertFalse(wdraft)
+        self.assertEqual(self.post.state.DRAFT(), wdraft())       # False == False
+        self.assertEqual(self.post.state.DRAFT, wdraft)           # Object remains the same even if not active
+        self.assertNotEqual(self.post.state.PENDING, wdraft)      # These objects don't match
+        self.assertNotEqual(self.post.state.PENDING(), wdraft())  # True != False
 
         with self.assertRaises(TypeError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)
