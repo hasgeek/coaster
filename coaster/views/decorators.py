@@ -18,7 +18,7 @@ from werkzeug.wrappers import Response as WerkzeugResponse
 from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
     request, Response, url_for)
 from ..auth import current_auth, add_auth_attribute
-from .misc import jsonp as render_jsonp
+from .misc import jsonp
 
 __all__ = [
     'RequestTypeError', 'RequestValueError',
@@ -322,7 +322,6 @@ def load_models(*chain, **kwargs):
     return inner
 
 
-
 def _best_mimetype_match(available_list, accept_mimetypes, default=None):
     for use_mimetype, quality in accept_mimetypes:
         for mimetype in available_list:
@@ -331,7 +330,21 @@ def _best_mimetype_match(available_list, accept_mimetypes, default=None):
     return default
 
 
-def render_with(template, json=False, jsonp=False):
+def dict_jsonify(param):
+    """Convert the parameter into a dictionary before calling jsonify, if it's not already one"""
+    if not isinstance(param, dict):
+        param = dict(param)
+    return jsonify(param)
+
+
+def dict_jsonp(param):
+    """Convert the parameter into a dictionary before calling jsonp, if it's not already one"""
+    if not isinstance(param, dict):
+        param = dict(param)
+    return jsonp(param)
+
+
+def render_with(template=None, json=False, jsonp=False):
     """
     Decorator to render the wrapped function with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -392,15 +405,12 @@ def render_with(template, json=False, jsonp=False):
     """
     if jsonp:
         templates = {
-            'application/json': render_jsonp,
-            'text/json': render_jsonp,
-            'text/x-json': render_jsonp,
+            'application/json': dict_jsonp,
+            'application/javascript': dict_jsonp,
             }
     elif json:
         templates = {
-            'application/json': jsonify,
-            'text/json': jsonify,
-            'text/x-json': jsonify,
+            'application/json': dict_jsonify,
             }
     else:
         templates = {}
@@ -408,6 +418,8 @@ def render_with(template, json=False, jsonp=False):
         templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
+    elif template is None and (json or jsonp):
+        pass
     else:  # pragma: no cover
         raise ValueError("Expected string or dict for template")
 
@@ -415,7 +427,7 @@ def render_with(template, json=False, jsonp=False):
     if '*/*' not in templates:
         templates['*/*'] = six.text_type
         default_mimetype = 'text/plain'
-        for mimetype in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
+        for mimetype in ('text/html', 'text/plain', 'application/json'):
             if mimetype in templates:
                 templates['*/*'] = templates[mimetype]
                 default_mimetype = mimetype  # Remember which mimetype's handler is serving for */*
