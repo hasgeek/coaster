@@ -92,7 +92,6 @@ class LocalVarFormatter(logging.Formatter):
                 'files': request.files,
                 'environ': request.environ,
                 'method': request.method,
-                'is_xhr': request.is_xhr,
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,
                 'module': request.module,

@@ -99,8 +99,7 @@ def jsonp(*args, **kw):
     """
     Returns a JSON response with a callback wrapper, if asked for.
     """
-    data = json.dumps(dict(*args, **kw),
-        indent=None if request.is_xhr else 2)
+    data = json.dumps(dict(*args, **kw), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
         data = callback + u'(' + data + u');'
