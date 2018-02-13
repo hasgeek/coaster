@@ -107,7 +107,7 @@ def requestargs(*vars, **config):
                 return request.values if request else {}
 
         @wraps(f)
-        def decorated_function(**kw):
+        def decorated_function(*args, **kw):
             values = datasource()
             for name, filt, is_list in namefilt:
                 # Process name if
@@ -122,7 +122,7 @@ def requestargs(*vars, **config):
                     except ValueError as e:
                         raise RequestValueError(e)
             try:
-                return f(**kw)
+                return f(*args, **kw)
             except TypeError as e:
                 raise RequestTypeError(e)
         return decorated_function
@@ -235,7 +235,7 @@ def load_models(*chain, **kwargs):
     """
     def inner(f):
         @wraps(f)
-        def decorated_function(**kw):
+        def decorated_function(*args, **kw):
             permissions = None
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
@@ -315,9 +315,9 @@ def load_models(*chain, **kwargs):
             if permission_required and not (permission_required & permissions):
                 abort(403)
             if kwargs.get('kwargs'):
-                return f(kwargs=kw, **result)
+                return f(*args, kwargs=kw, **result)
             else:
-                return f(**result)
+                return f(*args, **result)
         return decorated_function
     return inner
 

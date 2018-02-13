@@ -17,6 +17,8 @@
   ``coaster.views.requestargs``
 * New: ``coaster.auth`` module with a ``current_auth`` proxy that provides
   a standardised API for login managers to use
+* New: ``coaster.views.classview`` provides a new take on organising views
+  into a class
 
 
 0.6.0
