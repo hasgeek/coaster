@@ -12,7 +12,7 @@ import re
 import html5lib
 import bleach
 
-if six.PY3:
+if six.PY3:  # pragma: no cover
     from html import unescape
 else:
     import HTMLParser
@@ -187,7 +187,7 @@ def simplify_text(text):
     True
     """
     if isinstance(text, six.text_type):
-        if six.PY3:
+        if six.PY3:  # pragma: no cover
             text = text.translate(text.maketrans("", "", string.punctuation)).lower()
         else:
             text = six.text_type(text.encode('utf-8').translate(string.maketrans("", ""), string.punctuation).lower(), 'utf-8')

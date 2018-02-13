@@ -1,4 +1,4 @@
-nose
+pytest
 coverage
 coveralls
 psycopg2

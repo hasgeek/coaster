@@ -57,7 +57,7 @@ def buid():
     >>> isinstance(buid(), six.text_type)
     True
     """
-    if six.PY3:
+    if six.PY3:  # pragma: no cover
         return urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
     else:
         return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
@@ -119,10 +119,10 @@ def uuid2buid(value):
     Convert a UUID object to a 22-char BUID string
 
     >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
-    >>> uuid2buid(u) == 'MyA90vLvQi-usAWNb19wiQ'
-    True
+    >>> uuid2buid(u)
+    'MyA90vLvQi-usAWNb19wiQ'
     """
-    if six.PY3:
+    if six.PY3:  # pragma: no cover
         return urlsafe_b64encode(value.bytes).decode('utf-8').rstrip('=')
     else:
         return six.text_type(urlsafe_b64encode(value.bytes).rstrip('='))
@@ -191,29 +191,22 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'this-that'
     >>> make_name("How 'bout this?")
     'how-bout-this'
-    >>> test = make_name(u"How’s that?")
-    >>> test == 'hows-that'
-    True
-    >>> test = make_name(u'K & D')
-    >>> test == 'k-d'
-    True
+    >>> make_name(u"How’s that?")
+    'hows-that'
+    >>> make_name(u'K & D')
+    'k-d'
     >>> make_name('billion+ pageviews')
     'billion-pageviews'
-    >>> test = make_name(u'हिन्दी slug!')
-    >>> test == 'hindii-slug'
-    True
-    >>> test = make_name(u'__name__', delim=u'_')
-    >>> test == 'name'
-    True
-    >>> test = make_name(u'how_about_this', delim=u'_')
-    >>> test == 'how_about_this'
-    True
-    >>> test = make_name(u'and-that', delim=u'_')
-    >>> test == 'and_that'
-    True
-    >>> test = make_name(u'Umlauts in Mötörhead')
-    >>> test == 'umlauts-in-motorhead'
-    True
+    >>> make_name(u'हिन्दी slug!')
+    'hindii-slug'
+    >>> make_name(u'__name__', delim=u'_')
+    'name'
+    >>> make_name(u'how_about_this', delim=u'_')
+    'how_about_this'
+    >>> make_name(u'and-that', delim=u'_')
+    'and_that'
+    >>> make_name(u'Umlauts in Mötörhead')
+    'umlauts-in-motorhead'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
     'candidate2'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
@@ -226,12 +219,10 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     20
     >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
-    >>> test = make_name(u'Lǝnkǝran')
-    >>> test == 'lankaran'
-    True
-    >>> test = make_name(u'example@example.com')
-    >>> test == 'example-example-com'
-    True
+    >>> make_name(u'Lǝnkǝran')
+    'lankaran'
+    >>> make_name(u'example@example.com')
+    'example-example-com'
     """
     name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
@@ -253,15 +244,12 @@ def make_password(password, encoding='BCRYPT'):
     """
     Make a password with PLAIN, SSHA or BCRYPT (default) encoding.
 
-    >>> test = make_password('foo', encoding='PLAIN')
-    >>> test == '{PLAIN}foo'
-    True
-    >>> test = make_password(u're-foo', encoding='SSHA')[:6]
-    >>> test == '{SSHA}'
-    True
-    >>> test = make_password(u're-foo')[:8]
-    >>> test == '{BCRYPT}'
-    True
+    >>> make_password('foo', encoding='PLAIN')
+    '{PLAIN}foo'
+    >>> make_password(u're-foo', encoding='SSHA')[:6]
+    '{SSHA}'
+    >>> make_password(u're-foo')[:8]
+    '{BCRYPT}'
     >>> make_password('foo') == make_password('foo')
     False
     """
@@ -294,7 +282,7 @@ def make_password(password, encoding='BCRYPT'):
         password_hashed = bcrypt.hashpw(
             password.encode('utf-8') if isinstance(password, six.text_type) else password,
             bcrypt.gensalt())
-        if six.PY3:
+        if six.PY3:  # pragma: no cover
             password_hashed = password_hashed.decode('utf-8')
         return '{BCRYPT}%s' % password_hashed
 
@@ -322,7 +310,7 @@ def check_password(reference, attempt):
     elif reference.startswith(u'{SSHA}'):
         # In python3 b64decode takes inputtype as bytes as opposed to str in python 2, and returns
         # binascii.Error as opposed to TypeError
-        if six.PY3:
+        if six.PY3:  # pragma: no cover
             try:
                 if isinstance(reference, six.text_type):
                     ref = b64decode(reference[6:].encode('utf-8'))
@@ -339,7 +327,8 @@ def check_password(reference, attempt):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
         b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)
-        if six.PY3:  # type(b64_encoded) is bytes and can't be comapred with type(reference) which is str
+        if six.PY3:  # pragma: no cover
+            # type(b64_encoded) is bytes and can't be compared with type(reference) which is str
             compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
         else:
             compare = six.text_type('{SSHA}%s' % b64_encoded)
@@ -349,7 +338,7 @@ def check_password(reference, attempt):
         if isinstance(attempt, six.text_type) or isinstance(reference, six.text_type):
             attempt = attempt.encode('utf-8')
             reference = reference.encode('utf-8')
-        if six.PY3:
+        if six.PY3:  # pragma: no cover
             return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
         else:
             return bcrypt.hashpw(
@@ -363,36 +352,26 @@ def format_currency(value, decimals=2):
     Return a number suitably formatted for display as currency, with
     thousands separated by commas and up to two decimal points.
 
-    >>> test = format_currency(1000)
-    >>> test == '1,000'
-    True
-    >>> test = format_currency(100)
-    >>> test == '100'
-    True
-    >>> test = format_currency(999.95)
-    >>> test == '999.95'
-    True
-    >>> test = format_currency(99.95)
-    >>> test == '99.95'
-    True
-    >>> test = format_currency(100000)
-    >>> test == '100,000'
-    True
-    >>> test = format_currency(1000.00)
-    >>> test == '1,000'
-    True
-    >>> test = format_currency(1000.41)
-    >>> test == '1,000.41'
-    True
-    >>> test = format_currency(23.21, decimals=3)
-    >>> test == '23.210'
-    True
-    >>> test = format_currency(1000, decimals=3)
-    >>> test == '1,000'
-    True
-    >>> test = format_currency(123456789.123456789)
-    >>> test == '123,456,789.12'
-    True
+    >>> format_currency(1000)
+    '1,000'
+    >>> format_currency(100)
+    '100'
+    >>> format_currency(999.95)
+    '999.95'
+    >>> format_currency(99.95)
+    '99.95'
+    >>> format_currency(100000)
+    '100,000'
+    >>> format_currency(1000.00)
+    '1,000'
+    >>> format_currency(1000.41)
+    '1,000.41'
+    >>> format_currency(23.21, decimals=3)
+    '23.210'
+    >>> format_currency(1000, decimals=3)
+    '1,000'
+    >>> format_currency(123456789.123456789)
+    '123,456,789.12'
     """
     number, decimal = ((u'%%.%df' % decimals) % value).split(u'.')
     parts = []
@@ -418,7 +397,7 @@ def md5sum(data):
     >>> len(md5sum('random text'))
     32
     """
-    if six.PY3:
+    if six.PY3:  # pragma: no cover
         return hashlib.md5(data.encode('utf-8')).hexdigest()
     else:
         return hashlib.md5(data).hexdigest()
@@ -596,7 +575,7 @@ def require_one_of(_return=False, **kwargs):
     #    have a `count` method. It needs to be cast into a tuple/list first, but
     #    remains faster despite the cast's slowdown. Tuples are faster than lists.
 
-    if six.PY3:
+    if six.PY3:  # pragma: no cover
         count = len(kwargs) - tuple(kwargs.values()).count(None)
     else:
         count = len(kwargs) - kwargs.values().count(None)
@@ -624,7 +603,7 @@ def unicode_http_header(value):
     >>> unicode_http_header('p\xf6stal') == u'p\xf6stal'
     True
     """
-    if six.PY3:
+    if six.PY3:  # pragma: no cover
         # email.header.decode_header expects strings, not bytes. Your input data may be in bytes.
         # Since these bytes are almost always ASCII, calling `.decode()` on it without specifying
         # a charset should work fine.
@@ -774,4 +753,3 @@ def domain_namespace_match(domain, namespace):
     True
     """
     return base_domain_matches(domain, ".".join(namespace.split(".")[::-1]))
-
