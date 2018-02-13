@@ -12,8 +12,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 from __future__ import absolute_import
 import re
 from six.moves.urllib.parse import urlsplit
-from flask import (session as request_session, request, url_for, json, Response,
-    redirect, abort, g, current_app, render_template, jsonify, make_response)
+from flask import session as request_session, request, url_for, json, Response, current_app
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp']
 
