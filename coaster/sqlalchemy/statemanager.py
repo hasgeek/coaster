@@ -163,7 +163,7 @@ States can also be used for database queries when accessed from the class::
     MyPost.query.filter(MyPost.state.RECENT)
 
 This works because :class:`StateManager`, :class:`ManagedState`
-and :class:`ManagedStateGroup` behave in four different ways, depending on
+and :class:`ManagedStateGroup` behave in three different ways, depending on
 context:
 
 1. During class definition, the state manager returns the managed state. All
@@ -174,14 +174,11 @@ context:
    managed state instance. If accessed via the class, the managed state returns
    a SQLAlchemy filter condition.
 
-3. After class definition, if accessed via an instance, the managed state tests
-   if it is currently active and returns a boolean result.
-
-4. :meth:`StateManager.current` returns a dictionary of all currently valid
-   managed states and state groups, wrapped in
-   :class:`ManagedStateWrapper` which holds the context of the object on which
-   the method was called. Calling these states will return True as long as the
-   state remains unchanged.
+3. After class definition, if accessed via an instance, the managed state
+   returns itself wrapped in :class:`ManagedStateWrapper` (which holds context
+   for the instance). This is an object that evaluates to ``True`` if the state
+   is active, ``False`` otherwise. It also provides pass-through access to
+   all attributes of the managed state.
 
 States can be changed via transitions, defined as methods with the
 :meth:`~StateManager.transition` decorator. They add more power and safeguards
@@ -203,6 +200,7 @@ from collections import OrderedDict
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from werkzeug.exceptions import BadRequest
+from ..utils import NameTitle
 from ..signals import coaster_signals
 
 __all__ = ['StateManager', 'StateTransitionError',
@@ -252,31 +250,38 @@ class ManagedState(object):
 
     @property
     def is_conditional(self):
+        """This is a conditional state"""
         return self.validator is not None
 
     @property
     def is_scalar(self):
+        """This is a scalar state (not a group of states)"""
+        return not isinstance(self.value, iterables)
+
+    @property
+    def is_direct(self):
+        """This is a direct state (scalar state without a condition)"""
         return self.validator is None and not isinstance(self.value, iterables)
 
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
 
-    def __call__(self, obj, cls=None):
+    def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
         if obj is not None:  # We're being called with an instance
             if isinstance(self.value, iterables):
-                valuematch = self.statemanager(obj, cls) in self.value
+                valuematch = self.statemanager._value(obj, cls) in self.value
             else:
-                valuematch = self.statemanager(obj, cls) == self.value
+                valuematch = self.statemanager._value(obj, cls) == self.value
             if self.validator is not None:
                 return valuematch and self.validator(obj)
             else:
                 return valuematch
         else:  # We have a class, so return a filter condition, for use as cls.query.filter(result)
             if isinstance(self.value, iterables):
-                valuematch = self.statemanager(obj, cls).in_(self.value)
+                valuematch = self.statemanager._value(obj, cls).in_(self.value)
             else:
-                valuematch = self.statemanager(obj, cls) == self.value
+                valuematch = self.statemanager._value(obj, cls) == self.value
             cv = self.class_validator
             if cv is None:
                 cv = self.validator
@@ -285,8 +290,18 @@ class ManagedState(object):
             else:
                 return valuematch
 
+    def __call__(self, obj, cls=None):
+        if obj is not None:
+            return ManagedStateWrapper(self, obj, cls)
+        else:
+            return self._eval(obj, cls)
+
 
 class ManagedStateGroup(object):
+    """
+    Represents a group of managed states in a StateManager. Do not use this
+    class directly. Use :meth:`~StateManager.add_state_group` instead.
+    """
     def __init__(self, name, statemanager, states):
         self.name = name
         self.statemanager = statemanager
@@ -323,33 +338,53 @@ class ManagedStateGroup(object):
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
 
-    def __call__(self, obj, cls=None):
+    def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
         else:
             return or_(*[s(obj, cls) for s in self.states])
 
+    def __call__(self, obj, cls=None):
+        if obj is not None:
+            return ManagedStateWrapper(self, obj, cls)
+        else:
+            return self._eval(obj, cls)
+
 
 class ManagedStateWrapper(object):
     """
     Wraps a :class:`ManagedState` or :class:`ManagedStateGroup` with
-    an object or class and otherwise provides transparent access to contents
+    an object or class, and otherwise provides transparent access to contents.
     """
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
             raise TypeError("Parameter is not a managed state: %s" % repr(mstate))
-        self.__mstate = mstate
-        self.__obj = obj
-        self.__cls = cls
+        self._mstate = mstate
+        self._obj = obj
+        self._cls = cls
 
     def __repr__(self):
-        return '<ManagedStateWrapper %s>' % repr(self.__mstate)
+        return '<ManagedStateWrapper %s>' % repr(self._mstate)
 
     def __call__(self):
-        return self.__mstate(self.__obj, self.__cls)
+        return self._mstate._eval(self._obj, self._cls)
 
     def __getattr__(self, attr):
-        return getattr(self.__mstate, attr)
+        return getattr(self._mstate, attr)
+
+    def __eq__(self, other):
+        return (isinstance(other, ManagedStateWrapper) and
+            self._mstate == other._mstate and
+            self._obj == other._obj and
+            self._cls == other._cls)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __bool__(self):
+        return self()
+
+    __nonzero__ = __bool__
 
 
 class StateTransition(object):
@@ -517,6 +552,7 @@ class StateManager(object):
         self.__doc__ = doc
         self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
         self.states_by_value = OrderedDict()  # value: ManagedState (no conditional states or groups)
+        self.all_states_by_value = OrderedDict()  # Same, but as a list including conditional states
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a ManagedState.
@@ -576,8 +612,10 @@ class StateManager(object):
         # depend on it being permanent for the lifetime of the process in typical use (or
         # for advanced memory management that can detect loops).
         self.states[name] = mstate
-        if mstate.is_scalar:
+        if mstate.is_direct:
             self.states_by_value[value] = mstate
+        if mstate.is_scalar:
+            self.all_states_by_value.setdefault(value, []).insert(0, mstate)
         # Make the ManagedState available as `statemanager.STATE` (assuming original was uppercased)
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)  # Also make available as `statemanager.is_state`
@@ -601,7 +639,7 @@ class StateManager(object):
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)
 
-    def add_conditional_state(self, name, state, validator, class_validator=None, cache_for=None):
+    def add_conditional_state(self, name, state, validator, class_validator=None, cache_for=None, label=None):
         """
         Add a conditional state that combines an existing state with a validator
         that must also pass. The validator receives the object on which the property
@@ -617,6 +655,7 @@ class StateManager(object):
             result can be cached (not applicable to ``class_validator``). ``None`` implies
             no cache, ``0`` implies indefinite cache (until invalidated by a transition)
             and any other integer is the number of seconds for which to cache the assertion
+        :param label: Label for this state (string or 2-tuple)
 
         TODO: cache_for's implementation is currently pending a test case demonstrating
         how it will be used.
@@ -626,7 +665,9 @@ class StateManager(object):
             raise TypeError("Not a managed state: %s" % repr(state))
         elif state.statemanager != self:
             raise ValueError("State %s is not associated with this state manager" % repr(state))
-        self._add_state_internal(name, state.value,
+        if isinstance(label, tuple) and len(label) == 2:
+            label = NameTitle(*label)
+        self._add_state_internal(name, state.value, label=label,
             validator=validator, class_validator=class_validator, cache_for=cache_for)
 
     def transition(self, from_, to, if_=None, **data):
@@ -653,7 +694,7 @@ class StateManager(object):
 
         return decorator
 
-    def __call__(self, obj, cls=None):
+    def _value(self, obj, cls=None):
         """The state value (called from the wrapper)"""
         if obj is not None:
             return getattr(obj, self.propname)
@@ -695,23 +736,32 @@ class StateManagerWrapper(object):
     def __repr__(self):
         return '<StateManagerWrapper(%s.%s)>' % (type(self.obj).__name__, self.statemanager.name)
 
-    def __call__(self):
+    @property
+    def value(self):
         """The state value"""
-        return self.statemanager(self.obj, self.cls)
-
-    value = property(__call__)
+        return self.statemanager._value(self.obj, self.cls)
 
     @property
     def label(self):
         """Label for this state value"""
-        return self.statemanager.lenum[self()]
+        return self.bestmatch().label
+
+    def bestmatch(self):
+        """
+        Best matching scalar state (direct or conditional)
+        """
+        if self.obj is not None:
+            for mstate in self.statemanager.all_states_by_value[self.value]:
+                msw = mstate(self.obj, self.cls)  # This returns a wrapper
+                if msw:  # If the wrapper evaluates to True, it's our best match
+                    return msw
 
     def current(self):
         """
         All states and state groups that are currently active.
         """
         if self.obj is not None:
-            return {name: ManagedStateWrapper(mstate, self.obj, self.cls)
+            return {name: mstate(self.obj, self.cls)
                 for name, mstate in self.statemanager.states.items()
                 if mstate(self.obj, self.cls)}
 
@@ -742,7 +792,7 @@ class StateManagerWrapper(object):
             # Use isinstance instead of `type(item) != cls` to account for subclasses
             if not isinstance(item, cls):
                 raise TypeError("Item %s is not an instance of type %s" % (repr(item), repr(self.cls)))
-            statevalue = self.statemanager(item)
+            statevalue = self.statemanager._value(item)
             mstate = self.statemanager.states_by_value[statevalue]
             groups[mstate].append(item)
         if not keep_empty:

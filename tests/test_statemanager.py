@@ -26,10 +26,11 @@ db = SQLAlchemy(app)
 class MY_STATE(LabeledEnum):
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
-    PUBLISHED = (2, "Published")
+    PUBLISHED = (2, 'published', "Published")
 
     __order__ = (DRAFT, PENDING, PUBLISHED)
     UNPUBLISHED = {DRAFT, PENDING}
+    PUBLISHED_AND_AFTER = {PUBLISHED}
 
 
 class REVIEW_STATE(LabeledEnum):
@@ -59,7 +60,8 @@ class MyPost(BaseMixin, db.Model):
 
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state('RECENT', state.PUBLISHED,
-        lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
+        lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
+        label=('recent', "Recently published"))
 
     # State groups (apart from those in the LabeledEnum), used here to include the
     # conditional state in a group. Adds ManagedStateGroup instances
@@ -144,6 +146,11 @@ class TestStateManager(unittest.TestCase):
         with self.assertRaises(ValueError):
             state.add_conditional_state('TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True)
 
+    def test_conditional_state_label(self):
+        """Conditional states can have labels"""
+        self.assertEqual(MyPost.__dict__['state'].RECENT.label.name, 'recent')
+        self.assertEqual(self.post.state.RECENT.label.name, 'recent')
+
     def test_transition_invalid_from_to(self):
         """
         Adding a transition with an invalid `from_` or `to` state will raise an error
@@ -177,7 +184,6 @@ class TestStateManager(unittest.TestCase):
         A post has a state that can be tested with statemanager.NAME
         """
         self.assertEqual(self.post._state, MY_STATE.DRAFT)
-        self.assertEqual(self.post.state(), MY_STATE.DRAFT)
         self.assertEqual(self.post.state.value, MY_STATE.DRAFT)
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.PENDING)
@@ -224,9 +230,9 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(self.post.state.is_unpublished)
         self.assertTrue(self.post.state.is_published)
 
-    def test_added_state(self):
+    def test_conditional_state(self):
         """
-        Added states include custom validators which are called to confirm the state
+        Conditional states include custom validators which are called to confirm the state
         """
         self.assertTrue(self.post.state.DRAFT)
         self.assertFalse(self.post.state.RECENT)
@@ -236,6 +242,30 @@ class TestStateManager(unittest.TestCase):
         self.post.datetime = datetime.utcnow() - timedelta(hours=2)
         self.assertFalse(self.post.state.RECENT)
         self.assertFalse(self.post.state.is_recent)
+
+    def test_bestmatch_state(self):
+        """
+        The best matching state prioritises conditional over direct
+        """
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.DRAFT)
+        self.assertFalse(self.post.state.RECENT)
+
+        self.post._state = MY_STATE.PUBLISHED
+
+        self.assertTrue(self.post.state.RECENT)
+        self.assertTrue(self.post.state.is_recent)
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.RECENT)
+        self.assertEqual(self.post.state.label.name, 'recent')
+
+        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+
+        self.assertFalse(self.post.state.RECENT)
+        self.assertFalse(self.post.state.is_recent)
+        self.assertTrue(self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.bestmatch(), self.post.state.PUBLISHED)
+        self.assertEqual(self.post.state.label.name, 'published')
 
     def test_added_state_group(self):
         """Added state groups can be tested"""
@@ -263,9 +293,8 @@ class TestStateManager(unittest.TestCase):
         with self.assertRaises(ValueError):
             state.add_state_group('MIXED1', state.PUBLISHED, state.RECENT)
         # Can't group a conditional state with group containing main state
-        state.add_conditional_state('TEST', state.DRAFT, lambda obj: True)
         with self.assertRaises(ValueError):
-            state.add_state_group('MIXED2', state.UNPUBLISHED, state.TEST)
+            state.add_state_group('MIXED2', state.PUBLISHED_AND_AFTER, state.RECENT)
 
     def test_sql_query_single_value(self):
         """
@@ -321,14 +350,14 @@ class TestStateManager(unittest.TestCase):
         """
         `submit` transition works
         """
-        self.assertEqual(self.post.state(), MY_STATE.DRAFT)
+        self.assertEqual(self.post.state.value, MY_STATE.DRAFT)
         self.post.submit()
-        self.assertEqual(self.post.state(), MY_STATE.PENDING)
+        self.assertEqual(self.post.state.value, MY_STATE.PENDING)
         with self.assertRaises(StateTransitionError):
             # Can only be called in draft state, which we are no longer in
             self.post.submit()
         # If there's an error, the state does not change
-        self.assertEqual(self.post.state(), MY_STATE.PENDING)
+        self.assertEqual(self.post.state.value, MY_STATE.PENDING)
 
     def test_transition_publish_invalid(self):
         """
@@ -510,13 +539,18 @@ class TestStateManager(unittest.TestCase):
     def test_managed_state_wrapper(self):
         """ManagedStateWrapper will only wrap a managed state or group"""
         draft = MyPost.__dict__['state'].DRAFT
-        wdraft = ManagedStateWrapper(draft, self.post)
+        wdraft = ManagedStateWrapper(draft, self.post, MyPost)
         self.assertEqual(draft.value, wdraft.value)
-        self.assertTrue(wdraft())
-        self.assertEqual(self.post.state.DRAFT, wdraft())
+        self.assertTrue(wdraft())  # Result is False
+        self.assertTrue(wdraft)    # Object is falsy
+        self.assertEqual(self.post.state.DRAFT, wdraft)
         self.post.submit()
         self.assertFalse(wdraft())
-        self.assertEqual(self.post.state.DRAFT, wdraft())
+        self.assertFalse(wdraft)
+        self.assertEqual(self.post.state.DRAFT(), wdraft())       # False == False
+        self.assertEqual(self.post.state.DRAFT, wdraft)           # Object remains the same even if not active
+        self.assertNotEqual(self.post.state.PENDING, wdraft)      # These objects don't match
+        self.assertNotEqual(self.post.state.PENDING(), wdraft())  # True != False
 
         with self.assertRaises(TypeError):
             ManagedStateWrapper(MY_STATE.DRAFT, self.post)
