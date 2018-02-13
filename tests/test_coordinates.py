@@ -2,8 +2,9 @@
 
 from __future__ import absolute_import
 
+import warnings
 import unittest
-
+import sqlalchemy.exc
 from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
@@ -41,6 +42,8 @@ class TestCoordinatesColumn(unittest.TestCase):
         self.assertEqual(data.coordinates, (None, None))
 
     def test_column_set_value(self):
+        warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
+
         data = CoordinatesData()
         data.coordinates = (12, 73)
         self.assertEqual(data.coordinates, (12, 73))
@@ -49,6 +52,8 @@ class TestCoordinatesColumn(unittest.TestCase):
 
         readdata = CoordinatesData.query.first()
         self.assertEqual(readdata.coordinates, (12, 73))
+
+        warnings.resetwarnings()
 
 
 class TestCoordinatesColumn2(TestCoordinatesColumn):

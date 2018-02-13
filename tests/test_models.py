@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 
 import unittest
 
@@ -53,7 +53,7 @@ class UnnamedDocument(BaseMixin, db.Model):
 
 class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
-    reserved_names = [u'new']
+    reserved_names = ['new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -63,7 +63,7 @@ class NamedDocument(BaseNameMixin, db.Model):
 class NamedDocumentBlank(BaseNameMixin, db.Model):
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
-    reserved_names = [u'new']
+    reserved_names = ['new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
 
@@ -72,7 +72,7 @@ class NamedDocumentBlank(BaseNameMixin, db.Model):
 
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
-    reserved_names = [u'new']
+    reserved_names = ['new']
     container_id = Column(Integer, ForeignKey('container.id'))
     container = relationship(Container)
     parent = synonym('container')
@@ -195,7 +195,7 @@ parent_child_primary = db.Model.metadata.tables['parent_for_primary_child_for_pr
 
 class DefaultValue(BaseMixin, db.Model):
     __tablename__ = 'default_value'
-    value = db.Column(db.Unicode(100), default=u'default')
+    value = db.Column(db.Unicode(100), default='default')
 
 auto_init_default(DefaultValue.value)
 
@@ -245,7 +245,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(now1 < c.created_at)
         self.assertTrue(now2 > c.created_at)
         sleep(1)
-        c.content = u"updated"
+        c.content = "updated"
         self.session.commit()
         self.assertNotEqual(c.updated_at, u)
         self.assertTrue(c.updated_at > now2)
@@ -254,7 +254,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_unnamed(self):
         c = self.make_container()
-        d = UnnamedDocument(content=u"hello", container=c)
+        d = UnnamedDocument(content="hello", container=c)
         self.session.add(d)
         self.session.commit()
         self.assertEqual(c.id, 1)
@@ -264,41 +264,41 @@ class TestCoasterModels(unittest.TestCase):
         """Named documents have globally unique names."""
         c1 = self.make_container()
         # XXX: We don't know why, but this raises a non-Unicode string warning
-        d1 = NamedDocument(title=u"Hello", content=u"World", container=c1)
+        d1 = NamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.name, u'hello')
-        self.assertEqual(NamedDocument.get(u'hello'), d1)
+        self.assertEqual(d1.name, 'hello')
+        self.assertEqual(NamedDocument.get('hello'), d1)
 
         c2 = self.make_container()
-        d2 = NamedDocument(title=u"Hello", content=u"Again", container=c2)
+        d2 = NamedDocument(title="Hello", content="Again", container=c2)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, u'hello2')
+        self.assertEqual(d2.name, 'hello2')
 
         # test insert in BaseNameMixin's upsert
-        d3 = NamedDocument.upsert(u'hello3', title=u'hello3', content=u'hello3')
+        d3 = NamedDocument.upsert('hello3', title='hello3', content='hello3')
         self.session.commit()
-        d3_persisted = NamedDocument.get(u'hello3')
+        d3_persisted = NamedDocument.get('hello3')
         self.assertEqual(d3_persisted, d3)
-        self.assertEqual(d3_persisted.content, u'hello3')
+        self.assertEqual(d3_persisted.content, 'hello3')
 
         # test update in BaseNameMixin's upsert
-        d4 = NamedDocument.upsert(u'hello3', title=u'hello4', content=u'hello4')
+        d4 = NamedDocument.upsert('hello3', title='hello4', content='hello4')
         d4.make_name()
         self.session.commit()
-        d4_persisted = NamedDocument.get(u'hello4')
+        d4_persisted = NamedDocument.get('hello4')
         self.assertEqual(d4_persisted, d4)
-        self.assertEqual(d4_persisted.content, u'hello4')
+        self.assertEqual(d4_persisted.content, 'hello4')
 
         with self.assertRaises(TypeError) as insert_error:
-            NamedDocument.upsert(u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            NamedDocument.upsert('invalid1', title='Invalid1', non_existent_field="I don't belong here.")
         self.assertEqual(TypeError, insert_error.expected)
 
         with self.assertRaises(TypeError) as update_error:
-            NamedDocument.upsert(u'valid1', title=u'Valid1')
+            NamedDocument.upsert('valid1', title='Valid1')
             self.session.commit()
-            NamedDocument.upsert(u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            NamedDocument.upsert('valid1', title='Invalid1', non_existent_field="I don't belong here.")
             self.session.commit()
         self.assertEqual(TypeError, update_error.expected)
 
@@ -308,100 +308,103 @@ class TestCoasterModels(unittest.TestCase):
     # is tested here.
     def test_named_blank_disallowed(self):
         c1 = self.make_container()
-        d1 = NamedDocument(title=u"Index", name=u"", container=c1)
-        d1.name = u""  # BaseNameMixin will always try to set a name. Explicitly blank it.
+        d1 = NamedDocument(title="Index", name="", container=c1)
+        d1.name = ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
         self.session.add(d1)
         self.assertRaises(IntegrityError, self.session.commit)
 
     def test_named_blank_allowed(self):
         c1 = self.make_container()
-        d1 = NamedDocumentBlank(title=u"Index", name=u"", container=c1)
-        d1.name = u""  # BaseNameMixin will always try to set a name. Explicitly blank it.
+        d1 = NamedDocumentBlank(title="Index", name="", container=c1)
+        d1.name = ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
         self.session.add(d1)
-        self.assertEqual(d1.name, u"")
+        self.assertEqual(d1.name, "")
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
         c1 = self.make_container()
-        d1 = ScopedNamedDocument(title=u"Hello", content=u"World", container=c1)
-        u = User(username=u'foo')
+        self.session.commit()
+        d1 = ScopedNamedDocument(title="Hello", content="World", container=c1)
+        u = User(username='foo')
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(ScopedNamedDocument.get(c1, u'hello'), d1)
-        self.assertEqual(d1.name, u'hello')
+        self.assertEqual(ScopedNamedDocument.get(c1, 'hello'), d1)
+        self.assertEqual(d1.name, 'hello')
         self.assertEqual(d1.permissions(user=u), set([]))
         self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
 
-        d2 = ScopedNamedDocument(title=u"Hello", content=u"Again", container=c1)
+        d2 = ScopedNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, u'hello2')
+        self.assertEqual(d2.name, 'hello2')
 
         c2 = self.make_container()
-        d3 = ScopedNamedDocument(title=u"Hello", content=u"Once More", container=c2)
+        self.session.commit()
+        d3 = ScopedNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.name, u'hello')
+        self.assertEqual(d3.name, 'hello')
 
         # test insert in BaseScopedNameMixin's upsert
-        d4 = ScopedNamedDocument.upsert(c1, u'hello4', title=u'Hello 4', content=u'scoped named doc')
+        d4 = ScopedNamedDocument.upsert(c1, 'hello4', title='Hello 4', content='scoped named doc')
         self.session.commit()
-        d4_persisted = ScopedNamedDocument.get(c1, u'hello4')
+        d4_persisted = ScopedNamedDocument.get(c1, 'hello4')
         self.assertEqual(d4_persisted, d4)
-        self.assertEqual(d4_persisted.content, u'scoped named doc')
+        self.assertEqual(d4_persisted.content, 'scoped named doc')
 
         # test update in BaseScopedNameMixin's upsert
-        d5 = ScopedNamedDocument.upsert(c1, u'hello4', container=c2, title=u'Hello5', content=u'scoped named doc')
+        d5 = ScopedNamedDocument.upsert(c1, 'hello4', container=c2, title='Hello5', content='scoped named doc')
         d5.make_name()
         self.session.commit()
-        d5_persisted = ScopedNamedDocument.get(c2, u'hello5')
+        d5_persisted = ScopedNamedDocument.get(c2, 'hello5')
         self.assertEqual(d5_persisted, d5)
-        self.assertEqual(d5_persisted.content, u'scoped named doc')
+        self.assertEqual(d5_persisted.content, 'scoped named doc')
 
         with self.assertRaises(TypeError) as insert_error:
-            ScopedNamedDocument.upsert(c1, u'invalid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            ScopedNamedDocument.upsert(c1, 'invalid1', title='Invalid1', non_existent_field="I don't belong here.")
         self.assertEqual(TypeError, insert_error.expected)
 
-        ScopedNamedDocument.upsert(c1, u'valid1', title=u'Valid1')
+        ScopedNamedDocument.upsert(c1, 'valid1', title='Valid1')
         self.session.commit()
         with self.assertRaises(TypeError) as update_error:
-            ScopedNamedDocument.upsert(c1, u'valid1', title=u'Invalid1', non_existent_field=u"I don't belong here.")
+            ScopedNamedDocument.upsert(c1, 'valid1', title='Invalid1', non_existent_field="I don't belong here.")
             self.session.commit()
         self.assertEqual(TypeError, update_error.expected)
 
     def test_scoped_named_short_title(self):
         """Test the short_title method of BaseScopedNameMixin."""
         c1 = self.make_container()
-        d1 = ScopedNamedDocument(title=u"Hello", content=u"World", container=c1)
-        self.assertEqual(d1.short_title(), u"Hello")
+        self.session.commit()
+        d1 = ScopedNamedDocument(title="Hello", content="World", container=c1)
+        self.assertEqual(d1.short_title(), "Hello")
 
-        c1.title = u"Container"
-        d1.title = u"Container Contained"
-        self.assertEqual(d1.short_title(), u"Contained")
+        c1.title = "Container"
+        d1.title = "Container Contained"
+        self.assertEqual(d1.short_title(), "Contained")
 
     def test_id_named(self):
         """Documents with a global id in the URL"""
         c1 = self.make_container()
-        d1 = IdNamedDocument(title=u"Hello", content=u"World", container=c1)
+        d1 = IdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.url_name, u'1-hello')
+        self.assertEqual(d1.url_name, '1-hello')
 
-        d2 = IdNamedDocument(title=u"Hello", content=u"Again", container=c1)
+        d2 = IdNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.url_name, u'2-hello')
+        self.assertEqual(d2.url_name, '2-hello')
 
         c2 = self.make_container()
-        d3 = IdNamedDocument(title=u"Hello", content=u"Once More", container=c2)
+        d3 = IdNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.url_name, u'3-hello')
+        self.assertEqual(d3.url_name, '3-hello')
 
     def test_scoped_id(self):
         """Documents with a container-specific id in the URL"""
         c1 = self.make_container()
-        d1 = ScopedIdDocument(content=u"Hello", container=c1)
+        d1 = ScopedIdDocument(content="Hello", container=c1)
         u = User(username="foo")
         self.session.add(d1)
         self.session.commit()
@@ -409,19 +412,19 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
         self.assertEqual(d1.permissions(user=u), set([]))
 
-        d2 = ScopedIdDocument(content=u"New document", container=c1)
+        d2 = ScopedIdDocument(content="New document", container=c1)
         self.session.add(d2)
         self.session.commit()
         self.assertEqual(d1.url_id, 1)
         self.assertEqual(d2.url_id, 2)
 
         c2 = self.make_container()
-        d3 = ScopedIdDocument(content=u"Once More", container=c2)
+        d3 = ScopedIdDocument(content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
         self.assertEqual(d3.url_id, 1)
 
-        d4 = ScopedIdDocument(content=u"Third", container=c1)
+        d4 = ScopedIdDocument(content="Third", container=c1)
         self.session.add(d4)
         self.session.commit()
         self.assertEqual(d4.url_id, 3)
@@ -429,28 +432,28 @@ class TestCoasterModels(unittest.TestCase):
     def test_scoped_id_named(self):
         """Documents with a container-specific id and name in the URL"""
         c1 = self.make_container()
-        d1 = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c1)
+        d1 = ScopedIdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.url_name, u'1-hello')
+        self.assertEqual(d1.url_name, '1-hello')
         self.assertEqual(d1.url_name, d1.url_id_name)  # url_name is now an alias for url_id_name
         self.assertEqual(ScopedIdNamedDocument.get(c1, d1.url_id), d1)
 
-        d2 = ScopedIdNamedDocument(title=u"Hello again", content=u"New name", container=c1)
+        d2 = ScopedIdNamedDocument(title="Hello again", content="New name", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.url_name, u'2-hello-again')
+        self.assertEqual(d2.url_name, '2-hello-again')
 
         c2 = self.make_container()
-        d3 = ScopedIdNamedDocument(title=u"Hello", content=u"Once More", container=c2)
+        d3 = ScopedIdNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.url_name, u'1-hello')
+        self.assertEqual(d3.url_name, '1-hello')
 
-        d4 = ScopedIdNamedDocument(title=u"Hello", content=u"Third", container=c1)
+        d4 = ScopedIdNamedDocument(title="Hello", content="Third", container=c1)
         self.session.add(d4)
         self.session.commit()
-        self.assertEqual(d4.url_name, u'3-hello')
+        self.assertEqual(d4.url_name, '3-hello')
 
         # Queries work as well
         qd1 = ScopedIdNamedDocument.query.filter_by(container=c1, url_name=d1.url_name).first()
@@ -459,51 +462,52 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(qd2, d2)
 
     def test_scoped_id_without_parent(self):
-        d1 = ScopedIdDocument(content=u"Hello")
+        d1 = ScopedIdDocument(content="Hello")
         self.session.add(d1)
         self.assertRaises(IntegrityError, self.session.commit)
         self.session.rollback()
-        d2 = ScopedIdDocument(content=u"Hello again")
+        d2 = ScopedIdDocument(content="Hello again")
         self.session.add(d2)
         self.assertRaises(IntegrityError, self.session.commit)
 
     def test_scoped_named_without_parent(self):
-        d1 = ScopedNamedDocument(title=u"Hello", content=u"World")
+        d1 = ScopedNamedDocument(title="Hello", content="World")
         self.session.add(d1)
         self.assertRaises(IntegrityError, self.session.commit)
         self.session.rollback()
-        d2 = ScopedIdNamedDocument(title=u"Hello", content=u"World")
+        d2 = ScopedIdNamedDocument(title="Hello", content="World")
         self.session.add(d2)
         self.assertRaises(IntegrityError, self.session.commit)
 
     def test_reserved_name(self):
         c = self.make_container()
-        d1 = NamedDocument(container=c, title=u"New")
+        self.session.commit()
+        d1 = NamedDocument(container=c, title="New")
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
-        d1.make_name(reserved=[u'new2'])
-        self.assertEqual(d1.name, u'new3')
-        d2 = ScopedNamedDocument(container=c, title=u"New")
+        d1.make_name(reserved=['new2'])
+        self.assertEqual(d1.name, 'new3')
+        d2 = ScopedNamedDocument(container=c, title="New")
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
-        d2.make_name(reserved=[u'new2'])
-        self.assertEqual(d2.name, u'new3')
+        d2.make_name(reserved=['new2'])
+        self.assertEqual(d2.name, 'new3')
 
         # Now test again after adding to session. Results should be identical
         self.session.add(d1)
         self.session.add(d2)
         self.session.commit()
 
-        d1.make_name(reserved=[u'new2'])
-        self.assertEqual(d1.name, u'new3')
-        d2.make_name(reserved=[u'new2'])
-        self.assertEqual(d2.name, u'new3')
+        d1.make_name(reserved=['new2'])
+        self.assertEqual(d1.name, 'new3')
+        d2.make_name(reserved=['new2'])
+        self.assertEqual(d2.name, 'new3')
 
     def test_has_timestamps(self):
         # Confirm that a model with multiple base classes between it and
         # TimestampMixin still has created_at and updated_at
         c = self.make_container()
-        d = ScopedIdNamedDocument(title=u"Hello", content=u"World", container=c)
+        d = ScopedIdNamedDocument(title="Hello", content="World", container=c)
         self.session.add(d)
         self.session.commit()
         sleep(1)
@@ -513,46 +517,46 @@ class TestCoasterModels(unittest.TestCase):
         self.assertTrue(d.updated_at - d.created_at < timedelta(seconds=1))
         self.assertTrue(isinstance(d.created_at, datetime))
         self.assertTrue(isinstance(d.updated_at, datetime))
-        d.title = u"Updated hello"
+        d.title = "Updated hello"
         self.session.commit()
         self.assertTrue(d.updated_at > updated_at)
 
     def test_url_for(self):
-        d = UnnamedDocument(content=u"hello")
+        d = UnnamedDocument(content="hello")
         self.assertEqual(d.url_for(), None)
 
     def test_jsondict(self):
-        m1 = MyData(data={u'value': u'foo'})
+        m1 = MyData(data={'value': 'foo'})
         self.session.add(m1)
         self.session.commit()
         # Test for __setitem__
-        m1.data[u'value'] = u'bar'
-        self.assertEqual(m1.data[u'value'], u'bar')
-        del m1.data[u'value']
+        m1.data['value'] = 'bar'
+        self.assertEqual(m1.data['value'], 'bar')
+        del m1.data['value']
         self.assertEqual(m1.data, {})
-        self.assertRaises(ValueError, MyData, data=u'NonDict')
+        self.assertRaises(ValueError, MyData, data='NonDict')
 
     def test_query(self):
-        c1 = Container(name=u'c1')
+        c1 = Container(name='c1')
         self.session.add(c1)
-        c2 = Container(name=u'c2')
+        c2 = Container(name='c2')
         self.session.add(c2)
         self.session.commit()
 
-        self.assertEqual(Container.query.filter_by(name=u'c1').one_or_none(), c1)
-        self.assertEqual(Container.query.filter_by(name=u'c3').one_or_none(), None)
+        self.assertEqual(Container.query.filter_by(name='c1').one_or_none(), c1)
+        self.assertEqual(Container.query.filter_by(name='c3').one_or_none(), None)
         self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
 
     def test_failsafe_add(self):
         """
         failsafe_add gracefully handles IntegrityError from dupe entries
         """
-        d1 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
-        d1a = failsafe_add(self.session, d1, name=u'add_and_commit_test')
+        d1 = NamedDocument(name='add_and_commit_test', title="Test")
+        d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
         self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
 
-        d2 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
-        d2a = failsafe_add(self.session, d2, name=u'add_and_commit_test')
+        d2 = NamedDocument(name='add_and_commit_test', title="Test")
+        d2a = failsafe_add(self.session, d2, name='add_and_commit_test')
         self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
         self.assertTrue(d2a is d1)
 
@@ -560,13 +564,13 @@ class TestCoasterModels(unittest.TestCase):
         """
         failsafe_add doesn't fail if the item is already in the session
         """
-        d1 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
-        d1a = failsafe_add(self.session, d1, name=u'add_and_commit_test')
+        d1 = NamedDocument(name='add_and_commit_test', title="Test")
+        d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
         self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
 
-        d2 = NamedDocument(name=u'add_and_commit_test', title=u"Test")
+        d2 = NamedDocument(name='add_and_commit_test', title="Test")
         self.session.add(d2)  # Add to session before going to failsafe_add
-        d2a = failsafe_add(self.session, d2, name=u'add_and_commit_test')
+        d2a = failsafe_add(self.session, d2, name='add_and_commit_test')
         self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
         self.assertTrue(d2a is d1)
 
@@ -574,15 +578,15 @@ class TestCoasterModels(unittest.TestCase):
         """
         failsafe_add passes through errors occuring from bad data
         """
-        d1 = NamedDocument(name=u'missing_title')
-        self.assertRaises(IntegrityError, failsafe_add, self.session, d1, name=u'missing_title')
+        d1 = NamedDocument(name='missing_title')
+        self.assertRaises(IntegrityError, failsafe_add, self.session, d1, name='missing_title')
 
     def test_failsafe_add_silent_fail(self):
         """
         failsafe_add does not raise IntegrityError with bad data
         when no filters are provided
         """
-        d1 = NamedDocument(name=u'missing_title')
+        d1 = NamedDocument(name='missing_title')
         self.assertIsNone(failsafe_add(self.session, d1))
 
     def test_uuid_key(self):
@@ -654,12 +658,12 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             six.text_type((NonUuidKey.url_id == 1
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_key.id = 1")
+            "non_uuid_key.id = 1")
         # We don't check the data type here, leaving that to the engine
         self.assertEqual(
             six.text_type((NonUuidKey.url_id == '1'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_key.id = '1'")
+            "non_uuid_key.id = '1'")
 
         # With UUID primary keys, `url_id` casts the value into a UUID
         # and then queries against `id` or ``uuid``
@@ -672,42 +676,42 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             six.text_type((UuidKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         # Hex UUID with !=
         self.assertEqual(
             six.text_type((UuidKey.url_id != '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id != '74d588574a7611e78c27c38403d0935c'")
+            "uuid_key.id != '74d588574a7611e78c27c38403d0935c'")
         # Hex UUID with dashes
         self.assertEqual(
             six.text_type((UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         # UUID object
         self.assertEqual(
             six.text_type((UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'")
         # IN clause with mixed inputs, including an invalid input
         self.assertEqual(
             six.text_type((UuidKey.url_id.in_(
                 ['74d588574a7611e78c27c38403d0935c', uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), 'garbage!']
                 )).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')")
+            "uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')")
 
         # None value
         self.assertEqual(
             six.text_type((UuidKey.url_id == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_key.id IS NULL")
+            "uuid_key.id IS NULL")
         self.assertEqual(
             six.text_type((NonUuidKey.url_id == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_key.id IS NULL")
+            "non_uuid_key.id IS NULL")
         self.assertEqual(
             six.text_type((NonUuidMixinKey.url_id == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid IS NULL")
+            "non_uuid_mixin_key.uuid IS NULL")
 
         # Query returns False (or True) if given an invalid value
         self.assertFalse(UuidKey.url_id == 'garbage!')
@@ -721,11 +725,11 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             six.text_type((NonUuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
             six.text_type((UuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
@@ -773,41 +777,41 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             six.text_type((NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
             six.text_type((UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # Repeat for `suuid`
         self.assertEqual(
             six.text_type((NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
             six.text_type((UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN'
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
         # All queries work for None values as well
         self.assertEqual(
             six.text_type((NonUuidMixinKey.buid == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid IS NULL")
+            "non_uuid_mixin_key.uuid IS NULL")
         self.assertEqual(
             six.text_type((UuidMixinKey.buid == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_mixin_key.id IS NULL")
+            "uuid_mixin_key.id IS NULL")
         self.assertEqual(
             six.text_type((NonUuidMixinKey.suuid == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"non_uuid_mixin_key.uuid IS NULL")
+            "non_uuid_mixin_key.uuid IS NULL")
         self.assertEqual(
             six.text_type((UuidMixinKey.suuid == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
-            u"uuid_mixin_key.id IS NULL")
+            "uuid_mixin_key.id IS NULL")
 
         # Query returns False (or True) if given an invalid value
         self.assertFalse(NonUuidMixinKey.buid == 'garbage!')
@@ -825,23 +829,23 @@ class TestCoasterModels(unittest.TestCase):
         generate properly formatted url_id, url_id_name and url_name_suuid.
         The url_id_name and url_name_suuid fields should be queryable as well.
         """
-        u1 = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
-        u2 = UuidIdNameMixin(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
-        u3 = UuidIdNameSecondary(uuid=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name=u'test', title=u'Test')
+        u1 = UuidIdName(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name='test', title='Test')
+        u2 = UuidIdNameMixin(id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name='test', title='Test')
+        u3 = UuidIdNameSecondary(uuid=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), name='test', title='Test')
         db.session.add_all([u1, u2, u3])
         db.session.commit()
 
-        self.assertEqual(u1.url_id, u'74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u1.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
+        self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         with self.assertRaises(AttributeError):
             # No UuidMixin == No suuid or url_name_suuid attributes
-            self.assertEqual(u1.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u2.url_id, u'74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u2.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
-        self.assertEqual(u2.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u3.url_id, u'74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u3.url_id_name, u'74d588574a7611e78c27c38403d0935c-test')
-        self.assertEqual(u3.url_name_suuid, u'test-vVoaZTeXGiD4qrMtYNosnN')
+            self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
+        self.assertEqual(u2.url_id, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
+        self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
+        self.assertEqual(u3.url_id, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u3.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
+        self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
 
         # url_name is legacy
         self.assertEqual(u1.url_id_name, u1.url_name)
@@ -953,17 +957,17 @@ class TestCoasterModels(unittest.TestCase):
         d3 = DefaultValue()
         d4 = DefaultValue(value='not-default')
 
-        self.assertEqual(d1.value, u'default')
-        self.assertEqual(d1.value, u'default')  # Also works on second access
-        self.assertEqual(d2.value, u'not-default')
-        self.assertEqual(d3.value, u'default')
-        self.assertEqual(d4.value, u'not-default')
+        self.assertEqual(d1.value, 'default')
+        self.assertEqual(d1.value, 'default')  # Also works on second access
+        self.assertEqual(d2.value, 'not-default')
+        self.assertEqual(d3.value, 'default')
+        self.assertEqual(d4.value, 'not-default')
 
         d3.value = 'changed'
         d4.value = 'changed'
 
-        self.assertEqual(d3.value, u'changed')
-        self.assertEqual(d4.value, u'changed')
+        self.assertEqual(d3.value, 'changed')
+        self.assertEqual(d4.value, 'changed')
 
         db.session.add_all([d1, d2, d3, d4])
         db.session.commit()

@@ -2,8 +2,10 @@
 
 from __future__ import unicode_literals
 import unittest
+import warnings
 from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
+import sqlalchemy.exc
 from flask import Flask
 from coaster.sqlalchemy import BaseMixin, UuidMixin, immutable, cached, ImmutableColumnError
 from coaster.db import db
@@ -71,6 +73,9 @@ class PolymorphicParent(BaseMixin, db.Model):
         'polymorphic_identity': 'parent'
         }
 
+# Disable SQLAlchemy warning for the second `also_immutable` below
+warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
+
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
@@ -78,6 +83,9 @@ class PolymorphicChild(PolymorphicParent):
     # Redefining a column will keep existing annotations, even if not specified here
     also_immutable = db.Column(db.Unicode(250))
     __mapper_args__ = {'polymorphic_identity': 'child'}
+
+
+warnings.resetwarnings()
 
 
 # --- Tests -------------------------------------------------------------------
