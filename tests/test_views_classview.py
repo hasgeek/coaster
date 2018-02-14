@@ -160,6 +160,7 @@ class TestClassView(unittest.TestCase):
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
+
         rv = self.client.get('/doc/test1')
         assert rv.status_code == 200
         data = json.loads(rv.data)
@@ -171,12 +172,29 @@ class TestClassView(unittest.TestCase):
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
+
         self.client.post('/doc/test1/edit', data={'title': "Edit 1"})
         assert doc.title == "Edit 1"
         self.client.post('/edit/test1', data={'title': "Edit 2"})
         assert doc.title == "Edit 2"
         self.client.post('/doc/test1', data={'title': "Edit 3"})
         assert doc.title == "Edit 3"
+
+    def test_callable_view(self):
+        """View handlers are callable as regular methods"""
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        rv = DocumentView().view('test1')
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data['name'] == 'test1'
+        assert data['title'] == "Test"
+
+        rv = DocumentView().edit('test1', "Edited")
+        assert rv == 'edited!'
+        assert doc.title == "Edited"
 
     def test_rerouted(self):
         """Subclass replaces view handler"""

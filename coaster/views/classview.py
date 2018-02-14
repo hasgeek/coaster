@@ -8,7 +8,6 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-import types
 
 __all__ = ['route', 'ClassView', 'ModelView']
 
@@ -125,6 +124,7 @@ class ViewDecoratorWrapper(object):
         self.__cls = cls
 
     def __call__(self, *args, **kwargs):
+        """Treat this like a call to the method (and not to the view)"""
         return self.__viewd.func(self.__obj, *args, **kwargs)
 
     def __getattr__(self, attr):
