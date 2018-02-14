@@ -89,6 +89,9 @@ class BaseView(ClassView):
     def also_inherited(self):
         return 'also_inherited'
 
+    def latent_route(self):
+        return 'latent-route'
+
 
 @route('/subclasstest')
 class SubView(BaseView):
@@ -104,10 +107,10 @@ class SubView(BaseView):
     def third(self):
         return 'removed-third'
 
-    also_inherited = route('/inherited')(
-        route('inherited2')(
-            BaseView.get_view('also_inherited')))
 
+SubView.add_route_for('also_inherited', '/inherited')
+SubView.add_route_for('also_inherited', 'inherited2')
+SubView.add_route_for('latent_route', 'latent')
 SubView.init_app(app)
 
 
@@ -205,16 +208,9 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'also_inherited'
         rv = self.client.get('/inherited')  # Added in sub class
         assert rv.data == b'also_inherited'
+        rv = self.client.get('/subclasstest/latent')
+        assert rv.data == b'latent-route'
 
-    def test_get_view(self):
-        """The get_view method works for any view handlers available in the class"""
-        assert IndexView.get_view('index').name == 'index'
-        assert BaseView.get_view('first').name == 'first'
-        assert SubView.get_view('first').name == 'first'
-        assert BaseView.get_view('first') != SubView.get_view('first')
-        assert BaseView.get_view('inherited') == SubView.get_view('inherited')
-        assert BaseView.get_view('third').name == 'third'
+    def test_cant_route_missing_method(self):
         with self.assertRaises(AttributeError):
-            SubView.get_view('third')
-        with self.assertRaises(AttributeError):
-            SubView.get_view('this_is_not_in_any_of_the_classes')
+            SubView.add_route_for('this_method_does_not_exist', '/missing')

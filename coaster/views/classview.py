@@ -170,14 +170,18 @@ class ClassView(object):
     __routes__ = [('', {})]
 
     @classmethod
-    def get_view(cls, view):
+    def __get_raw_attr(cls, attr):
         for base in cls.__mro__:
-            if view in base.__dict__:
-                r = base.__dict__[view]
-                if not isinstance(r, ViewDecorator):
-                    raise AttributeError(view)
-                return r
-        raise AttributeError(view)
+            if attr in base.__dict__:
+                return base.__dict__[attr]
+        raise AttributeError(attr)
+
+    @classmethod
+    def add_route_for(cls, attr, rule, **options):
+        """
+        Add a route for an existing method or view in the class view.
+        """
+        setattr(cls, attr, route(rule, **options)(cls.__get_raw_attr(attr)))
 
     @classmethod
     def init_app(cls, app, callback=None):
