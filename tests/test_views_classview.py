@@ -86,14 +86,14 @@ class TestClassView(unittest.TestCase):
 
     def test_index(self):
         rv = self.client.get('/')
-        assert rv.data == 'index'.encode('utf-8')
+        assert rv.data == b'index'
 
     def test_page(self):
         rv = self.client.get('/page')
-        assert rv.data == 'page'.encode('utf-8')
+        assert rv.data == b'page'
 
     def test_document_404(self):
-        rv = self.client.get('/doc/non-existant')
+        rv = self.client.get('/doc/this-doc-does-not-exist')
         assert rv.status_code == 404  # This 404 came from DocumentView.view
 
     def test_document_view(self):
