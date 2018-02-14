@@ -4,7 +4,6 @@ from __future__ import absolute_import, unicode_literals
 
 import unittest
 from flask import Flask, json
-import six
 from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin
 from coaster.db import db
 from coaster.views import ClassView, route, requestform, render_with
@@ -87,11 +86,11 @@ class TestClassView(unittest.TestCase):
 
     def test_index(self):
         rv = self.client.get('/')
-        assert rv.data == six.binary_type('index', 'utf-8')
+        assert rv.data == 'index'.encode('utf-8')
 
     def test_page(self):
         rv = self.client.get('/page')
-        assert rv.data == six.binary_type('page', 'utf-8')
+        assert rv.data == 'page'.encode('utf-8')
 
     def test_document_404(self):
         rv = self.client.get('/doc/non-existant')
