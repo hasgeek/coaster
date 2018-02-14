@@ -69,7 +69,7 @@ class ViewDecorator(object):
 
         # Are we decorating another ViewDecorator? If so, copy routes and
         # wrapped method from it.
-        elif isinstance(decorated, ViewDecorator):
+        elif isinstance(decorated, (ViewDecorator, ViewDecoratorWrapper)):
             self.routes.extend(decorated.routes)
             self.func = decorated.func
 
@@ -77,7 +77,6 @@ class ViewDecorator(object):
         else:
             self.func = decorated
 
-        self.func.reroute = self.reroute  # Place our reroute decorator into the method's namespace
         self.name = self.__name__ = self.func.__name__
         self.endpoint = self.name  # This will change once init_app calls __set_name__
         self.__doc__ = self.func.__doc__
@@ -88,9 +87,7 @@ class ViewDecorator(object):
         self.name = name
 
     def __get__(self, obj, cls=None):
-        # Attempting to access this object from the class or instance should be
-        # indistinguishable from accessing the original, unwrapped method.
-        return types.MethodType(self.func, cls or type(obj))
+        return ViewDecoratorWrapper(self, obj, cls)
 
     def init_app(self, app, cls, callback=None):
         """
@@ -118,6 +115,20 @@ class ViewDecorator(object):
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
                 if callback:
                     callback(use_rule, endpoint, view_func, **use_options)
+
+
+class ViewDecoratorWrapper(object):
+    """Wrapper for a view at runtime"""
+    def __init__(self, viewd, obj, cls=None):
+        self.__viewd = viewd
+        self.__obj = obj
+        self.__cls = cls
+
+    def __call__(self, *args, **kwargs):
+        return self.__viewd.func(self.__obj, *args, **kwargs)
+
+    def __getattr__(self, attr):
+        return getattr(self.__viewd, attr)
 
 
 class ClassView(object):

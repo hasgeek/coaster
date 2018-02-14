@@ -113,6 +113,16 @@ SubView.add_route_for('latent_route', 'latent')
 SubView.init_app(app)
 
 
+@route('/secondsub')
+class AnotherSubView(BaseView):
+    @route('2-2')
+    @BaseView.second.reroute
+    def second(self):
+        return 'also-rerouted-second'
+
+AnotherSubView.init_app(app)
+
+
 # --- Tests -------------------------------------------------------------------
 
 class TestClassView(unittest.TestCase):
@@ -211,5 +221,20 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'latent-route'
 
     def test_cant_route_missing_method(self):
+        """Routes can't be added for missing attributes"""
         with self.assertRaises(AttributeError):
             SubView.add_route_for('this_method_does_not_exist', '/missing')
+
+    def test_second_subview_reroute(self):
+        """Using reroute does not mutate the base class"""
+        rv = self.client.get('/secondsub/second')
+        assert rv.data != b'second'
+        assert rv.data == b'also-rerouted-second'
+        assert rv.status_code == 200
+        rv = self.client.get('/secondsub/2-2')
+        assert rv.data != b'second'
+        assert rv.data == b'also-rerouted-second'
+        assert rv.status_code == 200
+        # Confirm we did not accidentally acquire this from SubView's use of reroute
+        rv = self.client.get('/secondsub/2')
+        assert rv.status_code == 404
