@@ -104,6 +104,10 @@ class SubView(BaseView):
     def third(self):
         return 'removed-third'
 
+    also_inherited = route('/inherited')(
+        route('inherited2')(
+            BaseView.get_view('also_inherited')))
+
 SubView.init_app(app)
 
 
@@ -191,3 +195,26 @@ class TestClassView(unittest.TestCase):
         """Subclass inherits a view from the base class without modifying it"""
         rv = self.client.get('/subclasstest/inherited')
         assert rv.data == b'inherited'
+        assert rv.status_code == 200
+
+    def test_added_routes(self):
+        """Subclass adds more routes to a base class's view handler"""
+        rv = self.client.get('/subclasstest/also-inherited')  # From base class
+        assert rv.data == b'also_inherited'
+        rv = self.client.get('/subclasstest/inherited2')  # Added in sub class
+        assert rv.data == b'also_inherited'
+        rv = self.client.get('/inherited')  # Added in sub class
+        assert rv.data == b'also_inherited'
+
+    def test_get_view(self):
+        """The get_view method works for any view handlers available in the class"""
+        assert IndexView.get_view('index').name == 'index'
+        assert BaseView.get_view('first').name == 'first'
+        assert SubView.get_view('first').name == 'first'
+        assert BaseView.get_view('first') != SubView.get_view('first')
+        assert BaseView.get_view('inherited') == SubView.get_view('inherited')
+        assert BaseView.get_view('third').name == 'third'
+        with self.assertRaises(AttributeError):
+            SubView.get_view('third')
+        with self.assertRaises(AttributeError):
+            SubView.get_view('this_is_not_in_any_of_the_classes')

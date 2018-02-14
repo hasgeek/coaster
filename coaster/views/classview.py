@@ -170,6 +170,16 @@ class ClassView(object):
     __routes__ = [('', {})]
 
     @classmethod
+    def get_view(cls, view):
+        for base in cls.__mro__:
+            if view in base.__dict__:
+                r = base.__dict__[view]
+                if not isinstance(r, ViewDecorator):
+                    raise AttributeError(view)
+                return r
+        raise AttributeError(view)
+
+    @classmethod
     def init_app(cls, app, callback=None):
         """
         Register views on an app. If :attr:`callback` is specified, it will
