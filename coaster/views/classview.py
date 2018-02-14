@@ -8,8 +8,10 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
+from functools import wraps, update_wrapper
+from werkzeug.routing import parse_rule
 
-__all__ = ['route', 'ClassView', 'ModelView']
+__all__ = ['route', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
 
 
 # :func:`route` wraps :class:`ViewDecorator` so that it can have an independent __doc__
@@ -95,14 +97,30 @@ class ViewDecorator(object):
         # Revisit endpoint to account for subclasses
         endpoint = cls.__name__ + '_' + self.name
 
-        # Instantiate the ClassView and call the method with it
         def view_func(*args, **kwargs):
-            return view_func.wrapped_func(view_func.view_class(), *args, **kwargs)
+            # Instantiate the view class. We depend on its __init__ requiring no parameters
+            viewinst = view_func.view_class()
+            # Call the instance's before_request method
+            viewinst.before_request(view_func.__name__, **kwargs)
+            # Finally, call the view handler method
+            return view_func.wrapped_func(viewinst, *args, **kwargs)
+            # TODO: Support `after_request` as well. Note that it needs Response objects
 
-        view_func.__name__ = self.__name__
-        view_func.__doc__ = self.__doc__
-        # Stick `method` and `cls` into view_func to avoid creating a closure.
-        view_func.wrapped_func = self.func
+        # Decorate the view function with the class's desired decorators
+        wrapped_func = self.func
+        for decorator in cls.__decorators__:
+            wrapped_func = decorator(wrapped_func)
+
+        # Make view_func resemble the underlying view handler method
+        view_func = update_wrapper(view_func, wrapped_func)
+        # But give view_func the name of the method in the class (self.name),
+        # as this is important to the before_request method. self.name will
+        # differ from __name__ only if the view handler method was defined
+        # outside the class and then added to the class.
+        view_func.__name__ = self.name
+
+        # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
+        view_func.wrapped_func = wrapped_func
         view_func.view_class = cls
 
         for class_rule, class_options in cls.__routes__:
@@ -127,8 +145,8 @@ class ViewDecoratorWrapper(object):
         """Treat this like a call to the method (and not to the view)"""
         return self.__viewd.func(self.__obj, *args, **kwargs)
 
-    def __getattr__(self, attr):
-        return getattr(self.__viewd, attr)
+    def __getattr__(self, name):
+        return getattr(self.__viewd, name)
 
 
 class ClassView(object):
@@ -151,9 +169,10 @@ class ClassView(object):
 
         IndexView.init_app(app)
 
-    The :func:`route` decorator on the class specifies the base rule which is
+    The :func:`route` decorator on the class specifies the base rule, which is
     prefixed to the rule specified on each view method. This example produces
-    two view handlers, for ``/`` and ``/about``.
+    two view handlers, for ``/`` and ``/about``. Multiple :func:`route`
+    decorators may be used in both places.
 
     A rudimentary CRUD view collection can be assembled like this::
 
@@ -175,10 +194,21 @@ class ClassView(object):
 
         DocumentView.init_app(app)
 
-    See :class:`ModelView` (TODO) for a better way to build views around a model.
+    See :class:`ModelView` for a better way to build views around a model.
     """
     # If the class did not get a @route decorator, provide a fallback route
     __routes__ = [('', {})]
+    __decorators__ = []
+
+    def before_request(self, _view, **kwargs):
+        """
+        This method is called after the app's ``before_request`` handlers, and
+        before the class's view method. It receives the name of the view
+        method with all keyword arguments that will be sent to the view method
+        Subclasses and mixin classes may define their own
+        :meth:`before_request` to pre-process requests before the view method.
+        """
+        pass
 
     @classmethod
     def __get_raw_attr(cls, name):
@@ -190,8 +220,8 @@ class ClassView(object):
     @classmethod
     def add_route_for(cls, _name, rule, **options):
         """
-        Add a route for an existing method or view in the class view. Useful
-        for modifying routes that a subclass inherits from a base class::
+        Add a route for an existing method or view. Useful for modifying routes
+        that a subclass inherits from a base class::
 
             class BaseView(ClassView):
                 def latent_view(self):
@@ -238,13 +268,116 @@ class ClassView(object):
                     attr.init_app(app, cls, callback=callback)
 
 
+def _modelview_view_decorator(f):
+    @wraps(f)
+    def inner(self, **kwargs):
+        return f(self)
+    return inner
+
+
 class ModelView(ClassView):
     """
-    Base class for constructing views around a model. Provides assistance for:
+    Base class for constructing views around a model. Functionality is provided
+    via mixin classes that must precede :class:`ModelView` in base class order.
+    Two mixins are provided: :class:`UrlForView` and :class:`InstanceLoader`.
+    Sample use::
 
-    1. Loading instances based on URL parameters
-    2. Registering view handlers for Model.url_for() calls
+        @route('/doc/<document>')
+        class DocumentView(UrlForView, InstanceLoader, ModelView):
+            model = Document
+            route_model_map = {
+                'document': 'name'
+                }
 
-    TODO
+            @route('')
+            @render_with(json=True)
+            def view(self):
+                return self.obj.current_access()
+
+        DocumentView.init_app(app)
+
+    :class:`ModelView` makes one significant departure from :class:`ClassView`:
+    view handler methods no longer receive URL rule variables as keyword
+    parameters. They are placed at ``self.kwargs`` instead, as it is assumed
+    that the view handler method has no further use for them once
+    :meth:`loader` loads the instance.
     """
-    pass  # TODO
+    __decorators__ = ClassView.__decorators__ + [_modelview_view_decorator]
+
+    #: The model that this view class represents, to be specified by subclasses.
+    model = None
+
+    #: A mapping of URL rule variables to attributes on the model. For example,
+    #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
+    #:
+    #:     route_model_map = {
+    #:         'document': 'name',
+    #:         'parent': 'parent.name',
+    #:         }
+    route_model_map = {}
+
+    def loader(self):  # pragma: no cover
+        """
+        Subclasses or mixin classes may override this method to provide a model
+        instance loader. The return value of this method will be placed at
+        ``self.obj``.
+
+        TODO: Consider allowing :meth:`loader` to place attributes on ``self``
+        by itself, to accommodate scenarios where multiple models need to be
+        loaded.
+        """
+        pass  # TODO: Maybe raise NotImplementedError?
+
+    def before_request(self, _view, **kwargs):
+        """
+        :class:`ModelView` overrides :meth:`~ClassView.before_request` to call
+        :meth:`loader`. Subclasses overriding this method must use
+        :func:`super` to ensure :meth:`loader` is called.
+        """
+        super(ModelView, self).before_request(_view, **kwargs)
+        self.kwargs = kwargs
+        self.obj = self.loader()
+
+
+class UrlForView(object):
+    """
+    Mixin class for :class:`ModelView` that registers view handler methods with
+    :class:`~coaster.sqlalchemy.mixins.UrlForMixin`'s
+    :meth:`~coaster.sqlalchemy.mixins.UrlForMixin.is_url_for`.
+    """
+    @classmethod
+    def init_app(cls, app, callback=None):
+        def register_view_on_model(rule, endpoint, view_func, **options):
+            # Only pass in the attrs that are included in the rule.
+            # 1. Extract list of variables from the rule
+            rulevars = (v for c, a, v in parse_rule(rule))
+            # Make a subset of cls.route_model_map with the required variables
+            params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
+            # Hook up is_url_for with the view function's name, endpoint name and parameters
+            cls.model.is_url_for(view_func.__name__, endpoint, **params)(view_func)
+            if callback:
+                callback(rule, endpoint, view_func, **options)
+
+        super(ModelView, cls).init_app(app, register_view_on_model)
+
+
+class InstanceLoader(object):
+    """
+    Mixin class for :class:`ModelView` that provides a :meth:`loader` that
+    attempts to load an instance of the model based on attributes in the
+    :attr:`~ModelView.route_model_map` dictionary.
+    """
+    def loader(self):
+        if any((name in self.route_model_map for name in self.kwargs)):
+            # We have a URL route attribute that matches one of the model's attributes.
+            # Attempt to load the model instance
+            filters = {self.route_model_map[key]: value
+                for key, value in self.kwargs.items()
+                if key in self.route_model_map}
+
+            # FIXME: filter keys may have periods to indicate sub-attributes.
+            # Instead of using `filter_by`, load attributes from the model using
+            # getattr and use `filter`. If we traverse a relationship to pick up
+            # an attribute from another model, we'll need a join with that model
+            # as well.
+            return self.model.query.filter_by(**filters).first_or_404()

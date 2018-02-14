@@ -6,7 +6,7 @@ import unittest
 from flask import Flask, json
 from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin
 from coaster.db import SQLAlchemy
-from coaster.views import ClassView, route, requestform, render_with
+from coaster.views import ClassView, ModelView, UrlForView, InstanceLoader, route, requestform, render_with
 
 
 app = Flask(__name__)
@@ -121,6 +121,33 @@ class AnotherSubView(BaseView):
         return 'also-rerouted-second'
 
 AnotherSubView.init_app(app)
+
+
+@route('/model/<document>')
+class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
+    model = ViewDocument
+    route_model_map = {
+        'document': 'name'
+        }
+
+    @route('')
+    @render_with(json=True)
+    def view(self):
+        return self.obj.current_access()
+
+    @route('edit', methods=['GET', 'POST'])
+    @route('', methods=['PUT'])
+    @render_with(json=True)
+    def edit(self):  # TODO
+        pass
+
+    @route('delete', methods=['GET', 'POST'])
+    @route('', methods=['DELETE'])
+    @render_with(json=True)
+    def delete(self):  # TODO
+        pass
+
+ModelDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -256,3 +283,23 @@ class TestClassView(unittest.TestCase):
         # Confirm we did not accidentally acquire this from SubView's use of reroute
         rv = self.client.get('/secondsub/2')
         assert rv.status_code == 404
+
+    def test_modelview_instanceloader_view(self):
+        """Test document view in ModelView with InstanceLoader"""
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        rv = self.client.get('/model/test1')
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data['name'] == 'test1'
+        assert data['title'] == "Test"
+
+    def test_modelview_url_for(self):
+        """Test that ModelView provides model.is_url_for with appropriate parameters"""
+        doc1 = ViewDocument(name='test1', title="Test 1")
+        doc2 = ViewDocument(name='test2', title="Test 2")
+
+        assert doc1.url_for('view') == '/model/test1'
+        assert doc2.url_for('view') == '/model/test2'

@@ -262,6 +262,9 @@ class UrlForMixin(object):
 
     @classmethod
     def is_url_for(cls, _action, _endpoint=None, _external=None, **paramattrs):
+        """
+        View decorator that registers the view as a :meth:`url_for` target.
+        """
         def decorator(f):
             if 'url_for_endpoints' not in cls.__dict__:
                 cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
