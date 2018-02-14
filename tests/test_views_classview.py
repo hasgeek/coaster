@@ -125,18 +125,22 @@ class TestClassView(unittest.TestCase):
         self.ctx.pop()
 
     def test_index(self):
+        """Test index view (/)"""
         rv = self.client.get('/')
         assert rv.data == b'index'
 
     def test_page(self):
+        """Test page view (/page)"""
         rv = self.client.get('/page')
         assert rv.data == b'page'
 
     def test_document_404(self):
+        """Test 404 response from within a view"""
         rv = self.client.get('/doc/this-doc-does-not-exist')
         assert rv.status_code == 404  # This 404 came from DocumentView.view
 
     def test_document_view(self):
+        """Test document view (loaded from database)"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -147,6 +151,7 @@ class TestClassView(unittest.TestCase):
         assert data['title'] == "Test"
 
     def test_document_edit(self):
+        """POST handler shares URL with GET handler but is routed to correctly"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -158,10 +163,14 @@ class TestClassView(unittest.TestCase):
         assert doc.title == "Edit 3"
 
     def test_rerouted(self):
+        """Subclass replaces view handler"""
         rv = self.client.get('/subclasstest')
         assert rv.data != b'first'
         assert rv.data == b'rerouted-first'
         assert rv.status_code == 200
+
+    def test_rerouted_with_new_routes(self):
+        """Subclass replaces view handler and adds new routes"""
         rv = self.client.get('/subclasstest/second')
         assert rv.data != b'second'
         assert rv.data == b'rerouted-second'
@@ -172,11 +181,13 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
 
     def test_unrouted(self):
+        """Subclass removes a route from base class"""
         rv = self.client.get('/subclasstest/third')
         assert rv.data != b'third'
         assert rv.data != b'unrouted-third'
         assert rv.status_code == 404
 
     def test_inherited(self):
+        """Subclass inherits a view from the base class without modifying it"""
         rv = self.client.get('/subclasstest/inherited')
         assert rv.data == b'inherited'
