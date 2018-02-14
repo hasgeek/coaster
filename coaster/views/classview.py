@@ -53,6 +53,12 @@ class ViewDecorator(object):
     def __init__(self, rule, **options):
         self.routes = [(rule, options)]
 
+    def reroute(self, f):
+        # Use type(self) instead of ViewDecorator so this works for (future) subclasses of ViewDecorator
+        r = type(self)('')
+        r.routes = self.routes
+        return r.__call__(f)
+
     def __call__(self, decorated):
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
         if type(decorated) is type and issubclass(decorated, ClassView):
@@ -71,6 +77,7 @@ class ViewDecorator(object):
         else:
             self.method = decorated
 
+        self.method.reroute = self.reroute  # Place our reroute decorator into the method's namespace
         self.name = self.__name__ = self.method.__name__
         self.endpoint = self.name  # This will change once init_app calls __set_name__
         self.__doc__ = self.method.__doc__
@@ -83,7 +90,7 @@ class ViewDecorator(object):
     def __get__(self, obj, cls=None):
         # Attempting to access this object from the class or instance should be
         # indistinguishable from accessing the original, unwrapped method.
-        return types.MethodType(self.method, cls or type(obj), type)
+        return types.MethodType(self.method, cls or type(obj))
 
     def init_app(self, app, cls, callback=None):
         """
@@ -174,9 +181,8 @@ class ClassView(object):
             for name, attr in base.__dict__.items():
                 if name in processed:
                     continue
-
+                processed.add(name)
                 if isinstance(attr, ViewDecorator):
-                    processed.add(name)
                     attr.__set_name__(base, name)  # Required for Python < 3.6
                     attr.init_app(app, cls, callback=callback)
 
