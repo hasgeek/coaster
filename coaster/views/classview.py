@@ -16,9 +16,9 @@ __all__ = ['route', 'ClassView', 'ModelView']
 # :func:`route` wraps :class:`ViewDecorator` so that it can have an independent __doc__
 def route(rule, **options):
     """
-    Decorator for defining routes on a :class:`ClassView` and its methods. Accepts the
-    same parameters that Flask's :meth:`~flask.Flask.route` accepts. See :class:`ClassView`
-    for usage notes.
+    Decorator for defining routes on a :class:`ClassView` and its methods.
+    Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
+    accepts. See :class:`ClassView` for usage notes.
     """
     return ViewDecorator(rule, **options)
 
@@ -71,16 +71,16 @@ class ViewDecorator(object):
         # wrapped method from it.
         elif isinstance(decorated, ViewDecorator):
             self.routes.extend(decorated.routes)
-            self.method = decorated.method
+            self.func = decorated.func
 
         # If neither ClassView nor ViewDecorator, assume it's a callable method
         else:
-            self.method = decorated
+            self.func = decorated
 
-        self.method.reroute = self.reroute  # Place our reroute decorator into the method's namespace
-        self.name = self.__name__ = self.method.__name__
+        self.func.reroute = self.reroute  # Place our reroute decorator into the method's namespace
+        self.name = self.__name__ = self.func.__name__
         self.endpoint = self.name  # This will change once init_app calls __set_name__
-        self.__doc__ = self.method.__doc__
+        self.__doc__ = self.func.__doc__
         return self
 
     # Normally Python 3.6+, but called manually by :meth:`ClassView.init_app`
@@ -90,7 +90,7 @@ class ViewDecorator(object):
     def __get__(self, obj, cls=None):
         # Attempting to access this object from the class or instance should be
         # indistinguishable from accessing the original, unwrapped method.
-        return types.MethodType(self.method, cls or type(obj))
+        return types.MethodType(self.func, cls or type(obj))
 
     def init_app(self, app, cls, callback=None):
         """
@@ -101,12 +101,12 @@ class ViewDecorator(object):
 
         # Instantiate the ClassView and call the method with it
         def view_func(*args, **kwargs):
-            return view_func.view_method(view_func.view_class(), *args, **kwargs)
+            return view_func.wrapped_func(view_func.view_class(), *args, **kwargs)
 
         view_func.__name__ = self.__name__
         view_func.__doc__ = self.__doc__
         # Stick `method` and `cls` into view_func to avoid creating a closure.
-        view_func.view_method = self.method
+        view_func.wrapped_func = self.func
         view_func.view_class = cls
 
         for class_rule, class_options in cls.__routes__:
@@ -170,18 +170,44 @@ class ClassView(object):
     __routes__ = [('', {})]
 
     @classmethod
-    def __get_raw_attr(cls, attr):
+    def __get_raw_attr(cls, name):
         for base in cls.__mro__:
-            if attr in base.__dict__:
-                return base.__dict__[attr]
-        raise AttributeError(attr)
+            if name in base.__dict__:
+                return base.__dict__[name]
+        raise AttributeError(name)
 
     @classmethod
-    def add_route_for(cls, attr, rule, **options):
+    def add_route_for(cls, _name, rule, **options):
         """
-        Add a route for an existing method or view in the class view.
+        Add a route for an existing method or view in the class view. Useful
+        for modifying routes that a subclass inherits from a base class::
+
+            class BaseView(ClassView):
+                def latent_view(self):
+                    return 'latent-view'
+
+                @route('other')
+                def other_view(self):
+                    return 'other-view'
+
+            @route('/path')
+            class SubView(BaseView):
+                pass
+
+            SubView.add_route_for('latent_view', 'latent')
+            SubView.add_route_for('other_view', 'another')
+            SubView.init_app(app)
+
+            # Created routes:
+            # /path/latent -> SubView.latent (added)
+            # /path/other -> SubView.other (inherited)
+            # /path/another -> SubView.other (added)
+
+        :param _name: Name of the method or view on the class
+        :param rule: URL rule to be added
+        :param options: Additional options for :meth:`~flask.Flask.add_url_rule`
         """
-        setattr(cls, attr, route(rule, **options)(cls.__get_raw_attr(attr)))
+        setattr(cls, _name, route(rule, **options)(cls.__get_raw_attr(_name)))
 
     @classmethod
     def init_app(cls, app, callback=None):

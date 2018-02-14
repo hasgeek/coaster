@@ -107,7 +107,6 @@ class SubView(BaseView):
     def third(self):
         return 'removed-third'
 
-
 SubView.add_route_for('also_inherited', '/inherited')
 SubView.add_route_for('also_inherited', 'inherited2')
 SubView.add_route_for('latent_route', 'latent')
