@@ -10,6 +10,9 @@ Group related views into a class for easier management.
 from __future__ import unicode_literals
 from functools import wraps, update_wrapper
 from werkzeug.routing import parse_rule
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.mapper import Mapper
+from sqlalchemy.orm.properties import RelationshipProperty
 
 __all__ = ['route', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
 
@@ -198,15 +201,18 @@ class ClassView(object):
     """
     # If the class did not get a @route decorator, provide a fallback route
     __routes__ = [('', {})]
+    #: Subclasses may define decorators here. These will be applied to every
+    #: view handler in the class, but only when called as a view and not
+    #: as a Python method call.
     __decorators__ = []
 
     def before_request(self, _view, **kwargs):
         """
         This method is called after the app's ``before_request`` handlers, and
         before the class's view method. It receives the name of the view
-        method with all keyword arguments that will be sent to the view method
+        method with all keyword arguments that will be sent to the view method.
         Subclasses and mixin classes may define their own
-        :meth:`before_request` to pre-process requests before the view method.
+        :meth:`before_request` to pre-process requests.
         """
         pass
 
@@ -306,6 +312,8 @@ class ModelView(ClassView):
 
     #: The model that this view class represents, to be specified by subclasses.
     model = None
+    #: A base query to use if the model needs special handling.
+    query = None
 
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
@@ -366,6 +374,9 @@ class InstanceLoader(object):
     Mixin class for :class:`ModelView` that provides a :meth:`loader` that
     attempts to load an instance of the model based on attributes in the
     :attr:`~ModelView.route_model_map` dictionary.
+
+    :class:`InstanceLoader` will traverse relationships (many-to-one or
+    one-to-one) and perform a SQL JOIN with the target class.
     """
     def loader(self):
         if any((name in self.route_model_map for name in self.kwargs)):
@@ -375,9 +386,30 @@ class InstanceLoader(object):
                 for key, value in self.kwargs.items()
                 if key in self.route_model_map}
 
-            # FIXME: filter keys may have periods to indicate sub-attributes.
-            # Instead of using `filter_by`, load attributes from the model using
-            # getattr and use `filter`. If we traverse a relationship to pick up
-            # an attribute from another model, we'll need a join with that model
-            # as well.
-            return self.model.query.filter_by(**filters).first_or_404()
+            query = self.query or self.model.query
+            joined_models = set()
+            for name, value in filters.items():
+                if '.' in name:
+                    # Did we get something like `parent.name`?
+                    # Dig into it to find the source column
+                    source = self.model
+                    for subname in name.split('.'):
+                        source = getattr(source, subname)
+                        # Did we get to something like 'parent'? If it's a relationship, find
+                        # the source class, join it to the query, and then continue looking for
+                        # attributes over there
+                        if isinstance(source, InstrumentedAttribute):
+                            if isinstance(source.property, RelationshipProperty):
+                                if isinstance(source.property.argument, Mapper):
+                                    source = source.property.argument.class_
+                                else:
+                                    source = source.property.argument
+                                if source not in joined_models:
+                                    # SQL JOIN the other model
+                                    query = query.join(source)
+                                    # But ensure we don't JOIN twice
+                                    joined_models.add(source)
+                    query = query.filter(source == value)
+                else:
+                    query = query.filter(getattr(self.model, name) == value)
+            return query.one_or_404()

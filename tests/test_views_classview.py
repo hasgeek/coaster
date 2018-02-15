@@ -32,6 +32,16 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
     parent = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
 
+    __roles__ = {
+        'all': {
+            'read': {'name', 'title', 'doctype'}
+            }
+        }
+
+    @property
+    def doctype(self):
+        return 'scoped-doc'
+
 
 # --- Views -------------------------------------------------------------------
 
@@ -127,7 +137,7 @@ AnotherSubView.init_app(app)
 class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
     route_model_map = {
-        'document': 'name'
+        'document': 'name',
         }
 
     @route('')
@@ -148,6 +158,17 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         pass
 
 ModelDocumentView.init_app(app)
+
+
+@route('/model/<parent>/<document>')
+class ScopedDocumentView(ModelDocumentView):
+    model = ScopedViewDocument
+    route_model_map = {
+        'document': 'name',
+        'parent': 'parent.name',
+        }
+
+ScopedDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -303,3 +324,19 @@ class TestClassView(unittest.TestCase):
 
         assert doc1.url_for('view') == '/model/test1'
         assert doc2.url_for('view') == '/model/test2'
+
+    def test_scopedmodelview_view(self):
+        doc = ViewDocument(name='test1', title="Test 1")
+        sdoc = ScopedViewDocument(name='test2', title="Test 2", parent=doc)
+        self.session.add_all([doc, sdoc])
+        self.session.commit()
+
+        rv = self.client.get('/model/test1/test2')
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data['name'] == 'test2'
+        assert data['doctype'] == 'scoped-doc'
+
+        # The joined load actually worked
+        rv = self.client.get('/model/this-doc-does-not-exist/test2')
+        assert rv.status_code == 404
