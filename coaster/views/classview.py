@@ -15,6 +15,9 @@ from sqlalchemy.orm.properties import RelationshipProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, has_request_context
+from ..auth import current_auth, add_auth_attribute
+from ..utils import InspectableSet
+from ..sqlalchemy import PermissionMixin
 
 __all__ = ['route', 'current_view', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
 
@@ -112,7 +115,11 @@ class ViewDecorator(object):
             # Place it on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
-            viewinst.before_request(view_func.__name__, **kwargs)
+            result = viewinst.before_request(view_func.__name__, kwargs)
+            # Did the before_request handler return something? Assume it wants
+            # to interrupt the view and return it
+            if result is not None:
+                return result
             # Finally, call the view handler method
             return view_func.wrapped_func(viewinst, *args, **kwargs)
             # TODO: Support `after_request` as well. Note that it needs Response objects
@@ -214,13 +221,18 @@ class ClassView(object):
     #: as a Python method call.
     __decorators__ = []
 
-    def before_request(self, _view, **kwargs):
+    def before_request(self, view, kwargs):
         """
         This method is called after the app's ``before_request`` handlers, and
         before the class's view method. It receives the name of the view
         method with all keyword arguments that will be sent to the view method.
         Subclasses and mixin classes may define their own
         :meth:`before_request` to pre-process requests.
+
+        :param str view: The name of the view handler that will be called. The
+            view itself can be retrieved as ``getattr(self, view)``
+        :param dict kwargs: Parameters that will be sent to the view handler.
+            These are typically parameters from the URL rule
         """
         pass
 
@@ -282,7 +294,7 @@ class ClassView(object):
                     attr.init_app(app, cls, callback=callback)
 
 
-def _modelview_view_decorator(f):
+def _modelview_view_decorator_remove_kwargs(f):
     @wraps(f)
     def inner(self, **kwargs):
         return f(self)
@@ -316,7 +328,7 @@ class ModelView(ClassView):
     that the view handler method has no further use for them once
     :meth:`loader` loads the instance.
     """
-    __decorators__ = ClassView.__decorators__ + [_modelview_view_decorator]
+    __decorators__ = ClassView.__decorators__ + [_modelview_view_decorator_remove_kwargs]
 
     #: The model that this view class represents, to be specified by subclasses.
     model = None
@@ -332,7 +344,7 @@ class ModelView(ClassView):
     #:         }
     route_model_map = {}
 
-    def loader(self):  # pragma: no cover
+    def loader(self, view):  # pragma: no cover
         """
         Subclasses or mixin classes may override this method to provide a model
         instance loader. The return value of this method will be placed at
@@ -344,15 +356,25 @@ class ModelView(ClassView):
         """
         pass  # TODO: Maybe raise NotImplementedError?
 
-    def before_request(self, _view, **kwargs):
+    def after_load(self, view):  # pragma: no cover
+        """
+        Subclasses or mixin classes may override this method to receive a call
+        after :meth:`loader` is called, to examine the loaded object. If this
+        method returns something, it will be used as the view's result and the
+        view itself will not be called.
+        """
+        pass
+
+    def before_request(self, view, kwargs):
         """
         :class:`ModelView` overrides :meth:`~ClassView.before_request` to call
         :meth:`loader`. Subclasses overriding this method must use
         :func:`super` to ensure :meth:`loader` is called.
         """
-        super(ModelView, self).before_request(_view, **kwargs)
+        super(ModelView, self).before_request(view, kwargs)
         self.kwargs = kwargs
-        self.obj = self.loader()
+        self.obj = self.loader(view)
+        return self.after_load(view)
 
 
 class UrlForView(object):
@@ -386,7 +408,7 @@ class InstanceLoader(object):
     :class:`InstanceLoader` will traverse relationships (many-to-one or
     one-to-one) and perform a SQL JOIN with the target class.
     """
-    def loader(self):
+    def loader(self, view):
         if any((name in self.route_model_map for name in self.kwargs)):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
@@ -420,4 +442,12 @@ class InstanceLoader(object):
                     query = query.filter(source == value)
                 else:
                     query = query.filter(getattr(self.model, name) == value)
-            return query.one_or_404()
+            obj = query.one_or_404()
+            # Determine permissions available on the object for the current actor,
+            # but only if the view method has a requires_permission decorator
+            if hasattr(getattr(self, view).func, 'requires_permission') and isinstance(obj, PermissionMixin):
+                perms = obj.current_permissions
+                if hasattr(current_auth, 'permissions'):
+                    perms = perms | current_auth.permissions
+                add_auth_attribute('permissions', perms)
+            return obj

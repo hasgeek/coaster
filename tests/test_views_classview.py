@@ -5,9 +5,10 @@ from __future__ import absolute_import, unicode_literals
 import unittest
 from flask import Flask, json
 from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin
+from coaster.auth import add_auth_attribute
 from coaster.db import SQLAlchemy
-from coaster.views import (ClassView, ModelView, UrlForView, InstanceLoader, route, requestform, render_with,
-    current_view)
+from coaster.views import (ClassView, ModelView, UrlForView, InstanceLoader, route, requestargs, requestform,
+    render_with, current_view, requires_permission)
 
 
 app = Flask(__name__)
@@ -26,6 +27,13 @@ class ViewDocument(BaseNameMixin, db.Model):
             'read': {'name', 'title'}
             }
         }
+
+    def permissions(self, user, inherited=()):
+        perms = super(ViewDocument, self).permissions(user, inherited)
+        if user == 'this-is-the-owner':  # Our hack of a user object, for testing
+            perms.add('edit')
+            perms.add('delete')
+        return perms
 
 
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):
@@ -145,6 +153,12 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         'document': 'name',
         }
 
+    @requestargs('access_token')
+    def before_request(self, view, kwargs, access_token=None):
+        if access_token == 'owner-secret':
+            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        return super(ModelDocumentView, self).before_request(view, kwargs)
+
     @route('')
     @render_with(json=True)
     def view(self):
@@ -152,15 +166,10 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @route('edit', methods=['GET', 'POST'])
     @route('', methods=['PUT'])
-    @render_with(json=True)
-    def edit(self):  # TODO
-        pass
+    @requires_permission('edit')
+    def edit(self):
+        return 'edit-called'
 
-    @route('delete', methods=['GET', 'POST'])
-    @route('', methods=['DELETE'])
-    @render_with(json=True)
-    def delete(self):  # TODO
-        pass
 
 ModelDocumentView.init_app(app)
 
@@ -325,6 +334,19 @@ class TestClassView(unittest.TestCase):
         data = json.loads(rv.data)
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
+
+    def test_modelview_instanceloader_requires_permission_edit(self):
+        """Test document edit in ModelView with InstanceLoader and requires_permission"""
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        rv = self.client.post('/model/test1/edit')
+        assert rv.status_code == 403
+        rv = self.client.post('/model/test1/edit?access_token=owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'edit-called'
+
 
     def test_modelview_url_for(self):
         """Test that ModelView provides model.is_url_for with appropriate parameters"""

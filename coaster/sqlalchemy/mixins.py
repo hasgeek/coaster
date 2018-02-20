@@ -31,7 +31,8 @@ from sqlalchemy.orm import synonym
 from sqlalchemy_utils.types import UUIDType
 from flask import url_for
 import six
-from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid
+from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid, InspectableSet
+from ..auth import current_auth
 from .immutable_annotation import immutable
 from .roles import RoleMixin, with_roles
 from .comparators import Query, SqlSplitIdComparator, SqlHexUuidComparator, SqlBuidComparator, SqlSuuidComparator
@@ -224,6 +225,15 @@ class PermissionMixin(object):
             return set(inherited)
         else:
             return set()
+
+    @property
+    def current_permissions(self):
+        """
+        :class:`~coaster.utils.classes.InspectableSet` containing currently
+        available permissions from this object, using
+        :obj:`~coaster.auth.current_auth`.
+        """
+        return InspectableSet(self.permissions(current_auth.actor))
 
 
 class UrlForMixin(object):
