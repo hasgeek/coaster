@@ -627,8 +627,10 @@ class BaseScopedIdMixin(BaseMixin):
         """
         if inherited is not None:
             return inherited | super(BaseScopedIdMixin, self).permissions(user)
-        else:
+        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
             return self.parent.permissions(user) | super(BaseScopedIdMixin, self).permissions(user)
+        else:
+            return super(BaseScopedIdMixin, self).permissions(user)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
