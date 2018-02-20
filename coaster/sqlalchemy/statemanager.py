@@ -454,7 +454,7 @@ class StateTransition(object):
                     state_values[mstate.value] = mstate
 
         self.transitions[statemanager] = {
-            'from': state_values,  # Just the values (no validation functions)
+            'from': state_values,  # Dict of scalar_value: ManagedState
             'to': to,              # ManagedState (is_direct) of new state
             'if': if_,             # Additional conditions that must ALL pass
             }
