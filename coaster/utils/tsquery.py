@@ -59,6 +59,8 @@ def for_tsquery(text):
     "'Android'&('Python')"
     >>> for_tsquery("()")
     ''
+    >>> for_tsquery("(")
+    ''
     >>> for_tsquery("() Python")
     "'Python'"
     >>> for_tsquery("!() Python")
@@ -121,7 +123,7 @@ def for_tsquery(text):
     while tokens and tokens[0] in ('&', '|', ':*', ')', '!', '*'):
         tokens.pop(0)  # Can't start with a binary or suffix operator
     if tokens:
-        while tokens[-1] in ('&', '|', '!', '('):
+        while tokens and tokens[-1] in ('&', '|', '!', '('):
             tokens.pop(-1)  # Can't end with a binary or prefix operator
     if not tokens:
         return ''  # Did we just eliminate all tokens?

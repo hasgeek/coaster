@@ -111,7 +111,7 @@ import warnings
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from ..utils import InspectableSet
+from ..utils import is_collection, InspectableSet
 from ..auth import current_auth
 
 __all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
@@ -268,7 +268,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
             pass
         return attr
 
-    if isinstance(obj, (list, tuple, set)):
+    if is_collection(obj):
         # Protect against accidental specification of roles instead of an object
         raise TypeError('Roles must be specified as named parameters')
     elif obj is not None:

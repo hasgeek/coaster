@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
+from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (with_roles, BaseMixin,
     StateManager, StateTransitionError)
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
@@ -106,6 +107,20 @@ class MyPost(BaseMixin, db.Model):
     @reviewstate.transition(reviewstate.LOCKED, reviewstate.PENDING, title="Unlock")
     def review_unlock(self):
         pass
+
+    @with_roles(call={'reviewer'})
+    @state.requires(state.PUBLISHED, title="Rewind 2 hours")
+    def rewind(self):
+        self.datetime = datetime.utcnow() - timedelta(hours=2)
+
+    def roles_for(self, actor, anchors=()):
+        roles = super(MyPost, self).roles_for(actor, anchors)
+        # Cheap hack for the sake of testing, using strings instead of objects
+        if actor == 'author':
+            roles.add('author')
+        if actor == 'reviewer':
+            roles.add('reviewer')
+        return roles
 
 
 # --- Tests -------------------------------------------------------------------
@@ -239,7 +254,7 @@ class TestStateManager(unittest.TestCase):
         self.post._state = MY_STATE.PUBLISHED
         self.assertTrue(self.post.state.RECENT)
         self.assertTrue(self.post.state.is_recent)
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
         self.assertFalse(self.post.state.RECENT)
         self.assertFalse(self.post.state.is_recent)
 
@@ -259,7 +274,7 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(self.post.state.bestmatch(), self.post.state.RECENT)
         self.assertEqual(self.post.state.label.name, 'recent')
 
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
 
         self.assertFalse(self.post.state.RECENT)
         self.assertFalse(self.post.state.is_recent)
@@ -276,7 +291,7 @@ class TestStateManager(unittest.TestCase):
         self.post.publish()
         # True because RECENT conditional state matches
         self.assertTrue(self.post.state.REDRAFTABLE)
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
         self.assertFalse(self.post.state.REDRAFTABLE)
 
     def test_state_group_invalid(self):
@@ -341,7 +356,7 @@ class TestStateManager(unittest.TestCase):
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         self.assertEqual(post2.id, self.post.id)
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
         self.session.commit()
         post3 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         self.assertIsNone(post3)
@@ -381,6 +396,23 @@ class TestStateManager(unittest.TestCase):
         self.post.publish()
         self.assertIsNotNone(self.post.datetime)
 
+    def test_requires(self):
+        """
+        The `requires` decorator behaves similarly to a transition, but doesn't state change
+        """
+        self.assertTrue(self.post.state.is_draft)
+        with self.assertRaises(StateTransitionError):
+            # Can only be called in published state
+            self.post.rewind()
+        self.post.submit()
+        self.post.publish()
+        self.assertTrue(self.post.state.is_published)
+        d = self.post.datetime
+        # Now we can call it
+        self.post.rewind()
+        self.assertTrue(self.post.state.is_published)
+        self.assertLess(self.post.datetime, d)
+
     def test_state_labels(self):
         """
         The current state's label can be accessed from the `.label` attribute
@@ -404,7 +436,7 @@ class TestStateManager(unittest.TestCase):
 
         self.post.publish()  # Change from PENDING to PUBLISHED
         self.assertTrue(self.post.state.RECENT)
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
         self.assertFalse(self.post.state.RECENT)
         # `undo` shouldn't work anymore because the post is no longer RECENT
         with self.assertRaises(StateTransitionError):
@@ -429,7 +461,7 @@ class TestStateManager(unittest.TestCase):
         self.post.submit()  # Change from DRAFT to PENDING
         self.post.publish()  # Change from PENDING to PUBLISHED
         self.assertTrue(self.post.state.RECENT)
-        self.post.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.post.rewind()
         self.assertFalse(self.post.state.RECENT)
         # `redraft` shouldn't work anymore because the post is no longer RECENT
         with self.assertRaises(StateTransitionError):
@@ -521,8 +553,27 @@ class TestStateManager(unittest.TestCase):
     def test_available_transitions(self):
         """State managers indicate the currently available transitions"""
         self.assertTrue(self.post.state.DRAFT)
-        self.assertIn('submit', self.post.state.transitions)
-        self.post.state.transitions['submit']()
+        self.assertIn('submit', self.post.state.transitions(current=False))
+        self.post.state.transitions(current=False)['submit']()
+        self.assertFalse(self.post.state.DRAFT)
+        self.assertTrue(self.post.state.PENDING)
+
+    def test_currently_available_transitions(self):
+        """State managers indicate the currently available transitions (using current_auth)"""
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertNotIn('submit', self.post.state.transitions())
+        add_auth_attribute('user', 'author')  # Add a user using the string 'author' (see MyPost.roles_for)
+        self.assertIn('submit', self.post.state.transitions())
+        self.post.state.transitions()['submit']()
+        self.assertFalse(self.post.state.DRAFT)
+        self.assertTrue(self.post.state.PENDING)
+
+    def test_available_transitions_for(self):
+        """State managers indicate the currently available transitions (using access_for)"""
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertNotIn('submit', self.post.state.transitions_for(roles={'reviewer'}))
+        self.assertIn('submit', self.post.state.transitions_for(roles={'author'}))
+        self.post.state.transitions_for(roles={'author'})['submit']()
         self.assertFalse(self.post.state.DRAFT)
         self.assertTrue(self.post.state.PENDING)
 
