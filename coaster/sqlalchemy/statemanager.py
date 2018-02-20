@@ -415,16 +415,15 @@ class StateTransition(object):
             raise StateTransitionError("Duplicate transition decorator")
         if from_ is not None and not isinstance(from_, (ManagedState, ManagedStateGroup)):
             raise StateTransitionError("From state is not a managed state: %s" % repr(from_))
-        if not isinstance(to, ManagedState):
-            raise StateTransitionError("To state is not a managed state: %s" % repr(to))
         if from_ and from_.statemanager != statemanager:
             raise StateTransitionError("From state is not managed by this state manager: %s" % repr(from_))
-        if to.statemanager != statemanager:
-            raise StateTransitionError("To state is not managed by this state manager: %s" % repr(to))
-        elif to.validator is not None:
-            raise StateTransitionError("To state cannot be a conditional state: %s" % repr(to))
-        elif isinstance(to.value, iterables) or to.value not in statemanager.lenum:
-            raise StateTransitionError("To state's value is not a valid value: %s" % repr(to))
+        if to is not None:
+            if not isinstance(to, ManagedState):
+                raise StateTransitionError("To state is not a managed state: %s" % repr(to))
+            if to.statemanager != statemanager:
+                raise StateTransitionError("To state is not managed by this state manager: %s" % repr(to))
+            if not to.is_direct:
+                raise StateTransitionError("To state must be a direct state: %s" % repr(to))
         if data:
             if 'name' in data:
                 raise TypeError("Invalid transition data parameter 'name'")
@@ -455,8 +454,8 @@ class StateTransition(object):
                     state_values[mstate.value] = mstate
 
         self.transitions[statemanager] = {
-            'from': state_values,  # Just the valuesScalar values (no validation functions)
-            'to': to,              # Scalar value of new state
+            'from': state_values,  # Dict of scalar_value: ManagedState
+            'to': to,              # ManagedState (is_direct) of new state
             'if': if_,             # Additional conditions that must ALL pass
             }
 
@@ -529,7 +528,8 @@ class StateTransitionWrapper(object):
             raise
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
-            statemanager._set(self.obj, conditions['to'].value)  # Change state
+            if conditions['to'] is not None:  # Allow to=None for the @requires decorator
+                statemanager._set(self.obj, conditions['to'].value)  # Change state
         # Raise a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
         return result
@@ -680,7 +680,7 @@ class StateManager(object):
         If it returns without an error, the state value is updated
         automatically.
 
-        :param from_: Required original state to allow this transition (can be a group of states)
+        :param from_: Required state to allow this transition (can be a state group)
         :param to: The state of the object after this transition (automatically set if no exception is raised)
         :param if_: Validator(s) that, given the object, must all return True for the transition to proceed
         :param metadata: Additional metadata, stored on the StateTransition object
@@ -695,6 +695,17 @@ class StateManager(object):
             return st
 
         return decorator
+
+    def requires(self, from_, if_=None, **data):
+        """
+        Decorates a method that may be called if the given state is currently active.
+        Registers a transition internally, but does not change the state.
+
+        :param from_: Required state to allow this call (can be a state group)
+        :param if_: Validator(s) that, given the object, must all return True for the call to proceed
+        :param metadata: Additional metadata, stored on the StateTransition object
+        """
+        return self.transition(from_, None, if_, **data)
 
     def _value(self, obj, cls=None):
         """The state value (called from the wrapper)"""
@@ -780,9 +791,9 @@ class StateManagerWrapper(object):
             proxy = {}
             current = False  # In case the host object is not a RoleMixin
         return {name: transition for name, transition in
-            # Retrieve transitions from the instance object to activate the descriptor.
+            # Retrieve transitions from the host object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
-            if transition.is_available and (hasattr(proxy, name) if current else True)}
+            if transition.is_available and (name in proxy if current else True)}
 
     def transitions_for(self, roles=None, actor=None, anchors=[]):
         """
@@ -791,7 +802,7 @@ class StateManagerWrapper(object):
         """
         proxy = self.obj.access_for(roles, actor, anchors)
         return {name: transition for name, transition in self.transitions(current=False).items()
-            if hasattr(proxy, name)}
+            if name in proxy}
 
     def group(self, items, keep_empty=False):
         """
