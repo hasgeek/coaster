@@ -6,6 +6,7 @@ Miscellaneous utilities
 """
 
 from __future__ import absolute_import
+import collections
 import time
 from datetime import datetime
 from random import randint, randrange
@@ -43,6 +44,36 @@ _tag_re = re.compile('<.*?>')
 
 
 # --- Utilities ---------------------------------------------------------------
+
+def is_collection(item):
+    """
+    Returns True if the item is a collection class: list, tuple, set, frozenset
+    or any other class that resembles one of these (using abstract base classes).
+
+    >>> is_collection(0)
+    False
+    >>> is_collection(0.1)
+    False
+    >>> is_collection('')
+    False
+    >>> is_collection({})
+    False
+    >>> is_collection({}.keys())
+    True
+    >>> is_collection([])
+    True
+    >>> is_collection(())
+    True
+    >>> is_collection(set())
+    True
+    >>> is_collection(frozenset())
+    True
+    >>> from coaster.utils import InspectableSet
+    >>> is_collection(InspectableSet({1, 2}))
+    True
+    """
+    return not isinstance(item, six.string_types) and isinstance(item, (collections.Set, collections.Sequence))
+
 
 def buid():
     """

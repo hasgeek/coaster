@@ -196,19 +196,16 @@ over direct state value changes:
 
 from __future__ import absolute_import
 
-import collections
 from collections import OrderedDict
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from werkzeug.exceptions import BadRequest
-from ..utils import NameTitle
+from ..utils import is_collection, NameTitle
 from ..signals import coaster_signals
 from .roles import RoleMixin
 
 __all__ = ['StateManager', 'StateTransitionError',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
-
-iterables = (collections.Sequence, collections.Set)  # Used for various isinstance checks
 
 
 # --- Signals -----------------------------------------------------------------
@@ -258,12 +255,12 @@ class ManagedState(object):
     @property
     def is_scalar(self):
         """This is a scalar state (not a group of states)"""
-        return not isinstance(self.value, iterables)
+        return not is_collection(self.value)
 
     @property
     def is_direct(self):
         """This is a direct state (scalar state without a condition)"""
-        return self.validator is None and not isinstance(self.value, iterables)
+        return self.validator is None and not is_collection(self.value)
 
     def __repr__(self):
         return '%s.%s' % (self.statemanager.name, self.name)
@@ -271,7 +268,7 @@ class ManagedState(object):
     def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
         if obj is not None:  # We're being called with an instance
-            if isinstance(self.value, iterables):
+            if is_collection(self.value):
                 valuematch = self.statemanager._value(obj, cls) in self.value
             else:
                 valuematch = self.statemanager._value(obj, cls) == self.value
@@ -280,7 +277,7 @@ class ManagedState(object):
             else:
                 return valuematch
         else:  # We have a class, so return a filter condition, for use as cls.query.filter(result)
-            if isinstance(self.value, iterables):
+            if is_collection(self.value):
                 valuematch = self.statemanager._value(obj, cls).in_(self.value)
             else:
                 valuematch = self.statemanager._value(obj, cls) == self.value
@@ -322,7 +319,7 @@ class ManagedStateGroup(object):
         values = set()
         for state in regular_states:
             self.states.append(state)
-            if isinstance(state.value, iterables):
+            if is_collection(state.value):
                 values.update(state.value)
             else:
                 values.add(state.value)
@@ -331,7 +328,7 @@ class ManagedStateGroup(object):
         # regular state. This is an error as the condition will never be tested
         for state in conditional_states:
             # Prevent grouping of conditional states with their original states
-            state_values = set(state.value if isinstance(state.value, iterables) else [state.value])
+            state_values = set(state.value if is_collection(state.value) else [state.value])
             if state_values & values:  # They overlap
                 raise ValueError("The value for state %s is already in this state group" % repr(state))
             self.states.append(state)
@@ -447,7 +444,7 @@ class StateTransition(object):
                 from_ = [from_]
             # Step 2: Unroll grouped values from the original LabeledEnum
             for mstate in from_:
-                if isinstance(mstate.value, iterables):
+                if is_collection(mstate.value):
                     for value in mstate.value:
                         state_values[value] = mstate
                 else:

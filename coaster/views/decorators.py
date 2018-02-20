@@ -17,6 +17,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
     request, Response, url_for)
+from ..utils import is_collection
 from ..auth import current_auth, add_auth_attribute
 from .misc import jsonp as render_jsonp
 
@@ -548,7 +549,7 @@ def cors(origins,
 
             if origins == '*':
                 pass
-            elif isinstance(origins, (list, tuple, set, frozenset)) and origin in origins:
+            elif is_collection(origins) and origin in origins:
                 pass
             elif callable(origins) and origins(origin):
                 pass

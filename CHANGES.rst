@@ -17,6 +17,7 @@
   ``coaster.views.requestargs``
 * New: ``coaster.auth`` module with a ``current_auth`` proxy that provides
   a standardised API for login managers to use
+* New: ``is_collection`` util for testing if an item is a collection data type
 
 
 0.6.0
