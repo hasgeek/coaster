@@ -6,7 +6,8 @@ import unittest
 from flask import Flask, json
 from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin
 from coaster.db import SQLAlchemy
-from coaster.views import ClassView, ModelView, UrlForView, InstanceLoader, route, requestform, render_with
+from coaster.views import (ClassView, ModelView, UrlForView, InstanceLoader, route, requestform, render_with,
+    current_view)
 
 
 app = Flask(__name__)
@@ -54,6 +55,10 @@ class IndexView(ClassView):
     @route('page')
     def page(self):
         return 'page'
+
+    @route('current_view')
+    def current_view_is_self(self):
+        return str(current_view == self)
 
 IndexView.init_app(app)
 
@@ -197,6 +202,10 @@ class TestClassView(unittest.TestCase):
         """Test page view (/page)"""
         rv = self.client.get('/page')
         assert rv.data == b'page'
+
+    def test_current_view(self):
+        rv = self.client.get('/current_view')
+        assert rv.data == b'True'
 
     def test_document_404(self):
         """Test 404 response from within a view"""

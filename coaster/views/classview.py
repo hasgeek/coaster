@@ -9,12 +9,18 @@ Group related views into a class for easier management.
 
 from __future__ import unicode_literals
 from functools import wraps, update_wrapper
-from werkzeug.routing import parse_rule
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
+from werkzeug.routing import parse_rule
+from werkzeug.local import LocalProxy
+from flask import _request_ctx_stack, has_request_context
 
-__all__ = ['route', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
+__all__ = ['route', 'current_view', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
+
+#: A proxy object that holds the currently executing :class:`ClassView` instance,
+#: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
+current_view = LocalProxy(lambda: has_request_context() and getattr(_request_ctx_stack.top, 'current_view', None))
 
 
 # :func:`route` wraps :class:`ViewDecorator` so that it can have an independent __doc__
@@ -103,6 +109,8 @@ class ViewDecorator(object):
         def view_func(*args, **kwargs):
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
+            # Place it on the request stack for :obj:`current_view` to discover
+            _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
             viewinst.before_request(view_func.__name__, **kwargs)
             # Finally, call the view handler method

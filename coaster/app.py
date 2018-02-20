@@ -17,6 +17,7 @@ except ImportError:
     from flask.json import tojson_filter as _tojson_filter
 from . import logger
 from .auth import current_auth
+from .views import current_view
 
 __all__ = ['SandboxedFlask', 'init_app']
 
@@ -103,6 +104,8 @@ def init_app(app, env=None):
     """
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
+    # Make the current view available to app templates
+    app.jinja_env.globals['current_view'] = current_view
     # Disable Flask-SQLAlchemy events.
     # Apps that want it can turn it back on in their config
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
