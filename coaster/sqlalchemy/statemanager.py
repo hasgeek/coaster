@@ -196,6 +196,7 @@ over direct state value changes:
 
 from __future__ import absolute_import
 
+import collections
 from collections import OrderedDict
 import functools
 from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
@@ -207,7 +208,7 @@ from .roles import RoleMixin
 __all__ = ['StateManager', 'StateTransitionError',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
-iterables = (set, frozenset, list, tuple)  # Used for various isinstance checks
+iterables = (collections.Sequence, collections.Set)  # Used for various isinstance checks
 
 
 # --- Signals -----------------------------------------------------------------
