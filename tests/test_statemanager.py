@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
+from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (with_roles, BaseMixin,
     StateManager, StateTransitionError)
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
@@ -106,6 +107,15 @@ class MyPost(BaseMixin, db.Model):
     @reviewstate.transition(reviewstate.LOCKED, reviewstate.PENDING, title="Unlock")
     def review_unlock(self):
         pass
+
+    def roles_for(self, actor, anchors=()):
+        roles = super(MyPost, self).roles_for(actor, anchors)
+        # Cheap hack for the sake of testing, using strings instead of objects
+        if actor == 'author':
+            roles.add('author')
+        if actor == 'reviewer':
+            roles.add('reviewer')
+        return roles
 
 
 # --- Tests -------------------------------------------------------------------
@@ -521,8 +531,27 @@ class TestStateManager(unittest.TestCase):
     def test_available_transitions(self):
         """State managers indicate the currently available transitions"""
         self.assertTrue(self.post.state.DRAFT)
-        self.assertIn('submit', self.post.state.transitions)
-        self.post.state.transitions['submit']()
+        self.assertIn('submit', self.post.state.transitions(current=False))
+        self.post.state.transitions(current=False)['submit']()
+        self.assertFalse(self.post.state.DRAFT)
+        self.assertTrue(self.post.state.PENDING)
+
+    def test_currently_available_transitions(self):
+        """State managers indicate the currently available transitions (using current_auth)"""
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertNotIn('submit', self.post.state.transitions())
+        add_auth_attribute('user', 'author')  # Add a user using the string 'author' (see MyPost.roles_for)
+        self.assertIn('submit', self.post.state.transitions())
+        self.post.state.transitions()['submit']()
+        self.assertFalse(self.post.state.DRAFT)
+        self.assertTrue(self.post.state.PENDING)
+
+    def test_available_transitions_for(self):
+        """State managers indicate the currently available transitions (using access_for)"""
+        self.assertTrue(self.post.state.DRAFT)
+        self.assertNotIn('submit', self.post.state.transitions_for(roles={'reviewer'}))
+        self.assertIn('submit', self.post.state.transitions_for(roles={'author'}))
+        self.post.state.transitions_for(roles={'author'})['submit']()
         self.assertFalse(self.post.state.DRAFT)
         self.assertTrue(self.post.state.PENDING)
 

@@ -202,6 +202,7 @@ from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
 from werkzeug.exceptions import BadRequest
 from ..utils import NameTitle
 from ..signals import coaster_signals
+from .roles import RoleMixin
 
 __all__ = ['StateManager', 'StateTransitionError',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
@@ -765,15 +766,31 @@ class StateManagerWrapper(object):
                 for name, mstate in self.statemanager.states.items()
                 if mstate(self.obj, self.cls)}
 
-    @property
-    def transitions(self):
+    def transitions(self, current=True):
         """
-        Returns currently available transitions as a dictionary of name: StateTransitionWrapper
+        Returns available transitions for the current state, as a dictionary of
+        name: StateTransitionWrapper.
+
+        :param bool current: Limit to transitions available in ``obj.current_access()``
         """
-        # Retrieve transitions from the instance object to activate the descriptor.
+        if current and isinstance(self.obj, RoleMixin):
+            proxy = self.obj.current_access()
+        else:
+            proxy = {}
+            current = False  # In case the host object is not a RoleMixin
         return {name: transition for name, transition in
+            # Retrieve transitions from the instance object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
-            if transition.is_available}
+            if transition.is_available and (hasattr(proxy, name) if current else True)}
+
+    def transitions_for(self, roles=None, actor=None, anchors=[]):
+        """
+        For use on RoleMixin classes: returns currently available transitions for the specified
+        roles or actor as a dictionary of name: StateTransitionWrapper.
+        """
+        proxy = self.obj.access_for(roles, actor, anchors)
+        return {name: transition for name, transition in self.transitions(current=False).items()
+            if hasattr(proxy, name)}
 
     def group(self, items, keep_empty=False):
         """
