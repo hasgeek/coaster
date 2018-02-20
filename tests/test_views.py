@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden
 from flask import Flask, session, json
 from coaster.app import load_config_from_file
-from coaster.views import get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform
+from coaster.auth import current_auth, add_auth_attribute
+from coaster.views import (get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform,
+    requires_permission)
 
 
 def index():
@@ -44,6 +46,18 @@ def requestform_test(p1, p2=None, p3=None):
 def requestcombo_test(query1, form1):
     return query1, form1
 
+
+@requires_permission('allow-this')
+def permission1():
+    return 'allowed1'
+
+
+@requires_permission({'allow-this', 'allow-that'})
+def permission2():
+    return 'allowed2'
+
+
+# --- Tests -------------------------------------------------------------------
 
 class TestCoasterViews(unittest.TestCase):
     def setUp(self):
@@ -134,3 +148,26 @@ class TestCoasterViews(unittest.TestCase):
 
         # Calling without a request context works as well
         self.assertEqual(requestargs_test1(p1='1', p2=3, p3=[1, 2]), ('1', 3, [1, 2]))
+
+    def test_requires_permission(self):
+        with self.app.test_request_context():
+            with self.assertRaises(Forbidden):
+                permission1()
+            with self.assertRaises(Forbidden):
+                permission2()
+
+            add_auth_attribute('permissions', set())
+
+            with self.assertRaises(Forbidden):
+                permission1()
+            with self.assertRaises(Forbidden):
+                permission2()
+
+            current_auth.permissions.add('allow-that')  # FIXME! Shouldn't this be a frozenset?
+            with self.assertRaises(Forbidden):
+                permission1()
+            assert permission2() == 'allowed2'
+
+            current_auth.permissions.add('allow-this')
+            assert permission1() == 'allowed1'
+            assert permission2() == 'allowed2'

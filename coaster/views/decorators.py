@@ -25,7 +25,7 @@ __all__ = [
     'RequestTypeError', 'RequestValueError',
     'requestargs', 'requestform', 'requestquery',
     'load_model', 'load_models',
-    'render_with', 'cors',
+    'render_with', 'cors', 'requires_permission',
     ]
 
 
@@ -592,5 +592,33 @@ def cors(origins,
                 resp.headers['Vary'] = 'Origin'
 
             return resp
+        return wrapper
+    return inner
+
+
+def requires_permission(permission):
+    """
+    View decorator that requires a certain permission to be present in
+    ``current_auth.permissions`` before the view is allowed to proceed.
+    Aborts with ``403 Forbidden`` if the permission is not present.
+
+    :param permission: Permission that is required. If an iterable is provided,
+        any one permission must be available
+    """
+    def inner(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            add_auth_attribute('login_required', True)
+            if not hasattr(current_auth, 'permissions'):
+                test = False
+            elif is_collection(permission):
+                test = bool(current_auth.permissions.intersection(permission))
+            else:
+                test = permission in current_auth.permissions
+            if not test:
+                abort(403)
+            return f(*args, **kwargs)
+
+        wrapper.requires_permission = permission
         return wrapper
     return inner
