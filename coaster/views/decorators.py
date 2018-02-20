@@ -545,7 +545,7 @@ def cors(origins,
         def wrapper(*args, **kwargs):
             origin = request.headers.get('Origin')
             if request.method not in methods:
-                abort(401)
+                abort(405)
 
             if origins == '*':
                 pass
@@ -554,7 +554,7 @@ def cors(origins,
             elif callable(origins) and origins(origin):
                 pass
             else:
-                abort(401)
+                abort(403)
 
             if request.method == 'OPTIONS':
                 # pre-flight request
