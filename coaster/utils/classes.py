@@ -237,6 +237,7 @@ class InspectableSet(Set):
         True
         >>> joinset = joinset | InspectableSet({'inspectable'})
         >>> isinstance(joinset, InspectableSet)
+        True
         >>> 'member' in joinset
         True
         >>> 'other' in joinset
