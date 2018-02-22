@@ -7,8 +7,8 @@ SQLAlchemy attribute annotations
 Annotations are strings attached to attributes that serve as a programmer
 reference on how those attributes are meant to be used. They can be used to
 indicate that a column's value should be :attr:`immutable` and should never
-change, or that it's a cached copy of :attr:`cached` copy of a value from
-another source that can be safely discarded in case of a conflict.
+change, or that it's a :attr:`cached` copy of a value from another source
+that can be safely discarded in case of a conflict.
 
 This module's exports may be imported via :mod:`coaster.sqlalchemy`.
 
