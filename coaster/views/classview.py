@@ -8,17 +8,22 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from functools import update_wrapper
+from functools import wraps, update_wrapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
-from flask import _request_ctx_stack, has_request_context
+from flask import _request_ctx_stack, has_request_context, request, redirect
 from ..auth import current_auth, add_auth_attribute
 from ..sqlalchemy import PermissionMixin
 
-__all__ = ['route', 'rulejoin', 'current_view', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
+__all__ = [
+    'route', 'rulejoin', 'current_view',  # Functions
+    'ClassView', 'ModelView',  # View base classes
+    'url_change_check',  # View decorators
+    'UrlForView', 'InstanceLoader', 'UrlChangeCheck'  # Mixin classes
+    ]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
@@ -135,6 +140,13 @@ class ViewDecorator(object):
         # differ from __name__ only if the view handler method was defined
         # outside the class and then added to the class.
         view_func.__name__ = self.name
+        # Note: While this fixes for external inspection, the wrappers we just
+        # applied will continue to have self.func.__name__, which will break them
+        # if they depend on it and if the method was defined outside the class
+        # with a different name from what it has inside the class. Ideally,
+        # the programmer should correct for this by always correcting __name__
+        # before adding it to the class. See url_change_check below for an
+        # exampe of how this may happen
 
         # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
         view_func.wrapped_func = wrapped_func
@@ -358,6 +370,7 @@ class ModelView(ClassView):
         """
         super(ModelView, self).before_request(view, kwargs)
         self.kwargs = kwargs
+        self.view_name = view
         self.obj = self.loader(view)
 
 
@@ -377,10 +390,65 @@ class UrlForView(object):
             params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
             # Hook up is_url_for with the view function's name, endpoint name and parameters
             cls.model.is_url_for(view_func.__name__, endpoint, **params)(view_func)
-            if callback:
+            if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 
-        super(ModelView, cls).init_app(app, register_view_on_model)
+        super(ModelView, cls).init_app(app, callback=register_view_on_model)
+
+
+def url_change_check(f):
+    """
+    View method decorator that checks the URL of the loaded object in
+    ``self.obj`` against the URL in the request (using
+    ``self.obj.url_for(__name__)``). If the URLs do not match,
+    and the request is a ``GET``, it issues a redirect to the correct URL.
+    Usage::
+
+        @route('/doc/<document>')
+        class MyModelView(UrlForView, InstanceLoader, ModelView):
+            model = MyModel
+            route_model_map = {'document': 'url_id_name'}
+
+            @route('')
+            @url_change_check
+            @render_with(json=True)
+            def view(self, **kwargs):
+                return self.obj.current_access()
+
+    If the decorator is required for all view handlers in the class, use
+    :class:`UrlChangeCheck`.
+    """
+    @wraps(f)
+    def wrapper(self, *args, **kwargs):
+        if request.method == 'GET' and self.obj is not None:
+            correct_url = self.obj.url_for(f.__name__, _external=True)
+            if correct_url != request.base_url:
+                if request.query_string:
+                    correct_url = correct_url + '?' + request.query_string.decode()
+                return redirect(correct_url)  # TODO: Decide if this should be 302 (default) or 301
+        return f(self, *args, **kwargs)
+    return wrapper
+
+
+class UrlChangeCheck(UrlForView):
+    """
+    Mixin class for :class:`ModelView` and
+    :class:`~coaster.sqlalchemy.mixins.UrlForMixin` that applies the
+    :func:`url_change_check` decorator to all view handler methods. Subclasses
+    :class:`UrlForView`, which it depends on to register the view with the
+    model so that URLs can be generated. Usage::
+
+        @route('/doc/<document>')
+        class MyModelView(UrlChangeCheck, InstanceLoader, ModelView):
+            model = MyModel
+            route_model_map = {'document': 'url_id_name'}
+
+            @route('')
+            @render_with(json=True)
+            def view(self, **kwargs):
+                return self.obj.current_access()
+    """
+    __decorators__ = [url_change_check]
 
 
 class InstanceLoader(object):
@@ -390,7 +458,7 @@ class InstanceLoader(object):
     :attr:`~ModelView.route_model_map` dictionary.
 
     :class:`InstanceLoader` will traverse relationships (many-to-one or
-    one-to-one) and perform a SQL JOIN with the target class.
+    one-to-one) and perform a SQL ``JOIN`` with the target class.
     """
     def loader(self, view):
         if any((name in self.route_model_map for name in self.kwargs)):
@@ -415,7 +483,7 @@ class InstanceLoader(object):
                         if isinstance(source, InstrumentedAttribute):
                             if isinstance(source.property, RelationshipProperty):
                                 if isinstance(source.property.argument, Mapper):
-                                    source = source.property.argument.class_
+                                    source = source.property.argument.class_  # Unlikely to be used. pragma: no cover
                                 else:
                                     source = source.property.argument
                                 if source not in joined_models:

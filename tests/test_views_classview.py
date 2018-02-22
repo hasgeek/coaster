@@ -4,11 +4,12 @@ from __future__ import absolute_import, unicode_literals
 
 import unittest
 from flask import Flask, json
-from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin
+from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin, BaseIdNameMixin
 from coaster.auth import add_auth_attribute
+from coaster.utils import InspectableSet
 from coaster.db import SQLAlchemy
-from coaster.views import (ClassView, ModelView, UrlForView, InstanceLoader, route, requestargs, requestform,
-    render_with, current_view, requires_permission)
+from coaster.views import (ClassView, ModelView, UrlForView, UrlChangeCheck, InstanceLoader,
+    route, requestargs, requestform, render_with, current_view, requires_permission)
 
 
 app = Flask(__name__)
@@ -50,6 +51,16 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     @property
     def doctype(self):
         return 'scoped-doc'
+
+
+class RenameableDocument(BaseIdNameMixin, db.Model):
+    __tablename__ = 'renameable_document'
+    __uuid_primary_key__ = False  # So that we can get consistent `1-<name>` url_name in tests
+    __roles__ = {
+        'all': {
+            'read': {'name', 'title'}
+            }
+        }
 
 
 # --- Views -------------------------------------------------------------------
@@ -155,6 +166,9 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @requestargs('access_token')
     def before_request(self, view, kwargs, access_token=None):
+        if access_token == 'owner-admin-secret':
+            add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
+            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         if access_token == 'owner-secret':
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         return super(ModelDocumentView, self).before_request(view, kwargs)
@@ -183,6 +197,21 @@ class ScopedDocumentView(ModelDocumentView):
         }
 
 ScopedDocumentView.init_app(app)
+
+
+@route('/rename/<document>')
+class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
+    model = RenameableDocument
+    route_model_map = {
+        'document': 'url_name',
+        }
+
+    @route('')
+    @render_with(json=True)
+    def view(self, **kwargs):
+        return self.obj.current_access()
+
+RenameableDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -346,7 +375,9 @@ class TestClassView(unittest.TestCase):
         rv = self.client.post('/model/test1/edit?access_token=owner-secret')
         assert rv.status_code == 200
         assert rv.data == b'edit-called'
-
+        rv = self.client.post('/model/test1/edit?access_token=owner-admin-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'edit-called'
 
     def test_modelview_url_for(self):
         """Test that ModelView provides model.is_url_for with appropriate parameters"""
@@ -357,6 +388,7 @@ class TestClassView(unittest.TestCase):
         assert doc2.url_for('view') == '/model/test2'
 
     def test_scopedmodelview_view(self):
+        """Test that InstanceLoader in a scoped model correctly loads parent"""
         doc = ViewDocument(name='test1', title="Test 1")
         sdoc = ScopedViewDocument(name='test2', title="Test 2", parent=doc)
         self.session.add_all([doc, sdoc])
@@ -371,3 +403,25 @@ class TestClassView(unittest.TestCase):
         # The joined load actually worked
         rv = self.client.get('/model/this-doc-does-not-exist/test2')
         assert rv.status_code == 404
+
+    def test_redirectablemodel_view(self):
+        doc = RenameableDocument(name='test1', title="Test 1")
+        self.session.add(doc)
+        self.session.commit()
+
+        rv = self.client.get('/rename/1-test1')
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data['name'] == 'test1'
+
+        doc.name = 'renamed'
+        self.session.commit()
+
+        rv = self.client.get('/rename/1-test1?preserve=this')
+        assert rv.status_code == 302
+        assert rv.location == 'http://localhost/rename/1-renamed?preserve=this'
+
+        rv = self.client.get('/rename/1-renamed')
+        assert rv.status_code == 200
+        data = json.loads(rv.data)
+        assert data['name'] == 'renamed'
