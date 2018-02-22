@@ -549,7 +549,7 @@ class BaseIdNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s">' % (self.__class__.__name__, self.url_name, self.title)
+        return '<%s %s "%s">' % (self.__class__.__name__, self.url_id_name, self.title)
 
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
@@ -584,11 +584,17 @@ class BaseIdNameMixin(BaseMixin):
         Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
         To use this, the class must derive from :class:`UuidMixin`.
         """
-        return '%s-%s' % (self.name, self.suuid)
+        if isinstance(self, UuidMixin):
+            return '%s-%s' % (self.name, self.suuid)
+        else:
+            return '%s-%s' % (self.name, self.id)
 
     @url_name_suuid.comparator
     def url_name_suuid(cls):
-        return SqlSuuidComparator(cls.uuid, splitindex=-1)
+        if issubclass(cls, UuidMixin):
+            return SqlSuuidComparator(cls.uuid, splitindex=-1)
+        else:
+            return SqlSplitIdComparator(cls.id, splitindex=-1)
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -697,7 +703,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_name, self.title,
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_id_name, self.title,
             repr(self.parent)[1:-1] if self.parent else None)
 
     @classmethod
