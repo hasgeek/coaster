@@ -8,6 +8,7 @@ Enhanced query and custom comparators
 from __future__ import absolute_import
 import uuid as uuid_
 from sqlalchemy.ext.hybrid import Comparator
+from flask import abort
 from flask_sqlalchemy import BaseQuery
 import six
 from ..utils import buid2uuid, suuid2uuid
@@ -37,6 +38,18 @@ class Query(BaseQuery):
         is found.
         """
         return not self.session.query(self.exists()).scalar()
+
+    def one_or_404(self):
+        """
+        Extends :meth:`~sqlalchemy.orm.query.Query.one_or_none` to raise a 404
+        if no result is found. This method offers a safety net over
+        :meth:`~flask_sqlalchemy.BaseQuery.first_or_404` as it helps identify
+        poorly specified queries that could have returned more than one result.
+        """
+        result = self.one_or_none()
+        if not result:
+            abort(404)
+        return result
 
 
 class SplitIndexComparator(Comparator):

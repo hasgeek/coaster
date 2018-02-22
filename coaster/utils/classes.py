@@ -214,9 +214,10 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
 class InspectableSet(Set):
     """
-    Given a set, mimics a dictionary where the items are keys and have a value
-    of ``True``, and any other key has a value of ``False``. Also supports
-    attribute access. Useful in templates to simplify membership inspection::
+    Given a set, mimics a read-only dictionary where the items are keys and
+    have a value of ``True``, and any other key has a value of ``False``. Also
+    supports attribute access. Useful in templates to simplify membership
+    inspection::
 
         >>> myset = InspectableSet({'member', 'other'})
         >>> 'member' in myset
@@ -231,6 +232,20 @@ class InspectableSet(Set):
         True
         >>> myset['random']
         False
+        >>> joinset = myset | {'added'}
+        >>> isinstance(joinset, InspectableSet)
+        True
+        >>> joinset = joinset | InspectableSet({'inspectable'})
+        >>> isinstance(joinset, InspectableSet)
+        True
+        >>> 'member' in joinset
+        True
+        >>> 'other' in joinset
+        True
+        >>> 'added' in joinset
+        True
+        >>> 'inspectable' in joinset
+        True
     """
     def __init__(self, members):
         if not isinstance(members, set):

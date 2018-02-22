@@ -31,7 +31,8 @@ from sqlalchemy.orm import synonym
 from sqlalchemy_utils.types import UUIDType
 from flask import url_for
 import six
-from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid
+from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid, InspectableSet
+from ..auth import current_auth
 from .immutable_annotation import immutable
 from .roles import RoleMixin, with_roles
 from .comparators import Query, SqlSplitIdComparator, SqlHexUuidComparator, SqlBuidComparator, SqlSuuidComparator
@@ -225,6 +226,15 @@ class PermissionMixin(object):
         else:
             return set()
 
+    @property
+    def current_permissions(self):
+        """
+        :class:`~coaster.utils.classes.InspectableSet` containing currently
+        available permissions from this object, using
+        :obj:`~coaster.auth.current_auth`.
+        """
+        return InspectableSet(self.permissions(current_auth.actor))
+
 
 class UrlForMixin(object):
     """
@@ -262,6 +272,9 @@ class UrlForMixin(object):
 
     @classmethod
     def is_url_for(cls, _action, _endpoint=None, _external=None, **paramattrs):
+        """
+        View decorator that registers the view as a :meth:`url_for` target.
+        """
         def decorator(f):
             if 'url_for_endpoints' not in cls.__dict__:
                 cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
@@ -536,7 +549,7 @@ class BaseIdNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s">' % (self.__class__.__name__, self.url_name, self.title)
+        return '<%s %s "%s">' % (self.__class__.__name__, self.url_id_name, self.title)
 
     def make_name(self):
         """Autogenerates a :attr:`name` from the :attr:`title`"""
@@ -571,11 +584,19 @@ class BaseIdNameMixin(BaseMixin):
         Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
         To use this, the class must derive from :class:`UuidMixin`.
         """
-        return '%s-%s' % (self.name, self.suuid)
+        if isinstance(self, UuidMixin):
+            return '%s-%s' % (self.name, self.suuid)
+        else:
+            return '%s-%s' % (self.name, self.url_id)
 
     @url_name_suuid.comparator
     def url_name_suuid(cls):
-        return SqlSuuidComparator(cls.uuid, splitindex=-1)
+        if issubclass(cls, UuidMixin):
+            return SqlSuuidComparator(cls.uuid, splitindex=-1)
+        elif cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id, splitindex=-1)
+        else:
+            return SqlSplitIdComparator(cls.id, splitindex=-1)
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -624,8 +645,10 @@ class BaseScopedIdMixin(BaseMixin):
         """
         if inherited is not None:
             return inherited | super(BaseScopedIdMixin, self).permissions(user)
-        else:
+        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
             return self.parent.permissions(user) | super(BaseScopedIdMixin, self).permissions(user)
+        else:
+            return super(BaseScopedIdMixin, self).permissions(user)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
@@ -682,7 +705,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_name, self.title,
+        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_id_name, self.title,
             repr(self.parent)[1:-1] if self.parent else None)
 
     @classmethod

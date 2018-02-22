@@ -837,9 +837,8 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        with self.assertRaises(AttributeError):
-            # No UuidMixin == No suuid or url_name_suuid attributes
-            self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
+        # No UuidMixin means no suuid, so fallback to hex UUID
+        self.assertEqual(u1.url_name_suuid, 'test-74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')

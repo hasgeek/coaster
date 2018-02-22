@@ -5,3 +5,4 @@
 
    misc
    decorators
+   classview

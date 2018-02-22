@@ -456,6 +456,9 @@ class StateTransition(object):
             'if': if_,             # Additional conditions that must ALL pass
             }
 
+    def __set_name__(self, owner, name):  # pragma: no cover
+        self.name = name
+
     # Make the transition a non-data descriptor
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -500,6 +503,9 @@ class StateTransitionWrapper(object):
         Indicates whether this transition is currently available.
         """
         return not self._state_invalid()
+
+    def __getattr__(self, name):
+        return getattr(self.statetransition, name)
 
     def __call__(self, *args, **kwargs):
         """Call the transition"""
@@ -827,17 +833,17 @@ class StateManagerWrapper(object):
                     del groups[key]
         return groups
 
-    def __getattr__(self, attr):
+    def __getattr__(self, name):
         """
         Given the name of a state, returns:
 
-        1. If called on an instance, a boolean indicating if the state is active
+        1. If called on an instance, a ManagedStateWrapper, which implements __bool__
         2. If called on a class, a query filter
 
         Returns the default value or raises :exc:`AttributeError` on anything else.
         """
-        if hasattr(self.statemanager, attr):
-            mstate = getattr(self.statemanager, attr)
+        if hasattr(self.statemanager, name):
+            mstate = getattr(self.statemanager, name)
             if isinstance(mstate, (ManagedState, ManagedStateGroup)):
                 return mstate(self.obj, self.cls)
-        raise AttributeError("Not a state: %s" % attr)
+        raise AttributeError("Not a state: %s" % name)

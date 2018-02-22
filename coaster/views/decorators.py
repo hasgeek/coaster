@@ -19,13 +19,13 @@ from flask import (abort, current_app, g, jsonify, make_response, redirect, rend
     request, Response, url_for)
 from ..utils import is_collection
 from ..auth import current_auth, add_auth_attribute
-from .misc import jsonp as render_jsonp
+from .misc import jsonp
 
 __all__ = [
     'RequestTypeError', 'RequestValueError',
     'requestargs', 'requestform', 'requestquery',
     'load_model', 'load_models',
-    'render_with', 'cors',
+    'render_with', 'cors', 'requires_permission',
     ]
 
 
@@ -108,7 +108,7 @@ def requestargs(*vars, **config):
                 return request.values if request else {}
 
         @wraps(f)
-        def decorated_function(**kw):
+        def decorated_function(*args, **kw):
             values = datasource()
             for name, filt, is_list in namefilt:
                 # Process name if
@@ -123,7 +123,7 @@ def requestargs(*vars, **config):
                     except ValueError as e:
                         raise RequestValueError(e)
             try:
-                return f(**kw)
+                return f(*args, **kw)
             except TypeError as e:
                 raise RequestTypeError(e)
         return decorated_function
@@ -236,7 +236,7 @@ def load_models(*chain, **kwargs):
     """
     def inner(f):
         @wraps(f)
-        def decorated_function(**kw):
+        def decorated_function(*args, **kw):
             permissions = None
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
@@ -316,12 +316,11 @@ def load_models(*chain, **kwargs):
             if permission_required and not (permission_required & permissions):
                 abort(403)
             if kwargs.get('kwargs'):
-                return f(kwargs=kw, **result)
+                return f(*args, kwargs=kw, **result)
             else:
-                return f(**result)
+                return f(*args, **result)
         return decorated_function
     return inner
-
 
 
 def _best_mimetype_match(available_list, accept_mimetypes, default=None):
@@ -332,7 +331,21 @@ def _best_mimetype_match(available_list, accept_mimetypes, default=None):
     return default
 
 
-def render_with(template, json=False, jsonp=False):
+def dict_jsonify(param):
+    """Convert the parameter into a dictionary before calling jsonify, if it's not already one"""
+    if not isinstance(param, dict):
+        param = dict(param)
+    return jsonify(param)
+
+
+def dict_jsonp(param):
+    """Convert the parameter into a dictionary before calling jsonp, if it's not already one"""
+    if not isinstance(param, dict):
+        param = dict(param)
+    return jsonp(param)
+
+
+def render_with(template=None, json=False, jsonp=False):
     """
     Decorator to render the wrapped function with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -393,15 +406,12 @@ def render_with(template, json=False, jsonp=False):
     """
     if jsonp:
         templates = {
-            'application/json': render_jsonp,
-            'text/json': render_jsonp,
-            'text/x-json': render_jsonp,
+            'application/json': dict_jsonp,
+            'application/javascript': dict_jsonp,
             }
     elif json:
         templates = {
-            'application/json': jsonify,
-            'text/json': jsonify,
-            'text/x-json': jsonify,
+            'application/json': dict_jsonify,
             }
     else:
         templates = {}
@@ -409,6 +419,8 @@ def render_with(template, json=False, jsonp=False):
         templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
+    elif template is None and (json or jsonp):
+        pass
     else:  # pragma: no cover
         raise ValueError("Expected string or dict for template")
 
@@ -416,7 +428,7 @@ def render_with(template, json=False, jsonp=False):
     if '*/*' not in templates:
         templates['*/*'] = six.text_type
         default_mimetype = 'text/plain'
-        for mimetype in ('text/html', 'text/plain', 'application/json', 'text/json', 'text/x-json'):
+        for mimetype in ('text/html', 'text/plain', 'application/json'):
             if mimetype in templates:
                 templates['*/*'] = templates[mimetype]
                 default_mimetype = mimetype  # Remember which mimetype's handler is serving for */*
@@ -580,5 +592,33 @@ def cors(origins,
                 resp.headers['Vary'] = 'Origin'
 
             return resp
+        return wrapper
+    return inner
+
+
+def requires_permission(permission):
+    """
+    View decorator that requires a certain permission to be present in
+    ``current_auth.permissions`` before the view is allowed to proceed.
+    Aborts with ``403 Forbidden`` if the permission is not present.
+
+    :param permission: Permission that is required. If an iterable is provided,
+        any one permission must be available
+    """
+    def inner(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            add_auth_attribute('login_required', True)
+            if not hasattr(current_auth, 'permissions'):
+                test = False
+            elif is_collection(permission):
+                test = bool(current_auth.permissions.intersection(permission))
+            else:
+                test = permission in current_auth.permissions
+            if not test:
+                abort(403)
+            return f(*args, **kwargs)
+
+        wrapper.requires_permission = permission
         return wrapper
     return inner
