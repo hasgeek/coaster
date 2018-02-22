@@ -14,7 +14,7 @@ from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
-from flask import _request_ctx_stack, has_request_context, request, redirect
+from flask import _request_ctx_stack, has_request_context, request, redirect, make_response
 from ..auth import current_auth, add_auth_attribute
 from ..sqlalchemy import PermissionMixin
 
@@ -122,8 +122,7 @@ class ViewDecorator(object):
             # Call the instance's before_request method
             viewinst.before_request(view_func.__name__, kwargs)
             # Finally, call the view handler method
-            return view_func.wrapped_func(viewinst, *args, **kwargs)
-            # TODO: Support `after_request` as well. Note that it needs Response objects
+            return viewinst.after_request(make_response(view_func.wrapped_func(viewinst, *args, **kwargs)))
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be applied.
@@ -239,7 +238,7 @@ class ClassView(object):
         """
         This method is called after the app's ``before_request`` handlers, and
         before the class's view method. It receives the name of the view
-        method with all keyword arguments that will be sent to the view method.
+        method, and all keyword arguments that will be sent to the view method.
         Subclasses and mixin classes may define their own
         :meth:`before_request` to pre-process requests.
 
@@ -249,6 +248,24 @@ class ClassView(object):
             These are typically parameters from the URL rule
         """
         pass
+
+    def after_request(self, response):
+        """
+        This method is called with the response from the view handler method.
+        It must return a valid response object. Subclasses and mixin classes
+        may override this to perform any necessary post-processing::
+
+            class MyView(ClassView):
+                ...
+                def after_request(self, response):
+                    response = super(MyView, self).after_request(response)
+                    ...  # Process here
+                    return response
+
+        :param response: Response from the view handler method
+        :return: Response object
+        """
+        return response
 
     @classmethod
     def __get_raw_attr(cls, name):
