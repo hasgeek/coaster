@@ -161,13 +161,13 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @route('')
     @render_with(json=True)
-    def view(self):
+    def view(self, **kwargs):
         return self.obj.current_access()
 
     @route('edit', methods=['GET', 'POST'])
     @route('', methods=['PUT'])
     @requires_permission('edit')
-    def edit(self):
+    def edit(self, **kwargs):
         return 'edit-called'
 
 

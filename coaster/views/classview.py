@@ -8,7 +8,7 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from functools import wraps, update_wrapper
+from functools import update_wrapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
@@ -16,10 +16,9 @@ from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, has_request_context
 from ..auth import current_auth, add_auth_attribute
-from ..utils import InspectableSet
 from ..sqlalchemy import PermissionMixin
 
-__all__ = ['route', 'current_view', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
+__all__ = ['route', 'rulejoin', 'current_view', 'ClassView', 'ModelView', 'UrlForView', 'InstanceLoader']
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
@@ -38,7 +37,9 @@ def route(rule, **options):
 
 def rulejoin(class_rule, method_rule):
     """
-    Join class and method rules::
+    Join class and method rules. Used internally by :class:`ClassView` to
+    combine rules from the :func:`route` decorators on the class and on the
+    individual view handler methods::
 
         >>> rulejoin('/', '')
         '/'
@@ -52,6 +53,8 @@ def rulejoin(class_rule, method_rule):
         '/first/second'
         >>> rulejoin('/first/<second>', '')
         '/first/<second>'
+        >>> rulejoin('/first/<second>', 'third')
+        '/first/<second>/third'
     """
     if method_rule.startswith('/'):
         return method_rule
@@ -106,32 +109,28 @@ class ViewDecorator(object):
         """
         Register routes for a given app and ClassView subclass
         """
-        # Revisit endpoint to account for subclasses
-        endpoint = cls.__name__ + '_' + self.name
-
         def view_func(*args, **kwargs):
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
             # Place it on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
-            result = viewinst.before_request(view_func.__name__, kwargs)
-            # Did the before_request handler return something? Assume it wants
-            # to interrupt the view and return it
-            if result is not None:
-                return result
+            viewinst.before_request(view_func.__name__, kwargs)
             # Finally, call the view handler method
             return view_func.wrapped_func(viewinst, *args, **kwargs)
             # TODO: Support `after_request` as well. Note that it needs Response objects
 
-        # Decorate the view function with the class's desired decorators
+        # Decorate the wrapped view function with the class's desired decorators.
+        # Mixin classes may provide their own decorators, and all of them will be applied.
         wrapped_func = self.func
-        for decorator in cls.__decorators__:
-            wrapped_func = decorator(wrapped_func)
+        for base in cls.__mro__:
+            if '__decorators__' in base.__dict__:
+                for decorator in base.__dict__['__decorators__']:
+                    wrapped_func = decorator(wrapped_func)
 
-        # Make view_func resemble the underlying view handler method
+        # Make view_func resemble the underlying view handler method...
         view_func = update_wrapper(view_func, wrapped_func)
-        # But give view_func the name of the method in the class (self.name),
+        # ...but give view_func the name of the method in the class (self.name),
         # as this is important to the before_request method. self.name will
         # differ from __name__ only if the view handler method was defined
         # outside the class and then added to the class.
@@ -140,6 +139,9 @@ class ViewDecorator(object):
         # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
         view_func.wrapped_func = wrapped_func
         view_func.view_class = cls
+
+        # Revisit endpoint to account for subclasses
+        endpoint = cls.__name__ + '_' + self.name
 
         for class_rule, class_options in cls.__routes__:
             for method_rule, method_options in self.routes:
@@ -294,13 +296,6 @@ class ClassView(object):
                     attr.init_app(app, cls, callback=callback)
 
 
-def _modelview_view_decorator_remove_kwargs(f):
-    @wraps(f)
-    def inner(self, **kwargs):
-        return f(self)
-    return inner
-
-
 class ModelView(ClassView):
     """
     Base class for constructing views around a model. Functionality is provided
@@ -317,18 +312,17 @@ class ModelView(ClassView):
 
             @route('')
             @render_with(json=True)
-            def view(self):
+            def view(self, **kwargs):
                 return self.obj.current_access()
 
         DocumentView.init_app(app)
 
-    :class:`ModelView` makes one significant departure from :class:`ClassView`:
-    view handler methods no longer receive URL rule variables as keyword
-    parameters. They are placed at ``self.kwargs`` instead, as it is assumed
-    that the view handler method has no further use for them once
-    :meth:`loader` loads the instance.
+    :class:`ModelView` keeps a copy of the view's keyword arguments (passed in
+    by Flask from the URL rule parameters) in :attr:`kwargs`. :meth:`loader`
+    implementations are expected to use this to determine what to load. Views
+    will continue to receive keyword arguments as in :class:`ClassView`, but
+    typically will have no use for them if :meth:`loader` works as expected.
     """
-    __decorators__ = ClassView.__decorators__ + [_modelview_view_decorator_remove_kwargs]
 
     #: The model that this view class represents, to be specified by subclasses.
     model = None
@@ -356,15 +350,6 @@ class ModelView(ClassView):
         """
         pass  # TODO: Maybe raise NotImplementedError?
 
-    def after_load(self, view):  # pragma: no cover
-        """
-        Subclasses or mixin classes may override this method to receive a call
-        after :meth:`loader` is called, to examine the loaded object. If this
-        method returns something, it will be used as the view's result and the
-        view itself will not be called.
-        """
-        pass
-
     def before_request(self, view, kwargs):
         """
         :class:`ModelView` overrides :meth:`~ClassView.before_request` to call
@@ -374,7 +359,6 @@ class ModelView(ClassView):
         super(ModelView, self).before_request(view, kwargs)
         self.kwargs = kwargs
         self.obj = self.loader(view)
-        return self.after_load(view)
 
 
 class UrlForView(object):
