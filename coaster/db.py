@@ -9,7 +9,7 @@ from sqlite3 import Connection as SQLite3Connection
 try:
     # PySqlite is only available for Python 2.x
     import pysqlite2.dbapi2
-    PySQLite3Connection = pysqlite2.dbapi2.Connection
+    PySQLite3Connection = pysqlite2.dbapi2.Connection  # pragma: no cover
 except ImportError:
     PySQLite3Connection = SQLite3Connection
 

@@ -90,7 +90,7 @@ def buid():
     """
     if six.PY3:  # pragma: no cover
         return urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
-    else:
+    else:  # pragma: no cover
         return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
 
 
@@ -349,7 +349,7 @@ def check_password(reference, attempt):
                     ref = b64decode(reference[6:])
             except binascii.Error:
                 return False  # Not Base64
-        else:
+        else:  # pragma: no cover
             try:
                 ref = b64decode(reference[6:])
             except TypeError:
@@ -361,7 +361,7 @@ def check_password(reference, attempt):
         if six.PY3:  # pragma: no cover
             # type(b64_encoded) is bytes and can't be compared with type(reference) which is str
             compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
-        else:
+        else:  # pragma: no cover
             compare = six.text_type('{SSHA}%s' % b64_encoded)
         return (compare == reference)
     elif reference.startswith(u'{BCRYPT}'):
@@ -371,7 +371,7 @@ def check_password(reference, attempt):
             reference = reference.encode('utf-8')
         if six.PY3:  # pragma: no cover
             return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
-        else:
+        else:  # pragma: no cover
             return bcrypt.hashpw(
                 attempt.encode('utf-8') if isinstance(attempt, six.text_type) else attempt,
                 str(reference[8:])) == reference[8:]
@@ -430,7 +430,7 @@ def md5sum(data):
     """
     if six.PY3:  # pragma: no cover
         return hashlib.md5(data.encode('utf-8')).hexdigest()
-    else:
+    else:  # pragma: no cover
         return hashlib.md5(data).hexdigest()
 
 
@@ -608,7 +608,7 @@ def require_one_of(_return=False, **kwargs):
 
     if six.PY3:  # pragma: no cover
         count = len(kwargs) - tuple(kwargs.values()).count(None)
-    else:
+    else:  # pragma: no cover
         count = len(kwargs) - kwargs.values().count(None)
 
     if count == 0:

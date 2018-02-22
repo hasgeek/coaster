@@ -14,7 +14,7 @@ import bleach
 
 if six.PY3:  # pragma: no cover
     from html import unescape
-else:
+else:  # pragma: no cover
     import HTMLParser
     unescape = HTMLParser.HTMLParser().unescape
     del HTMLParser
@@ -189,7 +189,7 @@ def simplify_text(text):
     if isinstance(text, six.text_type):
         if six.PY3:  # pragma: no cover
             text = text.translate(text.maketrans("", "", string.punctuation)).lower()
-        else:
+        else:  # pragma: no cover
             text = six.text_type(text.encode('utf-8').translate(string.maketrans("", ""), string.punctuation).lower(), 'utf-8')
     else:
         text = text.translate(string.maketrans("", ""), string.punctuation).lower()
