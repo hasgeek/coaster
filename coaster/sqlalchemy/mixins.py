@@ -587,12 +587,14 @@ class BaseIdNameMixin(BaseMixin):
         if isinstance(self, UuidMixin):
             return '%s-%s' % (self.name, self.suuid)
         else:
-            return '%s-%s' % (self.name, self.id)
+            return '%s-%s' % (self.name, self.url_id)
 
     @url_name_suuid.comparator
     def url_name_suuid(cls):
         if issubclass(cls, UuidMixin):
             return SqlSuuidComparator(cls.uuid, splitindex=-1)
+        elif cls.__uuid_primary_key__:
+            return SqlHexUuidComparator(cls.id, splitindex=-1)
         else:
             return SqlSplitIdComparator(cls.id, splitindex=-1)
 
