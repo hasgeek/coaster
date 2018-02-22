@@ -346,10 +346,7 @@ class ModelView(ClassView):
 
         DocumentView.init_app(app)
 
-    :class:`ModelView` keeps a copy of the view's keyword arguments (passed in
-    by Flask from the URL rule parameters) in :attr:`kwargs`. :meth:`loader`
-    implementations are expected to use this to determine what to load. Views
-    will continue to receive keyword arguments as in :class:`ClassView`, but
+    Views will receive keyword arguments as in :class:`ClassView`, but
     typically will have no use for them if :meth:`loader` works as expected.
     """
 
@@ -361,23 +358,25 @@ class ModelView(ClassView):
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
     #:
+    #:     model = MyModel
     #:     route_model_map = {
-    #:         'document': 'name',
-    #:         'parent': 'parent.name',
+    #:         'document': 'name',       # Map 'document' in URL to MyModel.name
+    #:         'parent': 'parent.name',  # Map 'parent' to MyModel.parent.name
     #:         }
+    #:
+    #: The :class:`InstanceLoader` mixin class will convert this mapping into
+    #: SQLAlchemy attribute references to load the instance object.
     route_model_map = {}
 
-    def loader(self, view):  # pragma: no cover
+    def loader(self, view, kwargs):  # pragma: no cover
         """
         Subclasses or mixin classes may override this method to provide a model
         instance loader. The return value of this method will be placed at
         ``self.obj``.
 
-        TODO: Consider allowing :meth:`loader` to place attributes on ``self``
-        by itself, to accommodate scenarios where multiple models need to be
-        loaded.
+        :return: Object instance loaded from database
         """
-        pass  # TODO: Maybe raise NotImplementedError?
+        pass
 
     def before_request(self, view, kwargs):
         """
@@ -386,9 +385,7 @@ class ModelView(ClassView):
         :func:`super` to ensure :meth:`loader` is called.
         """
         super(ModelView, self).before_request(view, kwargs)
-        self.kwargs = kwargs
-        self.view_name = view
-        self.obj = self.loader(view)
+        self.obj = self.loader(view, kwargs)
 
 
 class UrlForView(object):
@@ -477,12 +474,12 @@ class InstanceLoader(object):
     :class:`InstanceLoader` will traverse relationships (many-to-one or
     one-to-one) and perform a SQL ``JOIN`` with the target class.
     """
-    def loader(self, view):
-        if any((name in self.route_model_map for name in self.kwargs)):
+    def loader(self, view, kwargs):
+        if any((name in self.route_model_map for name in kwargs)):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
             filters = {self.route_model_map[key]: value
-                for key, value in self.kwargs.items()
+                for key, value in kwargs.items()
                 if key in self.route_model_map}
 
             query = self.query or self.model.query
