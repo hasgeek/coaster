@@ -16,7 +16,6 @@ from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, has_request_context, request, redirect, make_response
 from ..auth import current_auth, add_auth_attribute
-from ..sqlalchemy import PermissionMixin
 
 __all__ = [
     'route', 'rulejoin', 'current_view',  # Functions
@@ -550,7 +549,8 @@ class InstanceLoader(object):
             obj = query.one_or_404()
             # Determine permissions available on the object for the current actor,
             # but only if the view method has a requires_permission decorator
-            if hasattr(self.current_method.wrapped_func, 'requires_permission') and isinstance(obj, PermissionMixin):
+            if (hasattr(self.current_method.wrapped_func, 'requires_permission') and
+                    hasattr(obj, 'current_permissions')):
                 perms = obj.current_permissions
                 if hasattr(current_auth, 'permissions'):
                     perms = perms | current_auth.permissions
