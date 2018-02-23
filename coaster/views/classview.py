@@ -18,10 +18,10 @@ from flask import _request_ctx_stack, has_request_context, request, redirect, ma
 from ..auth import current_auth, add_auth_attribute
 
 __all__ = [
-    'route', 'rulejoin', 'current_view',  # Functions
+    'rulejoin', 'current_view',  # Functions
     'ClassView', 'ModelView',  # View base classes
-    'url_change_check',  # View decorators
-    'UrlForView', 'InstanceLoader', 'UrlChangeCheck'  # Mixin classes
+    'route', 'viewdata', 'url_change_check',  # View decorators
+    'UrlChangeCheck', 'UrlForView', 'InstanceLoader',  # Mixin classes
     ]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
@@ -38,7 +38,16 @@ def route(rule, **options):
     Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
     accepts. See :class:`ClassView` for usage notes.
     """
-    return ViewDecorator(rule, **options)
+    return ViewDecorator(rule, rule_options=options)
+
+
+def viewdata(**kwargs):
+    """
+    Decorator for adding additional data to a view method, to be used
+    alongside :func:`route`. This data is accessible as the ``data``
+    attribute on the view handler.
+    """
+    return ViewDecorator(None, viewdata=kwargs)
 
 
 def rulejoin(class_rule, method_rule):
@@ -70,22 +79,28 @@ def rulejoin(class_rule, method_rule):
 
 class ViewDecorator(object):
     """
-    Internal object for :func:`route` decorated view methods.
+    Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
-    def __init__(self, rule, **options):
-        self.routes = [(rule, options)]
+    def __init__(self, rule, rule_options={}, viewdata={}):
+        if rule is not None:
+            self.routes = [(rule, rule_options)]
+        else:
+            self.routes = []
+        self.data = viewdata
         self.endpoints = set()
 
     def reroute(self, f):
         # Use type(self) instead of ViewDecorator so this works for (future) subclasses of ViewDecorator
-        r = type(self)('')
+        r = type(self)(None)
         r.routes = self.routes
+        r.data = self.data
         return r.__call__(f)
 
     def copy_for_subclass(self):
         # Like reroute, but just a copy
-        r = type(self)('')
+        r = type(self)(None)
         r.routes = self.routes
+        r.data = self.data
         r.func = self.func  # Copy func but not wrapped_func, as it will be re-wrapped by init_app
         r.name = self.name
         r.endpoint = self.endpoint
@@ -105,6 +120,9 @@ class ViewDecorator(object):
         # wrapped method from it.
         elif isinstance(decorated, (ViewDecorator, ViewDecoratorWrapper)):
             self.routes.extend(decorated.routes)
+            newdata = dict(decorated.data)
+            newdata.update(self.data)
+            self.data = newdata
             self.func = decorated.func
 
         # If neither ClassView nor ViewDecorator, assume it's a callable method
@@ -207,7 +225,7 @@ class ViewDecoratorWrapper(object):
             self._obj == other._obj and
             self._cls == other._cls)
 
-    def __ne__(self, other):
+    def __ne__(self, other):  # pragma: no cover
         return not self.__eq__(other)
 
 
@@ -221,11 +239,13 @@ class ClassView(object):
 
         @route('/')
         class IndexView(ClassView):
+            @viewdata(title="Homepage")
             @route('')
             def index():
                 return render_template('index.html.jinja2')
 
             @route('about')
+            @viewdata(title="About us")
             def about():
                 return render_template('about.html.jinja2')
 
@@ -235,6 +255,12 @@ class ClassView(object):
     prefixed to the rule specified on each view method. This example produces
     two view handlers, for ``/`` and ``/about``. Multiple :func:`route`
     decorators may be used in both places.
+
+    The :func:`viewdata` decorator can be used to specify additional data, and
+    may appear either before or after the :func:`route` decorator, but only
+    adjacent to it. Data specified here is available as the :attr:`data`
+    attribute on the view handler, or at runtime in templates as
+    ``current_view.current_method.data``.
 
     A rudimentary CRUD view collection can be assembled like this::
 
@@ -260,6 +286,8 @@ class ClassView(object):
     """
     # If the class did not get a @route decorator, provide a fallback route
     __routes__ = [('', {})]
+    #: Track all the views registered in this class
+    __views__ = ()
     #: Subclasses may define decorators here. These will be applied to every
     #: view handler in the class, but only when called as a view and not
     #: as a Python method call.
@@ -348,6 +376,7 @@ class ClassView(object):
         parameters.
         """
         processed = set()
+        cls.__views__ = set()
         for base in cls.__mro__:
             for name, attr in base.__dict__.items():
                 if name in processed:
@@ -360,6 +389,7 @@ class ClassView(object):
                         attr = attr.copy_for_subclass()
                         setattr(cls, name, attr)
                     attr.__set_name__(cls, name)  # Required for Python < 3.6
+                    cls.__views__.add(name)
                     attr.init_app(app, cls, callback=callback)
 
 

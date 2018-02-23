@@ -9,7 +9,7 @@ from coaster.auth import add_auth_attribute
 from coaster.utils import InspectableSet
 from coaster.db import SQLAlchemy
 from coaster.views import (ClassView, ModelView, UrlForView, UrlChangeCheck, InstanceLoader,
-    route, requestargs, requestform, render_with, current_view, requires_permission)
+    route, viewdata, requestargs, requestform, render_with, current_view, requires_permission)
 
 
 app = Flask(__name__)
@@ -68,9 +68,11 @@ class RenameableDocument(BaseIdNameMixin, db.Model):
 @route('/')
 class IndexView(ClassView):
     @route('')
+    @viewdata(title="Index")
     def index(self):
         return 'index'
 
+    @viewdata(title="Page")
     @route('page')
     def page(self):
         return 'page'
@@ -112,9 +114,11 @@ DocumentView.init_app(app)
 
 class BaseView(ClassView):
     @route('')
+    @viewdata(title="First")
     def first(self):
         return 'first'
 
+    @viewdata(title="Second")
     @route('second')
     def second(self):
         return 'second'
@@ -137,12 +141,14 @@ class BaseView(ClassView):
 
 @route('/subclasstest')
 class SubView(BaseView):
+    @viewdata(title="Still first")
     @BaseView.first.reroute
     def first(self):
         return 'rerouted-first'
 
     @route('2')
     @BaseView.second.reroute
+    @viewdata(title="Not still second")
     def second(self):
         return 'rerouted-second'
 
@@ -380,6 +386,20 @@ class TestClassView(unittest.TestCase):
         assert SubView.inherited.endpoints == {'SubView_inherited'}
         assert BaseView.also_inherited.endpoints == set()
         assert SubView.also_inherited.endpoints == {'SubView_also_inherited', 'just_also_inherited'}
+
+    def test_viewdata(self):
+        """View handlers can have additional data fields"""
+        assert IndexView.index.data['title'] == "Index"
+        assert IndexView.page.data['title'] == "Page"
+        assert BaseView.first.data['title'] == "First"
+        assert BaseView.second.data['title'] == "Second"
+        assert SubView.first.data['title'] == "Still first"
+        assert SubView.second.data['title'] != "Not still second"  # Reroute took priority
+        assert SubView.second.data['title'] == "Second"
+
+    def test_viewlist(self):
+        assert IndexView.__views__ == {
+            'current_method_is_self', 'current_method_is_wrapper', 'current_view_is_self', 'index', 'page'}
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""
