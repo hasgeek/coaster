@@ -181,8 +181,6 @@ class ViewDecorator(object):
                 use_options.update(class_options)
                 endpoint = use_options.pop('endpoint', self.endpoint)
                 self.endpoints.add(endpoint)
-                # If there are multiple rules with custom endpoint names, the last route's prevails here
-                self.endpoint = endpoint
                 use_rule = rulejoin(class_rule, method_rule)
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
                 if callback:
