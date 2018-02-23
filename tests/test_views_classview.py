@@ -79,6 +79,10 @@ class IndexView(ClassView):
     def current_view_is_self(self):
         return str(current_view == self)
 
+    @route('current_view/current_method')
+    def current_method_is_self(self):
+        return str(current_view.current_method.name == 'current_method_is_self')
+
 IndexView.init_app(app)
 
 
@@ -142,7 +146,7 @@ class SubView(BaseView):
         return 'removed-third'
 
 SubView.add_route_for('also_inherited', '/inherited')
-SubView.add_route_for('also_inherited', 'inherited2')
+SubView.add_route_for('also_inherited', 'inherited2', endpoint='just_also_inherited')
 SubView.add_route_for('latent_route', 'latent')
 SubView.init_app(app)
 
@@ -165,13 +169,13 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         }
 
     @requestargs('access_token')
-    def before_request(self, view, kwargs, access_token=None):
+    def before_request(self, kwargs, access_token=None):
         if access_token == 'owner-admin-secret':
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         if access_token == 'owner-secret':
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
-        return super(ModelDocumentView, self).before_request(view, kwargs)
+        return super(ModelDocumentView, self).before_request(kwargs)
 
     @route('')
     @render_with(json=True)
@@ -183,7 +187,6 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     @requires_permission('edit')
     def edit(self, **kwargs):
         return 'edit-called'
-
 
 ModelDocumentView.init_app(app)
 
@@ -243,6 +246,10 @@ class TestClassView(unittest.TestCase):
 
     def test_current_view(self):
         rv = self.client.get('/current_view')
+        assert rv.data == b'True'
+
+    def test_current_method(self):
+        rv = self.client.get('/current_view/current_method')
         assert rv.data == b'True'
 
     def test_document_404(self):
@@ -351,6 +358,20 @@ class TestClassView(unittest.TestCase):
         # Confirm we did not accidentally acquire this from SubView's use of reroute
         rv = self.client.get('/secondsub/2')
         assert rv.status_code == 404
+
+    def test_endpoints(self):
+        """View handlers get endpoints reflecting where they are"""
+        assert IndexView.index.endpoints == {'IndexView_index'}
+        assert IndexView.page.endpoints == {'IndexView_page'}
+        assert BaseView.first.endpoints == set()
+        assert SubView.first.endpoints == {'SubView_first'}
+        assert BaseView.second.endpoints == set()
+        assert SubView.second.endpoints == {'SubView_second'}
+        assert AnotherSubView.second.endpoints == {'AnotherSubView_second'}
+        assert BaseView.inherited.endpoints == set()
+        assert SubView.inherited.endpoints == {'SubView_inherited'}
+        assert BaseView.also_inherited.endpoints == set()
+        assert SubView.also_inherited.endpoints == {'SubView_also_inherited', 'just_also_inherited'}
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""

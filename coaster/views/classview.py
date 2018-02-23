@@ -27,6 +27,8 @@ __all__ = [
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
+#: Note that the current view handler method within the class is named
+#: :attr:`~current_view.current_method`, so to examine it, use :attr:`current_view.current_method`.
 current_view = LocalProxy(lambda: has_request_context() and getattr(_request_ctx_stack.top, 'current_view', None))
 
 
@@ -73,12 +75,24 @@ class ViewDecorator(object):
     """
     def __init__(self, rule, **options):
         self.routes = [(rule, options)]
+        self.endpoints = set()
 
     def reroute(self, f):
         # Use type(self) instead of ViewDecorator so this works for (future) subclasses of ViewDecorator
         r = type(self)('')
         r.routes = self.routes
         return r.__call__(f)
+
+    def copy_for_subclass(self):
+        # Like reroute, but just a copy
+        r = type(self)('')
+        r.routes = self.routes
+        r.func = self.func  # Copy func but not wrapped_func, as it will be re-wrapped by init_app
+        r.name = self.name
+        r.endpoint = self.endpoint
+        r.__doc__ = self.__doc__
+        r.endpoints = set()
+        return r
 
     def __call__(self, decorated):
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
@@ -98,7 +112,7 @@ class ViewDecorator(object):
         else:
             self.func = decorated
 
-        self.name = self.__name__ = self.func.__name__
+        self.name = self.func.__name__
         self.endpoint = self.name  # This will change once init_app calls __set_name__
         self.__doc__ = self.func.__doc__
         return self
@@ -106,21 +120,32 @@ class ViewDecorator(object):
     # Normally Python 3.6+, but called manually by :meth:`ClassView.init_app`
     def __set_name__(self, owner, name):
         self.name = name
+        self.endpoint = owner.__name__ + '_' + self.name
 
     def __get__(self, obj, cls=None):
         return ViewDecoratorWrapper(self, obj, cls)
 
     def init_app(self, app, cls, callback=None):
         """
-        Register routes for a given app and ClassView subclass
+        Register routes for a given app and :class:`ClassView` class. At the
+        time of this call, we will always be in the view class even if we were
+        originally defined in a base class. :meth:`ClassView.init_app`
+        ensures this. :meth:`init_app` therefore takes the liberty of adding
+        additional attributes to ``self``:
+
+        * :attr:`wrapped_func`: The function wrapped with all decorators added by the class
+        * :attr:`view_func`: The view function registered as a Flask view handler
+        * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
         def view_func(*args, **kwargs):
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
+            # Declare ourselves (the ViewDecorator) as the current view
+            viewinst.current_method = view_func.view
             # Place it on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
-            viewinst.before_request(view_func.__name__, kwargs)
+            viewinst.before_request(kwargs)
             # Finally, call the view handler method
             return viewinst.after_request(make_response(view_func.wrapped_func(viewinst, *args, **kwargs)))
 
@@ -131,6 +156,7 @@ class ViewDecorator(object):
             if '__decorators__' in base.__dict__:
                 for decorator in base.__dict__['__decorators__']:
                     wrapped_func = decorator(wrapped_func)
+                    # wrapped_func.__name__ = self.name  # See below
 
         # Make view_func resemble the underlying view handler method...
         view_func = update_wrapper(view_func, wrapped_func)
@@ -139,26 +165,22 @@ class ViewDecorator(object):
         # differ from __name__ only if the view handler method was defined
         # outside the class and then added to the class.
         view_func.__name__ = self.name
-        # Note: While this fixes for external inspection, the wrappers we just
-        # applied will continue to have self.func.__name__, which will break them
-        # if they depend on it and if the method was defined outside the class
-        # with a different name from what it has inside the class. Ideally,
-        # the programmer should correct for this by always correcting __name__
-        # before adding it to the class. See url_change_check below for an
-        # exampe of how this may happen
 
         # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
         view_func.wrapped_func = wrapped_func
         view_func.view_class = cls
+        view_func.view = self
 
-        # Revisit endpoint to account for subclasses
-        endpoint = cls.__name__ + '_' + self.name
+        # Keep a copy of these functions (we already have self.func)
+        self.wrapped_func = wrapped_func
+        self.view_func = view_func
 
         for class_rule, class_options in cls.__routes__:
             for method_rule, method_options in self.routes:
                 use_options = dict(method_options)
                 use_options.update(class_options)
-                endpoint = use_options.pop('endpoint', endpoint)
+                endpoint = use_options.pop('endpoint', self.endpoint)
+                self.endpoints.add(endpoint)
                 use_rule = rulejoin(class_rule, method_rule)
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
                 if callback:
@@ -174,6 +196,7 @@ class ViewDecoratorWrapper(object):
 
     def __call__(self, *args, **kwargs):
         """Treat this like a call to the method (and not to the view)"""
+        # As per the __decorators__ spec, we call .func, not .wrapped_func
         return self.__viewd.func(self.__obj, *args, **kwargs)
 
     def __getattr__(self, name):
@@ -234,7 +257,11 @@ class ClassView(object):
     #: as a Python method call.
     __decorators__ = []
 
-    def before_request(self, view, kwargs):
+    #: When a view is called, this will point to the current view handler,
+    #: an instance of `ViewDecorator`.
+    current_method = None
+
+    def before_request(self, kwargs):
         """
         This method is called after the app's ``before_request`` handlers, and
         before the class's view method. It receives the name of the view
@@ -242,8 +269,6 @@ class ClassView(object):
         Subclasses and mixin classes may define their own
         :meth:`before_request` to pre-process requests.
 
-        :param str view: The name of the view handler that will be called. The
-            view itself can be retrieved as ``getattr(self, view)``
         :param dict kwargs: Parameters that will be sent to the view handler.
             These are typically parameters from the URL rule
         """
@@ -321,7 +346,12 @@ class ClassView(object):
                     continue
                 processed.add(name)
                 if isinstance(attr, ViewDecorator):
-                    attr.__set_name__(base, name)  # Required for Python < 3.6
+                    if base != cls:  # Copy ViewDecorator instances into subclasses
+                        # TODO: Don't do this during init_app. Use a metaclass
+                        # and do this when the class is defined.
+                        attr = attr.copy_for_subclass()
+                        setattr(cls, name, attr)
+                    attr.__set_name__(cls, name)  # Required for Python < 3.6
                     attr.init_app(app, cls, callback=callback)
 
 
@@ -368,7 +398,7 @@ class ModelView(ClassView):
     #: SQLAlchemy attribute references to load the instance object.
     route_model_map = {}
 
-    def loader(self, view, kwargs):  # pragma: no cover
+    def loader(self, kwargs):  # pragma: no cover
         """
         Subclasses or mixin classes may override this method to provide a model
         instance loader. The return value of this method will be placed at
@@ -378,14 +408,14 @@ class ModelView(ClassView):
         """
         pass
 
-    def before_request(self, view, kwargs):
+    def before_request(self, kwargs):
         """
         :class:`ModelView` overrides :meth:`~ClassView.before_request` to call
         :meth:`loader`. Subclasses overriding this method must use
         :func:`super` to ensure :meth:`loader` is called.
         """
-        super(ModelView, self).before_request(view, kwargs)
-        self.obj = self.loader(view, kwargs)
+        super(ModelView, self).before_request(kwargs)
+        self.obj = self.loader(kwargs)
 
 
 class UrlForView(object):
@@ -474,7 +504,7 @@ class InstanceLoader(object):
     :class:`InstanceLoader` will traverse relationships (many-to-one or
     one-to-one) and perform a SQL ``JOIN`` with the target class.
     """
-    def loader(self, view, kwargs):
+    def loader(self, kwargs):
         if any((name in self.route_model_map for name in kwargs)):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
@@ -511,7 +541,7 @@ class InstanceLoader(object):
             obj = query.one_or_404()
             # Determine permissions available on the object for the current actor,
             # but only if the view method has a requires_permission decorator
-            if hasattr(getattr(self, view).func, 'requires_permission') and isinstance(obj, PermissionMixin):
+            if hasattr(self.current_method.wrapped_func, 'requires_permission') and isinstance(obj, PermissionMixin):
                 perms = obj.current_permissions
                 if hasattr(current_auth, 'permissions'):
                     perms = perms | current_auth.permissions
