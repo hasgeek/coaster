@@ -81,13 +81,13 @@ class IndexView(ClassView):
     def current_view_is_self(self):
         return str(current_view == self)
 
-    @route('current_view/current_method_is_self')
-    def current_method_is_self(self):
-        return str(current_view.current_method.name == 'current_method_is_self')
+    @route('current_view/current_handler_is_self')
+    def current_handler_is_self(self):
+        return str(current_view.current_handler.name == 'current_handler_is_self')
 
-    @route('current_view/current_method_is_wrapper')
-    def current_method_is_wrapper(self):
-        return str(current_view.current_method == self.current_method_is_wrapper)
+    @route('current_view/current_handler_is_wrapper')
+    def current_handler_is_wrapper(self):
+        return str(current_view.current_handler == self.current_handler_is_wrapper)
 
 IndexView.init_app(app)
 
@@ -258,12 +258,12 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/current_view')
         assert rv.data == b'True'
 
-    def test_current_method_is_self(self):
-        rv = self.client.get('/current_view/current_method_is_self')
+    def test_current_handler_is_self(self):
+        rv = self.client.get('/current_view/current_handler_is_self')
         assert rv.data == b'True'
 
-    def test_current_method_is_wrapper(self):
-        rv = self.client.get('/current_view/current_method_is_wrapper')
+    def test_current_handler_is_wrapper(self):
+        rv = self.client.get('/current_view/current_handler_is_wrapper')
         assert rv.data == b'True'
 
     def test_document_404(self):
@@ -399,7 +399,7 @@ class TestClassView(unittest.TestCase):
 
     def test_viewlist(self):
         assert IndexView.__views__ == {
-            'current_method_is_self', 'current_method_is_wrapper', 'current_view_is_self', 'index', 'page'}
+            'current_handler_is_self', 'current_handler_is_wrapper', 'current_view_is_self', 'index', 'page'}
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""

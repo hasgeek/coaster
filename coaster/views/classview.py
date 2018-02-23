@@ -27,18 +27,18 @@ __all__ = [
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
 #: Note that the current view handler method within the class is named
-#: :attr:`~current_view.current_method`, so to examine it, use :attr:`current_view.current_method`.
+#: :attr:`~current_view.current_handler`, so to examine it, use :attr:`current_view.current_handler`.
 current_view = LocalProxy(lambda: has_request_context() and getattr(_request_ctx_stack.top, 'current_view', None))
 
 
-# :func:`route` wraps :class:`ViewDecorator` so that it can have an independent __doc__
+# :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
 def route(rule, **options):
     """
     Decorator for defining routes on a :class:`ClassView` and its methods.
     Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
     accepts. See :class:`ClassView` for usage notes.
     """
-    return ViewDecorator(rule, rule_options=options)
+    return ViewHandler(rule, rule_options=options)
 
 
 def viewdata(**kwargs):
@@ -47,7 +47,7 @@ def viewdata(**kwargs):
     alongside :func:`route`. This data is accessible as the ``data``
     attribute on the view handler.
     """
-    return ViewDecorator(None, viewdata=kwargs)
+    return ViewHandler(None, viewdata=kwargs)
 
 
 def rulejoin(class_rule, method_rule):
@@ -77,7 +77,7 @@ def rulejoin(class_rule, method_rule):
         return class_rule + ('' if class_rule.endswith('/') or not method_rule else '/') + method_rule
 
 
-class ViewDecorator(object):
+class ViewHandler(object):
     """
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
@@ -90,7 +90,7 @@ class ViewDecorator(object):
         self.endpoints = set()
 
     def reroute(self, f):
-        # Use type(self) instead of ViewDecorator so this works for (future) subclasses of ViewDecorator
+        # Use type(self) instead of ViewHandler so this works for (future) subclasses of ViewHandler
         r = type(self)(None)
         r.routes = self.routes
         r.data = self.data
@@ -116,16 +116,16 @@ class ViewDecorator(object):
             decorated.__routes__.extend(self.routes)
             return decorated
 
-        # Are we decorating another ViewDecorator? If so, copy routes and
+        # Are we decorating another ViewHandler? If so, copy routes and
         # wrapped method from it.
-        elif isinstance(decorated, (ViewDecorator, ViewDecoratorWrapper)):
+        elif isinstance(decorated, (ViewHandler, ViewHandlerWrapper)):
             self.routes.extend(decorated.routes)
             newdata = dict(decorated.data)
             newdata.update(self.data)
             self.data = newdata
             self.func = decorated.func
 
-        # If neither ClassView nor ViewDecorator, assume it's a callable method
+        # If neither ClassView nor ViewHandler, assume it's a callable method
         else:
             self.func = decorated
 
@@ -140,7 +140,7 @@ class ViewDecorator(object):
         self.endpoint = owner.__name__ + '_' + self.name
 
     def __get__(self, obj, cls=None):
-        return ViewDecoratorWrapper(self, obj, cls)
+        return ViewHandlerWrapper(self, obj, cls)
 
     def init_app(self, app, cls, callback=None):
         """
@@ -157,8 +157,8 @@ class ViewDecorator(object):
         def view_func(*args, **kwargs):
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
-            # Declare ourselves (the ViewDecorator) as the current view
-            viewinst.current_method = ViewDecoratorWrapper(view_func.view, viewinst, view_func.view_class)
+            # Declare ourselves (the ViewHandler) as the current view
+            viewinst.current_handler = ViewHandlerWrapper(view_func.view, viewinst, view_func.view_class)
             # Place it on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
@@ -204,24 +204,24 @@ class ViewDecorator(object):
                     callback(use_rule, endpoint, view_func, **use_options)
 
 
-class ViewDecoratorWrapper(object):
+class ViewHandlerWrapper(object):
     """Wrapper for a view at runtime"""
-    def __init__(self, viewd, obj, cls=None):
-        self._viewd = viewd
+    def __init__(self, viewh, obj, cls=None):
+        self._viewh = viewh
         self._obj = obj
         self._cls = cls
 
     def __call__(self, *args, **kwargs):
         """Treat this like a call to the method (and not to the view)"""
         # As per the __decorators__ spec, we call .func, not .wrapped_func
-        return self._viewd.func(self._obj, *args, **kwargs)
+        return self._viewh.func(self._obj, *args, **kwargs)
 
     def __getattr__(self, name):
-        return getattr(self._viewd, name)
+        return getattr(self._viewh, name)
 
     def __eq__(self, other):
-        return (isinstance(other, ViewDecoratorWrapper) and
-            self._viewd == other._viewd and
+        return (isinstance(other, ViewHandlerWrapper) and
+            self._viewh == other._viewh and
             self._obj == other._obj and
             self._cls == other._cls)
 
@@ -260,7 +260,7 @@ class ClassView(object):
     may appear either before or after the :func:`route` decorator, but only
     adjacent to it. Data specified here is available as the :attr:`data`
     attribute on the view handler, or at runtime in templates as
-    ``current_view.current_method.data``.
+    ``current_view.current_handler.data``.
 
     A rudimentary CRUD view collection can be assembled like this::
 
@@ -294,8 +294,8 @@ class ClassView(object):
     __decorators__ = []
 
     #: When a view is called, this will point to the current view handler,
-    #: an instance of `ViewDecorator`.
-    current_method = None
+    #: an instance of `ViewHandler`.
+    current_handler = None
 
     def before_request(self, kwargs):
         """
@@ -382,8 +382,8 @@ class ClassView(object):
                 if name in processed:
                     continue
                 processed.add(name)
-                if isinstance(attr, ViewDecorator):
-                    if base != cls:  # Copy ViewDecorator instances into subclasses
+                if isinstance(attr, ViewHandler):
+                    if base != cls:  # Copy ViewHandler instances into subclasses
                         # TODO: Don't do this during init_app. Use a metaclass
                         # and do this when the class is defined.
                         attr = attr.copy_for_subclass()
@@ -579,7 +579,7 @@ class InstanceLoader(object):
             obj = query.one_or_404()
             # Determine permissions available on the object for the current actor,
             # but only if the view method has a requires_permission decorator
-            if (hasattr(self.current_method.wrapped_func, 'requires_permission') and
+            if (hasattr(self.current_handler.wrapped_func, 'requires_permission') and
                     hasattr(obj, 'current_permissions')):
                 perms = obj.current_permissions
                 if hasattr(current_auth, 'permissions'):
