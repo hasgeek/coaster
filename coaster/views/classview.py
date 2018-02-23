@@ -141,7 +141,7 @@ class ViewDecorator(object):
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
             # Declare ourselves (the ViewDecorator) as the current view
-            viewinst.current_method = view_func.view
+            viewinst.current_method = ViewDecoratorWrapper(view_func.view, viewinst, view_func.view_class)
             # Place it on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
             # Call the instance's before_request method
@@ -181,6 +181,8 @@ class ViewDecorator(object):
                 use_options.update(class_options)
                 endpoint = use_options.pop('endpoint', self.endpoint)
                 self.endpoints.add(endpoint)
+                # If there are multiple rules with custom endpoint names, the last route's prevails here
+                self.endpoint = endpoint
                 use_rule = rulejoin(class_rule, method_rule)
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
                 if callback:
@@ -190,17 +192,26 @@ class ViewDecorator(object):
 class ViewDecoratorWrapper(object):
     """Wrapper for a view at runtime"""
     def __init__(self, viewd, obj, cls=None):
-        self.__viewd = viewd
-        self.__obj = obj
-        self.__cls = cls
+        self._viewd = viewd
+        self._obj = obj
+        self._cls = cls
 
     def __call__(self, *args, **kwargs):
         """Treat this like a call to the method (and not to the view)"""
         # As per the __decorators__ spec, we call .func, not .wrapped_func
-        return self.__viewd.func(self.__obj, *args, **kwargs)
+        return self._viewd.func(self._obj, *args, **kwargs)
 
     def __getattr__(self, name):
-        return getattr(self.__viewd, name)
+        return getattr(self._viewd, name)
+
+    def __eq__(self, other):
+        return (isinstance(other, ViewDecoratorWrapper) and
+            self._viewd == other._viewd and
+            self._obj == other._obj and
+            self._cls == other._cls)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class ClassView(object):
