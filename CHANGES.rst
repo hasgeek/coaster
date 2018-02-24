@@ -21,6 +21,8 @@
 * New: ``coaster.views.requires_permission`` decorator
 * New: ``coaster.views.classview`` provides a new take on organising views
   into a class
+* New: ``coaster.utils.classmethodproperty``: like a property, but for class
+  methods
 
 
 0.6.0

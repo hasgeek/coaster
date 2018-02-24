@@ -9,7 +9,7 @@ from coaster.auth import add_auth_attribute
 from coaster.utils import InspectableSet
 from coaster.db import SQLAlchemy
 from coaster.views import (ClassView, ModelView, UrlForView, UrlChangeCheck, InstanceLoader,
-    route, requestargs, requestform, render_with, current_view, requires_permission)
+    route, viewdata, requestargs, requestform, render_with, current_view, requires_permission)
 
 
 app = Flask(__name__)
@@ -40,7 +40,8 @@ class ViewDocument(BaseNameMixin, db.Model):
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_view_document'
     parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
-    parent = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
+    view_document = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
+    parent = db.synonym('view_document')
 
     __roles__ = {
         'all': {
@@ -68,9 +69,11 @@ class RenameableDocument(BaseIdNameMixin, db.Model):
 @route('/')
 class IndexView(ClassView):
     @route('')
+    @viewdata(title="Index")
     def index(self):
         return 'index'
 
+    @viewdata(title="Page")
     @route('page')
     def page(self):
         return 'page'
@@ -78,6 +81,14 @@ class IndexView(ClassView):
     @route('current_view')
     def current_view_is_self(self):
         return str(current_view == self)
+
+    @route('current_view/current_handler_is_self')
+    def current_handler_is_self(self):
+        return str(current_view.current_handler.name == 'current_handler_is_self')
+
+    @route('current_view/current_handler_is_wrapper')
+    def current_handler_is_wrapper(self):
+        return str(current_view.current_handler == self.current_handler_is_wrapper)
 
 IndexView.init_app(app)
 
@@ -104,9 +115,11 @@ DocumentView.init_app(app)
 
 class BaseView(ClassView):
     @route('')
+    @viewdata(title="First")
     def first(self):
         return 'first'
 
+    @viewdata(title="Second")
     @route('second')
     def second(self):
         return 'second'
@@ -129,12 +142,14 @@ class BaseView(ClassView):
 
 @route('/subclasstest')
 class SubView(BaseView):
+    @viewdata(title="Still first")
     @BaseView.first.reroute
     def first(self):
         return 'rerouted-first'
 
     @route('2')
     @BaseView.second.reroute
+    @viewdata(title="Not still second")
     def second(self):
         return 'rerouted-second'
 
@@ -142,7 +157,7 @@ class SubView(BaseView):
         return 'removed-third'
 
 SubView.add_route_for('also_inherited', '/inherited')
-SubView.add_route_for('also_inherited', 'inherited2')
+SubView.add_route_for('also_inherited', 'inherited2', endpoint='just_also_inherited')
 SubView.add_route_for('latent_route', 'latent')
 SubView.init_app(app)
 
@@ -165,13 +180,13 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         }
 
     @requestargs('access_token')
-    def before_request(self, view, kwargs, access_token=None):
+    def before_request(self, kwargs, access_token=None):
         if access_token == 'owner-admin-secret':
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         if access_token == 'owner-secret':
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
-        return super(ModelDocumentView, self).before_request(view, kwargs)
+        return super(ModelDocumentView, self).before_request(kwargs)
 
     @route('')
     @render_with(json=True)
@@ -183,7 +198,6 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     @requires_permission('edit')
     def edit(self, **kwargs):
         return 'edit-called'
-
 
 ModelDocumentView.init_app(app)
 
@@ -243,6 +257,14 @@ class TestClassView(unittest.TestCase):
 
     def test_current_view(self):
         rv = self.client.get('/current_view')
+        assert rv.data == b'True'
+
+    def test_current_handler_is_self(self):
+        rv = self.client.get('/current_view/current_handler_is_self')
+        assert rv.data == b'True'
+
+    def test_current_handler_is_wrapper(self):
+        rv = self.client.get('/current_view/current_handler_is_wrapper')
         assert rv.data == b'True'
 
     def test_document_404(self):
@@ -351,6 +373,34 @@ class TestClassView(unittest.TestCase):
         # Confirm we did not accidentally acquire this from SubView's use of reroute
         rv = self.client.get('/secondsub/2')
         assert rv.status_code == 404
+
+    def test_endpoints(self):
+        """View handlers get endpoints reflecting where they are"""
+        assert IndexView.index.endpoints == {'IndexView_index'}
+        assert IndexView.page.endpoints == {'IndexView_page'}
+        assert BaseView.first.endpoints == set()
+        assert SubView.first.endpoints == {'SubView_first'}
+        assert BaseView.second.endpoints == set()
+        assert SubView.second.endpoints == {'SubView_second'}
+        assert AnotherSubView.second.endpoints == {'AnotherSubView_second'}
+        assert BaseView.inherited.endpoints == set()
+        assert SubView.inherited.endpoints == {'SubView_inherited'}
+        assert BaseView.also_inherited.endpoints == set()
+        assert SubView.also_inherited.endpoints == {'SubView_also_inherited', 'just_also_inherited'}
+
+    def test_viewdata(self):
+        """View handlers can have additional data fields"""
+        assert IndexView.index.data['title'] == "Index"
+        assert IndexView.page.data['title'] == "Page"
+        assert BaseView.first.data['title'] == "First"
+        assert BaseView.second.data['title'] == "Second"
+        assert SubView.first.data['title'] == "Still first"
+        assert SubView.second.data['title'] != "Not still second"  # Reroute took priority
+        assert SubView.second.data['title'] == "Second"
+
+    def test_viewlist(self):
+        assert IndexView.__views__ == {
+            'current_handler_is_self', 'current_handler_is_wrapper', 'current_view_is_self', 'index', 'page'}
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""
