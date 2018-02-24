@@ -40,7 +40,8 @@ class ViewDocument(BaseNameMixin, db.Model):
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_view_document'
     parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
-    parent = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
+    view_document = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
+    parent = db.synonym('view_document')
 
     __roles__ = {
         'all': {

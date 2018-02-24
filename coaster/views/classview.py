@@ -12,6 +12,7 @@ from functools import wraps, update_wrapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
+from sqlalchemy.orm.descriptor_props import SynonymProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, has_request_context, request, redirect, make_response
@@ -558,21 +559,25 @@ class InstanceLoader(object):
                     # Dig into it to find the source column
                     source = self.model
                     for subname in name.split('.'):
-                        source = getattr(source, subname)
-                        # Did we get to something like 'parent'? If it's a relationship, find
-                        # the source class, join it to the query, and then continue looking for
-                        # attributes over there
-                        if isinstance(source, InstrumentedAttribute):
-                            if isinstance(source.property, RelationshipProperty):
-                                if isinstance(source.property.argument, Mapper):
-                                    source = source.property.argument.class_  # Unlikely to be used. pragma: no cover
+                        attr = getattr(source, subname)
+                        # Did we get to something like 'parent'?
+                        # 1. If it's a synonym, get the attribute it is a synonym for
+                        # 2. If it's a relationship, find the source class, join it to
+                        # the query, and then continue looking for attributes over there
+                        if hasattr(attr, 'original_property') and isinstance(attr.original_property, SynonymProperty):
+                            attr = getattr(source, attr.original_property.name)
+                        if isinstance(attr, InstrumentedAttribute):
+                            if isinstance(attr.property, RelationshipProperty):
+                                if isinstance(attr.property.argument, Mapper):
+                                    attr = attr.property.argument.class_  # Unlikely to be used. pragma: no cover
                                 else:
-                                    source = source.property.argument
-                                if source not in joined_models:
+                                    attr = attr.property.argument
+                                if attr not in joined_models:
                                     # SQL JOIN the other model
-                                    query = query.join(source)
+                                    query = query.join(attr)
                                     # But ensure we don't JOIN twice
-                                    joined_models.add(source)
+                                    joined_models.add(attr)
+                        source = attr
                     query = query.filter(source == value)
                 else:
                     query = query.filter(getattr(self.model, name) == value)
