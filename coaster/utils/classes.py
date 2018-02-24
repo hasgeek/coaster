@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Classes
--------
+Utility classes
+---------------
 """
 
 from __future__ import absolute_import
 import six
 from collections import namedtuple, OrderedDict, Set
 
-__all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet']
+__all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
 
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
@@ -273,3 +273,66 @@ class InspectableSet(Set):
 
     def __setattr__(self, attr, value):
         raise AttributeError(attr)
+
+
+class classmethodproperty(object):
+    """
+    Class method decorator to make class methods behave like properties::
+
+        >>> class Foo(object):
+        ...     @classmethodproperty
+        ...     def test(cls):
+        ...         print(repr(cls))
+        ...
+
+    Works on classes::
+
+        >>> Foo.test
+        <class 'coaster.utils.classes.Foo'>
+
+    Works on class instances::
+
+        >>> Foo().test
+        <class 'coaster.utils.classes.Foo'>
+
+    Works on subclasses too::
+
+        >>> class Bar(Foo):
+        ...     pass
+        ...
+        >>> Bar.test
+        <class 'coaster.utils.classes.Bar'>
+        >>> Bar().test
+        <class 'coaster.utils.classes.Bar'>
+
+    Due to limitations in Python's descriptor API, :class:`classmethodproperty`
+    can block write and delete access on an instance...
+
+    ::
+
+        >>> Foo().test = 'bar'
+        Traceback (most recent call last):
+        AttributeError: test is read-only
+        >>> del Foo().test
+        Traceback (most recent call last):
+        AttributeError: test is read-only
+
+    ...but not on the class itself::
+
+        >>> Foo.test = 'bar'
+        >>> Foo.test
+        'bar'
+    """
+    def __init__(self, func):
+        self.func = func
+
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.func(cls)
+
+    def __set__(self, obj, value):
+        raise AttributeError("%s is read-only" % self.func.__name__)
+
+    def __delete__(self, obj):
+        raise AttributeError("%s is read-only" % self.func.__name__)
