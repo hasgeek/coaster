@@ -169,19 +169,31 @@ class ViewHandler(object):
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be applied.
+        # The oldest defined decorators (from mixins) will be applied first, and the
+        # class's own decorators last. Within the list of decorators, we reverse the list
+        # again, so that a list specified like this:
+        #
+        #     __decorators__ = [first, second]
+        #
+        # Has the same effect as writing this:
+        #
+        #     @first
+        #     @second
+        #     def myview(self):
+        #         pass
         wrapped_func = self.func
-        for base in cls.__mro__:
+        for base in reversed(cls.__mro__):
             if '__decorators__' in base.__dict__:
-                for decorator in base.__dict__['__decorators__']:
+                for decorator in reversed(base.__dict__['__decorators__']):
                     wrapped_func = decorator(wrapped_func)
-                    # wrapped_func.__name__ = self.name  # See below
+                    wrapped_func.__name__ = self.name  # See below
 
         # Make view_func resemble the underlying view handler method...
         view_func = update_wrapper(view_func, wrapped_func)
         # ...but give view_func the name of the method in the class (self.name),
-        # as this is important to the before_request method. self.name will
-        # differ from __name__ only if the view handler method was defined
-        # outside the class and then added to the class.
+        # self.name will differ from __name__ only if the view handler method
+        # was defined outside the class and then added to the class with a
+        # different name.
         view_func.__name__ = self.name
 
         # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
