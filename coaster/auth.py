@@ -62,7 +62,7 @@ def add_auth_attribute(attr, value, actor=False):
         # A user is always an actor
         actor = True
 
-    if actor and ca.actor is None and value is not None:
+    if actor:
         object.__setattr__(ca, 'actor', value)
 
 
