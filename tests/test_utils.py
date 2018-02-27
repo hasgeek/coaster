@@ -37,7 +37,7 @@ class TestCoasterUtils(unittest.TestCase):
             self.assertEqual(sorted(MY_ENUM_TWO.nametitles()), [('first', "First"), ('second', "Second"), ('third', "Third")])
         else:
             self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
-            self.assertEqual(list(MY_ENUM_TWO.nametitles()), [('first', "First"), ('second', "Second"), ('third', "Third")])
+            self.assertEqual(MY_ENUM_TWO.nametitles(), [('first', "First"), ('second', "Second"), ('third', "Third")])
 
         self.assertEqual(MY_ENUM_TWO.value_for('second'), 2)
 

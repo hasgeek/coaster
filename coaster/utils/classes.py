@@ -219,7 +219,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
     @classmethod
     def nametitles(cls):
-        return ((name, title) for name, title in cls.__labels__.values())
+        return list((name, title) for name, title in cls.__labels__.values())
 
 
 class InspectableSet(Set):
