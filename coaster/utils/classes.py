@@ -146,6 +146,12 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         >>> NAME_ENUM[NAME_ENUM.THIRD].title
         'Third'
 
+    To make it easier to use with forms and to hide the actual values, a list of (name, title)
+    pairs is available::
+
+        >>> NAME_ENUM.nametitles()
+        [('first, "First"), ('second', "Second"), ('third', "Third")]
+
     Given a name, the value can be looked up::
 
         >>> NAME_ENUM.value_for('first')
