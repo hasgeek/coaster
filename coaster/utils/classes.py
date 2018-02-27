@@ -211,6 +211,10 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
 
+    @classmethod
+    def nametitles(cls):
+        return ((name, title) for name, title in cls.__labels__.values())
+
 
 class InspectableSet(Set):
     """
