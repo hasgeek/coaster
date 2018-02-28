@@ -136,6 +136,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         ...     FIRST = (1, 'first', "First")
         ...     THIRD = (3, 'third', "Third")
         ...     SECOND = (2, 'second', "Second")
+        ...     __order__ = (FIRST, SECOND, THIRD)
 
         >>> NAME_ENUM.FIRST
         1
@@ -149,7 +150,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
     To make it easier to use with forms and to hide the actual values, a list of (name, title)
     pairs is available::
 
-        >>> sorted(NAME_ENUM.nametitles())
+        >>> NAME_ENUM.nametitles()
         [('first', 'First'), ('second', 'Second'), ('third', 'Third')]
 
     Given a name, the value can be looked up::
