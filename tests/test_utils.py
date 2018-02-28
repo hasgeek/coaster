@@ -16,6 +16,13 @@ class MY_ENUM(LabeledEnum):
     THIRD = (3, "Third")
 
 
+class MY_ENUM_TWO(LabeledEnum):
+    FIRST = (1, 'first', "First")
+    SECOND = (2, 'second', "Second")
+    THIRD = (3, 'third', "Third")
+    __order__ = (FIRST, SECOND, THIRD)
+
+
 class TestCoasterUtils(unittest.TestCase):
     def test_labeled_enum(self):
         self.assertEqual(MY_ENUM.FIRST, 1)
@@ -30,6 +37,9 @@ class TestCoasterUtils(unittest.TestCase):
             self.assertEqual(sorted(MY_ENUM.items()), [(1, "First"), (2, "Second"), (3, "Third")])
         else:
             self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
+
+        self.assertEqual(MY_ENUM_TWO.nametitles(), [('first', "First"), ('second', "Second"), ('third', "Third")])
+        self.assertEqual(MY_ENUM_TWO.value_for('second'), 2)
 
         with self.assertRaises(TypeError):
             MY_ENUM[2] = "SECOND"

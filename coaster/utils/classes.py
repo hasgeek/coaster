@@ -136,6 +136,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         ...     FIRST = (1, 'first', "First")
         ...     THIRD = (3, 'third', "Third")
         ...     SECOND = (2, 'second', "Second")
+        ...     __order__ = (FIRST, SECOND, THIRD)
 
         >>> NAME_ENUM.FIRST
         1
@@ -145,6 +146,12 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         'second'
         >>> NAME_ENUM[NAME_ENUM.THIRD].title
         'Third'
+
+    To make it easier to use with forms and to hide the actual values, a list of (name, title)
+    pairs is available::
+
+        >>> NAME_ENUM.nametitles()
+        [('first', 'First'), ('second', 'Second'), ('third', 'Third')]
 
     Given a name, the value can be looked up::
 
@@ -210,6 +217,10 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+
+    @classmethod
+    def nametitles(cls):
+        return list((name, title) for name, title in cls.values())
 
 
 class InspectableSet(Set):
