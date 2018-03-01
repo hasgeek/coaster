@@ -67,6 +67,14 @@ control state change via transitions. Sample usage::
             # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
+            # If AbortTransitionError is raised in this method,
+            # the state wont be changed.
+            # This returns the error message from the transition
+            raise AbortTransitionError("A transition is not desireable right now")
+
+            # Any other exception will be raised
+            raise RandomError("This will be raised")
+
         # A transition can use a conditional state. The condition is evaluated
         # before the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
@@ -151,6 +159,12 @@ defined with in the LabeledEnum::
     post.publish()          # Change state from DRAFT to PUBLISHED
     post.state.RECENT       # True (this one calls the validator if the base state matches)
 
+Transitions return a tuple to show if they succeeded. If not, they'll return the reason.
+
+    success, message = post.publish()
+    # True,
+
+
 States can also be used for database queries when accessed from the class::
 
     # Generates MyPost._state == MY_STATE.DRAFT
@@ -204,7 +218,7 @@ from ..utils import is_collection, NameTitle
 from ..signals import coaster_signals
 from .roles import RoleMixin
 
-__all__ = ['StateManager', 'StateTransitionError',
+__all__ = ['StateManager', 'StateTransitionError', 'AbortTransitionError',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
 
@@ -227,6 +241,14 @@ transition_exception = coaster_signals.signal('transition-exception',
 
 class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state"""
+    pass
+
+
+class AbortTransitionError(Exception):
+    """
+    Raised by the transition function to abort the transition,
+    in which case the state does not change
+    """
     pass
 
 
@@ -525,17 +547,21 @@ class StateTransitionWrapper(object):
         transition_before.send(self.obj, transition=self.statetransition)
         # Call the transition function
         try:
-            result = self.statetransition.func(self.obj, *args, **kwargs)
+            self.statetransition.func(self.obj, *args, **kwargs)
+        except AbortTransitionError as e:
+            transition_exception.send(self.obj, transition=self.statetransition, exception=e)
+            return False, str(e)
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise
+
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
             if conditions['to'] is not None:  # Allow to=None for the @requires decorator
                 statemanager._set(self.obj, conditions['to'].value)  # Change state
         # Raise a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
-        return result
+        return True, self.statetransition.data.get('message', '')
 
 
 class StateManager(object):

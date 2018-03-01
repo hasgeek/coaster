@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (with_roles, BaseMixin,
-    StateManager, StateTransitionError)
+    StateManager, StateTransitionError, AbortTransitionError)
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
 
 
@@ -40,6 +40,10 @@ class REVIEW_STATE(LabeledEnum):
     LOCKED = (2, "Locked")
 
     UNLOCKED = {UNSUBMITTED, PENDING}
+
+
+class RandomException(Exception):
+    pass
 
 
 class MyPost(BaseMixin, db.Model):
@@ -112,6 +116,18 @@ class MyPost(BaseMixin, db.Model):
     @state.requires(state.PUBLISHED, title="Rewind 2 hours")
     def rewind(self):
         self.datetime = datetime.utcnow() - timedelta(hours=2)
+
+    @with_roles(call={'author'})
+    @state.transition(state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition")
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
+    def abort(self):
+        raise AbortTransitionError("You shall not pass!")
+
+    @with_roles(call={'author'})
+    @state.transition(state.UNPUBLISHED, state.PUBLISHED)
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
+    def abort_with_exception(self):
+        raise RandomException("You shall raise!")
 
     def roles_for(self, actor, anchors=()):
         roles = super(MyPost, self).roles_for(actor, anchors)
@@ -508,6 +524,18 @@ class TestStateManager(unittest.TestCase):
         self.post.submit()  # submit overrides LOCKED status
         self.assertFalse(self.post.reviewstate.LOCKED)
         self.assertTrue(self.post.state.PENDING)
+
+    def test_transition_aborterror(self):
+        """transition method aborts intentionally"""
+        success, message = self.post.submit()
+        self.assertTrue(self.post.state.PENDING)
+        self.assertTrue(success)
+        self.assertEqual(message, '')
+        success, message = self.post.abort()
+        self.assertFalse(success)
+        self.assertEqual(message, "You shall not pass!")
+        with self.assertRaises(RandomException):
+            success, message = self.post.abort_with_exception()
 
     def test_transition_is_available(self):
         """A transition's is_available property is reliable"""
