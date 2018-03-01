@@ -533,6 +533,7 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(message, '')
         success, message = self.post.abort()
         self.assertFalse(success)
+        self.assertTrue(self.post.state.PENDING)
         self.assertEqual(message, "You shall not pass!")
         with self.assertRaises(RandomException):
             success, message = self.post.abort_with_exception()
