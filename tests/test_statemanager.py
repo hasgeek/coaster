@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (with_roles, BaseMixin,
-    StateManager, StateTransitionError, AbortTransitionError)
+    StateManager, StateTransitionError, AbortTransition)
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
 
 
@@ -120,11 +120,13 @@ class MyPost(BaseMixin, db.Model):
     @with_roles(call={'author'})
     @state.transition(state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition")
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
-    def abort(self):
-        raise AbortTransitionError("You shall not pass!")
+    def abort(self, success=False):
+        if not success:
+            raise AbortTransition(success, "You shall not pass!")
+        return success, "Passed!"
 
     @with_roles(call={'author'})
-    @state.transition(state.UNPUBLISHED, state.PUBLISHED)
+    @state.transition(state.PUBLISHED, state.PENDING)
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def abort_with_exception(self):
         raise RandomException("You shall raise!")
@@ -527,16 +529,21 @@ class TestStateManager(unittest.TestCase):
 
     def test_transition_aborterror(self):
         """transition method aborts intentionally"""
-        success, message = self.post.submit()
+        self.post.submit()
         self.assertTrue(self.post.state.PENDING)
-        self.assertTrue(success)
-        self.assertEqual(message, '')
-        success, message = self.post.abort()
+
+        success, message = self.post.abort(success=False)
         self.assertFalse(success)
-        self.assertTrue(self.post.state.PENDING)
         self.assertEqual(message, "You shall not pass!")
+        self.assertTrue(self.post.state.PENDING)  # state wont change
+
+        success, message = self.post.abort(success=True)
+        self.assertTrue(success)
+        self.assertEqual(message, "Passed!")
+        self.assertTrue(self.post.state.PUBLISHED)  # state will change
+
         with self.assertRaises(RandomException):
-            success, message = self.post.abort_with_exception()
+            self.post.abort_with_exception()
 
     def test_transition_is_available(self):
         """A transition's is_available property is reliable"""

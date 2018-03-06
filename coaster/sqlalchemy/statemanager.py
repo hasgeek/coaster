@@ -67,10 +67,14 @@ control state change via transitions. Sample usage::
             # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
-            # If AbortTransitionError is raised in this method,
-            # the state wont be changed.
-            # This returns the error message from the transition
-            raise AbortTransitionError("A transition is not desireable right now")
+            # If AbortTransition is raised in this method, the state wont be changed.
+            # AbortTransition will return anything passed to it as return value of the method
+            # E.g.
+            # success, message = post.publish()
+
+            success = False
+            message = "A transition is not desireable right now"
+            raise AbortTransition(success, message)
 
             # Any other exception will be raised
             raise RandomError("This will be raised")
@@ -159,12 +163,6 @@ defined with in the LabeledEnum::
     post.publish()          # Change state from DRAFT to PUBLISHED
     post.state.RECENT       # True (this one calls the validator if the base state matches)
 
-Transitions return a tuple to show if they succeeded. If not, they'll return the reason.
-
-    success, message = post.publish()
-    # True,
-
-
 States can also be used for database queries when accessed from the class::
 
     # Generates MyPost._state == MY_STATE.DRAFT
@@ -218,7 +216,7 @@ from ..utils import is_collection, NameTitle
 from ..signals import coaster_signals
 from .roles import RoleMixin
 
-__all__ = ['StateManager', 'StateTransitionError', 'AbortTransitionError',
+__all__ = ['StateManager', 'StateTransitionError', 'AbortTransition',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
 
@@ -244,10 +242,10 @@ class StateTransitionError(BadRequest, TypeError):
     pass
 
 
-class AbortTransitionError(Exception):
+class AbortTransition(Exception):
     """
-    Raised by the transition function to abort the transition,
-    in which case the state does not change
+    Transitions may raise AbortTransition to return without changing state.
+    The parameters to the exception are returned as the transition’s result.
     """
     pass
 
@@ -547,10 +545,10 @@ class StateTransitionWrapper(object):
         transition_before.send(self.obj, transition=self.statetransition)
         # Call the transition function
         try:
-            self.statetransition.func(self.obj, *args, **kwargs)
-        except AbortTransitionError as e:
+            result = self.statetransition.func(self.obj, *args, **kwargs)
+        except AbortTransition as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
-            return False, str(e)
+            return e.args
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise
@@ -561,7 +559,7 @@ class StateTransitionWrapper(object):
                 statemanager._set(self.obj, conditions['to'].value)  # Change state
         # Raise a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
-        return True, self.statetransition.data.get('message', '')
+        return result
 
 
 class StateManager(object):
