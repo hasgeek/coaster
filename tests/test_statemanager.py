@@ -120,10 +120,13 @@ class MyPost(BaseMixin, db.Model):
     @with_roles(call={'author'})
     @state.transition(state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition")
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
-    def abort(self, success=False):
+    def abort(self, success=False, empty_abort=False):
         if not success:
-            raise AbortTransition(success, "You shall not pass!")
-        return success, "Passed!"
+            if empty_abort:
+                raise AbortTransition()
+            else:
+                raise AbortTransition(success)
+        return success
 
     @with_roles(call={'author'})
     @state.transition(state.PUBLISHED, state.PENDING)
@@ -529,17 +532,19 @@ class TestStateManager(unittest.TestCase):
 
     def test_transition_aborterror(self):
         """transition method aborts intentionally"""
-        self.post.submit()
+        self.post.submit()  # This is to set an initial state for this test
         self.assertTrue(self.post.state.PENDING)
 
-        success, message = self.post.abort(success=False)
-        self.assertFalse(success)
-        self.assertEqual(message, "You shall not pass!")
+        success = self.post.abort(success=False)
+        self.assertEqual(success, False)
         self.assertTrue(self.post.state.PENDING)  # state wont change
 
-        success, message = self.post.abort(success=True)
-        self.assertTrue(success)
-        self.assertEqual(message, "Passed!")
+        success = self.post.abort(success=False, empty_abort=True)
+        self.assertEqual(success, None)
+        self.assertTrue(self.post.state.PENDING)  # state wont change
+
+        success = self.post.abort(success=True)
+        self.assertEqual(success, True)
         self.assertTrue(self.post.state.PUBLISHED)  # state will change
 
         with self.assertRaises(RandomException):

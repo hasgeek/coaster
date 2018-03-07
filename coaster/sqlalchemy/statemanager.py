@@ -548,7 +548,7 @@ class StateTransitionWrapper(object):
             result = self.statetransition.func(self.obj, *args, **kwargs)
         except AbortTransition as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
-            return e.args
+            return None if len(e.args) == 0 else e.args[0] if len(e.args) == 1 else e.args
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise
