@@ -6,7 +6,7 @@ States and transitions
 
 :class:`StateManager` wraps a SQLAlchemy column with a
 :class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection, and
-control state change via transitions. Sample usage::
+to control state change via transitions. Sample usage::
 
     class MY_STATE(LabeledEnum):
         DRAFT = (0, "Draft")
@@ -26,7 +26,8 @@ control state change via transitions. Sample usage::
     class MyPost(BaseMixin, db.Model):
         __tablename__ = 'my_post'
 
-        # The underlying state value columns (more than one state variable can exist)
+        # The underlying state value columns
+        # (more than one state variable can exist)
         _state = db.Column('state', db.Integer,
             StateManager.check_constraint('state', MY_STATE),
             default=MY_STATE.DRAFT, nullable=False)
@@ -36,7 +37,8 @@ control state change via transitions. Sample usage::
 
         # The state managers controlling the columns
         state = StateManager('_state', MY_STATE, doc="The post's state")
-        reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
+        reviewstate = StateManager('_reviewstate', REVIEW_STATE,
+            doc="Reviewer's state")
 
         # Datetime for the additional states and transitions
         datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -48,7 +50,8 @@ control state change via transitions. Sample usage::
             lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
 
         # REDRAFTABLE = DRAFT or PENDING or RECENT
-        state.add_state_group('REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT)
+        state.add_state_group('REDRAFTABLE',
+            state.DRAFT, state.PENDING, state.RECENT)
 
         # Transitions change FROM one state TO another, and can have
         # an additional if_ condition (a callable) that must return True
@@ -67,18 +70,6 @@ control state change via transitions. Sample usage::
             # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
-            # If AbortTransition is raised in this method, the state wont be changed.
-            # AbortTransition will return anything passed to it as return value of the method
-            # E.g.
-            # success, message = post.publish()
-
-            success = False
-            message = "A transition is not desirable right now"
-            raise AbortTransition(success, message)
-
-            # Any other exception will be raised
-            raise RandomError("This will be raised")
-
         # A transition can use a conditional state. The condition is evaluated
         # before the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
@@ -91,6 +82,27 @@ control state change via transitions. Sample usage::
         @state.transition(state.REDRAFTABLE, state.DRAFT)
         def redraft(self):
             pass
+
+        # Transitions can abort without changing state, with or without raising
+        # an exception to the caller
+        @state.transition(state.REDRAFTABLE, state.DRAFT)
+        def faulty_transition_examples(self):
+            # Cancel the transition, but don't raise an exception to the caller
+            raise AbortTransition()
+            # Cancel the transition and return a result to the caller
+            raise AbortTransition('failed')
+            # Need to return a data structure? That works as well
+            raise AbortTransition((False, 'faulty_failure'))
+            raise AbortTransition({'status': 'error', 'error': 'faulty_failure'})
+            # If any other exception is raised, it is passed up to the caller
+            raise ValueError("Faulty transition")
+
+        # The requires decorator specifies a transition that does not change
+        # state. It can be used to limit a method's availability
+        @state.requires(state.PUBLISHED)
+        def send_email_alert(self):
+            pass
+
 
 
 Defining states and transitions
@@ -123,14 +135,15 @@ Transitions connect one managed state or group to another state (but not
 group). Transitions are defined as methods and decorated with
 :meth:`~StateManager.transition`, which transforms them into instances of
 :class:`StateTransition`, a callable class. If the transition raises an
-exception, the state change is aborted. Transitions have two additional
+exception, the state change is aborted. Transitions may also abort without
+changing state using :exc:`AbortTransition`. Transitions have two additional
 attributes, :attr:`~StateTransitionWrapper.is_available`, a boolean property
 which indicates if the transition is currently available, and
 :attr:`~StateTransition.data`, a dictionary that contains all additional
-parameters passed to the @transition decorator.
+parameters passed to the :meth:`~StateManager.transition` decorator.
 
 Transitions can be chained to coordinate a state change across state managers
-if the class has more than one. All state managers must be in a valid from
+if the class has more than one. All state managers must be in a valid ``from``
 state for the transition to be available. A dictionary of currently available
 transitions can be obtained from the state manager using the
 :meth:`~StateManagerWrapper.transitions` method.
@@ -216,21 +229,27 @@ from ..utils import is_collection, NameTitle
 from ..signals import coaster_signals
 from .roles import RoleMixin
 
-__all__ = ['StateManager', 'StateTransitionError', 'AbortTransition',
+__all__ = ['StateManager', 'ManagedState', 'ManagedStateGroup', 'StateTransition',
+    'StateManagerWrapper', 'ManagedStateWrapper', 'StateTransitionWrapper',
+    'StateTransitionError', 'AbortTransition',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
 
 # --- Signals -----------------------------------------------------------------
 
+#: Signal raised when a transition fails validation
 transition_error = coaster_signals.signal('transition-error',
     doc="Signal raised when a transition fails validation")
 
+#: Signal raised before a transition (after validation)
 transition_before = coaster_signals.signal('transition-before',
     doc="Signal raised before a transition (after validation)")
 
+#: Signal raised after a successful transition
 transition_after = coaster_signals.signal('transition-after',
     doc="Signal raised after a successful transition")
 
+#: Signal raised when a transition raises an exception
 transition_exception = coaster_signals.signal('transition-exception',
     doc="Signal raised when a transition raises an exception")
 
@@ -261,8 +280,8 @@ class AbortTransition(Exception):
 
 class ManagedState(object):
     """
-    Represents a state managed by a StateManager. Do not use this class
-    directly. Use :meth:`~StateManager.add_conditional_state` instead.
+    Represents a state managed by a :class:`StateManager`. Do not use this
+    class directly. Use :meth:`~StateManager.add_conditional_state` instead.
     """
     def __init__(self, name, statemanager, value, label=None,
             validator=None, class_validator=None, cache_for=None):
@@ -281,7 +300,7 @@ class ManagedState(object):
 
     @property
     def is_scalar(self):
-        """This is a scalar state (not a group of states)"""
+        """This is a scalar state (not a group of states, and may or may not have a condition)"""
         return not is_collection(self.value)
 
     @property
@@ -325,8 +344,8 @@ class ManagedState(object):
 
 class ManagedStateGroup(object):
     """
-    Represents a group of managed states in a StateManager. Do not use this
-    class directly. Use :meth:`~StateManager.add_state_group` instead.
+    Represents a group of managed states in a :class:`StateManager`. Do not use
+    this class directly. Use :meth:`~StateManager.add_state_group` instead.
     """
     def __init__(self, name, statemanager, states):
         self.name = name
@@ -381,6 +400,8 @@ class ManagedStateWrapper(object):
     """
     Wraps a :class:`ManagedState` or :class:`ManagedStateGroup` with
     an object or class, and otherwise provides transparent access to contents.
+
+    This class is automatically constructed by :class:`StateManager`.
     """
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
@@ -496,6 +517,10 @@ class StateTransition(object):
 
 
 class StateTransitionWrapper(object):
+    """
+    Wraps :class:`StateTransition` with the context of the object it is
+    accessed from. Automatically constructed by :class:`StateTransition`.
+    """
     def __init__(self, statetransition, obj):
         self.statetransition = statetransition
         self.obj = obj
@@ -503,7 +528,8 @@ class StateTransitionWrapper(object):
     @property
     def data(self):
         """
-        Transition descriptive data
+        Dictionary containing all additional parameters to the
+        :meth:`~StateManager.transition` decorator.
         """
         return self.statetransition.data
 
@@ -528,7 +554,7 @@ class StateTransitionWrapper(object):
     @property
     def is_available(self):
         """
-        Indicates whether this transition is currently available.
+        Property that indicates whether this transition is currently available.
         """
         return not self._state_invalid()
 
@@ -775,7 +801,11 @@ class StateManager(object):
 
 
 class StateManagerWrapper(object):
-    """Wraps StateManager with the context of the containing object"""
+    """
+    Wraps :class:`StateManager` with the context of the containing object.
+    Automatically constructed when a :class:`StateManager` is accessed from
+    either a class or an instance.
+    """
 
     def __init__(self, statemanager, obj, cls):
         self.statemanager = statemanager  # StateManager
@@ -787,17 +817,18 @@ class StateManagerWrapper(object):
 
     @property
     def value(self):
-        """The state value"""
+        """The current state value."""
         return self.statemanager._value(self.obj, self.cls)
 
     @property
     def label(self):
-        """Label for this state value"""
+        """Label for the current state's value (using :meth:`bestmatch`)."""
         return self.bestmatch().label
 
     def bestmatch(self):
         """
-        Best matching scalar state (direct or conditional)
+        Best matching current scalar state (direct or conditional), only
+        applicable when accessed via an instance.
         """
         if self.obj is not None:
             for mstate in self.statemanager.all_states_by_value[self.value]:
@@ -817,9 +848,10 @@ class StateManagerWrapper(object):
     def transitions(self, current=True):
         """
         Returns available transitions for the current state, as a dictionary of
-        name: StateTransitionWrapper.
+        name: :class:`StateTransitionWrapper`.
 
-        :param bool current: Limit to transitions available in ``obj.current_access()``
+        :param bool current: Limit to transitions available in ``obj.``
+           :meth:`~coaster.sqlalchemy.mixins.RoleMixin.current_access`
         """
         if current and isinstance(self.obj, RoleMixin):
             proxy = self.obj.current_access()
@@ -833,8 +865,9 @@ class StateManagerWrapper(object):
 
     def transitions_for(self, roles=None, actor=None, anchors=[]):
         """
-        For use on RoleMixin classes: returns currently available transitions for the specified
-        roles or actor as a dictionary of name: StateTransitionWrapper.
+        For use on :class:`~coaster.sqlalchemy.mixins.RoleMixin` classes:
+        returns currently available transitions for the specified
+        roles or actor as a dictionary of name: :class:`StateTransitionWrapper`.
         """
         proxy = self.obj.access_for(roles, actor, anchors)
         return {name: transition for name, transition in self.transitions(current=False).items()
@@ -845,6 +878,8 @@ class StateManagerWrapper(object):
         Given an iterable of instances, groups them by state using `ManagedState` instances
         as dictionary keys. Returns an OrderedDict that preserves the order of states from
         the source LabeledEnum.
+
+        :param bool keep_empty: If ``True``, empty states are included in the result
         """
         cls = self.cls if self.cls is not None else type(self.obj)  # Class of the item being managed
         groups = OrderedDict()
