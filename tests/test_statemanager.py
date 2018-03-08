@@ -42,10 +42,6 @@ class REVIEW_STATE(LabeledEnum):
     UNLOCKED = {UNSUBMITTED, PENDING}
 
 
-class RandomException(Exception):
-    pass
-
-
 class MyPost(BaseMixin, db.Model):
     __tablename__ = 'my_post'
     # Database state columns
@@ -127,12 +123,6 @@ class MyPost(BaseMixin, db.Model):
             else:
                 raise AbortTransition((success, 'failed'))
         return success, 'passed'
-
-    @with_roles(call={'author'})
-    @state.transition(state.PUBLISHED, state.PENDING)
-    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
-    def abort_with_exception(self):
-        raise RandomException("You shall raise!")
 
     def roles_for(self, actor, anchors=()):
         roles = super(MyPost, self).roles_for(actor, anchors)
@@ -530,27 +520,25 @@ class TestStateManager(unittest.TestCase):
         self.assertFalse(self.post.reviewstate.LOCKED)
         self.assertTrue(self.post.state.PENDING)
 
-    def test_transition_aborterror(self):
-        """transition method aborts intentionally"""
-        self.post.submit()  # This is to set an initial state for this test
-        self.assertTrue(self.post.state.PENDING)
+    def test_transition_abort(self):
+        """Transitions can abort without changing state or raising an exception"""
+        self.assertTrue(self.post.state.DRAFT)
 
+        # A transition can abort returning a value (a 2-tuple here)
         success, message = self.post.abort(success=False)
         self.assertEqual(success, False)
         self.assertEqual(message, "failed")
-        self.assertTrue(self.post.state.PENDING)  # state wont change
+        self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
-        success = self.post.abort(success=False, empty_abort=True)
-        self.assertEqual(success, None)
-        self.assertTrue(self.post.state.PENDING)  # state wont change
+        # A transition can abort without returning a value
+        result = self.post.abort(success=False, empty_abort=True)
+        self.assertEqual(result, None)
+        self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
         success, message = self.post.abort(success=True)
         self.assertEqual(success, True)
         self.assertEqual(message, 'passed')
-        self.assertTrue(self.post.state.PUBLISHED)  # state will change
-
-        with self.assertRaises(RandomException):
-            self.post.abort_with_exception()
+        self.assertTrue(self.post.state.PUBLISHED)  # state has changed
 
     def test_transition_is_available(self):
         """A transition's is_available property is reliable"""
