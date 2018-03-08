@@ -249,6 +249,7 @@ class AbortTransition(Exception):
     Despite the name, `message` can be of any data type.
     """
     def __init__(self, message=None):
+        super(AbortTransition, self).__init__(message)
         self.message = message
 
 # --- Classes -----------------------------------------------------------------
