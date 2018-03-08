@@ -245,12 +245,10 @@ class StateTransitionError(BadRequest, TypeError):
 class AbortTransition(Exception):
     """
     Transitions may raise AbortTransition to return without changing state.
-    Accepts a single parameter `message` which is returned as the transition’s result.
-    Despite the name, `message` can be of any data type.
+    Accepts a single parameter `result` which is returned as the transition’s result.
     """
-    def __init__(self, message=None):
-        super(AbortTransition, self).__init__(message)
-        self.message = message
+    def __init__(self, result=None):
+        super(AbortTransition, self).__init__(result)
 
 # --- Classes -----------------------------------------------------------------
 
@@ -550,7 +548,7 @@ class StateTransitionWrapper(object):
             result = self.statetransition.func(self.obj, *args, **kwargs)
         except AbortTransition as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
-            return e.message
+            return e.args[0]
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise
