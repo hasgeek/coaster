@@ -9,7 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from coaster.utils import LabeledEnum
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (with_roles, BaseMixin,
-    StateManager, StateTransitionError)
+    StateManager, StateTransitionError, AbortTransition)
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
 
 
@@ -112,6 +112,17 @@ class MyPost(BaseMixin, db.Model):
     @state.requires(state.PUBLISHED, title="Rewind 2 hours")
     def rewind(self):
         self.datetime = datetime.utcnow() - timedelta(hours=2)
+
+    @with_roles(call={'author'})
+    @state.transition(state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition")
+    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
+    def abort(self, success=False, empty_abort=False):
+        if not success:
+            if empty_abort:
+                raise AbortTransition()
+            else:
+                raise AbortTransition((success, 'failed'))
+        return success, 'passed'
 
     def roles_for(self, actor, anchors=()):
         roles = super(MyPost, self).roles_for(actor, anchors)
@@ -508,6 +519,26 @@ class TestStateManager(unittest.TestCase):
         self.post.submit()  # submit overrides LOCKED status
         self.assertFalse(self.post.reviewstate.LOCKED)
         self.assertTrue(self.post.state.PENDING)
+
+    def test_transition_abort(self):
+        """Transitions can abort without changing state or raising an exception"""
+        self.assertTrue(self.post.state.DRAFT)
+
+        # A transition can abort returning a value (a 2-tuple here)
+        success, message = self.post.abort(success=False)
+        self.assertEqual(success, False)
+        self.assertEqual(message, "failed")
+        self.assertTrue(self.post.state.DRAFT)  # state has not changed
+
+        # A transition can abort without returning a value
+        result = self.post.abort(success=False, empty_abort=True)
+        self.assertEqual(result, None)
+        self.assertTrue(self.post.state.DRAFT)  # state has not changed
+
+        success, message = self.post.abort(success=True)
+        self.assertEqual(success, True)
+        self.assertEqual(message, 'passed')
+        self.assertTrue(self.post.state.PUBLISHED)  # state has changed
 
     def test_transition_is_available(self):
         """A transition's is_available property is reliable"""

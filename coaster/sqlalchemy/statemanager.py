@@ -67,6 +67,18 @@ control state change via transitions. Sample usage::
             # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
+            # If AbortTransition is raised in this method, the state wont be changed.
+            # AbortTransition will return anything passed to it as return value of the method
+            # E.g.
+            # success, message = post.publish()
+
+            success = False
+            message = "A transition is not desirable right now"
+            raise AbortTransition(success, message)
+
+            # Any other exception will be raised
+            raise RandomError("This will be raised")
+
         # A transition can use a conditional state. The condition is evaluated
         # before the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
@@ -204,7 +216,7 @@ from ..utils import is_collection, NameTitle
 from ..signals import coaster_signals
 from .roles import RoleMixin
 
-__all__ = ['StateManager', 'StateTransitionError',
+__all__ = ['StateManager', 'StateTransitionError', 'AbortTransition',
     'transition_error', 'transition_before', 'transition_after', 'transition_exception']
 
 
@@ -228,6 +240,21 @@ transition_exception = coaster_signals.signal('transition-exception',
 class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state"""
     pass
+
+
+class AbortTransition(Exception):
+    """
+    Transitions may raise :exc:`AbortTransition` to return without changing
+    state. The parameter to this exception is returned as the transition's
+    result.
+
+    This exception is a signal to :class:`StateTransition` and will not be
+    raised to the transition's caller.
+
+    :param result: Value to return to the transition's caller
+    """
+    def __init__(self, result=None):
+        super(AbortTransition, self).__init__(result)
 
 
 # --- Classes -----------------------------------------------------------------
@@ -458,6 +485,7 @@ class StateTransition(object):
 
     def __set_name__(self, owner, name):  # pragma: no cover
         self.name = name
+        self.data['name'] = name
 
     # Make the transition a non-data descriptor
     def __get__(self, obj, cls=None):
@@ -521,19 +549,23 @@ class StateTransitionWrapper(object):
                     label=repr(state_invalid[2])
                     ))
 
-        # Raise a transition-before signal
+        # Send a transition-before signal
         transition_before.send(self.obj, transition=self.statetransition)
-        # Call the transition function
+        # Call the transition method
         try:
             result = self.statetransition.func(self.obj, *args, **kwargs)
+        except AbortTransition as e:
+            transition_exception.send(self.obj, transition=self.statetransition, exception=e)
+            return e.args[0]
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise
+
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
             if conditions['to'] is not None:  # Allow to=None for the @requires decorator
                 statemanager._set(self.obj, conditions['to'].value)  # Change state
-        # Raise a transition-after signal
+        # Send a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
         return result
 
@@ -677,11 +709,12 @@ class StateManager(object):
 
     def transition(self, from_, to, if_=None, **data):
         """
-        Decorates a function to transition from one state to another. The
-        decorated function can accept any necessary parameters and perform
+        Decorates a method to transition from one state to another. The
+        decorated method can accept any necessary parameters and perform
         additional processing, or raise an exception to abort the transition.
         If it returns without an error, the state value is updated
-        automatically.
+        automatically. Transitions may also abort without raising an exception
+        using :exc:`AbortTransition`.
 
         :param from_: Required state to allow this transition (can be a state group)
         :param to: The state of the object after this transition (automatically set if no exception is raised)

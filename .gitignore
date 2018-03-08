@@ -14,3 +14,4 @@ error.log
 __pycache__
 .pytest_cache
 .cache
+.vscode
