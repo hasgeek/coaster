@@ -245,7 +245,7 @@ class StateTransitionError(BadRequest, TypeError):
 class AbortTransition(Exception):
     """
     Transitions may raise AbortTransition to return without changing state.
-    Accepts a single parameter `result` which is returned as the transition’s result.
+    Accepts a single parameter ``result`` which is returned as the transition’s result.
     """
     def __init__(self, result=None):
         super(AbortTransition, self).__init__(result)
