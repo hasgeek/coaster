@@ -73,7 +73,7 @@ control state change via transitions. Sample usage::
             # success, message = post.publish()
 
             success = False
-            message = "A transition is not desireable right now"
+            message = "A transition is not desirable right now"
             raise AbortTransition(success, message)
 
             # Any other exception will be raised
@@ -245,10 +245,11 @@ class StateTransitionError(BadRequest, TypeError):
 class AbortTransition(Exception):
     """
     Transitions may raise AbortTransition to return without changing state.
-    The parameters to the exception are returned as the transition’s result.
+    Accepts a single parameter `message` which is returned as the transition’s result.
+    Despite the name, `message` can be of any data type.
     """
-    pass
-
+    def __init__(self, message=None):
+        self.message = message
 
 # --- Classes -----------------------------------------------------------------
 
@@ -548,7 +549,7 @@ class StateTransitionWrapper(object):
             result = self.statetransition.func(self.obj, *args, **kwargs)
         except AbortTransition as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
-            return None if len(e.args) == 0 else e.args[0] if len(e.args) == 1 else e.args
+            return e.message
         except Exception as e:
             transition_exception.send(self.obj, transition=self.statetransition, exception=e)
             raise

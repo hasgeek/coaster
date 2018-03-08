@@ -125,8 +125,8 @@ class MyPost(BaseMixin, db.Model):
             if empty_abort:
                 raise AbortTransition()
             else:
-                raise AbortTransition(success)
-        return success
+                raise AbortTransition((success, 'failed'))
+        return success, 'passed'
 
     @with_roles(call={'author'})
     @state.transition(state.PUBLISHED, state.PENDING)
@@ -535,16 +535,18 @@ class TestStateManager(unittest.TestCase):
         self.post.submit()  # This is to set an initial state for this test
         self.assertTrue(self.post.state.PENDING)
 
-        success = self.post.abort(success=False)
+        success, message = self.post.abort(success=False)
         self.assertEqual(success, False)
+        self.assertEqual(message, "failed")
         self.assertTrue(self.post.state.PENDING)  # state wont change
 
         success = self.post.abort(success=False, empty_abort=True)
         self.assertEqual(success, None)
         self.assertTrue(self.post.state.PENDING)  # state wont change
 
-        success = self.post.abort(success=True)
+        success, message = self.post.abort(success=True)
         self.assertEqual(success, True)
+        self.assertEqual(message, 'passed')
         self.assertTrue(self.post.state.PUBLISHED)  # state will change
 
         with self.assertRaises(RandomException):
