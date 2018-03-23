@@ -567,12 +567,14 @@ class StateTransitionWrapper(object):
         state_invalid = self._state_invalid()
         if state_invalid:
             transition_error.send(self.obj, transition=self.statetransition, statemanager=state_invalid[0])
+            label = state_invalid[2]
+            if isinstance(label, NameTitle):
+                label = label.title
             raise StateTransitionError(
-                u"Invalid state for transition {transition}: {state} = {value} ({label})".format(
+                u"Invalid state for transition {transition}: {state} = {label}".format(
                     transition=self.statetransition.name,
                     state=repr(state_invalid[0]),
-                    value=repr(state_invalid[1]),
-                    label=repr(state_invalid[2])
+                    label=label
                     ))
 
         # Send a transition-before signal
