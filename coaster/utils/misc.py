@@ -254,15 +254,21 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'lankaran'
     >>> make_name(u'example@example.com')
     'example-example-com'
+    >>> make_name('trailing-delimiter', maxlength=10)
+    'trailing-d'
+    >>> make_name('trailing-delimiter', maxlength=9)
+    'trailing'
     """
     name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
     if isinstance(text, six.text_type):
         # Unidecode returns str. Restore to a unicode string if original was unicode
         name = six.text_type(name)
-    if checkused is None:
-        return name[:maxlength]
     candidate = name[:maxlength]
+    if candidate.endswith(delim):
+        candidate = candidate[:-1]
+    if checkused is None:
+        return candidate
     existing = checkused(candidate)
     while existing:
         candidate = name[:maxlength - len(str(counter))] + str(counter)
