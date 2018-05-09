@@ -293,18 +293,18 @@ class classmethodproperty(object):
         >>> class Foo(object):
         ...     @classmethodproperty
         ...     def test(cls):
-        ...         print(repr(cls))
+        ...         return repr(cls)
         ...
 
     Works on classes::
 
         >>> Foo.test
-        <class 'coaster.utils.classes.Foo'>
+        "<class 'coaster.utils.classes.Foo'>"
 
     Works on class instances::
 
         >>> Foo().test
-        <class 'coaster.utils.classes.Foo'>
+        "<class 'coaster.utils.classes.Foo'>"
 
     Works on subclasses too::
 
@@ -312,9 +312,9 @@ class classmethodproperty(object):
         ...     pass
         ...
         >>> Bar.test
-        <class 'coaster.utils.classes.Bar'>
+        "<class 'coaster.utils.classes.Bar'>"
         >>> Bar().test
-        <class 'coaster.utils.classes.Bar'>
+        "<class 'coaster.utils.classes.Bar'>"
 
     Due to limitations in Python's descriptor API, :class:`classmethodproperty`
     can block write and delete access on an instance...
