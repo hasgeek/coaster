@@ -37,7 +37,7 @@ datetime.strptime('20160816', '%Y%m%d')
 # --- Common delimiters and punctuation ---------------------------------------
 
 _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
-_punctuation_re = re.compile(u'[\x01-\x1f\t +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
+_punctuation_re = re.compile(u'[\x01-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 _tag_re = re.compile('<.*?>')
