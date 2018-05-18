@@ -37,7 +37,7 @@ datetime.strptime('20160816', '%Y%m%d')
 # --- Common delimiters and punctuation ---------------------------------------
 
 _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
-_punctuation_re = re.compile(u'[\t +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
+_punctuation_re = re.compile(u'[\x01-\x1f\t +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile('^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 _tag_re = re.compile('<.*?>')
@@ -258,6 +258,17 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'trailing-d'
     >>> make_name('trailing-delimiter', maxlength=9)
     'trailing'
+    >>> make_name('''test this
+    ... newline''')
+    'test-this-newline'
+    >>> make_name(u"testing an emoji😁")
+    u'testing-an-emoji'
+    >>> make_name('''testing\\t\\nmore\\r\\nslashes''')
+    'testing-more-slashes'
+    >>> make_name('What if a HTML <tag/>')
+    'what-if-a-html-tag'
+    >>> make_name('These are equivalent to \x01 through \x1A')
+    'these-are-equivalent-to-through'
     """
     name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
