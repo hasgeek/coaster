@@ -114,6 +114,10 @@ class CurrentAuth(object):
 
     Check if you have a valid actor in the current request::
 
+        if current_auth:
+
+    which is equivalent to,
+
         if current_auth.is_authenticated:
 
     Reverse check, for anonymous user. Your login manager may or may not
@@ -143,6 +147,14 @@ class CurrentAuth(object):
 
     def __repr__(self):  # pragma: no cover
         return 'CurrentAuth(%s)' % repr(self.actor)
+
+    def __bool__(self):
+        """
+        Returns ``True`` if user is authenticated, ``False`` if not.
+        """
+        return self.is_authenticated
+
+    __nonzero__ = __bool__  # for backward compatibility in Python 2.x
 
     @property
     def is_anonymous(self):
