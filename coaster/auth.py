@@ -116,7 +116,7 @@ class CurrentAuth(object):
 
         if current_auth:
 
-    which is equivalent to,
+    which is equivalent to::
 
         if current_auth.is_authenticated:
 
