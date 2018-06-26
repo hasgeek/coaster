@@ -208,7 +208,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertEqual(current_auth.actor, user)
 
     def test_invalid_auth_attribute(self):
-        for attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
+        for attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
             with self.assertRaises(AttributeError):
                 add_auth_attribute(attr, None)
 

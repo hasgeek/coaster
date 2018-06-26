@@ -47,7 +47,7 @@ def add_auth_attribute(attr, value, actor=False):
     2. ``user`` is also made available as ``_request_ctx_stack.top.user`` for
        compatibility with Flask-Login
     """
-    if attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
+    if attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
         raise AttributeError("Attribute name %s is reserved by current_auth" % attr)
 
     # Invoking current_auth will also create it on the local stack. We can
@@ -168,11 +168,26 @@ class CurrentAuth(object):
         return True
 
     @property
+    def not_anonymous(self):
+        """
+        Shortcut for ```if not current_auth.is_anonymous:```.
+        """
+        return not self.is_anonymous
+
+    @property
     def is_authenticated(self):
         """
         Property that returns ``True`` if an actor is present.
         """
         return self.actor is not None
+
+    @property
+    def not_authenticated(self):
+        """
+        Shortcut for ```if not current_auth.is_authenticated:```.
+        """
+        return not self.is_authenticated
+
 
 
 def _get_current_auth():
