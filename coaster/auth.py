@@ -168,6 +168,14 @@ class CurrentAuth(object):
         return True
 
     @property
+    def not_anonymous(self):
+        """
+        Shortcut for ``if not current_auth.is_anonymous:```.
+        We can use ```if current_auth.not_anonymous:```.
+        """
+        return not self.is_anonymous
+
+    @property
     def is_authenticated(self):
         """
         Property that returns ``True`` if an actor is present.
