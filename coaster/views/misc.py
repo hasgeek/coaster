@@ -12,9 +12,13 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 from __future__ import absolute_import
 import re
 from six.moves.urllib.parse import urlsplit
+from werkzeug.urls import url_parse
+from werkzeug.routing import RequestRedirect
+from werkzeug.exceptions import HTTPException
 from flask import session as request_session, request, url_for, json, Response, current_app
+from flask.globals import _app_ctx_stack, _request_ctx_stack
 
-__all__ = ['get_current_url', 'get_next_url', 'jsonp']
+__all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -108,3 +112,53 @@ def jsonp(*args, **kw):
     else:
         mimetype = 'application/json'
     return Response(data, mimetype=mimetype)
+
+
+# Adapted from https://stackoverflow.com/a/19637175
+def endpoint_for(url, method=None, return_rule=False, follow_redirects=True, subdomains=True):
+    """
+    Given an absolute URL, retrieve the matching endpoint name (or rule).
+
+    :param str method: HTTP method to use (defaults to GET)
+    :param bool return_rule: Return the URL rule instead of the endpoint name
+    :param bool follow_redirects: Follow redirects to final endpoint
+    :return: Endpoint name or URL rule, or `None` if not found
+    """
+    appctx = _app_ctx_stack.top
+    reqctx = _request_ctx_stack.top
+    if appctx is None:
+        raise RuntimeError("Application context is required but not present.")
+
+    url_adapter = appctx.url_adapter
+    if url_adapter is None and reqctx is not None:
+        url_adapter = reqctx.url_adapter
+    if url_adapter is None:
+        raise RuntimeError("Application was not able to create a URL "
+                           "adapter for request-independent URL matching. "
+                           "You might be able to fix this by setting "
+                           "the SERVER_NAME config variable.")
+
+    def recursive_match(url):
+        """
+        Returns a match or None. If a redirect is encountered and must be followed,
+        calls self with the new URL.
+        """
+        # We use Werkzeug's url_parse instead of Python's urlparse
+        # because this is what Flask uses.
+        parsed_url = url_parse(url)
+        if not parsed_url.netloc:
+            return
+        if parsed_url.netloc != url_adapter.server_name and not (
+                parsed_url.netloc.endswith('.' + url_adapter.server_name)):
+            return
+
+        try:
+            endpoint_or_rule, view_args = url_adapter.match(parsed_url.path, method, return_rule=return_rule)
+            return endpoint_or_rule
+        except RequestRedirect as r:
+            if follow_redirects:
+                return recursive_match(r.new_url)
+        except HTTPException as e:
+            pass
+
+    return recursive_match(url)
