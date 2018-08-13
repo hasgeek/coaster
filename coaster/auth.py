@@ -47,7 +47,7 @@ def add_auth_attribute(attr, value, actor=False):
     2. ``user`` is also made available as ``_request_ctx_stack.top.user`` for
        compatibility with Flask-Login
     """
-    if attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
+    if attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
         raise AttributeError("Attribute name %s is reserved by current_auth" % attr)
 
     # Invoking current_auth will also create it on the local stack. We can
@@ -114,6 +114,10 @@ class CurrentAuth(object):
 
     Check if you have a valid actor in the current request::
 
+        if current_auth:
+
+    which is equivalent to::
+
         if current_auth.is_authenticated:
 
     Reverse check, for anonymous user. Your login manager may or may not
@@ -144,6 +148,14 @@ class CurrentAuth(object):
     def __repr__(self):  # pragma: no cover
         return 'CurrentAuth(%s)' % repr(self.actor)
 
+    def __bool__(self):
+        """
+        Returns ``True`` if user is authenticated, ``False`` if not.
+        """
+        return self.is_authenticated
+
+    __nonzero__ = __bool__  # for backward compatibility in Python 2.x
+
     @property
     def is_anonymous(self):
         """
@@ -156,11 +168,26 @@ class CurrentAuth(object):
         return True
 
     @property
+    def not_anonymous(self):
+        """
+        Shortcut for ```if not current_auth.is_anonymous:```.
+        """
+        return not self.is_anonymous
+
+    @property
     def is_authenticated(self):
         """
         Property that returns ``True`` if an actor is present.
         """
         return self.actor is not None
+
+    @property
+    def not_authenticated(self):
+        """
+        Shortcut for ```if not current_auth.is_authenticated:```.
+        """
+        return not self.is_authenticated
+
 
 
 def _get_current_auth():

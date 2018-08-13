@@ -132,6 +132,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
     def test_current_auth_without_user(self):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
+        self.assertFalse(current_auth)
         self.assertIsNone(current_auth.user)
         self.assertIsNone(current_auth.actor)
 
@@ -141,6 +142,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
         self.assertFalse(current_auth.is_anonymous)
         self.assertTrue(current_auth.is_authenticated)
+        self.assertTrue(current_auth)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
         self.assertEqual(current_auth.actor, user)
@@ -164,6 +166,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
         self.assertFalse(current_auth.is_anonymous)
         self.assertTrue(current_auth.is_authenticated)
+        self.assertTrue(current_auth)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
         self.assertEqual(current_auth.actor, user)
@@ -171,6 +174,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
     def test_current_auth_with_user_loaded(self):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
+        self.assertFalse(current_auth)
         self.assertIsNone(current_auth.user)
         self.assertIsNone(current_auth.actor)
 
@@ -179,6 +183,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
         self.assertFalse(current_auth.is_anonymous)
         self.assertTrue(current_auth.is_authenticated)
+        self.assertTrue(current_auth)
         self.assertIsNotNone(current_auth.user)
         self.assertEqual(current_auth.user, user)
         self.assertEqual(current_auth.actor, user)
@@ -186,6 +191,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
     def test_anonymous_user(self):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
+        self.assertFalse(current_auth)
         self.assertIsNone(current_auth.user)
 
         user = AnonymousUser()
@@ -196,18 +202,20 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertIsNotNone(current_auth.user)
         # is_authenticated == True, since there is an actor
         self.assertTrue(current_auth.is_authenticated)
+        self.assertTrue(current_auth)
         self.assertIsNotNone(current_auth.actor)
         self.assertEqual(current_auth.user, user)
         self.assertEqual(current_auth.actor, user)
 
     def test_invalid_auth_attribute(self):
-        for attr in ('actor', 'anchors', 'is_anonymous', 'is_authenticated'):
+        for attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
             with self.assertRaises(AttributeError):
                 add_auth_attribute(attr, None)
 
     def test_other_actor_authenticated(self):
         self.assertTrue(current_auth.is_anonymous)
         self.assertFalse(current_auth.is_authenticated)
+        self.assertFalse(current_auth)
         self.assertIsNone(current_auth.user)
 
         client = Client()
@@ -215,6 +223,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
         self.assertFalse(current_auth.is_anonymous)
         self.assertTrue(current_auth.is_authenticated)
+        self.assertTrue(current_auth)
         self.assertIsNone(current_auth.user)  # It's not the user
         self.assertEqual(current_auth.client, client)  # There's now a client attribute
         self.assertEqual(current_auth.actor, client)   # The client is also the actor
