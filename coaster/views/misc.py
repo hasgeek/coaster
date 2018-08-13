@@ -97,6 +97,8 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
 def jsonp(*args, **kw):
     """
     Returns a JSON response with a callback wrapper, if asked for.
+    Consider using CORS instead, as JSONP makes the client app insecure.
+    See the :func:`~coaster.views.decorators.cors` decorator.
     """
     data = json.dumps(dict(*args, **kw), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))

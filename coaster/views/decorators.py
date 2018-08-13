@@ -517,13 +517,16 @@ def cors(origins,
     """
     Adds CORS headers to the decorated view function.
 
-    :param origins: One of: (A) A callable that receives the origin as a parameter. The callable
-        is expected to check if the given origin has access to the
-        requested resource, and return a boolean value. (B) A list of origins.
-        (C) '*', indicating that this resource is accessible by any origin
-    :param methods: A list of HTTP methods that are allowed for this origin
-    :param headers: A list of HTTP headers that are allowed for this origin
-    :param max_age: Maximum number of seconds the result for the pre-flight request can be cached
+    :param origins: Allowed origins (see below)
+    :param methods: A list of allowed HTTP methods
+    :param headers: A list of allowed HTTP headers
+    :param max_age: Duration in seconds for which the CORS response may be cached
+
+    The :obj:`origins` parameter may be one of:
+
+    1. A callable that receives the origin as a parameter.
+    2. A list of origins.
+    3. ``*``, indicating that this resource is accessible by any origin.
 
     Example use::
 
@@ -581,9 +584,8 @@ def cors(origins,
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
             if max_age:
                 resp.headers['Access-Control-Max-Age'] = str(max_age)
+            # Add 'Origin' to the Vary header since response will vary by origin
             if 'Vary' in resp.headers:
-                # This is to indicate to clients that server responses will differ
-                # based on the Origin
                 vary_values = [item.strip() for item in resp.headers['Vary'].split(',')]
                 if 'Origin' not in vary_values:
                     vary_values.append('Origin')
