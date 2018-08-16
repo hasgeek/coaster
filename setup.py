@@ -43,7 +43,7 @@ requires = [
     'werkzeug',
     'markupsafe',
     'blinker',
-    'Flask',
+    'Flask>=1.0',
     ]
 
 
