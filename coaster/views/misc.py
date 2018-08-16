@@ -12,7 +12,6 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 from __future__ import absolute_import
 import re
 from six.moves.urllib.parse import urlsplit
-from werkzeug.urls import url_parse
 from werkzeug.routing import RequestRedirect
 from werkzeug.exceptions import HTTPException
 from flask import session as request_session, request, url_for, json, Response, current_app
@@ -114,51 +113,47 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
-# Adapted from https://stackoverflow.com/a/19637175
-def endpoint_for(url, method=None, return_rule=False, follow_redirects=True, subdomains=True):
+def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     """
     Given an absolute URL, retrieve the matching endpoint name (or rule).
+    Requires a current request context to determine runtime environment.
 
     :param str method: HTTP method to use (defaults to GET)
     :param bool return_rule: Return the URL rule instead of the endpoint name
     :param bool follow_redirects: Follow redirects to final endpoint
     :return: Endpoint name or URL rule, or `None` if not found
     """
-    appctx = _app_ctx_stack.top
-    reqctx = _request_ctx_stack.top
-    if appctx is None:
-        raise RuntimeError("Application context is required but not present.")
+    parsed_url = urlsplit(url)
+    if not parsed_url.netloc:
+        # We require an absolute URL
+        return
 
-    url_adapter = appctx.url_adapter
-    if url_adapter is None and reqctx is not None:
-        url_adapter = reqctx.url_adapter
-    if url_adapter is None:
-        raise RuntimeError("Application was not able to create a URL "
-                           "adapter for request-independent URL matching. "
-                           "You might be able to fix this by setting "
-                           "the SERVER_NAME config variable.")
+    # Take the current runtime environment...
+    environ = dict(request.environ)
+    # ...but replace the HTTP host with the URL's host...
+    environ['HTTP_HOST'] = parsed_url.netloc
+    # ...and the path with the URL's path (after discounting the app path, if not hosted at root).
+    environ['PATH_INFO'] = parsed_url.path[len(environ['SCRIPT_NAME']):]
+    # Create a new request with this environment...
+    url_request = current_app.request_class(environ)
+    # ...and a URL adapter with the new request.
+    url_adapter = current_app.create_url_adapter(url_request)
 
-    def recursive_match(url):
-        """
-        Returns a match or None. If a redirect is encountered and must be followed,
-        calls self with the new URL.
-        """
-        # We use Werkzeug's url_parse instead of Python's urlparse
-        # because this is what Flask uses.
-        parsed_url = url_parse(url)
-        if not parsed_url.netloc:
-            return
-        if parsed_url.netloc != url_adapter.server_name and not (
-                parsed_url.netloc.endswith('.' + url_adapter.server_name)):
-            return
+    # Domain or subdomain must match.
+    # TODO: To support apps that host multiple domains, we need to remove this
+    # check, or offer a callback hook to check the domain.
+    if parsed_url.netloc != url_adapter.server_name and not (
+            parsed_url.netloc.endswith('.' + url_adapter.server_name)):
+        return
 
-        try:
-            endpoint_or_rule, view_args = url_adapter.match(parsed_url.path, method, return_rule=return_rule)
-            return endpoint_or_rule
-        except RequestRedirect as r:
-            if follow_redirects:
-                return recursive_match(r.new_url)
-        except HTTPException as e:
-            pass
-
-    return recursive_match(url)
+    try:
+        endpoint_or_rule, view_args = url_adapter.match(parsed_url.path, method, return_rule=return_rule)
+        return endpoint_or_rule
+    except RequestRedirect as r:
+        # A redirect typically implies `/folder` -> `/folder/`
+        # This will not be a redirect response from a view, since the view isn't being called
+        if follow_redirects:
+            return endpoint_for(r.new_url, method=method, return_rule=return_rule, follow_redirects=follow_redirects)
+    except HTTPException as e:
+        pass
+    # If we got here, no endpoint was found.

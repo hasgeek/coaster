@@ -6,7 +6,7 @@ from flask import Flask, session, json
 from coaster.app import load_config_from_file
 from coaster.auth import current_auth, add_auth_attribute
 from coaster.views import (get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform,
-    requires_permission, endpoint_for)
+    requires_permission)
 
 
 def index():
@@ -171,53 +171,3 @@ class TestCoasterViews(unittest.TestCase):
             current_auth.permissions.add('allow-this')
             assert permission1() == 'allowed1'
             assert permission2() == 'allowed2'
-
-
-class TestCoasterViewsEndpointFor(unittest.TestCase):
-    def setUp(self):
-        self.app = Flask(__name__, subdomain_matching=True)
-        # Use `index` as the view function for all routes as it's not actually called
-        self.app.add_url_rule('/', 'index', index)
-        self.app.add_url_rule('/slashed/', 'slashed', index)
-        self.app.add_url_rule('/sub', 'subdomained', index, subdomain='<subdomain>')
-
-    def test_endpoint_for(self):
-        with self.app.test_request_context():
-            assert endpoint_for('http://localhost/') == 'index'
-            assert endpoint_for('http://localhost/slashed/') == 'slashed'
-            assert endpoint_for('http://localhost/slashed') == 'slashed'
-            assert endpoint_for('http://localhost/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://localhost/sub') is None  # Requires SERVER_NAME
-
-            assert endpoint_for('http://example.com/') is None
-            assert endpoint_for('http://example.com/slashed/') is None
-            assert endpoint_for('http://example.com/slashed') is None
-            assert endpoint_for('http://example.com/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://example.com/sub') is None
-
-            assert endpoint_for('http://sub.example.com/') is None
-            assert endpoint_for('http://sub.example.com/slashed/') is None
-            assert endpoint_for('http://sub.example.com/slashed') is None
-            assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://sub.example.com/sub') is None
-
-        self.app.config['SERVER_NAME'] = 'example.com'
-
-        with self.app.test_request_context():
-            assert endpoint_for('http://localhost/') is None
-            assert endpoint_for('http://localhost/slashed/') is None
-            assert endpoint_for('http://localhost/slashed') is None
-            assert endpoint_for('http://localhost/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://localhost/sub') is None
-
-            assert endpoint_for('http://example.com/') == 'index'
-            assert endpoint_for('http://example.com/slashed/') == 'slashed'
-            assert endpoint_for('http://example.com/slashed') == 'slashed'
-            assert endpoint_for('http://example.com/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://example.com/sub') == 'subdomained'
-
-            assert endpoint_for('http://sub.example.com/') is None
-            assert endpoint_for('http://sub.example.com/slashed/') is None
-            assert endpoint_for('http://sub.example.com/slashed') is None
-            assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) is None
-            assert endpoint_for('http://sub.example.com/sub') is 'subdomained'
