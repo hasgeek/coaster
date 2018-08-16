@@ -31,95 +31,95 @@ class TestScaffolding(unittest.TestCase):
 
 class TestNoServerName(TestScaffolding):
     def test_localhost_index(self):
-        assert endpoint_for('http://localhost/') == 'index'
+        assert endpoint_for('http://localhost/') == ('index', {})
 
     def test_localhost_slashed(self):
-        assert endpoint_for('http://localhost/slashed/') == 'slashed'
+        assert endpoint_for('http://localhost/slashed/') == ('slashed', {})
 
     def test_localhost_unslashed(self):
-        assert endpoint_for('http://localhost/slashed') == 'slashed'
+        assert endpoint_for('http://localhost/slashed') == ('slashed', {})
 
     def test_localhost_unslashed_noredirect(self):
-        assert endpoint_for('http://localhost/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://localhost/slashed', follow_redirects=False) == (None, {})
 
     def test_localhost_sub(self):
-        assert endpoint_for('http://localhost/sub') == 'un_subdomained'
+        assert endpoint_for('http://localhost/sub') == ('un_subdomained', {})
 
     def test_example_index(self):
-        assert endpoint_for('http://example.com/') == 'index'
+        assert endpoint_for('http://example.com/') == ('index', {})
 
     def test_example_slashed(self):
-        assert endpoint_for('http://example.com/slashed/') == 'slashed'
+        assert endpoint_for('http://example.com/slashed/') == ('slashed', {})
 
     def test_example_unslashed(self):
-        assert endpoint_for('http://example.com/slashed') == 'slashed'
+        assert endpoint_for('http://example.com/slashed') == ('slashed', {})
 
     def test_example_unslashed_noredirect(self):
-        assert endpoint_for('http://example.com/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://example.com/slashed', follow_redirects=False) == (None, {})
 
     def test_example_sub(self):
-        assert endpoint_for('http://example.com/sub') == 'un_subdomained'
+        assert endpoint_for('http://example.com/sub') == ('un_subdomained', {})
 
     def test_subexample_index(self):
-        assert endpoint_for('http://sub.example.com/') == 'index'
+        assert endpoint_for('http://sub.example.com/') == ('index', {})
 
     def test_subexample_slashed(self):
-        assert endpoint_for('http://sub.example.com/slashed/') == 'slashed'
+        assert endpoint_for('http://sub.example.com/slashed/') == ('slashed', {})
 
     def test_subexample_unslashed(self):
-        assert endpoint_for('http://sub.example.com/slashed') == 'slashed'
+        assert endpoint_for('http://sub.example.com/slashed') == ('slashed', {})
 
     def test_subexample_unslashed_noredirect(self):
-        assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) == (None, {})
 
     def test_subexample_sub(self):
-        assert endpoint_for('http://sub.example.com/sub') == 'un_subdomained'
+        assert endpoint_for('http://sub.example.com/sub') == ('un_subdomained', {})
 
 
 class TestWithServerName(TestScaffolding):
     server_name = 'example.com'
 
     def test_localhost_index(self):
-        assert endpoint_for('http://localhost/') is None
+        assert endpoint_for('http://localhost/') == (None, {})
 
     def test_localhost_slashed(self):
-        assert endpoint_for('http://localhost/slashed/') is None
+        assert endpoint_for('http://localhost/slashed/') == (None, {})
 
     def test_localhost_unslashed(self):
-        assert endpoint_for('http://localhost/slashed') is None
+        assert endpoint_for('http://localhost/slashed') == (None, {})
 
     def test_localhost_unslashed_noredirect(self):
-        assert endpoint_for('http://localhost/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://localhost/slashed', follow_redirects=False) == (None, {})
 
     def test_localhost_sub(self):
-        assert endpoint_for('http://localhost/sub') is None
+        assert endpoint_for('http://localhost/sub') == (None, {})
 
     def test_example_index(self):
-        assert endpoint_for('http://example.com/') == 'index'
+        assert endpoint_for('http://example.com/') == ('index', {})
 
     def test_example_slashed(self):
-        assert endpoint_for('http://example.com/slashed/') == 'slashed'
+        assert endpoint_for('http://example.com/slashed/') == ('slashed', {})
 
     def test_example_unslashed(self):
-        assert endpoint_for('http://example.com/slashed') == 'slashed'
+        assert endpoint_for('http://example.com/slashed') == ('slashed', {})
 
     def test_example_unslashed_noredirect(self):
-        assert endpoint_for('http://example.com/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://example.com/slashed', follow_redirects=False) == (None, {})
 
     def test_example_sub(self):
-        assert endpoint_for('http://example.com/sub') == 'un_subdomained'
+        assert endpoint_for('http://example.com/sub') == ('un_subdomained', {})
 
     def test_subexample_index(self):
-        assert endpoint_for('http://sub.example.com/') is None
+        assert endpoint_for('http://sub.example.com/') == (None, {})
 
     def test_subexample_slashed(self):
-        assert endpoint_for('http://sub.example.com/slashed/') is None
+        assert endpoint_for('http://sub.example.com/slashed/') == (None, {})
 
     def test_subexample_unslashed(self):
-        assert endpoint_for('http://sub.example.com/slashed') is None
+        assert endpoint_for('http://sub.example.com/slashed') == (None, {})
 
     def test_subexample_unslashed_noredirect(self):
-        assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) is None
+        assert endpoint_for('http://sub.example.com/slashed', follow_redirects=False) == (None, {})
 
     def test_subexample_sub(self):
-        assert endpoint_for('http://sub.example.com/sub') == 'subdomained'
+        assert endpoint_for('http://sub.example.com/sub') == ('subdomained', {'subdomain': 'sub'})

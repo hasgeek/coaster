@@ -115,18 +115,19 @@ def jsonp(*args, **kw):
 
 def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     """
-    Given an absolute URL, retrieve the matching endpoint name (or rule).
-    Requires a current request context to determine runtime environment.
+    Given an absolute URL, retrieve the matching endpoint name (or rule) and
+    view arguments. Requires a current request context to determine runtime
+    environment.
 
     :param str method: HTTP method to use (defaults to GET)
     :param bool return_rule: Return the URL rule instead of the endpoint name
     :param bool follow_redirects: Follow redirects to final endpoint
-    :return: Endpoint name or URL rule, or `None` if not found
+    :return: Tuple of endpoint name or URL rule or `None`, view arguments
     """
     parsed_url = urlsplit(url)
     if not parsed_url.netloc:
         # We require an absolute URL
-        return
+        return None, {}
 
     # Take the current runtime environment...
     environ = dict(request.environ)
@@ -156,12 +157,11 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
 
     # If no test passed, we don't have a matching endpoint.
     else:
-        return
+        return None, {}
 
     # Now retrieve the endpoint or rule, watching for redirects or resolution failures
     try:
-        endpoint_or_rule, view_args = url_adapter.match(parsed_url.path, method, return_rule=return_rule)
-        return endpoint_or_rule
+        return url_adapter.match(parsed_url.path, method, return_rule=return_rule)
     except RequestRedirect as r:
         # A redirect typically implies `/folder` -> `/folder/`
         # This will not be a redirect response from a view, since the view isn't being called
@@ -170,3 +170,4 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     except (NotFound, MethodNotAllowed):
         pass
     # If we got here, no endpoint was found.
+    return None, {}
