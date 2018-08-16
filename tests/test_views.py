@@ -62,7 +62,7 @@ def permission2():
 class TestCoasterViews(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
-        load_config_from_file(self.app, "settings.py")
+        load_config_from_file(self.app, 'settings.py')
         self.app.add_url_rule('/', 'index', index)
         self.app.add_url_rule('/', 'external', external)
         self.app.add_url_rule('/somewhere', 'somewhere', )

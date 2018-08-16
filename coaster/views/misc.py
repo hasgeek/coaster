@@ -12,9 +12,12 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 from __future__ import absolute_import
 import re
 from six.moves.urllib.parse import urlsplit
+from werkzeug.routing import RequestRedirect
+from werkzeug.exceptions import NotFound, MethodNotAllowed
 from flask import session as request_session, request, url_for, json, Response, current_app
+from flask.globals import _app_ctx_stack, _request_ctx_stack
 
-__all__ = ['get_current_url', 'get_next_url', 'jsonp']
+__all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
@@ -108,3 +111,63 @@ def jsonp(*args, **kw):
     else:
         mimetype = 'application/json'
     return Response(data, mimetype=mimetype)
+
+
+def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
+    """
+    Given an absolute URL, retrieve the matching endpoint name (or rule) and
+    view arguments. Requires a current request context to determine runtime
+    environment.
+
+    :param str method: HTTP method to use (defaults to GET)
+    :param bool return_rule: Return the URL rule instead of the endpoint name
+    :param bool follow_redirects: Follow redirects to final endpoint
+    :return: Tuple of endpoint name or URL rule or `None`, view arguments
+    """
+    parsed_url = urlsplit(url)
+    if not parsed_url.netloc:
+        # We require an absolute URL
+        return None, {}
+
+    # Take the current runtime environment...
+    environ = dict(request.environ)
+    # ...but replace the HTTP host with the URL's host...
+    environ['HTTP_HOST'] = parsed_url.netloc
+    # ...and the path with the URL's path (after discounting the app path, if not hosted at root).
+    environ['PATH_INFO'] = parsed_url.path[len(environ['SCRIPT_NAME']):]
+    # Create a new request with this environment...
+    url_request = current_app.request_class(environ)
+    # ...and a URL adapter with the new request.
+    url_adapter = current_app.create_url_adapter(url_request)
+
+    # Run three hostname tests, one of which must pass:
+
+    # 1. Does the URL map have host matching enabled? If so, the URL adapter will validate the hostname.
+    if current_app.url_map.host_matching:
+        pass
+
+    # 2. If not, does the domain match? url_adapter.server_name will prefer app.config['SERVER_NAME'],
+    # but if that is not specified, it will take it from the environment.
+    elif parsed_url.netloc == url_adapter.server_name:
+        pass
+
+    # 3. If subdomain matching is enabled, does the subdomain match?
+    elif current_app.subdomain_matching and parsed_url.netloc.endswith('.' + url_adapter.server_name):
+        pass
+
+    # If no test passed, we don't have a matching endpoint.
+    else:
+        return None, {}
+
+    # Now retrieve the endpoint or rule, watching for redirects or resolution failures
+    try:
+        return url_adapter.match(parsed_url.path, method, return_rule=return_rule)
+    except RequestRedirect as r:
+        # A redirect typically implies `/folder` -> `/folder/`
+        # This will not be a redirect response from a view, since the view isn't being called
+        if follow_redirects:
+            return endpoint_for(r.new_url, method=method, return_rule=return_rule, follow_redirects=follow_redirects)
+    except (NotFound, MethodNotAllowed):
+        pass
+    # If we got here, no endpoint was found.
+    return None, {}

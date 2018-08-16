@@ -23,6 +23,7 @@
   into a class
 * New: ``coaster.utils.classmethodproperty``: like a property, but for class
   methods
+* New: ``coaster.views.endpoint_for``: discover an endpoint given a URL
 
 
 0.6.0
