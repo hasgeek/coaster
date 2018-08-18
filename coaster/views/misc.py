@@ -134,7 +134,7 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     # ...but replace the HTTP host with the URL's host...
     environ['HTTP_HOST'] = parsed_url.netloc
     # ...and the path with the URL's path (after discounting the app path, if not hosted at root).
-    environ['PATH_INFO'] = parsed_url.path[len(environ['SCRIPT_NAME']):]
+    environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')):]
     # Create a new request with this environment...
     url_request = current_app.request_class(environ)
     # ...and a URL adapter with the new request.
