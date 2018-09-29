@@ -29,9 +29,9 @@ class ViewDocument(BaseNameMixin, db.Model):
             }
         }
 
-    def permissions(self, user, inherited=()):
-        perms = super(ViewDocument, self).permissions(user, inherited)
-        if user == 'this-is-the-owner':  # Our hack of a user object, for testing
+    def permissions(self, actor, inherited=()):
+        perms = super(ViewDocument, self).permissions(actor, inherited)
+        if actor == 'this-is-the-owner':  # Our hack of a user object, for testing
             perms.add('edit')
             perms.add('delete')
         return perms

@@ -80,5 +80,5 @@ class DocumentWorkflow(docflow.DocumentWorkflow):
             if hasattr(g, 'permissions'):
                 perms.update(g.permissions or [])
             if hasattr(self.document, 'permissions'):
-                perms = self.document.permissions(current_auth.user, perms)
+                perms = self.document.permissions(current_auth.actor, perms)
         return perms
