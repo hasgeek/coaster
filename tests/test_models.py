@@ -330,8 +330,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(ScopedNamedDocument.get(c1, 'hello'), d1)
         self.assertEqual(d1.name, 'hello')
-        self.assertEqual(d1.permissions(user=u), set([]))
-        self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
+        self.assertEqual(d1.permissions(actor=u), set([]))
+        self.assertEqual(d1.permissions(actor=u, inherited=set(['view'])), set(['view']))
 
         d2 = ScopedNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
@@ -409,8 +409,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(ScopedIdDocument.get(c1, d1.url_id), d1)
-        self.assertEqual(d1.permissions(user=u, inherited=set(['view'])), set(['view']))
-        self.assertEqual(d1.permissions(user=u), set([]))
+        self.assertEqual(d1.permissions(actor=u, inherited=set(['view'])), set(['view']))
+        self.assertEqual(d1.permissions(actor=u), set([]))
 
         d2 = ScopedIdDocument(content="New document", container=c1)
         self.session.add(d2)

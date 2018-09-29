@@ -34,10 +34,10 @@ class ParentDocument(BaseNameMixin, db.Model):
         super(ParentDocument, self).__init__(**kwargs)
         self.middle = MiddleContainer()
 
-    def permissions(self, user, inherited=None):
-        perms = super(ParentDocument, self).permissions(user, inherited)
+    def permissions(self, actor, inherited=None):
+        perms = super(ParentDocument, self).permissions(actor, inherited)
         perms.add('view')
-        if user.username == 'foo':
+        if actor.username == 'foo':
             perms.add('edit')
             perms.add('delete')
         return perms
@@ -48,12 +48,12 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
     parent_id = Column(None, ForeignKey('middle_container.id'))
     parent = relationship(MiddleContainer, backref='children')
 
-    def permissions(self, user, inherited=None):
+    def permissions(self, actor, inherited=None):
         if inherited is None:
             perms = set()
         else:
             perms = inherited
-        if user.username == 'foo':
+        if actor.username == 'foo':
             if 'delete' in perms:
                 perms.remove('delete')
         return perms

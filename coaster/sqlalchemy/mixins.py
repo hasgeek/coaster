@@ -217,7 +217,7 @@ class PermissionMixin(object):
     """
     Provides the :meth:`permissions` method used by BaseMixin and derived classes
     """
-    def permissions(self, user, inherited=None):
+    def permissions(self, actor, inherited=None):
         """
         Return permissions available to the given user on this object
         """
@@ -495,16 +495,16 @@ class BaseScopedNameMixin(BaseMixin):
                     return short
         return self.title
 
-    def permissions(self, user, inherited=None):
+    def permissions(self, actor, inherited=None):
         """
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedNameMixin, self).permissions(user)
+            return inherited | super(BaseScopedNameMixin, self).permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(user) | super(BaseScopedNameMixin, self).permissions(user)
+            return self.parent.permissions(actor) | super(BaseScopedNameMixin, self).permissions(actor)
         else:
-            return super(BaseScopedNameMixin, self).permissions(user)
+            return super(BaseScopedNameMixin, self).permissions(actor)
 
 
 class BaseIdNameMixin(BaseMixin):
@@ -639,16 +639,16 @@ class BaseScopedIdMixin(BaseMixin):
             self.url_id = select([func.coalesce(func.max(self.__class__.url_id + 1), 1)],
                 self.__class__.parent == self.parent)
 
-    def permissions(self, user, inherited=None):
+    def permissions(self, actor, inherited=None):
         """
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedIdMixin, self).permissions(user)
+            return inherited | super(BaseScopedIdMixin, self).permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(user) | super(BaseScopedIdMixin, self).permissions(user)
+            return self.parent.permissions(actor) | super(BaseScopedIdMixin, self).permissions(actor)
         else:
-            return super(BaseScopedIdMixin, self).permissions(user)
+            return super(BaseScopedIdMixin, self).permissions(actor)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
