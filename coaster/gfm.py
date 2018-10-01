@@ -16,6 +16,7 @@ https://gist.github.com/Wilfred/901706
 
 from markupsafe import Markup
 from markdown import Markdown
+from markdown.extensions import Extension
 import re
 from .utils import sanitize_html, VALID_TAGS
 
@@ -37,15 +38,20 @@ GFM_TAGS['th'] = ['align', 'char', 'charoff', 'colspan', 'rowspan', 'valign']
 GFM_TAGS['thead'] = ['align', 'char', 'charoff', 'valign']
 GFM_TAGS['tr'] = ['align', 'char', 'charoff', 'valign']
 
-markdown_convert_text = Markdown(safe_mode='escape', output_format='html5',
-    enable_attributes=False,
-    extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty'],
+
+class EscapeHtml(Extension):
+    def extendMarkdown(self, md):
+        md.preprocessors.deregister('html_block')
+        md.inlinePatterns.deregister('html')
+
+
+markdown_convert_text = Markdown(output_format='html5', enable_attributes=False,
+    extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty', EscapeHtml()],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
 
 
-markdown_convert_html = Markdown(safe_mode=False, output_format='html5',
-    enable_attributes=True,
+markdown_convert_html = Markdown(output_format='html5', enable_attributes=True,
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
@@ -168,4 +174,5 @@ def markdown(text, html=False, valid_tags=GFM_TAGS):
     if html:
         return Markup(sanitize_html(markdown_convert_html(gfm(text)), valid_tags=valid_tags))
     else:
+        print markdown_convert_text(gfm(text))
         return Markup(markdown_convert_text(gfm(text)))
