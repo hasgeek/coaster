@@ -174,5 +174,4 @@ def markdown(text, html=False, valid_tags=GFM_TAGS):
     if html:
         return Markup(sanitize_html(markdown_convert_html(gfm(text)), valid_tags=valid_tags))
     else:
-        print markdown_convert_text(gfm(text))
         return Markup(markdown_convert_text(gfm(text)))
