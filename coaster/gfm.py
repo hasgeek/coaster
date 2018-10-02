@@ -40,18 +40,23 @@ GFM_TAGS['tr'] = ['align', 'char', 'charoff', 'valign']
 
 
 class EscapeHtml(Extension):
+    """
+    Extension to escape HTML tags to use with Markdown()
+    This replaces `safe_mode='escape`
+    Ref: https://python-markdown.github.io/change_log/release-3.0/#safe_mode-and-html_replacement_text-keywords-deprecated
+    """
     def extendMarkdown(self, md):
         md.preprocessors.deregister('html_block')
         md.inlinePatterns.deregister('html')
 
 
-markdown_convert_text = Markdown(output_format='html5', enable_attributes=False,
+markdown_convert_text = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty', EscapeHtml()],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
 
 
-markdown_convert_html = Markdown(output_format='html5', enable_attributes=True,
+markdown_convert_html = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
     ).convert
