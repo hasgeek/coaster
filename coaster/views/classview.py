@@ -15,7 +15,7 @@ from sqlalchemy.orm.properties import RelationshipProperty
 from sqlalchemy.orm.descriptor_props import SynonymProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
-from flask import _request_ctx_stack, has_request_context, request, redirect, make_response
+from flask import _request_ctx_stack, has_request_context, request, redirect, make_response, Blueprint
 from ..auth import current_auth, add_auth_attribute
 
 __all__ = [
@@ -484,11 +484,12 @@ class UrlForView(object):
             # Make a subset of cls.route_model_map with the required variables
             params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
             # Hook up is_url_for with the view function's name, endpoint name and parameters
-            cls.model.is_url_for(view_func.__name__, endpoint, **params)(view_func)
+            prefix = app.name + '.' if isinstance(app, Blueprint) else ''
+            cls.model.is_url_for(view_func.__name__, prefix + endpoint, **params)(view_func)
             if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 
-        super(ModelView, cls).init_app(app, callback=register_view_on_model)
+        super(UrlForView, cls).init_app(app, callback=register_view_on_model)
 
 
 def url_change_check(f):
