@@ -94,7 +94,6 @@ class LocalVarFormatter(logging.Formatter):
                 'method': request.method,
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,
-                'module': request.module,
                 'view_args': request.view_args
             }
             pprint_with_indent(request_data, sio)
