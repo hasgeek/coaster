@@ -84,7 +84,8 @@ class TestLoadModels(unittest.TestCase):
 
         for acceptheader, template in [
                 ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
-                ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml')]:
+                ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml'),
+                ('Text/Html,Application/Xhtml Xml,Application/Xml;Q=0.9,*/*;Q=0.8', 'renderedview2.html')]:
             try:
                 self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
             except TemplateNotFound as e:

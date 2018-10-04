@@ -327,7 +327,7 @@ def _best_mimetype_match(available_list, accept_mimetypes, default=None):
     for use_mimetype, quality in accept_mimetypes:
         for mimetype in available_list:
             if use_mimetype.lower() == mimetype.lower():
-                return use_mimetype
+                return use_mimetype.lower()
     return default
 
 
