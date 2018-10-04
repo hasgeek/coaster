@@ -382,6 +382,12 @@ class TestCoasterModels(unittest.TestCase):
         d1.title = "Container Contained"
         self.assertEqual(d1.short_title(), "Contained")
 
+        d1.title = "Container: Contained"
+        self.assertEqual(d1.short_title(), "Contained")
+
+        d1.title = "Container - Contained"
+        self.assertEqual(d1.short_title(), "Contained")
+
     def test_id_named(self):
         """Documents with a global id in the URL"""
         c1 = self.make_container()

@@ -32,6 +32,7 @@ from sqlalchemy_utils.types import UUIDType
 from flask import url_for
 import six
 from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid, InspectableSet
+from ..utils.misc import _punctuation_re
 from ..auth import current_auth
 from .immutable_annotation import immutable
 from .roles import RoleMixin, with_roles
@@ -491,6 +492,9 @@ class BaseScopedNameMixin(BaseMixin):
         if self.title and self.parent is not None and hasattr(self.parent, 'title') and self.parent.title:
             if self.title.startswith(self.parent.title):
                 short = self.title[len(self.parent.title):].strip()
+                match = _punctuation_re.match(short)
+                if match:
+                    short = short[match.end():].strip()
                 if short:
                     return short
         return self.title
