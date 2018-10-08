@@ -860,10 +860,10 @@ class StateManagerWrapper(object):
         else:
             proxy = {}
             current = False  # In case the host object is not a RoleMixin
-        return {name: transition for name, transition in
+        return OrderedDict((name, transition) for name, transition in
             # Retrieve transitions from the host object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
-            if transition.is_available and (name in proxy if current else True)}
+            if transition.is_available and (name in proxy if current else True))
 
     def transitions_for(self, roles=None, actor=None, anchors=[]):
         """
