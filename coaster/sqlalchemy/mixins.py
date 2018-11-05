@@ -102,31 +102,8 @@ class UuidMixin(object):
     """
     Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
     to the existing ``id`` column if the class uses UUID primary keys. Also
-    provides hybrid properties ``url_id``, ``buid`` and ``suuid`` that provide
-    hex, BUID and ShortUUID representations of the ``uuid`` column.
-
-    :class:`UuidMixin` must appear before other classes in the base class order::
-
-        class MyDocument(UuidMixin, BaseMixin, db.Model):
-            pass
-
-    Compatibility table:
-
-    +-----------------------+-------------+-----------------------------------------+
-    | Base class            | Compatible? | Notes                                   |
-    +=======================+=============+=========================================+
-    | BaseMixin             | Yes         |                                         |
-    +-----------------------+-------------+-----------------------------------------+
-    | BaseIdNameMixin       | Yes         |                                         |
-    +-----------------------+-------------+-----------------------------------------+
-    | BaseNameMixin         | N/A         | ``name`` is secondary key, not ``uuid`` |
-    +-----------------------+-------------+-----------------------------------------+
-    | BaseScopedNameMixin   | N/A         | ``name`` is secondary key, not ``uuid`` |
-    +-----------------------+-------------+-----------------------------------------+
-    | BaseScopedIdMixin     | No          | Conflicting :attr:`url_id` attribute    |
-    +-----------------------+-------------+-----------------------------------------+
-    | BaseScopedIdNameMixin | No          | Conflicting :attr:`url_id` attribute    |
-    +-----------------------+-------------+-----------------------------------------+
+    provides hybrid properties ``huuid``, ``buid`` and ``suuid`` that provide
+    hex, URL-safe Base64 and ShortUUID representations of the ``uuid`` column.
     """
     @with_roles(read={'all'})
     @declared_attr
@@ -138,12 +115,12 @@ class UuidMixin(object):
             return immutable(Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False))
 
     @hybrid_property
-    def url_id(self):
+    def huuid(self):
         """URL-friendly UUID representation as a hex string"""
         return self.uuid.hex
 
-    @url_id.comparator
-    def url_id(cls):
+    @huuid.comparator
+    def huuid(cls):
         # For some reason the test fails if we use `cls.uuid` here
         # but works fine in the `buid` and `suuid` comparators below
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -151,7 +128,7 @@ class UuidMixin(object):
         else:
             return SqlHexUuidComparator(cls.uuid)
 
-    url_id = with_roles(url_id, read={'all'})
+    huuid = with_roles(huuid, read={'all'})
 
     @hybrid_property
     def buid(self):
@@ -564,11 +541,15 @@ class BaseIdNameMixin(BaseMixin):
     @hybrid_property
     def url_id_name(self):
         """
-        Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name
-        syntax. This property is also available as :attr:`url_name` for legacy
-        reasons.
+        Returns a URL name combining :attr:`huuid` or :attr:`url_id` and
+        :attr:`name` in id-name syntax. This property is also available as
+        :attr:`url_name` for legacy reasons.
         """
-        return '%s-%s' % (self.url_id, self.name)
+        # Use UUID instead of id when available
+        if isinstance(self, UuidMixin):
+            return '%s-%s' % (self.huuid, self.name)
+        else:
+            return '%s-%s' % (self.url_id, self.name)
 
     @url_id_name.comparator
     def url_id_name(cls):
@@ -588,19 +569,11 @@ class BaseIdNameMixin(BaseMixin):
         Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
         To use this, the class must derive from :class:`UuidMixin`.
         """
-        if isinstance(self, UuidMixin):
-            return '%s-%s' % (self.name, self.suuid)
-        else:
-            return '%s-%s' % (self.name, self.url_id)
+        return '%s-%s' % (self.name, self.suuid)
 
     @url_name_suuid.comparator
     def url_name_suuid(cls):
-        if issubclass(cls, UuidMixin):
-            return SqlSuuidComparator(cls.uuid, splitindex=-1)
-        elif cls.__uuid_primary_key__:
-            return SqlHexUuidComparator(cls.id, splitindex=-1)
-        else:
-            return SqlSplitIdComparator(cls.id, splitindex=-1)
+        return SqlSuuidComparator(cls.uuid, splitindex=-1)
 
 
 class BaseScopedIdMixin(BaseMixin):

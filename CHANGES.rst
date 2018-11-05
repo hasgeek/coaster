@@ -24,6 +24,7 @@
 * New: ``coaster.utils.classmethodproperty``: like a property, but for class
   methods
 * New: ``coaster.views.endpoint_for``: discover an endpoint given a URL
+* Changed: ``UuidMixin`` no longer provides ``url_id``
 
 
 0.6.0

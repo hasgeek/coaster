@@ -623,9 +623,15 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_uuid_url_id(self):
         """
-        IdMixin and UuidMixin provide a url_id that renders as a string of
-        either the integer primary key or the UUID primary key
+        IdMixin provides a url_id that renders as a string of either the
+        integer primary key or the UUID primary key. In addition, UuidMixin
+        provides a huuid that always renders a UUID against either the
+        id or uuid columns.
         """
+        # TODO: This test is a little muddled because UuidMixin renamed
+        # its url_id property (which overrode IdMixin's url_id) to huuid.
+        # This test needs to be broken down into separate tests for each of
+        # these properties.
         u1 = NonUuidKey()
         u2 = UuidKey()
         u3 = NonUuidMixinKey()
@@ -648,14 +654,14 @@ class TestCoasterModels(unittest.TestCase):
         self.assertFalse('-' in u2.url_id)  # Without dashes
 
         self.assertIsInstance(i3, uuid.UUID)
-        self.assertEqual(u3.url_id, i3.hex)
-        self.assertEqual(len(u3.url_id), 32)  # This is a 32-byte hex representation
-        self.assertFalse('-' in u3.url_id)  # Without dashes
+        self.assertEqual(u3.huuid, i3.hex)
+        self.assertEqual(len(u3.huuid), 32)  # This is a 32-byte hex representation
+        self.assertFalse('-' in u3.huuid)  # Without dashes
 
         self.assertIsInstance(i4, uuid.UUID)
-        self.assertEqual(u4.url_id, i4.hex)
-        self.assertEqual(len(u4.url_id), 32)  # This is a 32-byte hex representation
-        self.assertFalse('-' in u4.url_id)  # Without dashes
+        self.assertEqual(u4.huuid, i4.hex)
+        self.assertEqual(len(u4.huuid), 32)  # This is a 32-byte hex representation
+        self.assertFalse('-' in u4.huuid)  # Without dashes
 
         # Querying against `url_id` redirects the query to
         # `id` (IdMixin) or `uuid` (UuidMixin).
@@ -672,7 +678,7 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_key.id = '1'")
 
         # With UUID primary keys, `url_id` casts the value into a UUID
-        # and then queries against `id` or ``uuid``
+        # and then queries against `id`
 
         # Note that `literal_binds` here doesn't know how to render UUIDs if
         # no engine is specified, and so casts them into a string. We test this
@@ -715,7 +721,7 @@ class TestCoasterModels(unittest.TestCase):
                 ).compile(compile_kwargs={'literal_binds': True})),
             "non_uuid_key.id IS NULL")
         self.assertEqual(
-            six.text_type((NonUuidMixinKey.url_id == None  # NOQA
+            six.text_type((NonUuidMixinKey.huuid == None  # NOQA
                 ).compile(compile_kwargs={'literal_binds': True})),
             "non_uuid_mixin_key.uuid IS NULL")
 
@@ -729,11 +735,11 @@ class TestCoasterModels(unittest.TestCase):
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
-            six.text_type((NonUuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+            six.text_type((NonUuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'")
         self.assertEqual(
-            six.text_type((UuidMixinKey.url_id == '74d588574a7611e78c27c38403d0935c'
+            six.text_type((UuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})),
             "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'")
 
@@ -843,12 +849,13 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        # No UuidMixin means no suuid, so fallback to hex UUID
-        self.assertEqual(u1.url_name_suuid, 'test-74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u2.url_id, '74d588574a7611e78c27c38403d0935c')
+        # No suuid without UuidMixin
+        with self.assertRaises(AttributeError):
+            self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
+        self.assertEqual(u2.huuid, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u3.url_id, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u3.huuid, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u3.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
 
