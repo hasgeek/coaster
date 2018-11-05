@@ -856,7 +856,8 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
         self.assertEqual(u3.huuid, '74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u3.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
+        # url_id_name in BaseIdNameMixin uses the id column, not the uuid column
+        self.assertEqual(u3.url_id_name, '1-test')
         self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
 
         # url_name is legacy

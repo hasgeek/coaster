@@ -541,22 +541,16 @@ class BaseIdNameMixin(BaseMixin):
     @hybrid_property
     def url_id_name(self):
         """
-        Returns a URL name combining :attr:`huuid` or :attr:`url_id` and
-        :attr:`name` in id-name syntax. This property is also available as
-        :attr:`url_name` for legacy reasons.
+        Returns a URL name combining :attr:`url_id` and :attr:`name` in
+        id-name syntax. This property is also available as :attr:`url_name`
+        for legacy reasons.
         """
-        # Use UUID instead of id when available
-        if isinstance(self, UuidMixin):
-            return '%s-%s' % (self.huuid, self.name)
-        else:
-            return '%s-%s' % (self.url_id, self.name)
+        return '%s-%s' % (self.url_id, self.name)
 
     @url_id_name.comparator
     def url_id_name(cls):
         if cls.__uuid_primary_key__:
             return SqlHexUuidComparator(cls.id, splitindex=0)
-        elif issubclass(cls, UuidMixin):
-            return SqlHexUuidComparator(cls.uuid, splitindex=0)
         else:
             return SqlSplitIdComparator(cls.id, splitindex=0)
 
