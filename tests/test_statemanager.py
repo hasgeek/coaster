@@ -593,7 +593,7 @@ class TestStateManager(unittest.TestCase):
         """State managers maintain the order of transitions from the class definition"""
         self.assertTrue(self.post.state.DRAFT)
         # `submit` must come before `publish`
-        self.assertEqual(list(self.post.state.transitions(current=False).keys()[:2]), ['submit', 'publish'])
+        self.assertEqual(list(self.post.state.transitions(current=False).keys())[:2], ['submit', 'publish'])
 
     def test_currently_available_transitions(self):
         """State managers indicate the currently available transitions (using current_auth)"""
