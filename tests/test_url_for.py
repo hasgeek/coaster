@@ -94,3 +94,21 @@ class TestUrlFor(unittest.TestCase):
         self.assertEqual(doc2.url_for('edit'), 'http://localhost/1/document2/edit')
         self.assertEqual(doc2.url_for('edit', _external=False), '/1/document2/edit')
         self.assertEqual(doc2.url_for('edit', _external=True), 'http://localhost/1/document2/edit')
+
+    def test_url(self):
+        """
+        The .url property is the same as .url_for(_external=True)
+        """
+        # Make two documents
+        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        self.session.add(doc1)
+        c1 = Container()  # Gets an autoincrementing id starting from 1
+        self.session.add(c1)
+        doc2 = ScopedNamedDocument(container=c1, name=u'document2', title=u"Document 2")
+        self.session.add(doc2)
+        self.session.commit()
+
+        assert doc1.url == doc1.url_for(_external=True)
+        assert doc1.url != doc1.url_for(_external=False)
+        assert doc2.url == doc2.url_for(_external=True)
+        assert doc2.url != doc2.url_for(_external=False)
