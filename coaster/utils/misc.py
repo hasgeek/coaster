@@ -557,16 +557,21 @@ def getbool(value):
 
 def nullint(value):
     """
-    Return int(value) if bool(value) is not False. Return None otherwise.
-    Useful for coercing optional values to an integer.
+    Return int(value) if bool(value) is not False and value can be cast to integer.
+    Return None otherwise. Useful for coercing optional values to an integer.
 
     >>> nullint('10')
     10
     >>> nullint('') is None
     True
+    >>> nullint('foobar') is None
+    True
     """
     if value:
-        return int(value)
+        try:
+            return int(value)
+        except ValueError:
+            return
 
 
 def nullstr(value):
