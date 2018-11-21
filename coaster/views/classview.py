@@ -467,6 +467,14 @@ class ModelView(ClassView):
         """
         super(ModelView, self).before_request(kwargs)
         self.obj = self.loader(kwargs)
+        # Determine permissions available on the object for the current actor,
+        # but only if the view method has a requires_permission decorator
+        if (hasattr(self.current_handler.wrapped_func, 'requires_permission') and
+                hasattr(self.obj, 'current_permissions')):
+            perms = self.obj.current_permissions
+            if hasattr(current_auth, 'permissions'):
+                perms = perms | current_auth.permissions
+            add_auth_attribute('permissions', perms)
 
 
 class UrlForView(object):
@@ -572,7 +580,7 @@ class InstanceLoader(object):
                     # Dig into it to find the source column
                     source = self.model
                     for subname in name.split('.'):
-                        attr = getattr(source, subname)
+                        attr = relattr = getattr(source, subname)
                         # Did we get to something like 'parent'?
                         # 1. If it's a synonym, get the attribute it is a synonym for
                         # 2. If it's a relationship, find the source class, join it to
@@ -586,8 +594,9 @@ class InstanceLoader(object):
                                 else:
                                     attr = attr.property.argument
                                 if attr not in joined_models:
-                                    # SQL JOIN the other model
-                                    query = query.join(attr)
+                                    # SQL JOIN the other model on the basis of
+                                    # the relationship that led us to this join
+                                    query = query.join(attr, relattr)
                                     # But ensure we don't JOIN twice
                                     joined_models.add(attr)
                         source = attr
@@ -595,12 +604,4 @@ class InstanceLoader(object):
                 else:
                     query = query.filter(getattr(self.model, name) == value)
             obj = query.one_or_404()
-            # Determine permissions available on the object for the current actor,
-            # but only if the view method has a requires_permission decorator
-            if (hasattr(self.current_handler.wrapped_func, 'requires_permission') and
-                    hasattr(obj, 'current_permissions')):
-                perms = obj.current_permissions
-                if hasattr(current_auth, 'permissions'):
-                    perms = perms | current_auth.permissions
-                add_auth_attribute('permissions', perms)
             return obj

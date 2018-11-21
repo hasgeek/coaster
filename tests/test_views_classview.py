@@ -90,6 +90,7 @@ class IndexView(ClassView):
     def current_handler_is_wrapper(self):
         return str(current_view.current_handler == self.current_handler_is_wrapper)
 
+
 IndexView.init_app(app)
 
 
@@ -109,6 +110,7 @@ class DocumentView(ClassView):
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         document.title = title
         return 'edited!'
+
 
 DocumentView.init_app(app)
 
@@ -156,6 +158,7 @@ class SubView(BaseView):
     def third(self):
         return 'removed-third'
 
+
 SubView.add_route_for('also_inherited', '/inherited')
 SubView.add_route_for('also_inherited', 'inherited2', endpoint='just_also_inherited')
 SubView.add_route_for('latent_route', 'latent')
@@ -168,6 +171,7 @@ class AnotherSubView(BaseView):
     @BaseView.second.reroute
     def second(self):
         return 'also-rerouted-second'
+
 
 AnotherSubView.init_app(app)
 
@@ -199,6 +203,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     def edit(self, **kwargs):
         return 'edit-called'
 
+
 ModelDocumentView.init_app(app)
 
 
@@ -209,6 +214,7 @@ class ScopedDocumentView(ModelDocumentView):
         'document': 'name',
         'parent': 'parent.name',
         }
+
 
 ScopedDocumentView.init_app(app)
 
@@ -224,6 +230,7 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
     @render_with(json=True)
     def view(self, **kwargs):
         return self.obj.current_access()
+
 
 RenameableDocumentView.init_app(app)
 
