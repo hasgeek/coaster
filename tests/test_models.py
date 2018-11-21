@@ -13,6 +13,7 @@ from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, f
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import MultipleResultsFound
+from werkzeug.routing import BuildError
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
     UuidMixin, UUIDType, add_primary_relationship, auto_init_default)
@@ -529,7 +530,8 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_url_for(self):
         d = UnnamedDocument(content="hello")
-        self.assertEqual(d.url_for(), None)
+        with self.assertRaises(BuildError):
+            d.url_for()
 
     def test_jsondict(self):
         m1 = MyData(data={'value': 'foo'})
