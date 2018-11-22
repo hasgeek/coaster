@@ -29,7 +29,8 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import synonym
 from sqlalchemy_utils.types import UUIDType
-from flask import url_for
+from werkzeug.routing import BuildError
+from flask import current_app, url_for
 import six
 from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid, InspectableSet
 from ..utils.misc import _punctuation_re
@@ -218,18 +219,23 @@ class UrlForMixin(object):
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
-    #: Mapping of {action: (endpoint, {param: attr})}, where attr is a string or tuple of strings.
-    #: This particular dictionary is only used as a fallback. Each subclass will get its own dictionary.
-    url_for_endpoints = {}
+    #: Mapping of {app: {action: (endpoint, {param: attr})}}, where attr is a string or tuple of strings.
+    #: The same action can point to different endpoints in different apps. The app may also be None as fallback.
+    #: Each subclass will get its own dictionary. This particular dictionary is only used as an inherited fallback.
+    url_for_endpoints = {None: {}}
 
     def url_for(self, action='view', **kwargs):
         """
         Return public URL to this instance for a given action (default 'view')
         """
-        if action not in self.url_for_endpoints:
-            # FIXME: Legacy behaviour, fails silently, but shouldn't. url_for itself raises a BuildError
-            return
-        endpoint, paramattrs, _external = self.url_for_endpoints[action]
+        app = current_app._get_current_object() if current_app else None
+        if app is not None and action in self.url_for_endpoints.get(app, {}):
+            endpoint, paramattrs, _external = self.url_for_endpoints[app][action]
+        else:
+            try:
+                endpoint, paramattrs, _external = self.url_for_endpoints[None][action]
+            except KeyError:
+                raise BuildError(action, kwargs, 'GET')
         params = {}
         for param, attr in list(paramattrs.items()):
             if isinstance(attr, tuple):
@@ -254,18 +260,19 @@ class UrlForMixin(object):
         return self.url_for(_external=True)
 
     @classmethod
-    def is_url_for(cls, _action, _endpoint=None, _external=None, **paramattrs):
+    def is_url_for(cls, _action, _endpoint=None, _app=None, _external=None, **paramattrs):
         """
         View decorator that registers the view as a :meth:`url_for` target.
         """
         def decorator(f):
             if 'url_for_endpoints' not in cls.__dict__:
-                cls.url_for_endpoints = {}  # Stick it into the class with the first endpoint
+                cls.url_for_endpoints = {None: {}}  # Stick it into the class with the first endpoint
+            cls.url_for_endpoints.setdefault(_app, {})
 
             for keyword in paramattrs:
                 if isinstance(paramattrs[keyword], six.string_types) and '.' in paramattrs[keyword]:
                     paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
-            cls.url_for_endpoints[_action] = _endpoint or f.__name__, paramattrs, _external
+            cls.url_for_endpoints[_app][_action] = _endpoint or f.__name__, paramattrs, _external
             return f
         return decorator
 

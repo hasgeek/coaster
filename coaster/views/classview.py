@@ -483,9 +483,17 @@ class UrlForView(object):
             rulevars = (v for c, a, v in parse_rule(rule))
             # Make a subset of cls.route_model_map with the required variables
             params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
-            # Hook up is_url_for with the view function's name, endpoint name and parameters
-            prefix = app.name + '.' if isinstance(app, Blueprint) else ''
-            cls.model.is_url_for(view_func.__name__, prefix + endpoint, **params)(view_func)
+            # Hook up is_url_for with the view function's name, endpoint name and parameters.
+            # Register the view for a specific app, unless we're in a Blueprint,
+            # in which case it's not an app.
+            # FIXME: The behaviour of a Blueprint + multi-app combo is unknown and needs tests.
+            if isinstance(app, Blueprint):
+                prefix = app.name + '.'
+                reg_app = None
+            else:
+                prefix = ''
+                reg_app = app
+            cls.model.is_url_for(view_func.__name__, prefix + endpoint, _app=reg_app, **params)(view_func)
             if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 

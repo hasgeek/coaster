@@ -27,6 +27,8 @@
 * Changed: ``UuidMixin`` no longer provides ``url_id``
 * New: ``coaster.sqlalchemy.UrlForMixin`` now provides an ``absolute_url``
   property
+* Changed: ``coaster.sqlalchemy.UrlForMixin`` now recognises that the project
+  may have multiple apps with distinct URLs for the same content
 
 
 0.6.0
