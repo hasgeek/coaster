@@ -25,6 +25,8 @@
   methods
 * New: ``coaster.views.endpoint_for``: discover an endpoint given a URL
 * Changed: ``UuidMixin`` no longer provides ``url_id``
+* New: ``coaster.sqlalchemy.UrlForMixin`` now provides an ``absolute_url``
+  property
 
 
 0.6.0
