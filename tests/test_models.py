@@ -265,7 +265,6 @@ class TestCoasterModels(unittest.TestCase):
     def test_named(self):
         """Named documents have globally unique names."""
         c1 = self.make_container()
-        # XXX: We don't know why, but this raises a non-Unicode string warning
         d1 = NamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
@@ -510,6 +509,47 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d1.name, 'new3')
         d2.make_name(reserved=['new2'])
         self.assertEqual(d2.name, 'new3')
+
+    def test_named_auto(self):
+        """
+        The name attribute is auto-generated on database insertion
+        """
+        c1 = self.make_container()
+        d1 = NamedDocument(container=c1)
+        d2 = ScopedNamedDocument(container=c1)
+        d3 = IdNamedDocument(container=c1)
+        d4 = ScopedIdNamedDocument(container=c1)
+        d1.title = "Auto name"
+        d2.title = "Auto name"
+        d3.title = "Auto name"
+        d4.title = "Auto name"
+        self.session.add_all([d1, d2, d3, d4])
+        assert d1.name is None
+        assert d2.name is None
+        assert d3.name is None
+        assert d4.name is None
+        self.session.commit()
+        assert d1.name == 'auto-name'
+        assert d2.name == 'auto-name'
+        assert d3.name == 'auto-name'
+        assert d4.name == 'auto-name'
+
+    def test_scoped_id_auto(self):
+        """
+        The url_id attribute is auto-generated on database insertion
+        """
+        c1 = self.make_container()
+        d1 = ScopedIdDocument()
+        d1.container = c1
+        d2 = ScopedIdNamedDocument()
+        d2.container = c1
+        d2.title = "Auto name"
+        self.session.add_all([d1, d2])
+        assert d1.url_id is None
+        assert d2.url_id is None
+        self.session.commit()
+        assert d1.url_id == 1
+        assert d2.url_id == 1
 
     def test_has_timestamps(self):
         # Confirm that a model with multiple base classes between it and
