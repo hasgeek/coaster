@@ -197,6 +197,7 @@ class DefaultValue(BaseMixin, db.Model):
     __tablename__ = 'default_value'
     value = db.Column(db.Unicode(100), default='default')
 
+
 auto_init_default(DefaultValue.value)
 
 
@@ -527,7 +528,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertTrue(d.updated_at > updated_at)
 
-    def test_url_for(self):
+    def test_url_for_fail(self):
         d = UnnamedDocument(content="hello")
         self.assertEqual(d.url_for(), None)
 
