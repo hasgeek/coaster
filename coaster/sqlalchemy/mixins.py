@@ -254,6 +254,11 @@ class UrlForMixin(object):
         # url_for from flask
         return url_for(endpoint, **params)
 
+    @with_roles(read={'all'})
+    @property
+    def absolute_url(self):
+        return self.url_for(_external=True)
+
     @classmethod
     def is_url_for(cls, _action, _endpoint=None, _app=None, _external=None, **paramattrs):
         """
