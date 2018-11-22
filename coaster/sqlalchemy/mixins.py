@@ -250,7 +250,7 @@ class UrlForMixin(object):
 
     @with_roles(read={'all'})
     @property
-    def url(self):
+    def absolute_url(self):
         return self.url_for(_external=True)
 
     @classmethod

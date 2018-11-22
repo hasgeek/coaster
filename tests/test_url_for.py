@@ -108,7 +108,7 @@ class TestUrlFor(unittest.TestCase):
         self.session.add(doc2)
         self.session.commit()
 
-        assert doc1.url == doc1.url_for(_external=True)
-        assert doc1.url != doc1.url_for(_external=False)
-        assert doc2.url == doc2.url_for(_external=True)
-        assert doc2.url != doc2.url_for(_external=False)
+        assert doc1.absolute_url == doc1.url_for(_external=True)
+        assert doc1.absolute_url != doc1.url_for(_external=False)
+        assert doc2.absolute_url == doc2.url_for(_external=True)
+        assert doc2.absolute_url != doc2.url_for(_external=False)
