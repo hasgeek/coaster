@@ -488,7 +488,11 @@ class UrlForView(object):
         def register_view_on_model(rule, endpoint, view_func, **options):
             # Only pass in the attrs that are included in the rule.
             # 1. Extract list of variables from the rule
-            rulevars = (v for c, a, v in parse_rule(rule))
+            rulevars = [v for c, a, v in parse_rule(rule)]
+            if options.get('host'):
+                rulevars.extend(v for c, a, v in parse_rule(options['host']))
+            if options.get('subdomain'):
+                rulevars.extend(v for c, a, v in parse_rule(options['subdomain']))
             # Make a subset of cls.route_model_map with the required variables
             params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
             # Hook up is_url_for with the view function's name, endpoint name and parameters.
