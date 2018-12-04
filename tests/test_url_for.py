@@ -141,6 +141,21 @@ class TestUrlFor(TestUrlForBase):
         assert doc2.absolute_url == doc2.url_for(_external=True)
         assert doc2.absolute_url != doc2.url_for(_external=False)
 
+    def test_absolute_url_missing(self):
+        """
+        The .absolute_url property exists on all UrlForMixin-models, even if there is no view
+        """
+        c1 = Container()
+        assert c1.absolute_url is None
+
+    def test_absolute_url_in_access_proxy(self):
+        """
+        The .absolute_url property does not have a default access role
+        """
+        c1 = Container()
+        d = c1.access_for(roles={'all'})
+        assert 'absolute_url' not in d
+
     def test_per_app(self):
         """Allow app-specific URLs for the same action name"""
         doc1 = NamedDocument(name=u'document1', title=u"Document 1")

@@ -276,6 +276,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
     else:
         return inner
 
+
 # with_roles was set_roles when originally introduced in 0.6.0
 # set_roles is deprecated since 0.6.1
 set_roles = with_roles
