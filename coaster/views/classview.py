@@ -155,17 +155,23 @@ class ViewHandler(object):
         * :attr:`view_func`: The view function registered as a Flask view handler
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
-        def view_func(*args, **kwargs):
+        def view_func(**view_args):
+            # view_func does not make any reference to variables from init_app to avoid creating
+            # a closure. Instead, the code further below sticks all relevant variables into
+            # view_func's namespace.
+
             # Instantiate the view class. We depend on its __init__ requiring no parameters
             viewinst = view_func.view_class()
-            # Declare ourselves (the ViewHandler) as the current view
+            # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
+            # equivalence tests possible, such as ``self.current_handler == self.index``
             viewinst.current_handler = ViewHandlerWrapper(view_func.view, viewinst, view_func.view_class)
-            # Place it on the request stack for :obj:`current_view` to discover
+            # Place view arguments in the instance, in case they are needed outside the dispatch process
+            viewinst.view_args = view_args
+            # Place the view instance on the request stack for :obj:`current_view` to discover
             _request_ctx_stack.top.current_view = viewinst
-            # Call the instance's before_request method
-            viewinst.before_request(kwargs)
-            # Finally, call the view handler method
-            return viewinst.after_request(make_response(view_func.wrapped_func(viewinst, *args, **kwargs)))
+            # Call the view instance's dispatch method. View classes can customise this for
+            # desired behaviour.
+            return viewinst.dispatch_request(view_func.wrapped_func, view_args)
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be applied.
@@ -307,19 +313,35 @@ class ClassView(object):
     __decorators__ = []
 
     #: When a view is called, this will point to the current view handler,
-    #: an instance of `ViewHandler`.
+    #: an instance of :class:`ViewHandler`.
     current_handler = None
 
-    def before_request(self, kwargs):
+    #: When a view is called, this will be replaced with a dictionary of
+    #: arguments to the view.
+    view_args = None
+
+    def dispatch_request(self, view, view_args):
+        """
+        View dispatcher that calls before_request, the view, and then after_request.
+        Subclasses may override this to provide a custom flow. :class:`ModelView`
+        does this to insert a model loading phase.
+
+        :param view: View method wrapped in specified decorators. The dispatcher
+            must call this
+        :param dict view_args: View arguments, to be passed on to the view method
+        """
+        # Call the :meth:`before_request` method
+        self.before_request()
+        # Call the view handler method, then pass the response to :meth:`after_response`
+        return self.after_request(make_response(view(self, **view_args)))
+
+    def before_request(self):
         """
         This method is called after the app's ``before_request`` handlers, and
-        before the class's view method. It receives the name of the view
-        method, and all keyword arguments that will be sent to the view method.
-        Subclasses and mixin classes may define their own
-        :meth:`before_request` to pre-process requests.
-
-        :param dict kwargs: Parameters that will be sent to the view handler.
-            These are typically parameters from the URL rule
+        before the class's view method. Subclasses and mixin classes may define
+        their own :meth:`before_request` to pre-process requests. This method
+        receives context via `self`, in particular via :attr:`current_handler`
+        and :attr:`view_args`.
         """
         pass
 
@@ -422,13 +444,13 @@ class ModelView(ClassView):
 
             @route('')
             @render_with(json=True)
-            def view(self, **kwargs):
+            def view(self):
                 return self.obj.current_access()
 
         DocumentView.init_app(app)
 
-    Views will receive keyword arguments as in :class:`ClassView`, but
-    typically will have no use for them if :meth:`loader` works as expected.
+    Views will not receive view arguments, unlike in :class:`ClassView`. If
+    necessary, they are available as `self.view_args`.
     """
 
     #: The model that this view class represents, to be specified by subclasses.
@@ -449,7 +471,24 @@ class ModelView(ClassView):
     #: SQLAlchemy attribute references to load the instance object.
     route_model_map = {}
 
-    def loader(self, kwargs):  # pragma: no cover
+    def dispatch_request(self, view, view_args):
+        """
+        View dispatcher that calls :meth:`before_request`, :meth:`loader`,
+        :meth:`after_loader`, the view, and then :meth:`after_request`.
+
+        :param view: View method wrapped in specified decorators.
+        :param dict view_args: View arguments, to be passed on to the view method
+        """
+        # Call the :meth:`before_request` method
+        self.before_request()
+        # Load the database model
+        self.obj = self.loader(**view_args)
+        # Trigger pre-view processing of the loaded object
+        self.after_loader()
+        # Call the view handler method, then pass the response to :meth:`after_response`
+        return self.after_request(make_response(view(self)))
+
+    def loader(self, **view_args):  # pragma: no cover
         """
         Subclasses or mixin classes may override this method to provide a model
         instance loader. The return value of this method will be placed at
@@ -457,16 +496,9 @@ class ModelView(ClassView):
 
         :return: Object instance loaded from database
         """
-        pass
+        raise NotImplementedError("View class is missing a loader method")
 
-    def before_request(self, kwargs):
-        """
-        :class:`ModelView` overrides :meth:`~ClassView.before_request` to call
-        :meth:`loader`. Subclasses overriding this method must use
-        :func:`super` to ensure :meth:`loader` is called.
-        """
-        super(ModelView, self).before_request(kwargs)
-        self.obj = self.loader(kwargs)
+    def after_loader(self):
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
         if (hasattr(self.current_handler.wrapped_func, 'requires_permission') and
@@ -528,7 +560,7 @@ def url_change_check(f):
             @route('')
             @url_change_check
             @render_with(json=True)
-            def view(self, **kwargs):
+            def view(self):
                 return self.obj.current_access()
 
     If the decorator is required for all view handlers in the class, use
@@ -561,7 +593,7 @@ class UrlChangeCheck(UrlForView):
 
             @route('')
             @render_with(json=True)
-            def view(self, **kwargs):
+            def view(self):
                 return self.obj.current_access()
     """
     __decorators__ = [url_change_check]
@@ -576,12 +608,12 @@ class InstanceLoader(object):
     :class:`InstanceLoader` will traverse relationships (many-to-one or
     one-to-one) and perform a SQL ``JOIN`` with the target class.
     """
-    def loader(self, kwargs):
-        if any((name in self.route_model_map for name in kwargs)):
+    def loader(self, **view_args):
+        if any((name in self.route_model_map for name in view_args)):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
             filters = {self.route_model_map[key]: value
-                for key, value in kwargs.items()
+                for key, value in view_args.items()
                 if key in self.route_model_map}
 
             query = self.query or self.model.query

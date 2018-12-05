@@ -90,6 +90,10 @@ class IndexView(ClassView):
     def current_handler_is_wrapper(self):
         return str(current_view.current_handler == self.current_handler_is_wrapper)
 
+    @route('view_args/<one>/<two>')
+    def view_args_are_received(self, **kwargs):
+        return '{one}/{two}'.format(**self.view_args)
+
 
 IndexView.init_app(app)
 
@@ -184,23 +188,23 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         }
 
     @requestargs('access_token')
-    def before_request(self, kwargs, access_token=None):
+    def before_request(self, access_token=None):
         if access_token == 'owner-admin-secret':
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         if access_token == 'owner-secret':
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
-        return super(ModelDocumentView, self).before_request(kwargs)
+        return super(ModelDocumentView, self).before_request()
 
     @route('')
     @render_with(json=True)
-    def view(self, **kwargs):
+    def view(self):
         return self.obj.current_access()
 
     @route('edit', methods=['GET', 'POST'])
     @route('', methods=['PUT'])
     @requires_permission('edit')
-    def edit(self, **kwargs):
+    def edit(self):
         return 'edit-called'
 
 
@@ -228,7 +232,7 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
 
     @route('')
     @render_with(json=True)
-    def view(self, **kwargs):
+    def view(self):
         return self.obj.current_access()
 
 
@@ -273,6 +277,12 @@ class TestClassView(unittest.TestCase):
     def test_current_handler_is_wrapper(self):
         rv = self.client.get('/current_view/current_handler_is_wrapper')
         assert rv.data == b'True'
+
+    def test_view_args_are_received(self):
+        rv = self.client.get('/view_args/one/two')
+        assert rv.data == b'one/two'
+        rv = self.client.get('/view_args/three/four')
+        assert rv.data == b'three/four'
 
     def test_document_404(self):
         """Test 404 response from within a view"""
@@ -407,7 +417,8 @@ class TestClassView(unittest.TestCase):
 
     def test_viewlist(self):
         assert IndexView.__views__ == {
-            'current_handler_is_self', 'current_handler_is_wrapper', 'current_view_is_self', 'index', 'page'}
+            'current_handler_is_self', 'current_handler_is_wrapper', 'current_view_is_self', 'index', 'page',
+            'view_args_are_received'}
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""
