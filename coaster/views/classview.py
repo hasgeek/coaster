@@ -331,7 +331,9 @@ class ClassView(object):
         :param dict view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
-        self.before_request()
+        resp = self.before_request()
+        if resp:
+            return self.after_request(make_response(resp))
         # Call the view handler method, then pass the response to :meth:`after_response`
         return self.after_request(make_response(view(self, **view_args)))
 
@@ -480,11 +482,15 @@ class ModelView(ClassView):
         :param dict view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
-        self.before_request()
+        resp = self.before_request()
+        if resp:
+            return self.after_request(make_response(resp))
         # Load the database model
         self.obj = self.loader(**view_args)
         # Trigger pre-view processing of the loaded object
-        self.after_loader()
+        resp = self.after_loader()
+        if resp:
+            return self.after_request(make_response(resp))
         # Call the view handler method, then pass the response to :meth:`after_response`
         return self.after_request(make_response(view(self)))
 
