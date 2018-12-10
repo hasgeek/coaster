@@ -697,6 +697,19 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     url_name = url_id_name  # Legacy name
 
+    @with_roles(read={'all'})
+    @hybrid_property
+    def url_name_suuid(self):
+        """
+        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
+        To use this, the class must derive from :class:`UuidMixin`.
+        """
+        return '%s-%s' % (self.name, self.suuid)
+
+    @url_name_suuid.comparator
+    def url_name_suuid(cls):
+        return SqlSuuidComparator(cls.uuid, splitindex=-1)
+
 
 class CoordinatesMixin(object):
     """
