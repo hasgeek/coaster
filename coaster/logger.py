@@ -76,7 +76,9 @@ class LocalVarFormatter(logging.Formatter):
                 print("\t%20s = " % key, end=' ', file=sio)
                 try:
                     print(repr(value), file=sio)
-                except:
+                except:  # NOQA
+                    # We need a bare except clause because this is the exception handler.
+                    # It can't have exceptions of its own.
                     print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if request:
@@ -96,25 +98,38 @@ class LocalVarFormatter(logging.Formatter):
                 'endpoint': request.endpoint,
                 'view_args': request.view_args
             }
-            pprint_with_indent(request_data, sio)
+            try:
+                pprint_with_indent(request_data, sio)
+            except:  # NOQA
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if session:
             print('\n----------\n', file=sio)
             print("Session cookie contents:", file=sio)
-            pprint_with_indent(session, sio)
+            try:
+                pprint_with_indent(session, sio)
+            except:  # NOQA
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if g:
             print('\n----------\n', file=sio)
             print("App context:", file=sio)
-            pprint_with_indent(vars(g), sio)
+            try:
+                pprint_with_indent(vars(g), sio)
+            except:  # NOQA
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
-        print('\n----------\n', file=sio)
-        print("Current auth:", file=sio)
-        pprint_with_indent(vars(current_auth), sio)
+        if current_auth:
+            print('\n----------\n', file=sio)
+            print("Current auth:", file=sio)
+            try:
+                pprint_with_indent(vars(current_auth), sio)
+            except:  # NOQA
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         s = sio.getvalue()
         sio.close()
-        if s[-1:] == "\n":
+        if s[-1:] == '\n':
             s = s[:-1]
         return s
 
@@ -165,7 +180,9 @@ class SMSHandler(logging.Handler):
                         'To': number,
                         'Body': message
                         })
-        except:
+        except:  # NOQA
+            # We need a bare except clause because this is the exception handler.
+            # It can't have exceptions of its own.
             pass
 
 
@@ -219,7 +236,9 @@ class SlackHandler(logging.Handler):
                 try:
                     requests.post(webhook['url'], json=payload,
                         headers={'Content-Type': 'application/json'})
-                except:
+                except:  # NOQA
+                    # We need a bare except clause because this is the exception handler.
+                    # It can't have exceptions of its own.
                     pass
                 error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
 
@@ -308,6 +327,7 @@ def init_app(app):
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
         app.logger.addHandler(mail_handler)
+
 
 # Legacy name
 configure = init_app
