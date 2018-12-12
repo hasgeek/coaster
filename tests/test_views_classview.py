@@ -31,6 +31,7 @@ class ViewDocument(BaseNameMixin, db.Model):
 
     def permissions(self, actor, inherited=()):
         perms = super(ViewDocument, self).permissions(actor, inherited)
+        perms.add('view')
         if actor == 'this-is-the-owner':  # Our hack of a user object, for testing
             perms.add('edit')
             perms.add('delete')
@@ -237,6 +238,28 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
 
 
 RenameableDocumentView.init_app(app)
+
+
+@route('/multi/<doc1>/<doc2>')
+class MultiDocumentView(UrlForView, ModelView):
+    model = ViewDocument
+    route_model_map = {
+        'doc1': 'name',
+        'doc2': '@doc2.url_name'
+    }
+
+    def loader(self, doc1, doc2):
+        doc1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
+        doc2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
+        return (doc1, doc2)
+
+    @route('')
+    @requires_permission('view')
+    def linked_view(self):
+        return self.obj[0].url_for('linked_view', doc2=self.obj[1])
+
+
+MultiDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -493,3 +516,17 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
         data = json.loads(rv.data)
         assert data['name'] == 'renamed'
+
+    def test_multi_view(self):
+        """
+        A ModelView view can handle multiple objects and also construct URLs
+        for objects that do not have a well defined relationship between each other.
+        """
+        doc1 = ViewDocument(name='test1', title="Test 1")
+        doc2 = RenameableDocument(name='test2', title="Test 2")
+        self.session.add_all([doc1, doc2])
+        self.session.commit()
+
+        rv = self.client.get('/multi/test1/1-test2')
+        assert rv.status_code == 200
+        assert rv.data == b'/multi/test1/1-test2'
