@@ -17,6 +17,7 @@ from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, has_request_context, request, redirect, make_response, Blueprint
 from ..auth import current_auth, add_auth_attribute
+from ..utils import InspectableSet
 
 __all__ = [
     'rulejoin', 'current_view',  # Functions
@@ -507,9 +508,18 @@ class ModelView(ClassView):
     def after_loader(self):
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
-        if (hasattr(self.current_handler.wrapped_func, 'requires_permission') and
-                hasattr(self.obj, 'current_permissions')):
-            perms = self.obj.current_permissions
+        if hasattr(self.current_handler.wrapped_func, 'requires_permission'):
+            if isinstance(self.obj, tuple):
+                perms = None
+                for subobj in self.obj:
+                    if hasattr(subobj, 'permissions'):
+                        perms = subobj.permissions(current_auth.actor, perms)
+                perms = InspectableSet(perms or set())
+            elif hasattr(self.obj, 'current_permissions'):
+                # current_permissions always returns an InspectableSet
+                perms = self.obj.current_permissions
+            else:
+                perms = InspectableSet()
             if hasattr(current_auth, 'permissions'):
                 perms = perms | current_auth.permissions
             add_auth_attribute('permissions', perms)

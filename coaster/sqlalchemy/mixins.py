@@ -201,7 +201,7 @@ class UrlForMixin(object):
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
-    #: Mapping of {app: {action: (endpoint, {param: attr})}}, where attr is a string or tuple of strings.
+    #: Mapping of {app: {action: (endpoint, {param: attr}, _external)}}, where attr is a string or tuple of strings.
     #: The same action can point to different endpoints in different apps. The app may also be None as fallback.
     #: Each subclass will get its own dictionary. This particular dictionary is only used as an inherited fallback.
     url_for_endpoints = {None: {}}
@@ -221,7 +221,14 @@ class UrlForMixin(object):
         params = {}
         for param, attr in list(paramattrs.items()):
             if isinstance(attr, tuple):
-                item = self
+                # attr is a tuple containing:
+                # 1. ('parent', 'name') --> self.parent.name
+                # 2. ('**entity', 'name') --> kwargs['entity'].name
+                if attr[0].startswith('**'):
+                    item = kwargs.pop(attr[0][2:])
+                    attr = attr[1:]
+                else:
+                    item = self
                 for subattr in attr:
                     item = getattr(item, subattr)
                 params[param] = item

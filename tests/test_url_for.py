@@ -40,6 +40,15 @@ def doc_upper(doc):
     return u'{} {}'.format('upper', doc)
 
 
+# The unusual parameter `other='@other.name'` requires an explanation.
+# The first `other` refers to `<other>` in the URL. The second refers
+# to the parameter given to `NamedDocument.url_for` in the test below.
+@app1.route('/<doc>/with/<other>')
+@NamedDocument.is_url_for('with', doc='name', other='**other.name')
+def doc_with(doc, other):
+    return u'{} {} {}'.format(doc, 'with', other)
+
+
 @app1.route('/<container>/<doc>')
 @ScopedNamedDocument.is_url_for('view', container='parent.id', doc='name')
 def sdoc_view(container, doc):
@@ -173,6 +182,16 @@ class TestUrlFor(TestUrlForBase):
 
         # This action is only available in this app
         assert doc1.url_for('app_only') == '/document1/app_only'
+
+    def test_linked_doc(self):
+        """URLs linking two unrelated models are possible"""
+        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc2 = NamedDocument(name=u'document2', title=u"Document 2")
+        self.session.add_all([doc1, doc2])
+        self.session.commit()
+
+        # url_for is given an object and extracts an attribute from it
+        assert doc1.url_for('with', other=doc2) == '/document1/with/document2'
 
 
 class TestUrlFor2(TestUrlForBase):
