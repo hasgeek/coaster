@@ -223,9 +223,9 @@ class UrlForMixin(object):
             if isinstance(attr, tuple):
                 # attr is a tuple containing:
                 # 1. ('parent', 'name') --> self.parent.name
-                # 2. ('@entity', 'name') --> kwargs['entity'].name
-                if attr[0].startswith('@'):
-                    item = kwargs.pop(attr[0][1:])
+                # 2. ('**entity', 'name') --> kwargs['entity'].name
+                if attr[0].startswith('**'):
+                    item = kwargs.pop(attr[0][2:])
                     attr = attr[1:]
                 else:
                     item = self

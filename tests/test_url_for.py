@@ -44,7 +44,7 @@ def doc_upper(doc):
 # The first `other` refers to `<other>` in the URL. The second refers
 # to the parameter given to `NamedDocument.url_for` in the test below.
 @app1.route('/<doc>/with/<other>')
-@NamedDocument.is_url_for('with', doc='name', other='@other.name')
+@NamedDocument.is_url_for('with', doc='name', other='**other.name')
 def doc_with(doc, other):
     return u'{} {} {}'.format(doc, 'with', other)
 

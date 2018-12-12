@@ -245,7 +245,7 @@ class MultiDocumentView(UrlForView, ModelView):
     model = ViewDocument
     route_model_map = {
         'doc1': 'name',
-        'doc2': '@doc2.url_name'
+        'doc2': '**doc2.url_name'
     }
 
     def loader(self, doc1, doc2):
