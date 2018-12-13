@@ -272,7 +272,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('These are equivalent to \x01 through \x1A')
     'these-are-equivalent-to-through'
     """
-    name = text.replace('@', '-')
+    name = text.replace('@', delim)
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
     name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(name.lower()) if x != '']))
     if isinstance(text, six.text_type):
