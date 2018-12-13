@@ -230,6 +230,8 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'billion-pageviews'
     >>> make_name(u'हिन्दी slug!')
     'hindii-slug'
+    >>> make_name(u'Your webapps should talk not just in English, but in español, Kiswahili, 廣州話 and অসমীয়া too.', maxlength=250)
+    u'your-webapps-should-talk-not-just-in-english-but-in-espanol-kiswahili-guang-zhou-hua-and-asmiiyaa-too'
     >>> make_name(u'__name__', delim=u'_')
     'name'
     >>> make_name(u'how_about_this', delim=u'_')
@@ -270,8 +272,9 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('These are equivalent to \x01 through \x1A')
     'these-are-equivalent-to-through'
     """
-    name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(text.lower()) if x != '']))
+    name = text.replace('@', '-')
     name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
+    name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(name.lower()) if x != '']))
     if isinstance(text, six.text_type):
         # Unidecode returns str. Restore to a unicode string if original was unicode
         name = six.text_type(name)
