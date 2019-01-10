@@ -12,7 +12,8 @@ __all__ = ['for_tsquery']
 
 
 _tsquery_tokens_re = re.compile(r'(:\*|\*|&|!|\||AND|OR|NOT|-|\(|\))', re.U)
-_whitespace_re = re.compile('\s+', re.U)
+_whitespace_re = re.compile(r'\s+', re.U)
+_token_map = {'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}
 
 
 def for_tsquery(text):
@@ -67,9 +68,11 @@ def for_tsquery(text):
     "'Python'"
     >>> for_tsquery("*")
     ''
+    >>> for_tsquery("/etc/passwd\x00")
+    '/etc/passwd'
     """
-    tokens = [{'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}.get(t, t)
-        for t in _tsquery_tokens_re.split(_whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ')))]
+    tokens = [_token_map.get(t, t) for t in _tsquery_tokens_re.split(
+            _whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')))]
     for counter in range(len(tokens)):
         if tokens[counter] not in ('&', '|', '!', ':*', '(', ')', ' '):
             tokens[counter] = "'" + tokens[counter].strip() + "'"
