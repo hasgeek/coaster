@@ -17,7 +17,7 @@ _token_map = {'AND': '&', 'OR': '|', 'NOT': '!', '-': '!', '*': ':*'}
 
 
 def for_tsquery(text):
-    """
+    r"""
     Tokenize text into a valid PostgreSQL to_tsquery query.
 
     >>> for_tsquery(" ")
@@ -69,7 +69,7 @@ def for_tsquery(text):
     >>> for_tsquery("*")
     ''
     >>> for_tsquery("/etc/passwd\x00")
-    '/etc/passwd'
+    "'/etc/passwd'"
     """
     tokens = [_token_map.get(t, t) for t in _tsquery_tokens_re.split(
             _whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')))]
