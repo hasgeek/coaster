@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 from setuptools import setup
 
@@ -13,6 +14,7 @@ if mo:
 else:
     raise RuntimeError("Unable to find version string in coaster/_version.py.")
 
+PY2 = sys.version_info[0] == 2
 
 requires = [
     'six',
@@ -44,8 +46,12 @@ requires = [
     'markupsafe',
     'blinker',
     'Flask>=1.0',
-    ]
+]
 
+if PY2:
+    requires.extend([
+        'PySqlite',
+    ])
 
 setup(name='coaster',
     version=version,
@@ -70,4 +76,4 @@ setup(name='coaster',
     zip_safe=False,
     test_suite='tests',
     install_requires=requires,
-    )
+)
