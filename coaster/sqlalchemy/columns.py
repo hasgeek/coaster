@@ -186,12 +186,13 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 
 class UrlType(URLTypeBase):
-    impl = Unicode(2000)
+    impl = UnicodeText
 
     def __init__(self, schemes=('http', 'https')):
         """
         :param schemes: Valid URL schemes
         """
+        super(URLTypeBase, self).__init__()
         self.schemes = schemes
 
     def process_bind_param(self, value, dialect):

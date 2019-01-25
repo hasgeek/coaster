@@ -605,10 +605,10 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(m1.url_custom_scheme, u"ftp://example.com")
 
     def test_urltype_invalid(self):
-        m1 = MyUrlModel(url=u"example.com")
-        self.session.add(m1)
-        self.session.commit()
-        self.assertEqual(m1.url, u"example.com")
+        with self.assertRaises(StatementError):
+            m1 = MyUrlModel(url=u"example.com")
+            self.session.add(m1)
+            self.session.commit()
 
     def test_urltype_empty(self):
         m1 = MyUrlModel(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
