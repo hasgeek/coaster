@@ -8,7 +8,7 @@ SQLAlchemy column types
 from __future__ import absolute_import
 import simplejson
 from urlparse import urlparse
-from sqlalchemy import Column, UnicodeText
+from sqlalchemy import Column, UnicodeText, Unicode
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
@@ -186,6 +186,8 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 
 class UrlType(URLTypeBase):
+    impl = Unicode(2000)
+
     def __init__(self, schemes=('http', 'https')):
         """
         :param schemes: Valid URL schemes

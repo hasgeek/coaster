@@ -119,6 +119,11 @@ class MyData(db.Model):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
+
+
+class MyUrlModel(db.Model):
+    __tablename__ = 'my_url'
+    id = Column(Integer, primary_key=True)
     url = Column(UrlType)
     url_all_scheme = Column(UrlType(schemes=None))
     url_custom_scheme = Column(UrlType(schemes=('ftp')))
@@ -589,7 +594,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertRaises(ValueError, MyData, data='NonDict')
 
     def test_urltype(self):
-        m1 = MyData(
+        m1 = MyUrlModel(
             url=u"https://example.com", url_all_scheme=u"magnet://example.com",
             url_custom_scheme=u"ftp://example.com"
             )
@@ -599,8 +604,14 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(m1.url_all_scheme, u"magnet://example.com")
         self.assertEqual(m1.url_custom_scheme, u"ftp://example.com")
 
+    def test_urltype_invalid(self):
+        m1 = MyUrlModel(url=u"example.com")
+        self.session.add(m1)
+        self.session.commit()
+        self.assertEqual(m1.url, u"example.com")
+
     def test_urltype_empty(self):
-        m1 = MyData(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
+        m1 = MyUrlModel(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
         self.session.add(m1)
         self.session.commit()
         self.assertEqual(m1.url, u"")
@@ -609,13 +620,13 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_urltype_invalid_scheme_default(self):
         with self.assertRaises(StatementError):
-            m1 = MyData(url=u"magnet://example.com")
+            m1 = MyUrlModel(url=u"magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self):
         with self.assertRaises(StatementError):
-            m1 = MyData(url_custom_scheme=u"magnet://example.com")
+            m1 = MyUrlModel(url_custom_scheme=u"magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
