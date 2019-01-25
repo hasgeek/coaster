@@ -11,12 +11,12 @@ import six
 from flask import Flask
 from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func
 from sqlalchemy.orm import relationship, synonym
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import MultipleResultsFound
 from werkzeug.routing import BuildError
 from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
     BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin, UUIDType, add_primary_relationship, auto_init_default)
+    UuidMixin, UUIDType, UrlType, add_primary_relationship, auto_init_default)
 from coaster.utils import uuid2buid, uuid2suuid
 from coaster.db import db
 from .test_auth import LoginManager
@@ -119,6 +119,9 @@ class MyData(db.Model):
     __tablename__ = 'my_data'
     id = Column(Integer, primary_key=True)
     data = Column(JsonDict)
+    url = Column(UrlType)
+    url_all_scheme = Column(UrlType(schemes=None))
+    url_custom_scheme = Column(UrlType(schemes=('ftp')))
 
 
 class NonUuidKey(BaseMixin, db.Model):
@@ -584,6 +587,37 @@ class TestCoasterModels(unittest.TestCase):
         del m1.data['value']
         self.assertEqual(m1.data, {})
         self.assertRaises(ValueError, MyData, data='NonDict')
+
+    def test_urltype(self):
+        m1 = MyData(
+            url=u"https://example.com", url_all_scheme=u"magnet://example.com",
+            url_custom_scheme=u"ftp://example.com"
+            )
+        self.session.add(m1)
+        self.session.commit()
+        self.assertEqual(m1.url, u"https://example.com")
+        self.assertEqual(m1.url_all_scheme, u"magnet://example.com")
+        self.assertEqual(m1.url_custom_scheme, u"ftp://example.com")
+
+    def test_urltype_empty(self):
+        m1 = MyData(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
+        self.session.add(m1)
+        self.session.commit()
+        self.assertEqual(m1.url, u"")
+        self.assertEqual(m1.url_all_scheme, u"")
+        self.assertEqual(m1.url_custom_scheme, u"")
+
+    def test_urltype_invalid_scheme_default(self):
+        with self.assertRaises(StatementError):
+            m1 = MyData(url=u"magnet://example.com")
+            self.session.add(m1)
+            self.session.commit()
+
+    def test_urltype_invalid_scheme_custom(self):
+        with self.assertRaises(StatementError):
+            m1 = MyData(url_custom_scheme=u"magnet://example.com")
+            self.session.add(m1)
+            self.session.commit()
 
     def test_query(self):
         c1 = Container(name='c1')

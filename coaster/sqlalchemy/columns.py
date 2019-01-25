@@ -7,16 +7,17 @@ SQLAlchemy column types
 
 from __future__ import absolute_import
 import simplejson
+from urlparse import urlparse
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy_utils.types import UUIDType  # NOQA
+from sqlalchemy_utils.types import UUIDType, URLType as URLTypeBase  # NOQA
 from flask import Markup
 import six
 from ..gfm import markdown
 
-__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType']
+__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
 
 
 class JsonType(UserDefinedType):
@@ -182,3 +183,19 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
         )
+
+
+class UrlType(URLTypeBase):
+    def __init__(self, schemes=('http', 'https')):
+        """
+        :param schemes: Valid URL schemes
+        """
+        self.schemes = schemes
+
+    def process_bind_param(self, value, dialect):
+        value = super(UrlType, self).process_bind_param(value, dialect)
+        if value:
+            parsed = urlparse(value)
+            if self.schemes is not None and parsed.scheme not in self.schemes:
+                raise ValueError(u"'{}' is not a valid scheme for this field".format(parsed.scheme))
+        return value
