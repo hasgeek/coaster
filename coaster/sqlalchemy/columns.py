@@ -7,7 +7,6 @@ SQLAlchemy column types
 
 from __future__ import absolute_import
 import simplejson
-from urlparse import urlparse
 from sqlalchemy import Column, UnicodeText, Unicode
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
@@ -16,6 +15,10 @@ from sqlalchemy_utils.types import UUIDType, URLType as URLTypeBase  # NOQA
 from flask import Markup
 import six
 from ..gfm import markdown
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 
 __all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
 
