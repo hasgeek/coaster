@@ -223,6 +223,9 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
         return list((name, title) for name, title in cls.values())
 
 
+_marker = []  # For InspectableSet's default parameter
+
+
 class InspectableSet(Set):
     """
     Given a set, mimics a read-only dictionary where the items are keys and
@@ -257,9 +260,14 @@ class InspectableSet(Set):
         True
         >>> 'inspectable' in joinset
         True
+        >>> emptyset = InspectableSet()
+        >>> len(emptyset)
+        0
     """
-    def __init__(self, members):
-        if not isinstance(members, set):
+    def __init__(self, members=_marker):
+        if members is _marker:
+            members = set()
+        elif not isinstance(members, set):
             members = set(members)
         object.__setattr__(self, '_members', members)
 
