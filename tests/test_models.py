@@ -612,6 +612,12 @@ class TestCoasterModels(unittest.TestCase):
             self.session.add(m1)
             self.session.commit()
 
+    def test_urltype_invalid_schemaless(self):
+        with self.assertRaises(StatementError):
+            m2 = MyUrlModel(url=u"//example.com")
+            self.session.add(m2)
+            self.session.commit()
+
     def test_urltype_invalid_without_host(self):
         with self.assertRaises(StatementError):
             m2 = MyUrlModel(url=u"https:///test")
