@@ -14,11 +14,8 @@ from sqlalchemy.ext.mutable import Mutable, MutableComposite
 from sqlalchemy_utils.types import UUIDType, URLType as URLTypeBase  # NOQA
 from flask import Markup
 import six
+from six.moves.urllib import parse
 from ..gfm import markdown
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
 
 __all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
 
@@ -189,19 +186,43 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
 
 
 class UrlType(URLTypeBase):
+    """
+    Create a TEXT type column that validates URLs and creates a ``furl`` object.
+    Based on URLType_ from SQLAlchemy-Utils.
+
+    .. _URLType: https://sqlalchemy-utils.readthedocs.io/en/latest/data_types.html#module-sqlalchemy_utils.types.url
+
+    :param schemes: Valid URL schemes
+    :param relative_scheme: Whether relative scheme is allowed. False by default.
+    :param relative_path: Whether relative path is allowed. False by default. If it's allowed,
+        ``relative_scheme`` is allowed as well.
+    """
     impl = UnicodeText
 
-    def __init__(self, schemes=('http', 'https')):
-        """
-        :param schemes: Valid URL schemes
-        """
+    def __init__(self, schemes=('http', 'https'), relative_path=False, relative_scheme=False):
         super(URLTypeBase, self).__init__()
         self.schemes = schemes
+        self.relative_path = relative_path
+        self.relative_scheme = relative_scheme if not relative_path else True
 
     def process_bind_param(self, value, dialect):
         value = super(UrlType, self).process_bind_param(value, dialect)
         if value:
-            parsed = urlparse(value)
-            if self.schemes is not None and parsed.scheme not in self.schemes:
-                raise ValueError(u"'{}' is not a valid scheme for this field".format(parsed.scheme))
+            parsed = parse.urlparse(value)
+            if parsed.scheme:
+                # E.g. https://example.com/test
+                if self.schemes is not None and parsed.scheme not in self.schemes:
+                    raise ValueError(u"'{}' is not a valid scheme for this column".format(parsed.scheme))
+                elif not parsed.netloc:
+                    raise ValueError(u"Invalid URL as it does not have a host name")
+            else:
+                # E.g. //example.com/test or example.com/test
+                if not self.relative_scheme:
+                    raise ValueError(u"'{}' does not a have a scheme".format(value))
+                if not parsed.netloc and parsed.path:
+                    # E.g. example.com/test
+                    if not self.relative_path:
+                        raise ValueError(u"'{}' does not a have a valid TLD".format(value))
+                else:
+                    pass
         return value

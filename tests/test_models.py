@@ -127,6 +127,8 @@ class MyUrlModel(db.Model):
     url = Column(UrlType)
     url_all_scheme = Column(UrlType(schemes=None))
     url_custom_scheme = Column(UrlType(schemes=('ftp')))
+    url_relative_scheme = Column(UrlType(relative_scheme=True))
+    url_relative_path = Column(UrlType(relative_path=True))
 
 
 class NonUuidKey(BaseMixin, db.Model):
@@ -610,6 +612,12 @@ class TestCoasterModels(unittest.TestCase):
             self.session.add(m1)
             self.session.commit()
 
+    def test_urltype_invalid_without_host(self):
+        with self.assertRaises(StatementError):
+            m2 = MyUrlModel(url=u"https:///test")
+            self.session.add(m2)
+            self.session.commit()
+
     def test_urltype_empty(self):
         m1 = MyUrlModel(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
         self.session.add(m1)
@@ -629,6 +637,25 @@ class TestCoasterModels(unittest.TestCase):
             m1 = MyUrlModel(url_custom_scheme=u"magnet://example.com")
             self.session.add(m1)
             self.session.commit()
+
+    def test_urltype_relative_scheme(self):
+        m1 = MyUrlModel(url_relative_scheme=u"//example.com/test")
+        self.session.add(m1)
+        self.session.commit()
+
+        with self.assertRaises(StatementError):
+            m2 = MyUrlModel(url_relative_scheme=u"example.com/test")
+            self.session.add(m2)
+            self.session.commit()
+
+    def test_urltype_relative_path(self):
+        m1 = MyUrlModel(url_relative_path=u"//example.com/test")
+        self.session.add(m1)
+        self.session.commit()
+
+        m2 = MyUrlModel(url_relative_path=u"example.com/test")
+        self.session.add(m2)
+        self.session.commit()
 
     def test_query(self):
         c1 = Container(name='c1')
