@@ -29,6 +29,8 @@
   property
 * Changed: ``coaster.sqlalchemy.UrlForMixin`` now recognises that the project
   may have multiple apps with distinct URLs for the same content
+* New: ``coaster.sqlalchemy.registry`` provides two registries for forms and
+  views associated with models
 
 
 0.6.0

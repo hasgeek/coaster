@@ -450,6 +450,7 @@ class ModelView(ClassView):
             def view(self):
                 return self.obj.current_access()
 
+        Document.views.main = DocumentView
         DocumentView.init_app(app)
 
     Views will not receive view arguments, unlike in :class:`ClassView`. If
@@ -473,6 +474,10 @@ class ModelView(ClassView):
     #: The :class:`InstanceLoader` mixin class will convert this mapping into
     #: SQLAlchemy attribute references to load the instance object.
     route_model_map = {}
+
+    def __init__(self, obj=None):
+        super(ModelView, self).__init__()
+        self.obj = obj
 
     def dispatch_request(self, view, view_args):
         """

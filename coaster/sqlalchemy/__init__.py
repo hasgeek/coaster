@@ -18,6 +18,7 @@ from .functions import *  # NOQA
 from .roles import *  # NOQA
 from .annotations import *  # NOQA
 from .immutable_annotation import *  # NOQA
+from .registry import *  # NOQA
 from .mixins import *  # NOQA
 from .columns import *  # NOQA
 from .statemanager import *  # NOQA

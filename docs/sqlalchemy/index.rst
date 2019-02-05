@@ -9,5 +9,6 @@
    roles
    annotations
    immutable_annotation
+   registry
    comparators
    statemanager
