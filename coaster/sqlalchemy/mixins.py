@@ -37,6 +37,7 @@ from ..utils.misc import _punctuation_re
 from ..auth import current_auth
 from .immutable_annotation import immutable
 from .roles import RoleMixin, with_roles
+from .registry import RegistryMixin
 from .comparators import Query, SqlSplitIdComparator, SqlHexUuidComparator, SqlBuidComparator, SqlSuuidComparator
 from .functions import auto_init_default, failsafe_add
 
@@ -44,7 +45,7 @@ from .functions import auto_init_default, failsafe_add
 __all__ = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'NoIdMixin', 'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
     'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
-    'UuidMixin', 'RoleMixin']
+    'UuidMixin', 'RoleMixin', 'RegistryMixin']
 
 
 class IdMixin(object):
@@ -268,11 +269,11 @@ class UrlForMixin(object):
         return decorator
 
 
-class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, UrlForMixin):
+class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
     """
-    Mixin that combines :class:`TimestampMixin`, :class:`PermissionMixin`,
-    :class:`RoleMixin` and :class:`UrlForMixin`, for use anywhere where the
-    timestamp columns and helper methods are required, but an id column is not.
+    Mixin that combines all mixin classes except :class:`IdMixin`, for use
+    anywhere the timestamp columns and helper methods are required, but an
+    id column is not.
     """
     def _set_fields(self, fields):
         """Helper method for :meth:`upsert` in the various subclasses"""

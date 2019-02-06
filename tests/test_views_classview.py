@@ -209,6 +209,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         return 'edit-called'
 
 
+ViewDocument.views.main = ModelDocumentView
 ModelDocumentView.init_app(app)
 
 
@@ -221,6 +222,7 @@ class ScopedDocumentView(ModelDocumentView):
         }
 
 
+ScopedViewDocument.views.main = ScopedDocumentView
 ScopedDocumentView.init_app(app)
 
 
@@ -237,6 +239,7 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
         return self.obj.current_access()
 
 
+RenameableDocument.views.main = RenameableDocumentView
 RenameableDocumentView.init_app(app)
 
 
@@ -530,3 +533,18 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/multi/test1/1-test2')
         assert rv.status_code == 200
         assert rv.data == b'/multi/test1/1-test2'
+
+    def test_registered_views(self):
+        doc1 = ViewDocument(name='test1', title="Test 1")
+        doc2 = ScopedViewDocument(name='test2', title="Test 2", parent=doc1)
+        doc3 = RenameableDocument(name='test3', title="Test 3")
+        self.session.add_all([doc1, doc2, doc3])
+        self.session.commit()
+
+        assert ViewDocument.views.main is ModelDocumentView
+        assert ScopedViewDocument.views.main is ScopedDocumentView
+        assert RenameableDocument.views.main is RenameableDocumentView
+
+        assert isinstance(doc1.views.main(), ModelDocumentView)
+        assert isinstance(doc2.views.main(), ScopedDocumentView)
+        assert isinstance(doc3.views.main(), RenameableDocumentView)
