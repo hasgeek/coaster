@@ -46,6 +46,7 @@ requires = [
     'markupsafe',
     'blinker',
     'Flask>=1.0',
+    'furl',
 ]
 
 if PY2:

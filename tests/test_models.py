@@ -127,8 +127,9 @@ class MyUrlModel(db.Model):
     url = Column(UrlType)
     url_all_scheme = Column(UrlType(schemes=None))
     url_custom_scheme = Column(UrlType(schemes=('ftp')))
-    url_relative_scheme = Column(UrlType(relative_scheme=True))
-    url_relative_path = Column(UrlType(relative_path=True))
+    url_optional_scheme = Column(UrlType(optional_scheme=True))
+    url_optional_host = Column(UrlType(schemes=('mailto', 'file'), optional_host=True))
+    url_optional_scheme_host = Column(UrlType(optional_scheme=True, optional_host=True))
 
 
 class NonUuidKey(BaseMixin, db.Model):
@@ -597,40 +598,40 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_urltype(self):
         m1 = MyUrlModel(
-            url=u"https://example.com", url_all_scheme=u"magnet://example.com",
-            url_custom_scheme=u"ftp://example.com"
-            )
+            url="https://example.com", url_all_scheme="magnet://example.com",
+            url_custom_scheme="ftp://example.com"
+        )
         self.session.add(m1)
         self.session.commit()
-        self.assertEqual(m1.url, u"https://example.com")
-        self.assertEqual(m1.url_all_scheme, u"magnet://example.com")
-        self.assertEqual(m1.url_custom_scheme, u"ftp://example.com")
+        assert str(m1.url) == "https://example.com"
+        assert str(m1.url_all_scheme) == "magnet://example.com"
+        assert str(m1.url_custom_scheme) == "ftp://example.com"
 
     def test_urltype_invalid(self):
         with self.assertRaises(StatementError):
-            m1 = MyUrlModel(url=u"example.com")
+            m1 = MyUrlModel(url="example.com")
             self.session.add(m1)
             self.session.commit()
 
-    def test_urltype_invalid_schemaless(self):
+    def test_urltype_invalid_without_scheme(self):
         with self.assertRaises(StatementError):
-            m2 = MyUrlModel(url=u"//example.com")
+            m2 = MyUrlModel(url="//example.com")
             self.session.add(m2)
             self.session.commit()
 
     def test_urltype_invalid_without_host(self):
         with self.assertRaises(StatementError):
-            m2 = MyUrlModel(url=u"https:///test")
+            m2 = MyUrlModel(url="https:///test")
             self.session.add(m2)
             self.session.commit()
 
     def test_urltype_empty(self):
-        m1 = MyUrlModel(url=u"", url_all_scheme=u"", url_custom_scheme=u"")
+        m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme=u"")
         self.session.add(m1)
         self.session.commit()
-        self.assertEqual(m1.url, u"")
-        self.assertEqual(m1.url_all_scheme, u"")
-        self.assertEqual(m1.url_custom_scheme, u"")
+        assert str(m1.url) == ""
+        assert str(m1.url_all_scheme) == ""
+        assert str(m1.url_custom_scheme) == ""
 
     def test_urltype_invalid_scheme_default(self):
         with self.assertRaises(StatementError):
@@ -644,23 +645,29 @@ class TestCoasterModels(unittest.TestCase):
             self.session.add(m1)
             self.session.commit()
 
-    def test_urltype_relative_scheme(self):
-        m1 = MyUrlModel(url_relative_scheme=u"//example.com/test")
+    def test_urltype_optional_scheme(self):
+        m1 = MyUrlModel(url_optional_scheme=u"//example.com/test")
         self.session.add(m1)
         self.session.commit()
 
         with self.assertRaises(StatementError):
-            m2 = MyUrlModel(url_relative_scheme=u"example.com/test")
+            m2 = MyUrlModel(url_optional_scheme="example.com/test")
             self.session.add(m2)
             self.session.commit()
 
-    def test_urltype_relative_path(self):
-        m1 = MyUrlModel(url_relative_path=u"//example.com/test")
+    def test_urltype_optional_host(self):
+        m1 = MyUrlModel(url_optional_host="file:///test/path")
         self.session.add(m1)
         self.session.commit()
 
-        m2 = MyUrlModel(url_relative_path=u"example.com/test")
-        self.session.add(m2)
+        with self.assertRaises(StatementError):
+            m2 = MyUrlModel(url_optional_host="https:///test")
+            self.session.add(m2)
+            self.session.commit()
+
+    def test_urltype_optional_scheme_host(self):
+        m1 = MyUrlModel(url_optional_scheme_host='/test/path')
+        self.session.add(m1)
         self.session.commit()
 
     def test_query(self):
