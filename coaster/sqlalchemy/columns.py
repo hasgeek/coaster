@@ -11,12 +11,13 @@ from sqlalchemy import Column, UnicodeText
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy_utils.types import UUIDType  # NOQA
+from sqlalchemy_utils.types import UUIDType, URLType as URLTypeBase  # NOQA
 from flask import Markup
+from furl import furl
 import six
 from ..gfm import markdown
 
-__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType']
+__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
 
 
 class JsonType(UserDefinedType):
@@ -105,6 +106,7 @@ class MutableDict(Mutable, dict):
         dict.__delitem__(self, key)
         self.changed()
 
+
 MutableDict.associate_with(JsonDict)
 
 
@@ -181,4 +183,42 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_text', UnicodeText, **kwargs),
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
-        )
+    )
+
+
+class UrlType(URLTypeBase):
+    """
+    Extension of URLType_ from SQLAlchemy-Utils that adds basic validation to
+    ensure URLs are well formed. Parses the value into a :class:`furl` object,
+    allowing manipulation of
+
+    .. _URLType: https://sqlalchemy-utils.readthedocs.io/en/latest/data_types.html#module-sqlalchemy_utils.types.url
+
+    :param schemes: Valid URL schemes. Use `None` to allow any scheme, `()` for no scheme
+    :param optional_scheme: Schemes are optional (allows URLs starting with ``//``)
+    :param optional_host: Allow URLs without a hostname (required for ``mailto`` and ``file`` schemes)
+    """
+    impl = UnicodeText
+
+    def __init__(self, schemes=('http', 'https'), optional_scheme=False, optional_host=False):
+        super(URLTypeBase, self).__init__()
+        self.schemes = schemes
+        self.optional_host = optional_host
+        self.optional_scheme = optional_scheme
+
+    def process_bind_param(self, value, dialect):
+        value = super(UrlType, self).process_bind_param(value, dialect)
+        if value:
+            parsed = furl(value)
+            # If scheme is present, it must be valid
+            # If not present, the optional flag must be True
+            if parsed.scheme:
+                if self.schemes is not None and parsed.scheme not in self.schemes:
+                    raise ValueError("Invalid URL scheme")
+            elif not self.optional_scheme:
+                raise ValueError("Missing URL scheme")
+
+            # Host may be missing only if optional
+            if not parsed.host and not self.optional_host:
+                raise ValueError(u"Missing URL host".format(value))
+        return value
