@@ -525,8 +525,6 @@ class ModelView(ClassView):
                 perms = self.obj.current_permissions
             else:
                 perms = InspectableSet()
-            if hasattr(current_auth, 'permissions'):
-                perms = perms | current_auth.permissions
             add_auth_attribute('permissions', perms)
 
 

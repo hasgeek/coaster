@@ -195,7 +195,8 @@ class PermissionMixin(object):
         available permissions from this object, using
         :obj:`~coaster.auth.current_auth`.
         """
-        return InspectableSet(self.permissions(current_auth.actor))
+        return InspectableSet(self.permissions(
+            current_auth.actor, getattr(current_auth, 'permissions', None)))
 
 
 class UrlForMixin(object):
