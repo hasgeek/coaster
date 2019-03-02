@@ -24,7 +24,7 @@ __all__ = [
     'ClassView', 'ModelView',  # View base classes
     'route', 'viewdata', 'url_change_check',  # View decorators
     'UrlChangeCheck', 'UrlForView', 'InstanceLoader',  # Mixin classes
-    ]
+]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
@@ -240,10 +240,10 @@ class ViewHandlerWrapper(object):
         return getattr(self._viewh, name)
 
     def __eq__(self, other):
-        return (isinstance(other, ViewHandlerWrapper) and
-            self._viewh == other._viewh and
-            self._obj == other._obj and
-            self._cls == other._cls)
+        return (isinstance(other, ViewHandlerWrapper)
+            and self._viewh == other._viewh
+            and self._obj == other._obj
+            and self._cls == other._cls)
 
     def __ne__(self, other):  # pragma: no cover
         return not self.__eq__(other)
