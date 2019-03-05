@@ -31,6 +31,9 @@
   may have multiple apps with distinct URLs for the same content
 * New: ``coaster.sqlalchemy.registry`` provides two registries for forms and
   views associated with models
+* New: ``coaster.views.requires_roles`` decorator for ``ModelView``, with
+  ``is_available`` test
+* New: ``UrlForMixin`` now provides ``view_for`` and ``classview_for``
 
 
 0.6.0

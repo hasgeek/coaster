@@ -15,14 +15,15 @@ from sqlalchemy.orm.properties import RelationshipProperty
 from sqlalchemy.orm.descriptor_props import SynonymProperty
 from werkzeug.routing import parse_rule
 from werkzeug.local import LocalProxy
-from flask import _request_ctx_stack, has_request_context, request, redirect, make_response, Blueprint
+from flask import (_request_ctx_stack, abort, has_request_context, request, redirect, make_response,
+    Blueprint)
 from ..auth import current_auth, add_auth_attribute
 from ..utils import InspectableSet
 
 __all__ = [
     'rulejoin', 'current_view',  # Functions
     'ClassView', 'ModelView',  # View base classes
-    'route', 'viewdata', 'url_change_check',  # View decorators
+    'route', 'viewdata', 'url_change_check', 'requires_roles',  # View decorators
     'UrlChangeCheck', 'UrlForView', 'InstanceLoader',  # Mixin classes
 ]
 
@@ -83,12 +84,13 @@ class ViewHandler(object):
     """
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
-    def __init__(self, rule, rule_options={}, viewdata={}):
+    def __init__(self, rule, rule_options={}, viewdata={}, requires_roles={}):
         if rule is not None:
             self.routes = [(rule, rule_options)]
         else:
             self.routes = []
         self.data = viewdata
+        self.requires_roles = requires_roles
         self.endpoints = set()
 
     def reroute(self, f):
@@ -227,6 +229,7 @@ class ViewHandler(object):
 class ViewHandlerWrapper(object):
     """Wrapper for a view at runtime"""
     def __init__(self, viewh, obj, cls=None):
+        # obj is the ClassView instance
         self._viewh = viewh
         self._obj = obj
         self._cls = cls
@@ -247,6 +250,12 @@ class ViewHandlerWrapper(object):
 
     def __ne__(self, other):  # pragma: no cover
         return not self.__eq__(other)
+
+    def is_available(self):
+        """Indicates whether this view is available in the current context"""
+        if hasattr(self._viewh.wrapped_func, 'is_available'):
+            return self._viewh.wrapped_func.is_available(self._obj)
+        return True
 
 
 class ClassView(object):
@@ -479,6 +488,9 @@ class ModelView(ClassView):
         super(ModelView, self).__init__()
         self.obj = obj
 
+    def __eq__(self, other):
+        return isinstance(other, ModelView) and other.obj == self.obj
+
     def dispatch_request(self, view, view_args):
         """
         View dispatcher that calls :meth:`before_request`, :meth:`loader`,
@@ -528,6 +540,35 @@ class ModelView(ClassView):
             add_auth_attribute('permissions', perms)
 
 
+def requires_roles(roles):
+    """
+    Decorator for :class:`ModelView` views that limits access to the specified
+    roles.
+    """
+    def inner(f):
+        def is_available_here(context):
+            return bool(roles.intersection(context.obj.current_roles))
+
+        def is_available(context):
+            result = is_available_here(context)
+            if result and hasattr(f, 'is_available'):
+                # We passed, but we're wrapping another test, so ask there as well
+                return f.is_available(context)
+            return result
+
+        @wraps(f)
+        def wrapper(self, *args, **kwargs):
+            add_auth_attribute('login_required', True)
+            if not is_available_here(self):
+                abort(403)
+            return f(self, *args, **kwargs)
+
+        wrapper.requires_roles = roles
+        wrapper.is_available = is_available
+        return wrapper
+    return inner
+
+
 class UrlForView(object):
     """
     Mixin class for :class:`ModelView` that registers view handler methods with
@@ -557,6 +598,8 @@ class UrlForView(object):
                 prefix = ''
                 reg_app = app
             cls.model.is_url_for(view_func.__name__, prefix + endpoint, _app=reg_app, **params)(view_func)
+            cls.model.register_view_for(
+                app=reg_app, action=view_func.__name__, classview=cls, attr=view_func.__name__)
             if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 

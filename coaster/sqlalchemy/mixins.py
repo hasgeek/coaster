@@ -207,6 +207,8 @@ class UrlForMixin(object):
     #: The same action can point to different endpoints in different apps. The app may also be None as fallback.
     #: Each subclass will get its own dictionary. This particular dictionary is only used as an inherited fallback.
     url_for_endpoints = {None: {}}
+    #: Mapping of {app: {action: (classview, attr)}}
+    view_for_endpoints = {}
 
     def url_for(self, action='view', **kwargs):
         """
@@ -268,6 +270,30 @@ class UrlForMixin(object):
             cls.url_for_endpoints[_app][_action] = _endpoint or f.__name__, paramattrs, _external
             return f
         return decorator
+
+    @classmethod
+    def register_view_for(cls, app, action, classview, attr):
+        """
+        Register a classview and viewhandler for a given app and action
+        """
+        if 'view_for_endpoints' not in cls.__dict__:
+            cls.view_for_endpoints = {}
+        cls.view_for_endpoints.setdefault(app, {})[action] = (classview, attr)
+
+    def view_for(self, action='view'):
+        """
+        Return the classview viewhandler that handles the specified action
+        """
+        app = current_app._get_current_object()
+        view, attr = self.view_for_endpoints[app][action]
+        return getattr(view(self), attr)
+
+    def classview_for(self, action='view'):
+        """
+        Return the classview that contains the viewhandler for the specified action
+        """
+        app = current_app._get_current_object()
+        return self.view_for_endpoints[app][action][0](self)
 
 
 class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
