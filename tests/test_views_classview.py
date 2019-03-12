@@ -313,7 +313,7 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
         return 'role-perm-called'
 
 
-ViewDocument.views.gated = ModelDocumentView
+ViewDocument.views.gated = GatedDocumentView
 GatedDocumentView.init_app(app)
 
 
@@ -687,3 +687,23 @@ class TestClassView(unittest.TestCase):
         assert doc.view_for('by_role').is_available() is False
         assert doc.view_for('by_perm_role').is_available() is False
         assert doc.view_for('by_role_perm').is_available() is False
+
+    def test_class_is_available(self):
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        # First, confirm we're working with the correct view
+        assert isinstance(doc.views.main(), ModelDocumentView)
+        assert isinstance(doc.views.gated(), GatedDocumentView)
+
+        # Since ModelDocumentView.view is not gated, ModelDocumentView is always
+        # available. This is not the case for GatedDocumentView
+        assert doc.views.main().is_always_available is True
+        assert doc.views.main().is_available() is True
+        assert doc.views.gated().is_always_available is False
+        assert doc.views.gated().is_available() is False
+
+        # If we add access permissions, the availability changes
+        add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        assert doc.views.gated().is_available() is True

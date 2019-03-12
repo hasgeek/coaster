@@ -322,6 +322,12 @@ class ClassView(object):
     #: as a Python method call.
     __decorators__ = []
 
+    #: Indicates whether meth:`is_available` should simply return `True`
+    #: without conducting a test. Subclasses should not set this flag. It will
+    #: be set by :meth:`init_app` if any view handler is missing an
+    #: ``is_available`` method, as it implies that view is always available.
+    is_always_available = False
+
     #: When a view is called, this will point to the current view handler,
     #: an instance of :class:`ViewHandler`.
     current_handler = None
@@ -374,6 +380,18 @@ class ClassView(object):
         :return: Response object
         """
         return response
+
+    def is_available(self):
+        """
+        Returns `True` if *any* view handler in the class is currently
+        available via its `is_available` method.
+        """
+        if self.is_always_available:
+            return True
+        for viewname in self.__views__:
+            if getattr(self, viewname).is_available():
+                return True
+        return False
 
     @classmethod
     def __get_raw_attr(cls, name):
@@ -438,6 +456,8 @@ class ClassView(object):
                     attr.__set_name__(cls, name)  # Required for Python < 3.6
                     cls.__views__.add(name)
                     attr.init_app(app, cls, callback=callback)
+                    if not hasattr(attr.wrapped_func, 'is_available'):
+                        cls.is_always_available = True
 
 
 class ModelView(ClassView):
