@@ -604,23 +604,36 @@ def requires_permission(permission):
     ``current_auth.permissions`` before the view is allowed to proceed.
     Aborts with ``403 Forbidden`` if the permission is not present.
 
-    :param permission: Permission that is required. If an iterable is provided,
-        any one permission must be available
+    The decorated view will have an ``is_available`` method that can be called
+    to perform the same test.
+
+    :param permission: Permission that is required. If a collection type is
+        provided, any one permission must be available
     """
     def inner(f):
+        def is_available_here():
+            if not hasattr(current_auth, 'permissions'):
+                return False
+            elif is_collection(permission):
+                return bool(current_auth.permissions.intersection(permission))
+            else:
+                return permission in current_auth.permissions
+
+        def is_available(context=None):
+            result = is_available_here()
+            if result and hasattr(f, 'is_available'):
+                # We passed, but we're wrapping another test, so ask there as well
+                return f.is_available(context)
+            return result
+
         @wraps(f)
         def wrapper(*args, **kwargs):
             add_auth_attribute('login_required', True)
-            if not hasattr(current_auth, 'permissions'):
-                test = False
-            elif is_collection(permission):
-                test = bool(current_auth.permissions.intersection(permission))
-            else:
-                test = permission in current_auth.permissions
-            if not test:
+            if not is_available_here():
                 abort(403)
             return f(*args, **kwargs)
 
         wrapper.requires_permission = permission
+        wrapper.is_available = is_available
         return wrapper
     return inner

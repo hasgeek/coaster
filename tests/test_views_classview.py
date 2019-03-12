@@ -3,13 +3,15 @@
 from __future__ import absolute_import, unicode_literals
 
 import unittest
+from werkzeug.exceptions import Forbidden
 from flask import Flask, json
 from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin, BaseIdNameMixin
 from coaster.auth import add_auth_attribute
 from coaster.utils import InspectableSet
 from coaster.db import SQLAlchemy
 from coaster.views import (ClassView, ModelView, UrlForView, UrlChangeCheck, InstanceLoader,
-    route, viewdata, requestargs, requestform, render_with, current_view, requires_permission)
+    route, viewdata, requestargs, requestform, render_with, current_view, requires_permission,
+    requires_roles)
 
 
 app = Flask(__name__)
@@ -26,16 +28,22 @@ class ViewDocument(BaseNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title'}
-            }
         }
+    }
 
     def permissions(self, actor, inherited=()):
         perms = super(ViewDocument, self).permissions(actor, inherited)
         perms.add('view')
-        if actor == 'this-is-the-owner':  # Our hack of a user object, for testing
+        if actor in ('this-is-the-owner', 'this-is-the-editor'):  # Our hack of a user object, for testing
             perms.add('edit')
             perms.add('delete')
         return perms
+
+    def roles_for(self, actor=None, anchors=()):
+        roles = super(ViewDocument, self).roles_for(actor, anchors)
+        if actor in ('this-is-the-owner', 'this-is-another-owner'):
+            roles.add('owner')
+        return roles
 
 
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):
@@ -47,8 +55,8 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title', 'doctype'}
-            }
         }
+    }
 
     @property
     def doctype(self):
@@ -61,8 +69,8 @@ class RenameableDocument(BaseIdNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title'}
-            }
         }
+    }
 
 
 # --- Views -------------------------------------------------------------------
@@ -186,7 +194,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
     route_model_map = {
         'document': 'name',
-        }
+    }
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
@@ -219,7 +227,7 @@ class ScopedDocumentView(ModelDocumentView):
     route_model_map = {
         'document': 'name',
         'parent': 'parent.name',
-        }
+    }
 
 
 ScopedViewDocument.views.main = ScopedDocumentView
@@ -231,7 +239,7 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
     model = RenameableDocument
     route_model_map = {
         'document': 'url_name',
-        }
+    }
 
     @route('')
     @render_with(json=True)
@@ -263,6 +271,50 @@ class MultiDocumentView(UrlForView, ModelView):
 
 
 MultiDocumentView.init_app(app)
+
+
+@route('/gated/<document>')
+class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
+    model = ViewDocument
+    route_model_map = {
+        'document': 'name',
+    }
+
+    @requestargs('access_token')
+    def before_request(self, access_token=None):
+        if access_token == 'owner-secret':
+            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        if access_token == 'editor-secret':
+            add_auth_attribute('user', 'this-is-the-editor')  # See ViewDocument.permissions
+        if access_token == 'another-owner-secret':
+            add_auth_attribute('user', 'this-is-another-owner')  # See ViewDocument.permissions
+        return super(GatedDocumentView, self).before_request()
+
+    @route('perm')
+    @requires_permission('edit')
+    def by_perm(self):
+        return 'perm-called'
+
+    @route('role')
+    @requires_roles({'owner'})
+    def by_role(self):
+        return 'role-called'
+
+    @route('perm-role')
+    @requires_permission('edit')
+    @requires_roles({'owner'})
+    def by_perm_role(self):
+        return 'perm-role-called'
+
+    @route('role-perm')
+    @requires_roles({'owner'})
+    @requires_permission('edit')
+    def by_role_perm(self):
+        return 'role-perm-called'
+
+
+ViewDocument.views.gated = GatedDocumentView
+GatedDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -548,3 +600,110 @@ class TestClassView(unittest.TestCase):
         assert isinstance(doc1.views.main(), ModelDocumentView)
         assert isinstance(doc2.views.main(), ScopedDocumentView)
         assert isinstance(doc3.views.main(), RenameableDocumentView)
+
+    def test_view_for(self):
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        assert doc.classview_for() == ModelDocumentView(doc)
+        assert doc.classview_for('edit') == ModelDocumentView(doc)
+        assert doc.classview_for('by_perm') == GatedDocumentView(doc)
+
+        # doc.view_for() returns the view handler. Calling it with
+        # _render=False will disable the @render_with wrapper.
+        assert dict(doc.view_for()(_render=False)) == {'name': doc.name, 'title': doc.title}
+
+        # Calling the 'edit' view will abort with a Forbidden as we have
+        # not granted any access rights in the request context
+        with self.assertRaises(Forbidden):
+            doc.view_for('edit')()
+
+    def test_requires_roles_layered(self):
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        # All four gates refuse access without appropriate
+        # permission or role
+        rv = self.client.get('/gated/test1/perm')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/role')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/perm-role')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/role-perm')
+        assert rv.status_code == 403
+
+        # All four gates grant access if we have 'owner' role
+        # with 'edit' permission
+        rv = self.client.get('/gated/test1/perm?access_token=owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'perm-called'
+        rv = self.client.get('/gated/test1/role?access_token=owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'role-called'
+        rv = self.client.get('/gated/test1/perm-role?access_token=owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'perm-role-called'
+        rv = self.client.get('/gated/test1/role-perm?access_token=owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'role-perm-called'
+
+        # Now we are 'owner' but without 'edit' permission
+        # Only one goes through
+        rv = self.client.get('/gated/test1/perm?access_token=another-owner-secret')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/role?access_token=another-owner-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'role-called'
+        rv = self.client.get('/gated/test1/perm-role?access_token=another-owner-secret')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/role-perm?access_token=another-owner-secret')
+        assert rv.status_code == 403
+
+        # Finally, we have 'edit' permission but without 'owner' role
+        rv = self.client.get('/gated/test1/perm?access_token=editor-secret')
+        assert rv.status_code == 200
+        assert rv.data == b'perm-called'
+        rv = self.client.get('/gated/test1/role?access_token=editor-secret')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/perm-role?access_token=editor-secret')
+        assert rv.status_code == 403
+        rv = self.client.get('/gated/test1/role-perm?access_token=editor-secret')
+        assert rv.status_code == 403
+
+    def test_is_available(self):
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        # The default view has no requires_* decorators
+        # and so is always available.
+        assert doc.view_for().is_available() is True
+
+        # The four gated views are all not available
+        assert doc.view_for('by_perm').is_available() is False
+        assert doc.view_for('by_role').is_available() is False
+        assert doc.view_for('by_perm_role').is_available() is False
+        assert doc.view_for('by_role_perm').is_available() is False
+
+    def test_class_is_available(self):
+        doc = ViewDocument(name='test1', title="Test")
+        self.session.add(doc)
+        self.session.commit()
+
+        # First, confirm we're working with the correct view
+        assert isinstance(doc.views.main(), ModelDocumentView)
+        assert isinstance(doc.views.gated(), GatedDocumentView)
+
+        # Since ModelDocumentView.view is not gated, ModelDocumentView is always
+        # available. This is not the case for GatedDocumentView
+        assert doc.views.main().is_always_available is True
+        assert doc.views.main().is_available() is True
+        assert doc.views.gated().is_always_available is False
+        assert doc.views.gated().is_available() is False
+
+        # If we add access permissions, the availability changes
+        add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        assert doc.views.gated().is_available() is True

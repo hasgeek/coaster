@@ -151,6 +151,10 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_requires_permission(self):
         with self.app.test_request_context():
+
+            assert permission1.is_available() is False
+            assert permission2.is_available() is False
+
             with self.assertRaises(Forbidden):
                 permission1()
             with self.assertRaises(Forbidden):
@@ -158,16 +162,27 @@ class TestCoasterViews(unittest.TestCase):
 
             add_auth_attribute('permissions', set())
 
+            assert permission1.is_available() is False
+            assert permission2.is_available() is False
+
             with self.assertRaises(Forbidden):
                 permission1()
             with self.assertRaises(Forbidden):
                 permission2()
 
             current_auth.permissions.add('allow-that')  # FIXME! Shouldn't this be a frozenset?
+
+            assert permission1.is_available() is False
+            assert permission2.is_available() is True
+
             with self.assertRaises(Forbidden):
                 permission1()
             assert permission2() == 'allowed2'
 
             current_auth.permissions.add('allow-this')
+
+            assert permission1.is_available() is True
+            assert permission2.is_available() is True
+
             assert permission1() == 'allowed1'
             assert permission2() == 'allowed2'
