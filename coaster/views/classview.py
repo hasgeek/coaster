@@ -442,6 +442,7 @@ class ClassView(object):
         """
         processed = set()
         cls.__views__ = set()
+        cls.is_always_available = False
         for base in cls.__mro__:
             for name, attr in base.__dict__.items():
                 if name in processed:
