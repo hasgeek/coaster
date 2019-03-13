@@ -707,3 +707,24 @@ class TestClassView(unittest.TestCase):
         # If we add access permissions, the availability changes
         add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         assert doc.views.gated().is_available() is True
+
+    def test_classview_equals(self):
+        # ClassView implements __eq__ that is not fooled by subclasses
+        assert BaseView() == BaseView()
+        assert SubView() == SubView()
+        assert BaseView() != SubView()
+        assert SubView() != BaseView()
+
+        doc1 = ViewDocument(name='test1', title="Test 1")
+        doc2 = ViewDocument(name='test2', title="Test 2")
+
+        # ModelView implements __eq__ that extends ClassView's by also comparing the object
+        assert ModelDocumentView(obj=doc1) == ModelDocumentView(obj=doc1)
+        assert ModelDocumentView(obj=doc1) != ModelDocumentView(obj=doc2)
+
+        # Note: while ScopedDocumentView handles ScopedViewDocument and not ViewDocument,
+        # there is no type check in __init__, so the constructor will pass. We want __eq__
+        # to catch a mismatch here. This test will break if ModelView introduces type
+        # safety checks, and will need amending then.
+        assert ModelDocumentView(obj=doc1) != ScopedDocumentView(obj=doc1)
+        assert ScopedDocumentView(obj=doc1) != ModelDocumentView(obj=doc1)

@@ -336,6 +336,9 @@ class ClassView(object):
     #: arguments to the view.
     view_args = None
 
+    def __eq__(self, other):
+        return type(other) is type(self)
+
     def dispatch_request(self, view, view_args):
         """
         View dispatcher that calls before_request, the view, and then after_request.
@@ -510,7 +513,7 @@ class ModelView(ClassView):
         self.obj = obj
 
     def __eq__(self, other):
-        return isinstance(other, ModelView) and other.obj == self.obj
+        return type(other) is type(self) and other.obj == self.obj
 
     def dispatch_request(self, view, view_args):
         """
