@@ -110,10 +110,11 @@ Defining states and transitions
 
 Adding a :class:`StateManager` to the class links the underlying column
 (specified as a string) to the :class:`~coaster.utils.classes.LabeledEnum`
-(specified as an object). The StateManager is read-only and state can only be
-mutated via transitions. The LabeledEnum is not required after this point. All
-symbol names in it are available as attributes on the state manager
-henceforth (as instances of :class:`ManagedState`).
+(specified as an object). The :class:`StateManager` is read-only and state can
+only be mutated via transitions. The :class:`~coaster.utils.classes.LabeledEnum`
+is not required after this point. All symbol names in it are available as
+attributes on the state manager henceforth (as instances of
+:class:`ManagedState`).
 
 Conditional states can be defined with
 :meth:`~StateManager.add_conditional_state` as a combination of an existing
@@ -128,8 +129,9 @@ below for query examples).
 State groups can be defined with :meth:`~StateManager.add_state_group`. These
 are similar to grouped values in a LabeledEnum, but can also contain
 conditional states, and are stored as instances of :class:`ManagedStateGroup`.
-Grouped values in a LabeledEnum are more efficient for testing state against,
-so those should be preferred if the group does not contain a conditional state.
+Grouped values in a :class:`~coaster.utils.classes.LabeledEnum` are more
+efficient for testing state against, so those should be preferred if the group
+does not contain a conditional state.
 
 Transitions connect one managed state or group to another state (but not
 group). Transitions are defined as methods and decorated with
@@ -167,7 +169,7 @@ The label associated with the state value can be accessed from the ``label`` att
     post.state.label.title == "Pending"  # The title part of NameTitle
 
 States can be tested by direct reference using the names they were originally
-defined with in the LabeledEnum::
+defined with in the :class:`~coaster.utils.classes.LabeledEnum`::
 
     post.state.DRAFT        # True
     post.state.is_draft     # True (is_* attrs are lowercased aliases to states)
@@ -606,7 +608,7 @@ class StateManager(object):
     This is the main export of this module.
 
     :param str propname: Name of the property that is to be wrapped
-    :param LabeledEnum lenum: The LabeledEnum containing valid values
+    :param LabeledEnum lenum: The :class:`~coaster.utils.classes.LabeledEnum` containing valid values
     :param str doc: Optional docstring
     """
     def __init__(self, propname, lenum, doc=None):
@@ -722,7 +724,7 @@ class StateManager(object):
             and any other integer is the number of seconds for which to cache the assertion
         :param label: Label for this state (string or 2-tuple)
 
-        TODO: cache_for's implementation is currently pending a test case demonstrating
+        TODO: `cache_for`'s implementation is currently pending a test case demonstrating
         how it will be used.
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
@@ -747,7 +749,7 @@ class StateManager(object):
         :param from_: Required state to allow this transition (can be a state group)
         :param to: The state of the object after this transition (automatically set if no exception is raised)
         :param if_: Validator(s) that, given the object, must all return True for the transition to proceed
-        :param metadata: Additional metadata, stored on the StateTransition object
+        :param data: Additional metadata, stored on the `StateTransition` object as a :attr:`data` attribute
         """
         def decorator(f):
             if isinstance(f, StateTransition):
@@ -767,7 +769,7 @@ class StateManager(object):
 
         :param from_: Required state to allow this call (can be a state group)
         :param if_: Validator(s) that, given the object, must all return True for the call to proceed
-        :param metadata: Additional metadata, stored on the StateTransition object
+        :param data: Additional metadata, stored on the `StateTransition` object as a :attr:`data` attribute
         """
         return self.transition(from_, None, if_, **data)
 
@@ -794,7 +796,7 @@ class StateManager(object):
             print str(StateManager.check_constraint('your_column', YOUR_ENUM).sqltext)
 
         :param str column: Column name
-        :param LabeledEnum lenum: LabeledEnum to retrieve valid values from
+        :param LabeledEnum lenum: :class:`~coaster.utils.classes.LabeledEnum` to retrieve valid values from
         :param kwargs: Additional options passed to CheckConstraint
         """
         return CheckConstraint(
@@ -877,9 +879,9 @@ class StateManagerWrapper(object):
 
     def group(self, items, keep_empty=False):
         """
-        Given an iterable of instances, groups them by state using `ManagedState` instances
-        as dictionary keys. Returns an OrderedDict that preserves the order of states from
-        the source LabeledEnum.
+        Given an iterable of instances, groups them by state using :class:`ManagedState` instances
+        as dictionary keys. Returns an `OrderedDict` that preserves the order of states from
+        the source :class:`~coaster.utils.classes.LabeledEnum`.
 
         :param bool keep_empty: If ``True``, empty states are included in the result
         """
