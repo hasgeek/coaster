@@ -22,7 +22,7 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 
 from __future__ import absolute_import
 import uuid as uuid_
-from sqlalchemy import Column, Integer, DateTime, Unicode, CheckConstraint, Numeric, inspect
+from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric, inspect
 from sqlalchemy import event
 from sqlalchemy.sql import select, func
 from sqlalchemy.ext.declarative import declared_attr
@@ -340,21 +340,34 @@ class BaseNameMixin(BaseMixin):
     reserved_names = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
-    #: How long should names and titles be?
+    #: How long are names and title allowed to be? `None` for unlimited length
     __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this object, unique across all instances of this model"""
-        if cls.__name_blank_allowed__:
-            return Column(Unicode(cls.__name_length__), nullable=False, unique=True)
+        if cls.__name_length__ is None:
+            column_type = UnicodeText()
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False, unique=True)
+            column_type = Unicode(cls.__name_length__)
+        if cls.__name_blank_allowed__:
+            return Column(column_type, nullable=False, unique=True)
+        else:
+            return Column(column_type, CheckConstraint("name <> ''"), nullable=False, unique=True)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(cls.__title_length__), nullable=False)
+        if cls.__title_length__ is None:
+            column_type = UnicodeText()
+        else:
+            column_type = Unicode(cls.__title_length__)
+        return Column(column_type, nullable=False)
+
+    @property
+    def title_for_name(self):
+        """The version of the title used for :meth:`make_name`"""
+        return self.title
 
     def __init__(self, *args, **kw):
         super(BaseNameMixin, self).__init__(*args, **kw)
@@ -398,7 +411,7 @@ class BaseNameMixin(BaseMixin):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter_by(name=c).notempty())
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__, checkused=checkused))
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -433,21 +446,29 @@ class BaseScopedNameMixin(BaseMixin):
     reserved_names = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
-    #: How long should names and titles be?
+    #: How long are names and title allowed to be? `None` for unlimited length
     __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this object, unique within a parent container"""
-        if cls.__name_blank_allowed__:
-            return Column(Unicode(cls.__name_length__), nullable=False)
+        if cls.__name_length__ is None:
+            column_type = UnicodeText()
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
+            column_type = Unicode(cls.__name_length__)
+        if cls.__name_blank_allowed__:
+            return Column(column_type, nullable=False)
+        else:
+            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(cls.__title_length__), nullable=False)
+        if cls.__title_length__ is None:
+            column_type = UnicodeText()
+        else:
+            column_type = Unicode(cls.__title_length__)
+        return Column(column_type, nullable=False)
 
     def __init__(self, *args, **kw):
         super(BaseScopedNameMixin, self).__init__(*args, **kw)
@@ -491,7 +512,7 @@ class BaseScopedNameMixin(BaseMixin):
                     return bool(c in reserved or c in self.reserved_names or
                         self.__class__.query.filter_by(name=c, parent=self.parent).first())
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(make_name(self.short_title(), maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__, checkused=checkused))
 
     def short_title(self):
         """
@@ -506,6 +527,11 @@ class BaseScopedNameMixin(BaseMixin):
                 if short:
                     return short
         return self.title
+
+    @property
+    def title_for_name(self):
+        """The version of the title used for :meth:`make_name`"""
+        return self.short_title()
 
     def permissions(self, actor, inherited=None):
         """
@@ -539,21 +565,34 @@ class BaseIdNameMixin(BaseMixin):
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
-    #: How long should names and titles be?
+    #: How long are names and title allowed to be? `None` for unlimited length
     __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this object, non-unique"""
-        if cls.__name_blank_allowed__:
-            return Column(Unicode(cls.__name_length__), nullable=False)
+        if cls.__name_length__ is None:
+            column_type = UnicodeText()
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
+            column_type = Unicode(cls.__name_length__)
+        if cls.__name_blank_allowed__:
+            return Column(column_type, nullable=False)
+        else:
+            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this object"""
-        return Column(Unicode(cls.__title_length__), nullable=False)
+        if cls.__title_length__ is None:
+            column_type = UnicodeText()
+        else:
+            column_type = Unicode(cls.__title_length__)
+        return Column(column_type, nullable=False)
+
+    @property
+    def title_for_name(self):
+        """The version of the title used for :meth:`make_name`"""
+        return self.title
 
     def __init__(self, *args, **kw):
         super(BaseIdNameMixin, self).__init__(*args, **kw)
@@ -564,9 +603,9 @@ class BaseIdNameMixin(BaseMixin):
         return '<%s %s "%s">' % (self.__class__.__name__, self.url_id_name, self.title)
 
     def make_name(self):
-        """Autogenerates a :attr:`name` from the :attr:`title`"""
+        """Autogenerates a :attr:`name` from :attr:`title_for_name`"""
         if self.title:
-            self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
+            self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__))
 
     @with_roles(read={'all'})
     @hybrid_property
@@ -683,21 +722,34 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
     #: Allow blank names after all?
     __name_blank_allowed__ = False
-    #: How long should names and titles be?
+    #: How long are names and title allowed to be? `None` for unlimited length
     __name_length__ = __title_length__ = 250
 
     @declared_attr
     def name(cls):
         """The URL name of this instance, non-unique"""
-        if cls.__name_blank_allowed__:
-            return Column(Unicode(cls.__name_length__), nullable=False)
+        if cls.__name_length__ is None:
+            column_type = UnicodeText()
         else:
-            return Column(Unicode(cls.__name_length__), CheckConstraint("name <> ''"), nullable=False)
+            column_type = Unicode(cls.__name_length__)
+        if cls.__name_blank_allowed__:
+            return Column(column_type, nullable=False)
+        else:
+            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
         """The title of this instance"""
-        return Column(Unicode(cls.__title_length__), nullable=False)
+        if cls.__title_length__ is None:
+            column_type = UnicodeText()
+        else:
+            column_type = Unicode(cls.__title_length__)
+        return Column(column_type, nullable=False)
+
+    @property
+    def title_for_name(self):
+        """The version of the title used for :meth:`make_name`"""
+        return self.title
 
     def __init__(self, *args, **kw):
         super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
@@ -718,7 +770,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = six.text_type(make_name(self.title, maxlength=self.__name_length__))
+            self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__))
 
     @with_roles(read={'all'})
     @hybrid_property
