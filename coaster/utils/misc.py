@@ -202,7 +202,7 @@ def newpin(digits=4):
 
 
 def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
-    u"""
+    ur"""
     Generate an ASCII name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
     counter numbers starting from 2 until a suitable candidate is found.
@@ -265,7 +265,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'test-this-newline'
     >>> make_name(u"testing an emoji😁")
     u'testing-an-emoji'
-    >>> make_name('''testing\\t\\nmore\\r\\nslashes''')
+    >>> make_name('''testing\t\nmore\r\nslashes''')
     'testing-more-slashes'
     >>> make_name('What if a HTML <tag/>')
     'what-if-a-html-tag'
@@ -383,7 +383,7 @@ def check_password(reference, attempt):
             compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
         else:  # pragma: no cover
             compare = six.text_type('{SSHA}%s' % b64_encoded)
-        return (compare == reference)
+        return compare == reference
     elif reference.startswith(u'{BCRYPT}'):
         # bcrypt.hashpw() accepts either a unicode encoded string or the basic string (python 2)
         if isinstance(attempt, six.text_type) or isinstance(reference, six.text_type):
@@ -643,7 +643,7 @@ def require_one_of(_return=False, **kwargs):
 
 
 def unicode_http_header(value):
-    """
+    r"""
     Convert an ASCII HTTP header string into a unicode string with the
     appropriate encoding applied. Expects headers to be RFC 2047 compliant.
 

@@ -42,8 +42,8 @@ def __clean_external_url(url):
 
 def get_current_url():
     """
-    Return the current URL including the query string as a relative path. If the app uses subdomains,
-    return an absolute path
+    Return the current URL including the query string as a relative path. If the app uses
+    subdomains, return an absolute path
     """
     if current_app.config.get('SERVER_NAME') and (
             # Check current hostname against server name, ignoring port numbers, if any (split on ':')
@@ -93,7 +93,7 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
         else:
             return __clean_external_url(request.referrer) or (default if usedefault else __index_url())
     else:
-        return (default if usedefault else __index_url())
+        return default if usedefault else __index_url()
 
 
 def jsonp(*args, **kw):

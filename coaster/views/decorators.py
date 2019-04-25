@@ -313,7 +313,7 @@ def load_models(*chain, **kwargs):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
                 result[parameter] = item
-            if permission_required and not (permission_required & permissions):
+            if permission_required and not permission_required & permissions:
                 abort(403)
             if kwargs.get('kwargs'):
                 return f(*args, kwargs=kw, **result)
