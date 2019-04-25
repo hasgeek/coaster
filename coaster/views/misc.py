@@ -15,7 +15,6 @@ from six.moves.urllib.parse import urlsplit
 from werkzeug.routing import RequestRedirect
 from werkzeug.exceptions import NotFound, MethodNotAllowed
 from flask import session as request_session, request, url_for, json, Response, current_app
-from flask.globals import _app_ctx_stack, _request_ctx_stack
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 

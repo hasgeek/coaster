@@ -36,8 +36,8 @@ class TestCoasterUtils(unittest.TestCase):
         logger_init_app(self.another_app)
         for handler in self.another_app.logger.handlers:
             try:
-                raise
-            except:
+                raise Exception
+            except Exception:
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())

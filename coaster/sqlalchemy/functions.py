@@ -51,7 +51,7 @@ def make_timestamp_columns():
     return (
         Column('created_at', DateTime, default=func.utcnow(), nullable=False),
         Column('updated_at', DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False),
-        )
+    )
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -145,14 +145,14 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             None,
             ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
             primary_key=True,
-            nullable=False) for name in parent_id_columns] +
-        [Column(
+            nullable=False) for name in parent_id_columns]
+        + [Column(
             child_table_name + '_' + name,
             None,
             ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
-            nullable=False) for name in child_id_columns] +
-        list(make_timestamp_columns())
-        )
+            nullable=False) for name in child_id_columns]
+        + list(make_timestamp_columns())
+    )
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
     rel = relationship(child, uselist=False, secondary=primary_table)
@@ -188,7 +188,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         child_id_column=child_id_columns[0],
         lhs=parent_table_name + '_' + parent_id_columns[0],
         rhs=child_table_name + '_' + child_id_columns[0],
-        )).execute_if(dialect='postgresql'))
+    )).execute_if(dialect='postgresql'))
 
     event.listen(primary_table, 'before_drop', DDL('''
         DROP TRIGGER {primary_table_name}_trigger ON {primary_table_name};

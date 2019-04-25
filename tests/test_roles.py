@@ -126,28 +126,28 @@ class TestCoasterRoles(unittest.TestCase):
             'all': {
                 'call': {'hello', },
                 'read': {'id', 'name', 'title', 'mixed_in2'},
-                },
+            },
             'editor': {
                 'read': {'mixed_in2'},
                 'write': {'title', 'mixed_in2'},
-                },
+            },
             'owner': {
                 'read': {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
                 'write': {'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
-                },
-            })
+            },
+        })
 
     def test_autorole_dict(self):
         """A model without __roles__, using only with_roles, also works as expected"""
         self.assertEqual(AutoRoleModel.__roles__, {
             'all': {
                 'read': {'id', 'name'},
-                },
+            },
             'owner': {
                 'read': {'name'},
                 'write': {'name'},
-                },
-            })
+            },
+        })
 
     def test_basemixin_roles(self):
         """A model with BaseMixin by default exposes nothing to the 'all' role"""
@@ -279,13 +279,13 @@ class TestCoasterRoles(unittest.TestCase):
         proxy = rm.access_for(roles={'all'})
         self.assertEqual(proxy,
             {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None}
-            )
+        )
 
     def test_bad_decorator(self):
         """Prevent with_roles from being used with a positional parameter"""
         with self.assertRaises(TypeError):
             @with_roles({'all'})
-            def foo():
+            def f():
                 pass
 
     def test_access_for_roles_and_actor_or_anchors(self):

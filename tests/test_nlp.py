@@ -1,5 +1,5 @@
 import unittest
-from coaster.nlp import extract_text_blocks
+from coaster.utils import text_blocks
 
 
 sample_html = u"""
@@ -39,10 +39,10 @@ sample_text_blocks = [
     u"Now for some fun, let's  have a comment.",
     u"Submit or\n  Cancel",
     u"Don't forget the capitalised tags.",
-    ]
+]
 
 
 class TestExtractText(unittest.TestCase):
     def test_extract_text(self):
-        text_blocks = extract_text_blocks(sample_html, skip_pre=True)
-        self.assertEqual(text_blocks, sample_text_blocks)
+        tb = text_blocks(sample_html, skip_pre=True)
+        self.assertEqual(tb, sample_text_blocks)

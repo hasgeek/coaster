@@ -53,13 +53,13 @@ class EscapeHtml(Extension):
 markdown_convert_text = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty', EscapeHtml()],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
-    ).convert
+).convert
 
 
 markdown_convert_html = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
-    ).convert
+).convert
 
 
 def remove_pre_blocks(markdown_source):
@@ -100,7 +100,7 @@ def remove_inline_code_blocks(markdown_source):
 
 CODEPATTERN_RE = re.compile('^```(.*?)\n(.*?)^```$', re.MULTILINE | re.UNICODE | re.DOTALL)
 ITALICSPATTERN_RE = re.compile(r'^(?! {4}|\t).*\w+(?<!_)_\w+_\w[\w_]*', re.MULTILINE | re.UNICODE)
-NAKEDURL_RE = re.compile("""
+NAKEDURL_RE = re.compile(r"""
 (^|\s) # start of string or has whitespace before it
 (https?://[:/.?=&;a-zA-Z0-9_-]+) # the URL itself, http or https only
 (\s|$) # trailing whitespace or end of string
@@ -140,7 +140,7 @@ def gfm(text):
         if 'http:' in s or 'https:' in s:
             return s
 
-        return s.replace('_', '\_')
+        return s.replace('_', r'\_')
 
     # fix italics for code blocks
     text = ITALICSPATTERN_RE.sub(italic_callback, text)

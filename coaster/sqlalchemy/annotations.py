@@ -45,7 +45,7 @@ from ..signals import coaster_signals
 __all__ = [
     'annotations_configured',
     'annotation_wrapper'
-    ]
+]
 
 # Global dictionary for temporary storage of annotations until the mapper_configured events
 __cache__ = {}

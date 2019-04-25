@@ -9,6 +9,7 @@ from coaster.db import db
 # the registry is unique to each model and is not a global registry
 # in the base class.
 
+
 # Sample model 1
 class RegistryTest1(BaseMixin, db.Model):
     __tablename__ = 'registry_test1'
@@ -29,6 +30,7 @@ class RegisteredItem1(object):
 class RegisteredItem2(object):
     def __init__(self, obj=None):
         self.obj = obj
+
 
 RegistryTest1.views.test = RegisteredItem1
 RegistryTest2.views.test = RegisteredItem2

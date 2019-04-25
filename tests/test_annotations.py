@@ -71,7 +71,8 @@ class PolymorphicParent(BaseMixin, db.Model):
     __mapper_args__ = {
         'polymorphic_on': type,  # The ``type`` column in this model, not the ``type`` builtin
         'polymorphic_identity': 'parent'
-        }
+    }
+
 
 # Disable SQLAlchemy warning for the second `also_immutable` below
 warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)

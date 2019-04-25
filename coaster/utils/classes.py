@@ -18,7 +18,7 @@ NameTitle = namedtuple('NameTitle', ['name', 'title'])
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
     @classmethod
-    def __prepare__(metacls, name, bases, **kwargs):  # pragma: no cover
+    def __prepare__(mcs, name, bases, **kwargs):  # pragma: no cover
         return OrderedDict()
 
     def __new__(cls, name, bases, attrs, **kwargs):

@@ -836,7 +836,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             six.text_type((UuidKey.url_id.in_(
                 ['74d588574a7611e78c27c38403d0935c', uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'), 'garbage!']
-                )).compile(compile_kwargs={'literal_binds': True})),
+            )).compile(compile_kwargs={'literal_binds': True})),
             "uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')")
 
         # None value

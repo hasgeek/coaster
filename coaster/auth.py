@@ -189,7 +189,6 @@ class CurrentAuth(object):
         return not self.is_authenticated
 
 
-
 def _get_current_auth():
     # 1. Do we have a request?
     if has_request_context():

@@ -364,7 +364,7 @@ class ClassView(object):
         receives context via `self`, in particular via :attr:`current_handler`
         and :attr:`view_args`.
         """
-        pass
+        return None
 
     def after_request(self, response):
         """
@@ -562,6 +562,7 @@ class ModelView(ClassView):
             else:
                 perms = InspectableSet()
             add_auth_attribute('permissions', perms)
+        return None
 
 
 def requires_roles(roles):
