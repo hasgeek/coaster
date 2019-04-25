@@ -164,36 +164,50 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             raise ValueError("The target is not affiliated with this parent")
 
     # XXX: To support multi-column primary keys, update this SQL function
-    event.listen(primary_table, 'after_create', DDL('''
-        CREATE FUNCTION {primary_table_name}_validate() RETURNS TRIGGER AS $$
-        DECLARE
-            target RECORD;
-        BEGIN
-            IF (NEW.{rhs} IS NOT NULL) THEN
-                SELECT {parentcol} INTO target FROM {child_table_name} WHERE {child_id_column} = NEW.{rhs};
-                IF (target.{parentcol} != NEW.{lhs}) THEN
-                    RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+    event.listen(primary_table, 'after_create',
+        DDL('''
+            CREATE FUNCTION %(function)s() RETURNS TRIGGER AS $$
+            DECLARE
+                target RECORD;
+            BEGIN
+                IF (NEW.%(rhs)s IS NOT NULL) THEN
+                    SELECT %(parentcol)s INTO target FROM %(child_table_name)s WHERE %(child_id_column)s = NEW.%(rhs)s;
+                    IF (target.%(parentcol)s != NEW.%(lhs)s) THEN
+                        RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+                    END IF;
                 END IF;
-            END IF;
-            RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-        CREATE TRIGGER {primary_table_name}_trigger BEFORE INSERT OR UPDATE
-        ON {primary_table_name}
-        FOR EACH ROW EXECUTE PROCEDURE {primary_table_name}_validate();
-        '''.format(
-        primary_table_name=primary_table_name,
-        parentcol=parentcol,
-        child_table_name=child_table_name,
-        child_id_column=child_id_columns[0],
-        lhs=parent_table_name + '_' + parent_id_columns[0],
-        rhs=child_table_name + '_' + child_id_columns[0],
-    )).execute_if(dialect='postgresql'))
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            CREATE TRIGGER %(trigger)s BEFORE INSERT OR UPDATE
+            ON %(table)s
+            FOR EACH ROW EXECUTE PROCEDURE %(function)s();
+            ''',
+            context={
+                'table': primary_table_name,
+                'function': '%s_validate' % primary_table_name,
+                'trigger': '%s_trigger' % primary_table_name,
+                'parentcol': parentcol,
+                'child_table_name': child_table_name,
+                'child_id_column': child_id_columns[0],
+                'lhs': '%s_%s' % (parent_table_name, parent_id_columns[0]),
+                'rhs': '%s_%s' % (child_table_name, child_id_columns[0]),
+            }
+        ).execute_if(dialect='postgresql')
+    )
 
-    event.listen(primary_table, 'before_drop', DDL('''
-        DROP TRIGGER {primary_table_name}_trigger ON {primary_table_name};
-        DROP FUNCTION {primary_table_name}_validate();
-        '''.format(primary_table_name=primary_table_name)).execute_if(dialect='postgresql'))
+    event.listen(primary_table, 'before_drop',
+        DDL('''
+            DROP TRIGGER %(trigger)s ON %(table)s;
+            DROP FUNCTION %(function)s();
+            ''',
+            context={
+                'table': primary_table_name,
+                'trigger': '%s_trigger' % primary_table_name,
+                'function': '%s_validate' % primary_table_name,
+            }
+        ).execute_if(dialect='postgresql')
+    )
 
 
 def auto_init_default(column):
