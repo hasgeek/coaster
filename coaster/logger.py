@@ -139,15 +139,15 @@ class SMSHandler(logging.Handler):
     Custom logging handler to send SMSes to admins
     """
     def __init__(self, app_name, exotel_sid, exotel_token, exotel_from, twilio_sid, twilio_token, twilio_from, phonenumbers):
-            logging.Handler.__init__(self)
-            self.app_name = app_name
-            self.phonenumbers = phonenumbers
-            self.exotel_sid = exotel_sid
-            self.exotel_token = exotel_token
-            self.exotel_from = exotel_from
-            self.twilio_sid = twilio_sid
-            self.twilio_token = twilio_token
-            self.twilio_from = twilio_from
+        logging.Handler.__init__(self)
+        self.app_name = app_name
+        self.phonenumbers = phonenumbers
+        self.exotel_sid = exotel_sid
+        self.exotel_token = exotel_token
+        self.exotel_from = exotel_from
+        self.twilio_sid = twilio_sid
+        self.twilio_token = twilio_token
+        self.twilio_from = twilio_from
 
     def emit(self, record):
         throttle_key = (record.module, record.lineno)
@@ -171,7 +171,7 @@ class SMSHandler(logging.Handler):
                         'From': self.exotel_from,
                         'To': number,
                         'Body': message
-                        })
+                })
             else:
                 requests.post('https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(sid=self.twilio_sid),
                     auth=(self.twilio_sid, self.twilio_token),
@@ -179,7 +179,7 @@ class SMSHandler(logging.Handler):
                         'From': self.twilio_from,
                         'To': number,
                         'Body': message
-                        })
+                })
         except:  # NOQA
             # We need a bare except clause because this is the exception handler.
             # It can't have exceptions of its own.
@@ -223,7 +223,7 @@ class SlackHandler(logging.Handler):
                     'fallback': section[0],
                     'pretext': section[0],
                     'text': ('```\n' + section[1] + '\n```') if len(section) > 1 else '',
-                    } for section in sections]}
+                } for section in sections]}
 
             for webhook in self.webhooks:
                 if record.levelname not in webhook.get('levelnames', []):

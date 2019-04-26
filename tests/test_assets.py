@@ -14,7 +14,7 @@ class TestAssets(unittest.TestCase):
             'provides': 'jquery.js',
             'requires': 'jquery.js',
             'bundle': None
-            }
+        }
         self.assets['jquery.form.js'][Version('2.96.0')] = ('jquery.js', 'jquery.form-2.96.js')
         self.assets['jquery.form.1.js'][Version('2.96.0')] = {
             'requires': 'jquery.js>=1.8.3',

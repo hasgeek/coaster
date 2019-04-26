@@ -11,7 +11,7 @@ from sqlalchemy import Column, UnicodeText
 from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
 from sqlalchemy.orm import composite
 from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy_utils.types import UUIDType, URLType as URLTypeBase  # NOQA
+from sqlalchemy_utils.types import UUIDType, URLType as UrlTypeBase
 from flask import Markup
 from furl import furl
 import six
@@ -186,7 +186,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
     )
 
 
-class UrlType(URLTypeBase):
+class UrlType(UrlTypeBase):
     """
     Extension of URLType_ from SQLAlchemy-Utils that adds basic validation to
     ensure URLs are well formed. Parses the value into a :class:`furl` object,
@@ -201,7 +201,7 @@ class UrlType(URLTypeBase):
     impl = UnicodeText
 
     def __init__(self, schemes=('http', 'https'), optional_scheme=False, optional_host=False):
-        super(URLTypeBase, self).__init__()
+        super(UrlType, self).__init__()
         self.schemes = schemes
         self.optional_host = optional_host
         self.optional_scheme = optional_scheme

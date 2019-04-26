@@ -15,7 +15,6 @@ Provides a wrapper around NLTK to extract named entities from HTML text::
 """
 
 import nltk
-from .utils import text_blocks as extract_text_blocks  # XXX: Deprecated  # NOQA
 
 
 def extract_named_entities(text_blocks):

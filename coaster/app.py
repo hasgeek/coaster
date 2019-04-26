@@ -28,7 +28,7 @@ _additional_config = {
     'testing': 'testing.py',
     'prod': 'production.py',
     'production': 'production.py',
-    }
+}
 
 
 class SandboxedEnvironment(BaseSandboxedEnvironment):

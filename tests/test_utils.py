@@ -42,7 +42,7 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(MY_ENUM_TWO.value_for('second'), 2)
 
         with self.assertRaises(TypeError):
-            MY_ENUM[2] = "SECOND"
+            MY_ENUM[2] = "SECOND"  # NOQA
 
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes.

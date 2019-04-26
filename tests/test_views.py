@@ -99,7 +99,7 @@ class TestCoasterViews(unittest.TestCase):
             response = (
                 u'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % (
                     'lang', kwargs['lang'], 'query', kwargs['query'])
-                ).encode('utf-8')
+            ).encode('utf-8')
 
             self.assertEqual(response, r.get_data())
 

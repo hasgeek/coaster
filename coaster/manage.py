@@ -77,7 +77,7 @@ def set_alembic_revision(path=None):
 
 @manager.command
 def dropdb():
-    "Drop database tables"
+    """Drop database tables"""
     manager.db.engine.echo = True
     if prompt_bool("Are you sure you want to lose all your data"):
         manager.db.drop_all()
@@ -88,7 +88,7 @@ def dropdb():
 
 @manager.command
 def createdb():
-    "Create database tables from sqlalchemy models"
+    """Create database tables from sqlalchemy models"""
     manager.db.engine.echo = True
     manager.db.create_all()
     set_alembic_revision()

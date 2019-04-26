@@ -101,21 +101,21 @@ class TestMarkdown(unittest.TestCase):
         self.assertEqual(
             gfm('[foo](http://example.com/a_b_c)'),
             '[foo](http://example.com/a_b_c)'
-            )
+        )
 
     def test_underscores_in_html(self):
         """Don't replace underscores in HTML blocks"""
         self.assertEqual(
             gfm('<img src="http://example.com/a_b_c" />'),
             '<img src="http://example.com/a_b_c" />'
-            )
+        )
 
     def test_linkify_naked_urls(self):
         """Wrap naked URLs in []() so they become clickable links."""
         self.assertEqual(
             gfm(" http://www.example.com:80/foo?bar=bar&biz=biz"),
             " [http://www.example.com:80/foo?bar=bar&biz=biz](http://www.example.com:80/foo?bar=bar&biz=biz)"
-            )
+        )
 
     def test_gfm_code_blocks(self):
         """Turn ```code_blocks``` into 4-space indented code blocks."""
@@ -123,12 +123,12 @@ class TestMarkdown(unittest.TestCase):
         self.assertEqual(
             gfm("```\nprint 'Hello'\n```"),
             "    print 'Hello'"
-            )
+        )
         # With a syntax header
         self.assertEqual(
             gfm("```python\nprint 'Hello'\n```"),
             "    :::python\n    print 'Hello'"
-            )
+        )
         # Embedded in some text
         self.assertEqual(gfm(
             "Some code:\n"

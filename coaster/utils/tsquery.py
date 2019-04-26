@@ -72,10 +72,9 @@ def for_tsquery(text):
     "'/etc/passwd'"
     """
     tokens = [_token_map.get(t, t) for t in _tsquery_tokens_re.split(
-            _whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')))]
-    for counter in range(len(tokens)):
-        if tokens[counter] not in ('&', '|', '!', ':*', '(', ')', ' '):
-            tokens[counter] = "'" + tokens[counter].strip() + "'"
+        _whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')))]
+    tokens = [t if t in ('&', '|', '!', ':*', '(', ')', ' ') else "'" + t.strip() + "'"
+        for t in tokens]
     tokens = [t for t in tokens if t not in ('', ' ', "''")]
     if not tokens:
         return ''

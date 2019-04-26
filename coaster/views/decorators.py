@@ -26,7 +26,7 @@ __all__ = [
     'requestargs', 'requestform', 'requestquery',
     'load_model', 'load_models',
     'render_with', 'cors', 'requires_permission',
-    ]
+]
 
 
 class RequestTypeError(BadRequest, TypeError):
@@ -313,7 +313,7 @@ def load_models(*chain, **kwargs):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
                 result[parameter] = item
-            if permission_required and not (permission_required & permissions):
+            if permission_required and not permission_required & permissions:
                 abort(403)
             if kwargs.get('kwargs'):
                 return f(*args, kwargs=kw, **result)
@@ -408,11 +408,11 @@ def render_with(template=None, json=False, jsonp=False):
         templates = {
             'application/json': dict_jsonp,
             'application/javascript': dict_jsonp,
-            }
+        }
     elif json:
         templates = {
             'application/json': dict_jsonify,
-            }
+        }
     else:
         templates = {}
     if isinstance(template, six.string_types):

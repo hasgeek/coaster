@@ -4,9 +4,12 @@ import re
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
-README = open(os.path.join(here, 'README.rst')).read()
-CHANGES = open(os.path.join(here, 'CHANGES.rst')).read()
-versionfile = open(os.path.join(here, "coaster", "_version.py")).read()
+with open(os.path.join(here, 'README.rst')) as f:
+    README = f.read()
+with open(os.path.join(here, 'CHANGES.rst')) as f:
+    CHANGES = f.read()
+with open(os.path.join(here, "coaster", "_version.py")) as f:
+    versionfile = f.read()
 
 mo = re.search(r"^__version__\s*=\s*['\"]([^'\"]*)['\"]", versionfile, re.M)
 if mo:
@@ -67,7 +70,7 @@ setup(name='coaster',
         "Intended Audience :: Developers",
         "Development Status :: 3 - Alpha",
         "Topic :: Software Development :: Libraries",
-        ],
+    ],
     author='Kiran Jonnalagadda',
     author_email='kiran@hasgeek.com',
     url='https://github.com/hasgeek/coaster',

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# flake8: noqa
 #
 # coaster documentation build configuration file, created by
 # sphinx-quickstart on Mon Nov 12 14:24:51 2012.

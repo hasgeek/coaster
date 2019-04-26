@@ -55,7 +55,7 @@ VALID_TAGS = {
     'sup': [],
     'sub': [],
     'ul': [],
-    }
+}
 
 
 def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):
@@ -98,8 +98,8 @@ def text_blocks(html_text, skip_pre=True):
             # (unless it's a pre tag and we want to skip_pre, in which case ignore it again).
             if text:
                 text_blocks.append(text)
-            elif (len(element) and isinstance(element[0].tag, six.string_types) and
-                    element[0].tag.split('}')[-1] not in blockish_tags and not (skip_pre and tag == 'pre')):
+            elif (len(element) and isinstance(element[0].tag, six.string_types)
+                    and element[0].tag.split('}')[-1] not in blockish_tags and not (skip_pre and tag == 'pre')):
                 text_blocks.append('')
         else:
             if not text_blocks:
