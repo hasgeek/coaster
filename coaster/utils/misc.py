@@ -202,7 +202,7 @@ def newpin(digits=4):
 
 
 def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
-    ur"""
+    u"""
     Generate an ASCII name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
     counter numbers starting from 2 until a suitable candidate is found.
@@ -265,11 +265,11 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'test-this-newline'
     >>> make_name(u"testing an emoji😁")
     u'testing-an-emoji'
-    >>> make_name('''testing\t\nmore\r\nslashes''')
+    >>> make_name('''testing\\t\\nmore\\r\\nslashes''')
     'testing-more-slashes'
     >>> make_name('What if a HTML <tag/>')
     'what-if-a-html-tag'
-    >>> make_name('These are equivalent to \x01 through \x1A')
+    >>> make_name('These are equivalent to \\x01 through \\x1A')
     'these-are-equivalent-to-through'
     """
     name = text.replace('@', delim)
