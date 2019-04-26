@@ -9,7 +9,7 @@ from time import sleep
 from datetime import datetime, timedelta
 import six
 from flask import Flask
-from sqlalchemy import Column, Integer, Unicode, UniqueConstraint, ForeignKey, func
+from sqlalchemy import Column, Integer, Unicode, UnicodeText, UniqueConstraint, ForeignKey, func, inspect
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm.exc import MultipleResultsFound
@@ -108,6 +108,50 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
 
     content = Column(Unicode(250))
     __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
+
+
+class UnlimitedName(BaseNameMixin, db.Model):
+    __tablename__ = 'unlimited_name'
+    __name_length__ = __title_length__ = None
+
+    @property
+    def title_for_name(self):
+        return "Custom1: " + self.title
+
+
+class UnlimitedScopedName(BaseScopedNameMixin, db.Model):
+    __tablename__ = 'unlimited_scoped_name'
+    __name_length__ = __title_length__ = None
+    container_id = Column(Integer, ForeignKey('container.id'))
+    container = relationship(Container)
+    parent = synonym('container')
+    __table_args__ = (UniqueConstraint('container_id', 'name'),)
+
+    @property
+    def title_for_name(self):
+        return "Custom2: " + self.title
+
+
+class UnlimitedIdName(BaseIdNameMixin, db.Model):
+    __tablename__ = 'unlimited_id_name'
+    __name_length__ = __title_length__ = None
+
+    @property
+    def title_for_name(self):
+        return "Custom3: " + self.title
+
+
+class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
+    __tablename__ = 'unlimited_scoped_id_name'
+    __name_length__ = __title_length__ = None
+    container_id = Column(Integer, ForeignKey('container.id'))
+    container = relationship(Container)
+    parent = synonym('container')
+    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
+
+    @property
+    def title_for_name(self):
+        return "Custom4: " + self.title
 
 
 class User(BaseMixin, db.Model):
@@ -561,6 +605,43 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         assert d1.url_id == 1
         assert d2.url_id == 1
+
+    def test_unlimited_name_title(self):
+        """The four name mixins will switch from Unicode to UnicodeText if length is None"""
+        for model in (NamedDocument, ScopedNamedDocument, IdNamedDocument, ScopedIdNamedDocument):
+            assert isinstance(inspect(getattr(model, 'name')).type, Unicode)
+            assert isinstance(inspect(getattr(model, 'title')).type, Unicode)
+
+        for model in (UnlimitedName, UnlimitedScopedName, UnlimitedIdName, UnlimitedScopedIdName):
+            assert isinstance(inspect(getattr(model, 'name')).type, UnicodeText)
+            assert isinstance(inspect(getattr(model, 'title')).type, UnicodeText)
+
+    def test_title_for_name(self):
+        """Models can customise how their names are generated"""
+        c1 = self.make_container()
+        self.session.flush()  # Container needs an id for scoped names to be validated
+        d1 = UnlimitedName(title="Document 1")
+        d2 = UnlimitedScopedName(title="Document 2", parent=c1)
+        d3 = UnlimitedIdName(title="Document 3")
+        d4 = UnlimitedScopedIdName(title="Document 4", parent=c1)
+        self.session.add_all([d1, d2, d3, d4])
+        self.session.commit()
+
+        assert d1.title == "Document 1"
+        assert d1.title_for_name == "Custom1: Document 1"
+        assert d1.name == 'custom1-document-1'
+
+        assert d2.title == "Document 2"
+        assert d2.title_for_name == "Custom2: Document 2"
+        assert d2.name == 'custom2-document-2'
+
+        assert d3.title == "Document 3"
+        assert d3.title_for_name == "Custom3: Document 3"
+        assert d3.name == 'custom3-document-3'
+
+        assert d4.title == "Document 4"
+        assert d4.title_for_name == "Custom4: Document 4"
+        assert d4.name == 'custom4-document-4'
 
     def test_has_timestamps(self):
         # Confirm that a model with multiple base classes between it and
