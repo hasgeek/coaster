@@ -454,6 +454,13 @@ def md5sum(data):
         return hashlib.md5(data).hexdigest()
 
 
+def utcnow():
+    """
+    Returns the current time at UTC with `tzinfo` set
+    """
+    return datetime.now(pytz.UTC)
+
+
 def parse_isoformat(text):
     try:
         return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S.%fZ')

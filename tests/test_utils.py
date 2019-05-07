@@ -7,7 +7,7 @@ import six
 from pytz import common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    suuid, suuid2uuid, uuid2suuid, require_one_of, InspectableSet)
+    utcnow, suuid, suuid2uuid, uuid2suuid, require_one_of, InspectableSet)
 
 
 class MY_ENUM(LabeledEnum):
@@ -122,6 +122,21 @@ class TestCoasterUtils(unittest.TestCase):
         for timezone in common_timezones:
             for day in range(365):
                 midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
+
+    def test_utcnow(self):
+        """Test that Coaster's utcnow works correctly"""
+        # Get date from function being tested
+        now1 = utcnow()
+        # Get date from Python stdlib
+        now2 = datetime.datetime.utcnow()
+
+        # 1. Our function returns a date that has a timezone
+        assert now1.tzinfo is not None
+        # 2. The timezone is UTC because its offset is zero
+        assert now1.tzinfo.utcoffset(now1) == datetime.timedelta(0)
+        # 3. And it's within a second of the comparison date (the runtime environment
+        # cannot possibly have taken over a second between two consecutive statements)
+        assert abs(now2 - now1.replace(tzinfo=None)) < datetime.timedelta(seconds=1)
 
     def test_suuid(self):
         """
