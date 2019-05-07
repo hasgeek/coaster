@@ -22,8 +22,8 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 
 from __future__ import absolute_import
 import uuid as uuid_
-from sqlalchemy import Column, Integer, DateTime, Unicode, UnicodeText, CheckConstraint, Numeric, inspect
-from sqlalchemy import event
+from sqlalchemy import Column, Integer, Unicode, UnicodeText, CheckConstraint, Numeric, TIMESTAMP
+from sqlalchemy import event, inspect
 from sqlalchemy.sql import select, func
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -168,11 +168,26 @@ class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
+    __with_timezone__ = False
     query_class = Query
-    #: Timestamp for when this instance was created, in UTC
-    created_at = immutable(Column(DateTime, default=func.utcnow(), nullable=False))
-    #: Timestamp for when this instance was last updated (via the app), in UTC
-    updated_at = Column(DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False)
+
+    @immutable
+    @declared_attr
+    def created_at(cls):
+        """Timestamp for when this instance was created, in UTC"""
+        return Column(
+            TIMESTAMP(timezone=cls.__with_timezone__),
+            default=func.utcnow(),
+            nullable=False)
+
+    @declared_attr
+    def updated_at(cls):
+        """Timestamp for when this instance was last updated (via the app), in UTC"""
+        return Column(
+            TIMESTAMP(timezone=cls.__with_timezone__),
+            default=func.utcnow(),
+            onupdate=func.utcnow(),
+            nullable=False)
 
 
 class PermissionMixin(object):
