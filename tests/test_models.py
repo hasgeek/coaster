@@ -8,7 +8,6 @@ import uuid
 from time import sleep
 from datetime import datetime, timedelta
 import six
-from pytz import utc
 from flask import Flask
 from sqlalchemy import Column, Integer, Unicode, UnicodeText, UniqueConstraint, ForeignKey, func, inspect
 from sqlalchemy.orm import relationship, synonym
