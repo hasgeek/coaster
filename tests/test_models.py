@@ -286,7 +286,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(c.id, 1)
 
     def test_timestamp(self):
-        now1 = self.session.query(func.utcnow()).first()[0]
+        now1 = self.session.query(func.utcnow()).scalar()
         # Start a new transaction so that NOW() returns a new value
         self.session.commit()
         # The db may not store microsecond precision, so sleep at least 1 second
@@ -296,16 +296,19 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         u = c.updated_at
         sleep(1)
-        now2 = self.session.query(func.utcnow()).first()[0]
+        now2 = self.session.query(func.utcnow()).scalar()
         self.session.commit()
-        self.assertNotEqual(now1, c.created_at)
-        self.assertTrue(now1 < c.created_at)
-        self.assertTrue(now2 > c.created_at)
+        # Convert timestamps to naive before testing because they may be mismatched:
+        # 1. utcnow will have timezone in PostgreSQL, but not in SQLite
+        # 2. columns will have timezone iff PostgreSQL and the model has __with_timezone__ = True
+        self.assertNotEqual(now1.replace(tzinfo=None), c.created_at.replace(tzinfo=None))
+        self.assertTrue(now1.replace(tzinfo=None) < c.created_at.replace(tzinfo=None))
+        self.assertTrue(now2.replace(tzinfo=None) > c.created_at.replace(tzinfo=None))
         sleep(1)
         c.content = "updated"
         self.session.commit()
         self.assertNotEqual(c.updated_at, u)
-        self.assertTrue(c.updated_at > now2)
+        self.assertTrue(c.updated_at.replace(tzinfo=None) > now2.replace(tzinfo=None))
         self.assertTrue(c.updated_at > c.created_at)
         self.assertTrue(c.updated_at > u)
 

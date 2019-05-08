@@ -6,7 +6,7 @@ Helper functions
 """
 
 from __future__ import absolute_import
-from sqlalchemy import Table, Column, ForeignKey, DateTime, func, event, inspect, DDL
+from sqlalchemy import Table, Column, ForeignKey, TIMESTAMP, func, event, inspect, DDL
 from sqlalchemy.sql import functions
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.exc import IntegrityError
@@ -21,7 +21,7 @@ __all__ = ['make_timestamp_columns', 'failsafe_add', 'add_primary_relationship',
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
 class utcnow(functions.GenericFunction):
-    type = DateTime()
+    type = TIMESTAMP()
 
 
 @compiles(utcnow)
@@ -36,7 +36,7 @@ def __utcnow_mysql(element, compiler, **kw):  # pragma: no cover
 
 @compiles(utcnow, 'postgresql')
 def __utcnow_postgresql(element, compiler, **kw):
-    return 'TIMEZONE(\'utc\', CURRENT_TIMESTAMP)'
+    return 'TIMEZONE(\'utc\', CURRENT_TIMESTAMP)::TIMESTAMPTZ'
 
 
 @compiles(utcnow, 'mssql')
@@ -46,11 +46,22 @@ def __utcnow_mssql(element, compiler, **kw):  # pragma: no cover
 
 # --- Helper functions --------------------------------------------------------
 
-def make_timestamp_columns():
-    """Return two columns, created_at and updated_at, with appropriate defaults"""
+def make_timestamp_columns(timezone=False):
+    """Return two columns, `created_at` and `updated_at`, with appropriate defaults"""
     return (
-        Column('created_at', DateTime, default=func.utcnow(), nullable=False),
-        Column('updated_at', DateTime, default=func.utcnow(), onupdate=func.utcnow(), nullable=False),
+        Column(
+            'created_at',
+            TIMESTAMP(timezone=timezone),
+            default=func.utcnow(),
+            nullable=False
+        ),
+        Column(
+            'updated_at',
+            TIMESTAMP(timezone=timezone),
+            default=func.utcnow(),
+            onupdate=func.utcnow(),
+            nullable=False
+        ),
     )
 
 

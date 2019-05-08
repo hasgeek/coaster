@@ -34,6 +34,8 @@
 * New: ``coaster.views.requires_roles`` decorator for ``ModelView``, with
   ``is_available`` test
 * New: ``UrlForMixin`` now provides ``view_for`` and ``classview_for``
+* Changed: ``TimestampMixin`` optionally uses ``timestamptz`` columns.
+  A future release may make this the default
 
 
 0.6.0
