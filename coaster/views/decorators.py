@@ -26,7 +26,7 @@ __all__ = [
     'requestargs', 'requestform', 'requestquery',
     'load_model', 'load_models',
     'render_with', 'cors', 'requires_permission',
-]
+    ]
 
 
 class RequestTypeError(BadRequest, TypeError):
@@ -408,11 +408,11 @@ def render_with(template=None, json=False, jsonp=False):
         templates = {
             'application/json': dict_jsonp,
             'application/javascript': dict_jsonp,
-        }
+            }
     elif json:
         templates = {
             'application/json': dict_jsonify,
-        }
+            }
     else:
         templates = {}
     if isinstance(template, six.string_types):

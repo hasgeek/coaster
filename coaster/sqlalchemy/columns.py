@@ -183,7 +183,7 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_text', UnicodeText, **kwargs),
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
-    )
+        )
 
 
 class UrlType(UrlTypeBase):

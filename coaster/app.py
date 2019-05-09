@@ -28,7 +28,7 @@ _additional_config = {
     'testing': 'testing.py',
     'prod': 'production.py',
     'production': 'production.py',
-}
+    }
 
 
 class SandboxedEnvironment(BaseSandboxedEnvironment):
@@ -76,7 +76,7 @@ class SandboxedFlask(Flask):
             request=request,
             session=session,
             g=g  # FIXME: Similarly with g: no access for sandboxed templates
-        )
+            )
         rv.filters['tojson'] = _tojson_filter
         return rv
 

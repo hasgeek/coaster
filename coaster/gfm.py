@@ -53,13 +53,13 @@ class EscapeHtml(Extension):
 markdown_convert_text = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty', EscapeHtml()],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
-).convert
+    ).convert
 
 
 markdown_convert_html = Markdown(output_format='html',
     extensions=['markdown.extensions.codehilite', 'markdown.extensions.smarty'],
     extension_configs={'codehilite': {'css_class': 'syntax'}}
-).convert
+    ).convert
 
 
 def remove_pre_blocks(markdown_source):

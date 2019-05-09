@@ -28,8 +28,8 @@ class ViewDocument(BaseNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title'}
+            }
         }
-    }
 
     def permissions(self, actor, inherited=()):
         perms = super(ViewDocument, self).permissions(actor, inherited)
@@ -55,8 +55,8 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title', 'doctype'}
+            }
         }
-    }
 
     @property
     def doctype(self):
@@ -69,8 +69,8 @@ class RenameableDocument(BaseIdNameMixin, db.Model):
     __roles__ = {
         'all': {
             'read': {'name', 'title'}
+            }
         }
-    }
 
 
 # --- Views -------------------------------------------------------------------
@@ -194,7 +194,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
     route_model_map = {
         'document': 'name',
-    }
+        }
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
@@ -227,7 +227,7 @@ class ScopedDocumentView(ModelDocumentView):
     route_model_map = {
         'document': 'name',
         'parent': 'parent.name',
-    }
+        }
 
 
 ScopedViewDocument.views.main = ScopedDocumentView
@@ -239,7 +239,7 @@ class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
     model = RenameableDocument
     route_model_map = {
         'document': 'url_name',
-    }
+        }
 
     @route('')
     @render_with(json=True)
@@ -257,7 +257,7 @@ class MultiDocumentView(UrlForView, ModelView):
     route_model_map = {
         'doc1': 'name',
         'doc2': '**doc2.url_name'
-    }
+        }
 
     def loader(self, doc1, doc2):
         doc1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
@@ -278,7 +278,7 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
     route_model_map = {
         'document': 'name',
-    }
+        }
 
     @requestargs('access_token')
     def before_request(self, access_token=None):

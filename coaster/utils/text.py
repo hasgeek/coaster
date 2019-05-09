@@ -55,7 +55,7 @@ VALID_TAGS = {
     'sup': [],
     'sub': [],
     'ul': [],
-}
+    }
 
 
 def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):

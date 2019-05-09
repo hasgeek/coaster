@@ -97,7 +97,7 @@ def t_single_model_in_loadmodels(user):
 @load_models(
     (Container, {'name': 'container'}, 'container'),
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
-)
+    )
 def t_named_document(container, document):
     return document
 
@@ -105,7 +105,7 @@ def t_named_document(container, document):
 @load_models(
     (Container, {'name': 'container'}, 'container'),
     ((NamedDocument, RedirectDocument), {'name': 'document', 'container': 'container'}, 'document')
-)
+    )
 def t_redirect_document(container, document):
     return document
 
@@ -113,7 +113,7 @@ def t_redirect_document(container, document):
 @load_models(
     (Container, {'name': 'container'}, 'container'),
     (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document')
-)
+    )
 def t_scoped_named_document(container, document):
     return document
 
@@ -122,7 +122,7 @@ def t_scoped_named_document(container, document):
     (Container, {'name': 'container'}, 'container'),
     (IdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
     urlcheck=['url_name']
-)
+    )
 def t_id_named_document(container, document):
     return document
 
@@ -130,7 +130,7 @@ def t_id_named_document(container, document):
 @load_models(
     (Container, {'name': 'container'}, 'container'),
     (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document')
-)
+    )
 def t_scoped_id_document(container, document):
     return document
 
@@ -139,7 +139,7 @@ def t_scoped_id_document(container, document):
     (Container, {'name': 'container'}, 'container'),
     (ScopedIdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
     urlcheck=['url_name'],
-)
+    )
 def t_scoped_id_named_document(container, document):
     return document
 
@@ -147,7 +147,7 @@ def t_scoped_id_named_document(container, document):
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': lambda r, p: r['document'].middle}, 'child')
-)
+    )
 def t_callable_document(document, child):
     return child
 
@@ -155,7 +155,7 @@ def t_callable_document(document, child):
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child')
-)
+    )
 def t_dotted_document(document, child):
     return child
 
@@ -164,7 +164,7 @@ def t_dotted_document(document, child):
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='view'
-)
+    )
 def t_dotted_document_view(document, child):
     return child
 
@@ -173,7 +173,7 @@ def t_dotted_document_view(document, child):
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='edit'
-)
+    )
 def t_dotted_document_edit(document, child):
     return child
 
@@ -182,7 +182,7 @@ def t_dotted_document_edit(document, child):
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='delete'
-)
+    )
 def t_dotted_document_delete(document, child):
     return child
 

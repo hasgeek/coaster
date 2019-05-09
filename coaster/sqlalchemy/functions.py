@@ -54,15 +54,15 @@ def make_timestamp_columns(timezone=False):
             TIMESTAMP(timezone=timezone),
             default=func.utcnow(),
             nullable=False
-        ),
+            ),
         Column(
             'updated_at',
             TIMESTAMP(timezone=timezone),
             default=func.utcnow(),
             onupdate=func.utcnow(),
             nullable=False
-        ),
-    )
+            ),
+        )
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -163,7 +163,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
             nullable=False) for name in child_id_columns]
         + list(make_timestamp_columns(timezone=parent.__with_timezone__))
-    )
+        )
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
     rel = relationship(child, uselist=False, secondary=primary_table)
@@ -203,9 +203,9 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'child_id_column': child_id_columns[0],
                 'lhs': '%s_%s' % (parent_table_name, parent_id_columns[0]),
                 'rhs': '%s_%s' % (child_table_name, child_id_columns[0]),
-            }
-        ).execute_if(dialect='postgresql')
-    )
+                }
+            ).execute_if(dialect='postgresql')
+        )
 
     event.listen(primary_table, 'before_drop',
         DDL('''
@@ -216,9 +216,9 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'table': primary_table_name,
                 'trigger': '%s_trigger' % primary_table_name,
                 'function': '%s_validate' % primary_table_name,
-            }
-        ).execute_if(dialect='postgresql')
-    )
+                }
+            ).execute_if(dialect='postgresql')
+        )
 
 
 def auto_init_default(column):

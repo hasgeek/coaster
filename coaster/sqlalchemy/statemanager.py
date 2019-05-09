@@ -504,7 +504,7 @@ class StateTransition(object):
             'from': state_values,  # Dict of scalar_value: ManagedState
             'to': to,              # ManagedState (is_direct) of new state
             'if': if_,             # Additional conditions that must ALL pass
-        }
+            }
 
     def __set_name__(self, owner, name):  # pragma: no cover
         self.name = name
@@ -577,7 +577,7 @@ class StateTransitionWrapper(object):
                     transition=self.statetransition.name,
                     state=repr(state_invalid[0]),
                     label=label
-                ))
+                    ))
 
         # Send a transition-before signal
         transition_before.send(self.obj, transition=self.statetransition)

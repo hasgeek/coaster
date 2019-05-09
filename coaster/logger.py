@@ -97,7 +97,7 @@ class LocalVarFormatter(logging.Formatter):
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,
                 'view_args': request.view_args
-            }
+                }
             try:
                 pprint_with_indent(request_data, sio)
             except:  # NOQA
@@ -171,7 +171,7 @@ class SMSHandler(logging.Handler):
                         'From': self.exotel_from,
                         'To': number,
                         'Body': message
-                })
+                    })
             else:
                 requests.post('https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(sid=self.twilio_sid),
                     auth=(self.twilio_sid, self.twilio_token),
@@ -179,7 +179,7 @@ class SMSHandler(logging.Handler):
                         'From': self.twilio_from,
                         'To': number,
                         'Body': message
-                })
+                    })
         except:  # NOQA
             # We need a bare except clause because this is the exception handler.
             # It can't have exceptions of its own.
@@ -223,7 +223,7 @@ class SlackHandler(logging.Handler):
                     'fallback': section[0],
                     'pretext': section[0],
                     'text': ('```\n' + section[1] + '\n```') if len(section) > 1 else '',
-                } for section in sections]}
+                    } for section in sections]}
 
             for webhook in self.webhooks:
                 if record.levelname not in webhook.get('levelnames', []):

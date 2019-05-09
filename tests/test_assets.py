@@ -14,12 +14,12 @@ class TestAssets(unittest.TestCase):
             'provides': 'jquery.js',
             'requires': 'jquery.js',
             'bundle': None
-        }
+            }
         self.assets['jquery.form.js'][Version('2.96.0')] = ('jquery.js', 'jquery.form-2.96.js')
         self.assets['jquery.form.1.js'][Version('2.96.0')] = {
             'requires': 'jquery.js>=1.8.3',
             'provides': 'jquery.form.js',
-        }
+            }
         self.assets['old-lib.js'][Version('1.0.0')] = ('jquery.js<1.8.0', 'old-lib-1.0.0.js')
 
     def test_asset_unversioned(self):

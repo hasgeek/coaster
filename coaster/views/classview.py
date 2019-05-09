@@ -25,7 +25,7 @@ __all__ = [
     'ClassView', 'ModelView',  # View base classes
     'route', 'viewdata', 'url_change_check', 'requires_roles',  # View decorators
     'UrlChangeCheck', 'UrlForView', 'InstanceLoader',  # Mixin classes
-]
+    ]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
