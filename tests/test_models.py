@@ -36,6 +36,16 @@ LoginManager(app2)
 
 # --- Models ------------------------------------------------------------------
 
+class TimestampNaive(BaseMixin, db.Model):
+    __tablename__ = 'timestamp_naive'
+    __with_timezone__ = False
+
+
+class TimestampAware(BaseMixin, db.Model):
+    __tablename__ = 'timestamp_aware'
+    __with_timezone__ = True
+
+
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
     name = Column(Unicode(80), nullable=True)
@@ -1233,3 +1243,25 @@ class TestCoasterModelsPG(TestCoasterModels):
             self.session.execute(parent_child_primary.update().where(
                 parent_child_primary.c.parent_for_primary_id == parent1.id).values(
                 {'child_for_primary_id': child2a.id}))
+
+    def test_timestamp_naive_is_naive(self):
+        row = TimestampNaive()
+        self.session.add(row)
+        self.session.commit()
+
+        assert row.created_at is not None
+        assert row.created_at.tzinfo is None
+        assert row.updated_at is not None
+        assert row.updated_at.tzinfo is None
+
+    def test_timestamp_aware_is_aware(self):
+        row = TimestampAware()
+        self.session.add(row)
+        self.session.commit()
+
+        assert row.created_at is not None
+        assert row.created_at.tzinfo is not None
+        assert row.created_at.utcoffset() == timedelta(0)
+        assert row.updated_at is not None
+        assert row.updated_at.tzinfo is not None
+        assert row.updated_at.utcoffset() == timedelta(0)
