@@ -162,7 +162,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             None,
             ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
             nullable=False) for name in child_id_columns]
-        + list(make_timestamp_columns(timezone=True))
+        + list(make_timestamp_columns(timezone=parent.__with_timezone__))
     )
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
