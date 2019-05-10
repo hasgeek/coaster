@@ -4,7 +4,7 @@ import unittest
 import uuid
 import datetime
 import six
-from pytz import common_timezones
+from pytz import UTC, common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
     utcnow, suuid, suuid2uuid, uuid2suuid, require_one_of, InspectableSet)
@@ -56,8 +56,10 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertTrue(check_password(u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi', u'test'))
 
     def test_parse_isoformat(self):
-        self.assertEqual(parse_isoformat("1882-12-11T00:00:00.1234Z"), datetime.datetime(1882, 12, 11, 0, 0, 0, 123400))
-        self.assertEqual(parse_isoformat("1882-12-11T00:00:00Z"), datetime.datetime(1882, 12, 11, 0, 0))
+        assert parse_isoformat("1882-12-11T00:00:00.1234Z") == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400)
+        assert parse_isoformat("1882-12-11T00:00:00Z"), datetime.datetime(1882, 12, 11, 0, 0)
+        assert parse_isoformat("1882-12-11T00:00:00.1234Z", naive=False) == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400, tzinfo=UTC)
+        assert parse_isoformat("1882-12-11T00:00:00Z", naive=False), datetime.datetime(1882, 12, 11, 0, 0, tzinfo=UTC)
 
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""

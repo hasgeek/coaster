@@ -22,6 +22,7 @@ import pytz
 import tldextract
 from unidecode import unidecode
 import isoweek
+import iso8601
 import six
 from six.moves import range
 from six.moves.urllib.parse import urlparse
@@ -461,11 +462,11 @@ def utcnow():
     return datetime.now(pytz.UTC)
 
 
-def parse_isoformat(text):
-    try:
-        return datetime.strptime(text, '%Y-%m-%dT%H:%M:%S.%fZ')
-    except ValueError:
-        return datetime.strptime(text, '%Y-%m-%dT%H:%M:%SZ')
+def parse_isoformat(text, naive=True):
+    if naive:
+        return iso8601.parse_date(text).astimezone(pytz.UTC).replace(tzinfo=None)
+    else:
+        return iso8601.parse_date(text)
 
 
 def isoweek_datetime(year, week, timezone='UTC', naive=False):

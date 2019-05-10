@@ -50,6 +50,7 @@ requires = [
     'blinker',
     'Flask>=1.0',
     'furl',
+    'iso8601',
     ]
 
 if PY2:
