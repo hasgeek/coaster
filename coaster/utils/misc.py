@@ -27,6 +27,13 @@ import six
 from six.moves import range
 from six.moves.urllib.parse import urlparse
 
+__all__ = [
+    'is_collection', 'buid', 'uuid1mc', 'uuid1mc_from_datetime', 'uuid2buid', 'buid2uuid', 'newsecret', 'newpin',
+    'make_name', 'make_password', 'check_password', 'format_currency', 'md5sum', 'utcnow', 'parse_isoformat',
+    'isoweek_datetime', 'midnight_to_utc', 'getbool', 'nullint', 'nullstr', 'require_one_of', 'unicode_http_header',
+    'get_email_domain', 'valid_username', 'sorted_timezones', 'namespace_from_url', 'base_domain_matches',
+    'domain_namespace_match'
+    ]
 
 # --- Thread safety fix -------------------------------------------------------
 
