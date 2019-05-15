@@ -6,11 +6,14 @@ Text processing utilities
 """
 
 from __future__ import absolute_import
-import six
+from functools import partial
 import string
 import re
+import six
 import html5lib
-import bleach
+from markupsafe import Markup
+from bleach.sanitizer import Cleaner
+from bleach.linkifier import LinkifyFilter, DEFAULT_CALLBACKS
 
 if six.PY3:  # pragma: no cover
     from html import unescape
@@ -46,11 +49,11 @@ VALID_TAGS = {
     'i': [],
     'img': ['src', 'width', 'height', 'align', 'alt'],
     'ins': [],
-    'li': ['start'],
+    'li': [],
     'mark': [],
     'p': [],
     'pre': [],
-    'ol': [],
+    'ol': ['start'],
     'strong': [],
     'sup': [],
     'sub': [],
@@ -58,17 +61,22 @@ VALID_TAGS = {
     }
 
 
-def sanitize_html(value, valid_tags=VALID_TAGS, strip=True):
+def sanitize_html(value, valid_tags=VALID_TAGS, strip=True, linkify=False):
     """
     Strips unwanted markup out of HTML.
     """
-    return bleach.clean(value, tags=list(VALID_TAGS.keys()), attributes=VALID_TAGS, strip=strip)
+    if linkify:
+        filters = [partial(LinkifyFilter, skip_tags=['pre'], callbacks=DEFAULT_CALLBACKS)]
+    else:
+        filters = []
+    cleaner = Cleaner(tags=list(valid_tags.keys()), attributes=valid_tags, filters=filters, strip=strip)
+    return Markup(cleaner.clean(value))
 
 
-blockish_tags = set([
+blockish_tags = {
     'address', 'article', 'aside', 'audio', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt', 'fieldset', 'figcaption',
     'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'li', 'noscript', 'ol',
-    'output', 'p', 'pre', 'section', 'table', 'td', 'tfoot', 'th', 'tr', 'ul', 'video'])
+    'output', 'p', 'pre', 'section', 'table', 'td', 'tfoot', 'th', 'tr', 'ul', 'video'}
 
 
 def text_blocks(html_text, skip_pre=True):

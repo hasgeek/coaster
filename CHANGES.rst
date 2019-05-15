@@ -36,6 +36,8 @@
 * New: ``UrlForMixin`` now provides ``view_for`` and ``classview_for``
 * Changed: ``TimestampMixin`` optionally uses ``timestamptz`` columns.
   A future release may make this the default
+* Changed: Markdown parser has moved to ``coaster.utils.markdown`` and is no
+  longer a hack to be embarrassed by.
 
 
 0.6.0

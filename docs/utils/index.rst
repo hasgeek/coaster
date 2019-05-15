@@ -5,5 +5,6 @@
 
    misc
    text
+   markdown
    tsquery
    classes
