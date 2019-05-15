@@ -27,9 +27,6 @@ A list:
 6. Symbols (ignored): (tm) (c) (r) c/o
 7. Symbols (converted): +/- --> <-- <--> =/= 1/2 1/4 1st 2nd 3rd 4th 42nd
 
-* [ ] A task
-* [x] Another task
-
 A naked link: https://www.example.com/
 
 An [inline link](https://www.example.com/)
@@ -68,10 +65,6 @@ It has a newline break here.</p>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): ± → ← ↔ ≠ ½ ¼ 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
-<ul class="task-list">
-<li class="task-list-item"><input disabled type="checkbox"> A task</li>
-<li class="task-list-item"><input disabled checked type="checkbox"> Another task</li>
-</ul>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
 <div class="codehilite"><pre><span></span><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
@@ -137,10 +130,6 @@ It has a newline break here.</p>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): &plusmn; &rarr; &larr; &harr; &ne; &frac12; &frac14; 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
-<ul>
-<li> A task</li>
-<li> Another task</li>
-</ul>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
 <pre>def foo():
