@@ -21,12 +21,14 @@ Dangerous tags are always removed: <script>window.alert('Hello!')</script>
 A list:
 
 2. Starts at two, because why not?
-3. And continues
-4. 2^10^ = 1024
-5. Water is H~2~0
-6. :smile:
-7. Symbols (ignored): (tm) (c) (r) c/o
-8. Symbols (converted): +/- --> <-- <--> =/= 1/2 1/4 1st 2nd 3rd 4th 42nd
+3. 2^10^ = 1024
+4. Water is H~2~0
+5. :smile:
+6. Symbols (ignored): (tm) (c) (r) c/o
+7. Symbols (converted): +/- --> <-- <--> =/= 1/2 1/4 1st 2nd 3rd 4th 42nd
+
+* [ ] A task
+* [x] Another task
 
 A naked link: https://www.example.com/
 
@@ -60,13 +62,16 @@ It has a newline break here.</p>
 <p>A list:</p>
 <ol start="2">
 <li>Starts at two, because why not?</li>
-<li>And continues</li>
 <li>2<sup>10</sup> = 1024</li>
 <li>Water is H<sub>2</sub>0</li>
 <li>😄</li>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): ± → ← ↔ ≠ ½ ¼ 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
+<ul class="task-list">
+<li class="task-list-item"><input disabled type="checkbox"> A task</li>
+<li class="task-list-item"><input disabled checked type="checkbox"> Another task</li>
+</ul>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
 <div class="codehilite"><pre><span></span><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
@@ -126,13 +131,16 @@ It has a newline break here.</p>
 <p>A list:</p>
 <ol start="2">
 <li>Starts at two, because why not?</li>
-<li>And continues</li>
 <li>2<sup>10</sup> = 1024</li>
 <li>Water is H<sub>2</sub>0</li>
 <li>😄</li>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): &plusmn; &rarr; &larr; &harr; &ne; &frac12; &frac14; 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
+<ul>
+<li> A task</li>
+<li> Another task</li>
+</ul>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
 <pre>def foo():

@@ -67,6 +67,7 @@ extensions = [
     'pymdownx.emoji',
     'pymdownx.mark',
     'pymdownx.smartsymbols',
+    'pymdownx.tasklist',
     ]
 
 extension_configs = {
