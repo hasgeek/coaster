@@ -15,7 +15,7 @@ from sqlalchemy_utils.types import UUIDType, URLType as UrlTypeBase
 from flask import Markup
 from furl import furl
 import six
-from ..gfm import markdown
+from ..utils import markdown
 
 __all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
 
