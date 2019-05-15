@@ -93,19 +93,6 @@ extension_configs = {
         },
     }
 
-markdown_convert_text = Markdown(
-    output_format='html',
-    extensions=extensions_text,
-    extension_configs=extension_configs
-    ).convert
-
-
-markdown_convert_html = Markdown(
-    output_format='html',
-    extensions=extensions_html,
-    extension_configs=extension_configs
-    ).convert
-
 
 def markdown(text, html=False, valid_tags=GFM_TAGS):
     """
@@ -118,6 +105,19 @@ def markdown(text, html=False, valid_tags=GFM_TAGS):
     if text is None:
         return None
     if html:
-        return Markup(sanitize_html(markdown_convert_html(text), valid_tags=valid_tags, linkify=True))
+        return Markup(sanitize_html(
+            Markdown(
+                output_format='html',
+                extensions=extensions_html,
+                extension_configs=extension_configs
+                ).convert(text),
+            valid_tags=valid_tags,
+            linkify=True))
     else:
-        return Markup(linkify(markdown_convert_text(text), skip_tags=['pre']))
+        return Markup(linkify(
+            Markdown(
+                output_format='html',
+                extensions=extensions_text,
+                extension_configs=extension_configs
+                ).convert(text),
+            skip_tags=['pre']))
