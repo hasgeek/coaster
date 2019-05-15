@@ -56,7 +56,6 @@ extensions = [
     'markdown.extensions.abbr',
     'markdown.extensions.footnotes',
     'markdown.extensions.tables',
-    'markdown.extensions.codehilite',
     'markdown.extensions.nl2br',
     'markdown.extensions.sane_lists',
     'markdown.extensions.smarty',
@@ -67,8 +66,15 @@ extensions = [
     'pymdownx.emoji',
     'pymdownx.mark',
     'pymdownx.smartsymbols',
-    'pymdownx.tasklist',
     ]
+
+extensions_text = extensions + [
+    'markdown.extensions.codehilite',
+    'pymdownx.tasklist',
+    EscapeHtml()
+    ]
+
+extensions_html = extensions
 
 extension_configs = {
     'pymdownx.smartsymbols': {
@@ -89,14 +95,14 @@ extension_configs = {
 
 markdown_convert_text = Markdown(
     output_format='html',
-    extensions=extensions + [EscapeHtml()],
+    extensions=extensions_text,
     extension_configs=extension_configs
     ).convert
 
 
 markdown_convert_html = Markdown(
     output_format='html',
-    extensions=extensions,
+    extensions=extensions_html,
     extension_configs=extension_configs
     ).convert
 
