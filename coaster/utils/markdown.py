@@ -22,11 +22,11 @@ from bleach import linkify
 from pymdownx.emoji import to_alt as emoji_to_alt
 from .text import sanitize_html, VALID_TAGS
 
-__all__ = ['markdown']
+__all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
 
 
-GFM_TAGS = dict(VALID_TAGS)
-GFM_TAGS.update({
+MARKDOWN_HTML_TAGS = dict(VALID_TAGS)
+MARKDOWN_HTML_TAGS.update({
     # For tables:
     'table': ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width'],
     'caption': [],
@@ -94,7 +94,7 @@ extension_configs = {
     }
 
 
-def markdown(text, html=False, valid_tags=GFM_TAGS):
+def markdown(text, html=False, valid_tags=MARKDOWN_HTML_TAGS):
     """
     Markdown parser with a number of sane defaults that resembles
     GitHub-Flavoured Markdown.
