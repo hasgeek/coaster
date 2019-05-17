@@ -4,6 +4,7 @@
 .. toctree::
 
    misc
+   datetime
    text
    markdown
    tsquery

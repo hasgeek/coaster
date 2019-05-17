@@ -12,6 +12,7 @@ in Flask-based applications.
 
 from __future__ import absolute_import
 from .misc import *
+from .datetime import *
 from .text import *
 from .markdown import *
 from .tsquery import *
