@@ -9,7 +9,7 @@ from __future__ import absolute_import
 import collections
 import time
 from datetime import datetime
-from random import randint, randrange
+from random import SystemRandom
 import uuid
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 import hashlib
@@ -193,9 +193,10 @@ def newpin(digits=4):
     >>> newpin().isdigit()
     True
     """
-    randnum = randint(0, 10 ** digits)
+    random = SystemRandom()
+    randnum = random.randint(0, 10 ** digits)
     while len(str(randnum)) > digits:
-        randnum = randint(0, 10 ** digits)
+        randnum = random.randint(0, 10 ** digits)
     return (u'%%0%dd' % digits) % randnum
 
 
@@ -313,10 +314,10 @@ def make_password(password, encoding='BCRYPT'):
         # starting at byte 20 of the base64-encoded string.
         # Source: http://developer.netscape.com/docs/technote/ldap/pass_sha.html
         # This implementation is from Zope2's AccessControl.AuthEncoding.
-
+        random = SystemRandom()
         salt = ''
         for n in range(7):
-            salt += chr(randrange(256))
+            salt += chr(random.randrange(256))
         # b64encode accepts only bytes in Python 3, so salt also has to be encoded
         salt = salt.encode('utf-8') if six.PY3 else salt
         if isinstance(password, six.text_type):
