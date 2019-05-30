@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
 from flask_sqlalchemy import SQLAlchemy
 
 from sqlalchemy import event
