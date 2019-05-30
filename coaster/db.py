@@ -6,6 +6,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlite3 import Connection as SQLite3Connection
+from psycopg2.extensions import connection as PostgresConnection
 try:
     # PySqlite is only available for Python 2.x
     import pysqlite2.dbapi2
@@ -26,4 +27,13 @@ def _set_sqlite_pragma(dbapi_connection, connection_record):
     if isinstance(dbapi_connection, (SQLite3Connection, PySQLite3Connection)):  # pragma: no cover
         cursor = dbapi_connection.cursor()
         cursor.execute('PRAGMA foreign_keys=ON;')
+        cursor.close()
+
+
+# Always use UTC timezone on PostgreSQL
+@event.listens_for(Engine, 'connect')
+def _set_postgresql_timezone(dbapi_connection, connection_record):
+    if isinstance(dbapi_connection, PostgresConnection):  # pragma: no cover
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET TIME ZONE 'UTC';")
         cursor.close()
