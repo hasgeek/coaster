@@ -34,11 +34,6 @@ def __utcnow_mysql(element, compiler, **kw):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
-@compiles(utcnow, 'postgresql')
-def __utcnow_postgresql(element, compiler, **kw):
-    return 'TIMEZONE(\'utc\', CURRENT_TIMESTAMP)::TIMESTAMPTZ'
-
-
 @compiles(utcnow, 'mssql')
 def __utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
