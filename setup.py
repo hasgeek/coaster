@@ -33,6 +33,7 @@ requires = [
     'Flask-SQLAlchemy',
     'sqlalchemy-utils',
     'SQLAlchemy>=1.0.9',
+    'psycopg2',
     'docflow>=0.3.2',
     'html2text',
     'bcrypt',
