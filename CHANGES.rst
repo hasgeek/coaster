@@ -38,6 +38,7 @@
   A future release may make this the default
 * Changed: Markdown parser has moved to ``coaster.utils.markdown`` and is no
   longer a hack to be embarrassed by.
+* New: Unicode whitespace strippers, ``ulstrip``, ``urstrip`` and ``ustrip``
 
 
 0.6.0
