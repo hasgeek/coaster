@@ -7,7 +7,8 @@ import six
 from pytz import UTC, common_timezones
 from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
     sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    utcnow, suuid, suuid2uuid, uuid2suuid, require_one_of, InspectableSet, ParseError)
+    utcnow, suuid, suuid2uuid, uuid2suuid, require_one_of, ulstrip, urstrip, ustrip,
+    InspectableSet, ParseError)
 
 
 class MY_ENUM(LabeledEnum):
@@ -203,3 +204,15 @@ class TestCoasterUtils(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             s1.auth = True
+
+    def test_ulstrip(self):
+        assert ulstrip(u' Test this ') == u'Test this '
+        assert ulstrip(u'\u200b Test this \u200b') == u'Test this \u200b'
+
+    def test_urstrip(self):
+        assert urstrip(u' Test this ') == u' Test this'
+        assert urstrip(u'\u200b Test this \u200b') == u'\u200b Test this'
+
+    def test_ustrip(self):
+        assert ustrip(u' Test this ') == u'Test this'
+        assert ustrip(u'\u200b Test this \u200b') == u'Test this'
