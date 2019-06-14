@@ -146,9 +146,11 @@ class RoleAccessProxy(collections.Mapping):
     :param roles: A set of roles to determine what attributes are accessible
 
     """
-    def __init__(self, obj, roles):
+    def __init__(self, obj, roles, actor, anchors):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
+        object.__setattr__(self, '_actor', actor)
+        object.__setattr__(self, '_anchors', anchors)
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -171,7 +173,11 @@ class RoleAccessProxy(collections.Mapping):
     def __getattr__(self, attr):
         # See also __getitem__, which doesn't consult _call
         if attr in self._read or attr in self._call:
-            return getattr(self._obj, attr)
+            attr = getattr(self._obj, attr)
+            if isinstance(attr, RoleMixin):
+                return attr.access_for(actor=self._actor, anchors=self._anchors)
+            else:
+                return attr
         else:
             raise AttributeError(attr)
 
@@ -185,7 +191,11 @@ class RoleAccessProxy(collections.Mapping):
     def __getitem__(self, key):
         # See also __getattr__, which also looks in _call
         if key in self._read:
-            return getattr(self._obj, key)
+            attr = getattr(self._obj, key)
+            if isinstance(attr, RoleMixin):
+                return attr.access_for(actor=self._actor, anchors=self._anchors)
+            else:
+                return attr
         else:
             raise KeyError(key)
 
@@ -400,7 +410,7 @@ class RoleMixin(object):
             roles = self.roles_for(actor=actor, anchors=anchors)
         elif actor is not None or anchors:
             raise TypeError('If roles are specified, actor/anchors must not be specified')
-        return RoleAccessProxy(self, roles=roles)
+        return RoleAccessProxy(self, roles=roles, actor=actor, anchors=anchors)
 
     def current_access(self):
         """
