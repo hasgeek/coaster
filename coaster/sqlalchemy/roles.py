@@ -405,7 +405,7 @@ class RoleMixin(object):
         """
         raise NotImplementedError('Subclasses must implement actors_with')
 
-    def access_for(self, roles=None, actor=None, anchors=[]):
+    def access_for(self, roles=None, actor=None, anchors=()):
         """
         Return a proxy object that limits read and write access to attributes
         based on the actor's roles. If the ``roles`` parameter isn't

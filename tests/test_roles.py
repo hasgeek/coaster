@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import unittest
 from flask import Flask
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm.collections import mapped_collection, attribute_mapped_collection, column_mapped_collection
+from sqlalchemy.orm.collections import attribute_mapped_collection, column_mapped_collection
 from coaster.sqlalchemy import (RoleMixin, RoleAccessProxy, with_roles, declared_attr_roles,
     BaseMixin, BaseNameMixin, UuidMixin)
 from coaster.db import db
