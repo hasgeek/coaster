@@ -612,10 +612,10 @@ def requires_permission(permission):
     """
     def inner(f):
         def is_available_here():
-            if not hasattr(current_auth, 'permissions'):
+            if not current_auth.permissions:
                 return False
             elif is_collection(permission):
-                return bool(current_auth.permissions.intersection(permission))
+                return bool(current_auth.permissions & permission)
             else:
                 return permission in current_auth.permissions
 
