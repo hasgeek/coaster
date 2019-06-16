@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
 import unittest
 from flask import Flask
 from sqlalchemy.ext.declarative import declared_attr
-from coaster.sqlalchemy import RoleMixin, with_roles, declared_attr_roles, BaseMixin, UuidMixin
+from sqlalchemy.orm.collections import attribute_mapped_collection, column_mapped_collection
+from coaster.sqlalchemy import (RoleMixin, RoleAccessProxy, with_roles, declared_attr_roles,
+    BaseMixin, BaseNameMixin, UuidMixin)
 from coaster.db import db
 
 app = Flask(__name__)
@@ -28,6 +31,7 @@ class DeclaredAttrMixin(object):
     def mixed_in2(cls):
         return db.Column(db.Unicode(250))
 
+    # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
     def mixed_in3(cls):
@@ -98,6 +102,36 @@ class UuidModel(UuidMixin, BaseMixin, db.Model):
     __tablename__ = 'uuid_model'
 
 
+class RelationshipChild(BaseNameMixin, db.Model):
+    __tablename__ = 'relationship_child'
+
+    parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
+
+    __roles__ = {
+        'all': {
+            'read': {'name', 'title', 'parent'},
+            }
+        }
+
+
+class RelationshipParent(BaseNameMixin, db.Model):
+    __tablename__ = 'relationship_parent'
+
+    children_list = db.relationship(RelationshipChild, backref='parent')
+    children_set = db.relationship(RelationshipChild, collection_class=set)
+    children_dict_attr = db.relationship(RelationshipChild,
+        collection_class=attribute_mapped_collection('name'))
+    children_dict_column = db.relationship(RelationshipChild,
+        collection_class=column_mapped_collection(RelationshipChild.name))
+
+    __roles__ = {
+        'all': {
+            'read': {'name', 'title', 'children_list', 'children_set',
+                'children_dict_attr', 'children_dict_column'},
+            }
+        }
+
+
 # --- Tests -------------------------------------------------------------------
 
 class TestCoasterRoles(unittest.TestCase):
@@ -108,8 +142,9 @@ class TestCoasterRoles(unittest.TestCase):
         self.ctx.push()
         db.create_all()
         self.session = db.session
-        # SQLAlchemy doesn't fire mapper_configured events until the first time a mapping is used
-        RoleModel()
+        # SQLAlchemy doesn't fire mapper_configured events until the first time a mapping is used,
+        # or configuration is explicitly requested
+        db.configure_mappers()
 
     def tearDown(self):
         self.session.rollback()
@@ -154,18 +189,18 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertEqual(BaseModel.__roles__.get('all', {}).get('read', set()), set())
 
     def test_uuidmixin_roles(self):
-        """A model with UuidMixin provides 'all' read access to uuid, url_id, buid and suuid"""
+        """A model with UuidMixin provides 'all' read access to uuid, huuid, buid and suuid"""
         self.assertLessEqual({'uuid', 'huuid', 'buid', 'suuid'}, UuidModel.__roles__['all']['read'])
 
     def test_roles_for_anon(self):
         """An anonymous actor should have 'all' and 'anon' roles"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=None)
         self.assertEqual(roles, {'all', 'anon'})
 
     def test_roles_for_actor(self):
         """An actor (but anchors) must have 'all' and 'auth' roles"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=1)
         self.assertEqual(roles, {'all', 'auth'})
         roles = rm.roles_for(anchors=(1,))
@@ -173,13 +208,13 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_roles_for_owner(self):
         """Presenting the correct anchor grants 'owner' role"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(anchors=('owner-secret',))
         self.assertEqual(roles, {'all', 'anon', 'owner'})
 
     def test_current_roles(self):
         """Current roles are available"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         roles = rm.current_roles
         self.assertEqual(roles, {'all', 'anon'})
         self.assertTrue(roles.all)
@@ -188,21 +223,21 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_access_for_syntax(self):
         """access_for can be called with either roles or actor for identical outcomes"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles=rm.roles_for(actor=None))
         proxy2 = rm.access_for(actor=None)
         self.assertEqual(proxy1, proxy2)
 
     def test_access_for_all(self):
         """All actors should be able to read some fields"""
-        arm = AutoRoleModel(name=u'test')
+        arm = AutoRoleModel(name='test')
         proxy = arm.access_for(actor=None)
         self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
 
     def test_current_access(self):
         """Current access is available"""
-        arm = AutoRoleModel(name=u'test')
+        arm = AutoRoleModel(name='test')
         proxy = arm.current_access()
         self.assertEqual(len(proxy), 2)
         self.assertEqual(set(proxy.keys()), {'id', 'name'})
@@ -215,15 +250,15 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(actor=None)
         self.assertIn('name', proxy)
-        self.assertEqual(proxy.name, u'test')
-        self.assertEqual(proxy['name'], u'test')
+        self.assertEqual(proxy.name, 'test')
+        self.assertEqual(proxy['name'], 'test')
 
     def test_diff_roles(self):
         """Different roles get different access"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
@@ -234,13 +269,13 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'owner'})
-        self.assertEqual(rm.title, u'Test')
-        proxy.title = u'Changed'
-        self.assertEqual(rm.title, u'Changed')
-        proxy['title'] = u'Changed again'
-        self.assertEqual(rm.title, u'Changed again')
+        self.assertEqual(rm.title, 'Test')
+        proxy.title = 'Changed'
+        self.assertEqual(rm.title, 'Changed')
+        proxy['title'] = 'Changed again'
+        self.assertEqual(rm.title, 'Changed again')
         with self.assertRaises(AttributeError):
             proxy.title
         with self.assertRaises(KeyError):
@@ -248,23 +283,23 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_no_write(self):
         """A proxy will disallow writes if the role doesn't permit it"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'editor'})
-        self.assertEqual(rm.title, u'Test')
+        self.assertEqual(rm.title, 'Test')
         # 'editor' has permission to write to 'title'
-        proxy.title = u'Changed'
-        self.assertEqual(rm.title, u'Changed')
+        proxy.title = 'Changed'
+        self.assertEqual(rm.title, 'Changed')
         # 'editor' does not have permission to write to 'name'
-        self.assertEqual(rm.name, u'test')
+        self.assertEqual(rm.name, 'test')
         with self.assertRaises(AttributeError):
-            proxy.name = u'changed'
+            proxy.name = 'changed'
         with self.assertRaises(KeyError):
-            proxy['name'] = u'changed'
-        self.assertEqual(rm.name, u'test')
+            proxy['name'] = 'changed'
+        self.assertEqual(rm.name, 'test')
 
     def test_method_call(self):
         """Method calls are allowed as calling is just an alias for reading"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
         self.assertEqual(proxy1.hello(), "Hello!")
@@ -275,10 +310,10 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_dictionary_comparison(self):
         """A proxy can be compared with a dictionary"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'all'})
         self.assertEqual(proxy,
-            {'id': None, 'name': u'test', 'title': u'Test', 'mixed_in2': None}
+            {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
             )
 
     def test_bad_decorator(self):
@@ -290,10 +325,50 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_access_for_roles_and_actor_or_anchors(self):
         """access_for accepts roles or actor/anchors, not both/all"""
-        rm = RoleModel(name=u'test', title=u'Test')
+        rm = RoleModel(name='test', title='Test')
         with self.assertRaises(TypeError):
             rm.access_for(roles={'all'}, actor=1)
         with self.assertRaises(TypeError):
             rm.access_for(roles={'all'}, anchors=('owner-secret',))
         with self.assertRaises(TypeError):
             rm.access_for(roles={'all'}, actor=1, anchors=('owner-secret',))
+
+    def test_scalar_relationship(self):
+        """Scalar relationships are automatically wrapped in an access proxy"""
+        parent = RelationshipParent(title="Parent")
+        child = RelationshipChild(title="Child", parent=parent)
+        self.session.add_all([parent, child])
+        self.session.commit()
+
+        proxy = child.access_for(roles={'all'})
+        assert proxy.title == child.title
+        assert isinstance(proxy.parent, RoleAccessProxy)
+        assert proxy.parent.title == parent.title
+
+        # TODO: Test for other roles using the actor parameter
+
+    def test_collection_relationship(self):
+        """Collection relationships are automatically wrapped in an access proxy"""
+        parent = RelationshipParent(title="Parent")
+        child = RelationshipChild(title="Child", parent=parent)
+        self.session.add_all([parent, child])
+        self.session.commit()
+
+        proxy = parent.access_for(roles={'all'})
+        assert proxy.title == parent.title
+
+        assert isinstance(proxy.children_list[0], RoleAccessProxy)
+        assert proxy.children_list[0].title == child.title
+
+        # Set relationships are mapped into a list in the proxy
+        assert isinstance(proxy.children_set, tuple)
+        assert isinstance(proxy.children_set[0], RoleAccessProxy)
+        assert proxy.children_set[0].title == child.title
+
+        assert isinstance(proxy.children_dict_attr, dict)
+        assert isinstance(proxy.children_dict_attr['child'], RoleAccessProxy)
+        assert proxy.children_dict_attr['child'].title == child.title
+
+        assert isinstance(proxy.children_dict_column, dict)
+        assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
+        assert proxy.children_dict_column['child'].title == child.title
