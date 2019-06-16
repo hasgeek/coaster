@@ -111,6 +111,8 @@ import warnings
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.collections import (InstrumentedDict, InstrumentedList, InstrumentedSet,
+    MappedCollection)
 from ..utils import is_collection, InspectableSet
 from ..auth import current_auth
 
@@ -170,14 +172,26 @@ class RoleAccessProxy(collections.Mapping):
         return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
             obj=repr(self._obj), roles=repr(self.current_roles))
 
+    def __get_processed_attr(self, name):
+        attr = getattr(self._obj, name)
+        # TODO: Implement 'write' permission control for collection relationships.
+        # A proper take will require custom dict and list subclasses, similar to the
+        # role access proxy itself.
+        if isinstance(attr, RoleMixin):
+            return attr.access_for(actor=self._actor, anchors=self._anchors)
+        elif isinstance(attr, (InstrumentedDict, MappedCollection)):
+            return {k: v.access_for(actor=self._actor, anchors=self._anchors)
+                for k, v in attr.items()}
+        elif isinstance(attr, (InstrumentedList, InstrumentedSet)):
+            # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
+            return tuple([m.access_for(actor=self._actor, anchors=self._anchors) for m in attr])
+        else:
+            return attr
+
     def __getattr__(self, attr):
         # See also __getitem__, which doesn't consult _call
         if attr in self._read or attr in self._call:
-            attr = getattr(self._obj, attr)
-            if isinstance(attr, RoleMixin):
-                return attr.access_for(actor=self._actor, anchors=self._anchors)
-            else:
-                return attr
+            return self.__get_processed_attr(attr)
         else:
             raise AttributeError(attr)
 
@@ -191,11 +205,7 @@ class RoleAccessProxy(collections.Mapping):
     def __getitem__(self, key):
         # See also __getattr__, which also looks in _call
         if key in self._read:
-            attr = getattr(self._obj, key)
-            if isinstance(attr, RoleMixin):
-                return attr.access_for(actor=self._actor, anchors=self._anchors)
-            else:
-                return attr
+            return self.__get_processed_attr(key)
         else:
             raise KeyError(key)
 
