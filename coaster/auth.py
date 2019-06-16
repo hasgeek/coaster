@@ -22,6 +22,7 @@ from __future__ import absolute_import
 import collections
 from werkzeug.local import LocalProxy
 from flask import _request_ctx_stack, current_app, has_request_context
+from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
 
@@ -140,6 +141,7 @@ class CurrentAuth(object):
     def __init__(self, user):
         object.__setattr__(self, 'user', user)
         object.__setattr__(self, 'actor', user)
+        object.__setattr__(self, 'permissions', InspectableSet())
         object.__setattr__(self, 'anchors', AuthAnchors())  # TODO: Placeholder for anchors
 
     def __setattr__(self, attr, value):
@@ -211,9 +213,9 @@ def _get_current_auth():
             if hasattr(current_app, 'login_manager') and hasattr(current_app.login_manager, '_load_user'):
                 current_app.login_manager._load_user()
             # 4.2. In case the login manager did not call :func:`add_auth_attribute`, we'll
-            # need to copy the user symbol manually
+            # need to do it
             if ca.user is None:
-                object.__setattr__(ca, 'user', getattr(_request_ctx_stack.top, 'user', None))
+                add_auth_attribute('user', getattr(_request_ctx_stack.top, 'user', None))
 
         # Return the newly constructed current_auth
         return _request_ctx_stack.top.current_auth
