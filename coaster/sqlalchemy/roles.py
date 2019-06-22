@@ -178,13 +178,15 @@ class RoleAccessProxy(collections.Mapping):
         # A proper take will require custom dict and list subclasses, similar to the
         # role access proxy itself.
         if isinstance(attr, RoleMixin):
-            return attr.access_for(actor=self._actor, anchors=self._anchors)
+            return attr.access_for(actor=self._actor, anchors=(self._obj,) + self._anchors)
         elif isinstance(attr, (InstrumentedDict, MappedCollection)):
-            return {k: v.access_for(actor=self._actor, anchors=self._anchors)
+            return {k: v.access_for(actor=self._actor, anchors=(self._obj,) + self._anchors)
                 for k, v in attr.items()}
         elif isinstance(attr, (InstrumentedList, InstrumentedSet)):
             # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
-            return tuple([m.access_for(actor=self._actor, anchors=self._anchors) for m in attr])
+            return tuple([
+                m.access_for(actor=self._actor, anchors=(self._obj,) + self._anchors)
+                for m in attr])
         else:
             return attr
 
