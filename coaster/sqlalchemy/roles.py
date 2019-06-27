@@ -22,6 +22,7 @@ are recommended. Required tokens are granted by :class:`RoleMixin` itself.
 6. ``author``: Author of the object's contents (all creators are authors)
 7. ``editor``: Someone authorised to edit the object
 8. ``reader``: Someone authorised to read the object (assuming it's not public)
+9. ``subject``: User who is described by an object, typically having limited rights
 
 Example use::
 
