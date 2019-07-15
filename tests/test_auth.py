@@ -202,7 +202,9 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
     def test_anonymous_user(self):
         self.assertTrue(current_auth.is_anonymous)
+        self.assertFalse(current_auth.not_anonymous)
         self.assertFalse(current_auth.is_authenticated)
+        self.assertTrue(current_auth.not_authenticated)
         self.assertFalse(current_auth)
         self.assertIsNone(current_auth.user)
 
