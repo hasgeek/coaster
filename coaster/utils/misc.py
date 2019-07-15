@@ -6,23 +6,25 @@ Miscellaneous utilities
 """
 
 from __future__ import absolute_import
-import collections
-import time
-from datetime import datetime
-from random import SystemRandom
-import uuid
-from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
-import hashlib
-import re
-import binascii
-import email.utils
-from email.header import decode_header
-import bcrypt
-import tldextract
-from unidecode import unidecode
-import six
 from six.moves import range
 from six.moves.urllib.parse import urlparse
+import six
+
+from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
+from datetime import datetime
+from email.header import decode_header
+from random import SystemRandom
+import binascii
+import collections
+import email.utils
+import hashlib
+import re
+import time
+import uuid
+
+from unidecode import unidecode
+import bcrypt
+import tldextract
 
 __all__ = [
     'is_collection', 'buid', 'uuid1mc', 'uuid1mc_from_datetime', 'uuid2buid', 'buid2uuid',

@@ -2,16 +2,23 @@
 
 from __future__ import absolute_import
 
-import unittest
 from datetime import datetime, timedelta
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from coaster.utils import LabeledEnum
-from coaster.auth import add_auth_attribute
-from coaster.sqlalchemy import (with_roles, BaseMixin,
-    StateManager, StateTransitionError, AbortTransition)
-from coaster.sqlalchemy.statemanager import ManagedStateWrapper
+import unittest
 
+from flask_sqlalchemy import SQLAlchemy
+
+from flask import Flask
+
+from coaster.auth import add_auth_attribute
+from coaster.sqlalchemy import (
+    AbortTransition,
+    BaseMixin,
+    StateManager,
+    StateTransitionError,
+    with_roles,
+)
+from coaster.sqlalchemy.statemanager import ManagedStateWrapper
+from coaster.utils import LabeledEnum
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'

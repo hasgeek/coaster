@@ -1,26 +1,49 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, unicode_literals
-
-import unittest
-
-import uuid
-from time import sleep
-from datetime import datetime, timedelta
 import six
-from flask import Flask
-from sqlalchemy import Column, Integer, Unicode, UnicodeText, UniqueConstraint, ForeignKey, func, inspect
-from sqlalchemy.orm import relationship, synonym
-from sqlalchemy.exc import IntegrityError, StatementError
-from sqlalchemy.orm.exc import MultipleResultsFound
-from werkzeug.routing import BuildError
-from coaster.sqlalchemy import (BaseMixin, BaseNameMixin, BaseScopedNameMixin,
-    BaseIdNameMixin, BaseScopedIdMixin, BaseScopedIdNameMixin, JsonDict, failsafe_add,
-    UuidMixin, UUIDType, UrlType, add_primary_relationship, auto_init_default)
-from coaster.utils import uuid2buid, uuid2suuid
-from coaster.db import db
-from .test_auth import LoginManager
 
+from datetime import datetime, timedelta
+from time import sleep
+import unittest
+import uuid
+
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    Unicode,
+    UnicodeText,
+    UniqueConstraint,
+    func,
+    inspect,
+)
+from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.orm import relationship, synonym
+from sqlalchemy.orm.exc import MultipleResultsFound
+
+from flask import Flask
+from werkzeug.routing import BuildError
+
+from coaster.db import db
+from coaster.sqlalchemy import (
+    BaseIdNameMixin,
+    BaseMixin,
+    BaseNameMixin,
+    BaseScopedIdMixin,
+    BaseScopedIdNameMixin,
+    BaseScopedNameMixin,
+    JsonDict,
+    UrlType,
+    UuidMixin,
+    UUIDType,
+    add_primary_relationship,
+    auto_init_default,
+    failsafe_add,
+)
+from coaster.utils import uuid2buid, uuid2suuid
+
+from .test_auth import LoginManager
 
 app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'

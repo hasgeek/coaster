@@ -1,13 +1,27 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 import unittest
-from flask import Flask
+
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm.collections import attribute_mapped_collection, column_mapped_collection
-from coaster.sqlalchemy import (RoleMixin, RoleAccessProxy, with_roles, declared_attr_roles,
-    BaseMixin, BaseNameMixin, UuidMixin)
+from sqlalchemy.orm.collections import (
+    attribute_mapped_collection,
+    column_mapped_collection,
+)
+
+from flask import Flask
+
 from coaster.db import db
+from coaster.sqlalchemy import (
+    BaseMixin,
+    BaseNameMixin,
+    RoleAccessProxy,
+    RoleMixin,
+    UuidMixin,
+    declared_attr_roles,
+    with_roles,
+)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'

@@ -6,11 +6,13 @@ Date, time and timezone utilities
 """
 
 from __future__ import absolute_import
-from datetime import datetime
 import six
-import pytz
+
+from datetime import datetime
+
+from iso8601 import ParseError, parse_date
 import isoweek
-from iso8601 import parse_date, ParseError
+import pytz
 
 __all__ = [
     'utcnow', 'parse_isoformat', 'isoweek_datetime', 'midnight_to_utc', 'sorted_timezones',

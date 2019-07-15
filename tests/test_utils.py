@@ -1,14 +1,35 @@
 # -*- coding: utf-8 -*-
 
+import six
+
+import datetime
 import unittest
 import uuid
-import datetime
-import six
+
 from pytz import UTC, common_timezones
-from coaster.utils import (LabeledEnum, make_password, check_password, parse_isoformat, sanitize_html,
-    sorted_timezones, namespace_from_url, deobfuscate_email, isoweek_datetime, midnight_to_utc,
-    utcnow, suuid, suuid2uuid, uuid2suuid, require_one_of, ulstrip, urstrip, ustrip,
-    InspectableSet, ParseError)
+
+from coaster.utils import (
+    InspectableSet,
+    LabeledEnum,
+    ParseError,
+    check_password,
+    deobfuscate_email,
+    isoweek_datetime,
+    make_password,
+    midnight_to_utc,
+    namespace_from_url,
+    parse_isoformat,
+    require_one_of,
+    sanitize_html,
+    sorted_timezones,
+    suuid,
+    suuid2uuid,
+    ulstrip,
+    urstrip,
+    ustrip,
+    utcnow,
+    uuid2suuid,
+)
 
 
 class MY_ENUM(LabeledEnum):  # NOQA: N801

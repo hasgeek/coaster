@@ -23,6 +23,7 @@ alphabet. This module may be used directly or via :mod:`coaster.utils`::
 """
 
 from __future__ import absolute_import
+
 from shortuuid import ShortUUID
 
 __all__ = ['suuid', 'encode', 'decode']

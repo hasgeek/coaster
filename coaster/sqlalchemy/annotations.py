@@ -36,10 +36,13 @@ reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
 """
 
 from __future__ import absolute_import
+
 import collections
+
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+
 from ..signals import coaster_signals
 
 __all__ = [

@@ -105,17 +105,24 @@ Example use::
 """
 
 from __future__ import absolute_import
+
+from copy import deepcopy
 from functools import wraps
 import collections
-from copy import deepcopy
 import warnings
+
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from sqlalchemy.orm.collections import (InstrumentedDict, InstrumentedList, InstrumentedSet,
-    MappedCollection)
-from ..utils import is_collection, InspectableSet
+from sqlalchemy.orm.collections import (
+    InstrumentedDict,
+    InstrumentedList,
+    InstrumentedSet,
+    MappedCollection,
+)
+
 from ..auth import current_auth
+from ..utils import InspectableSet, is_collection
 
 __all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
 

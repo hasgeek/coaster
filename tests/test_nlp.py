@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-from coaster.utils import text_blocks
 
+from coaster.utils import text_blocks
 
 sample_html = u"""
 This is some <em>sample</em> HTML<br>with various features.

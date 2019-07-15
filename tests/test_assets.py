@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import six
-from coaster.assets import Version, VersionedAssets, AssetNotFound, UglipyJS
+
+import unittest
+
+from coaster.assets import AssetNotFound, UglipyJS, Version, VersionedAssets
 
 
 class TestAssets(unittest.TestCase):

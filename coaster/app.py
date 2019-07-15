@@ -9,15 +9,19 @@ from __future__ import absolute_import, print_function
 
 from os import environ
 import sys
+
+from flask import Flask, g, get_flashed_messages, request, session, url_for
+
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
-from flask import Flask, url_for, get_flashed_messages, request, session, g
+
+from . import logger
+from .auth import current_auth
+from .views import current_view
+
 try:
     from flask.helpers import _tojson_filter
 except ImportError:
     from flask.json import tojson_filter as _tojson_filter
-from . import logger
-from .auth import current_auth
-from .views import current_view
 
 __all__ = ['SandboxedFlask', 'init_app']
 

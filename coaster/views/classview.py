@@ -8,16 +8,27 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from functools import wraps, update_wrapper
+
+from functools import update_wrapper, wraps
+
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.descriptor_props import SynonymProperty
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
-from sqlalchemy.orm.descriptor_props import SynonymProperty
-from werkzeug.routing import parse_rule
+
+from flask import (
+    Blueprint,
+    _request_ctx_stack,
+    abort,
+    has_request_context,
+    make_response,
+    redirect,
+    request,
+)
 from werkzeug.local import LocalProxy
-from flask import (_request_ctx_stack, abort, has_request_context, request, redirect, make_response,
-    Blueprint)
-from ..auth import current_auth, add_auth_attribute
+from werkzeug.routing import parse_rule
+
+from ..auth import add_auth_attribute, current_auth
 from ..utils import InspectableSet
 
 __all__ = [

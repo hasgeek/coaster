@@ -3,20 +3,29 @@
 from __future__ import absolute_import
 
 import unittest
+
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 
-from werkzeug.exceptions import Forbidden, NotFound
 from flask import Flask, g
+from werkzeug.exceptions import Forbidden, NotFound
 
-from coaster.views import load_model, load_models
-from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.db import db
+from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
+from coaster.views import load_model, load_models
 
-from .test_models import (app1, app2, Container, NamedDocument,
-    ScopedNamedDocument, IdNamedDocument, ScopedIdDocument,
-    ScopedIdNamedDocument, User, login_manager)
-
+from .test_models import (
+    Container,
+    IdNamedDocument,
+    NamedDocument,
+    ScopedIdDocument,
+    ScopedIdNamedDocument,
+    ScopedNamedDocument,
+    User,
+    app1,
+    app2,
+    login_manager,
+)
 
 # --- Models ------------------------------------------------------------------
 

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import
-from flask_sqlalchemy import SQLAlchemy
 
+from sqlite3 import Connection as SQLite3Connection
+
+from flask_sqlalchemy import SQLAlchemy
+from psycopg2.extensions import connection as PostgresConnection  # NOQA: N812
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from sqlite3 import Connection as SQLite3Connection
-from psycopg2.extensions import connection as PostgresConnection  # NOQA: N812
+
 try:
     # PySqlite is only available for Python 2.x
     import pysqlite2.dbapi2

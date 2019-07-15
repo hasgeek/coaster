@@ -19,9 +19,12 @@ For compatibility with Flask-Login, a user object loaded at
 """
 
 from __future__ import absolute_import
+
 import collections
-from werkzeug.local import LocalProxy
+
 from flask import _request_ctx_stack, current_app, has_request_context
+from werkzeug.local import LocalProxy
+
 from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']

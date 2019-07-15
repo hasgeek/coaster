@@ -225,10 +225,15 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 import functools
-from sqlalchemy import and_, or_, column as column_constructor, CheckConstraint
+
+from sqlalchemy import CheckConstraint, and_
+from sqlalchemy import column as column_constructor
+from sqlalchemy import or_
+
 from werkzeug.exceptions import BadRequest
-from ..utils import is_collection, NameTitle
+
 from ..signals import coaster_signals
+from ..utils import NameTitle, is_collection
 from .roles import RoleMixin
 
 __all__ = ['StateManager', 'ManagedState', 'ManagedStateGroup', 'StateTransition',

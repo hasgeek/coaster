@@ -15,12 +15,14 @@ to auto-render HTML from Markdown text.
 """
 
 from __future__ import absolute_import
-from markupsafe import Markup
+
+from bleach import linkify
 from markdown import Markdown
 from markdown.extensions import Extension
-from bleach import linkify
+from markupsafe import Markup
 from pymdownx.emoji import to_alt as emoji_to_alt
-from .text import sanitize_html, VALID_TAGS
+
+from .text import VALID_TAGS, sanitize_html
 
 __all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
 

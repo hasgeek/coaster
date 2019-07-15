@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 import unittest
+
 from coaster.gfm import markdown
 
 sample_markdown = '''

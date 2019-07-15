@@ -6,15 +6,20 @@ SQLAlchemy column types
 """
 
 from __future__ import absolute_import
-import simplejson
-from sqlalchemy import Column, UnicodeText
-from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite
-from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy_utils.types import UUIDType, URLType as UrlTypeBase
-from flask import Markup
-from furl import furl
 import six
+
+from sqlalchemy import Column, UnicodeText
+from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.orm import composite
+from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
+from sqlalchemy_utils.types import URLType as UrlTypeBase
+from sqlalchemy_utils.types import UUIDType
+
+from flask import Markup
+
+from furl import furl
+import simplejson
+
 from ..utils import markdown
 
 __all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType',

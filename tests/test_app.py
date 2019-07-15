@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 from os import environ
 import sys
+import unittest
+
 from flask import Flask, render_template_string
-from coaster.app import _additional_config, init_app, load_config_from_file, SandboxedFlask
-from coaster.logger import init_app as logger_init_app, LocalVarFormatter
+
+from coaster.app import (
+    SandboxedFlask,
+    _additional_config,
+    init_app,
+    load_config_from_file,
+)
+from coaster.logger import LocalVarFormatter
+from coaster.logger import init_app as logger_init_app
 
 
 class TestCoasterUtils(unittest.TestCase):

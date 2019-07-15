@@ -6,13 +6,16 @@ Enhanced query and custom comparators
 """
 
 from __future__ import absolute_import
-import uuid as uuid_
-from sqlalchemy.ext.hybrid import Comparator
-from flask import abort
-from flask_sqlalchemy import BaseQuery
 import six
-from ..utils import buid2uuid, suuid2uuid
 
+import uuid as uuid_
+
+from flask_sqlalchemy import BaseQuery
+from sqlalchemy.ext.hybrid import Comparator
+
+from flask import abort
+
+from ..utils import buid2uuid, suuid2uuid
 
 __all__ = ['Query', 'SplitIndexComparator',
     'SqlSplitIdComparator', 'SqlHexUuidComparator', 'SqlBuidComparator', 'SqlSuuidComparator']

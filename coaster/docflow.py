@@ -12,9 +12,12 @@ exceptions map to HTTP 403 Forbidden (via werkzeug.exceptions.Forbidden_).
 """
 
 from __future__ import absolute_import
+
 from flask import g
-import docflow
 from werkzeug.exceptions import Forbidden
+
+import docflow
+
 from .auth import current_auth
 
 __all__ = ['WorkflowStateException', 'WorkflowTransitionException',

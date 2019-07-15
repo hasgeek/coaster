@@ -10,15 +10,18 @@ this is done automatically for you.
 """
 
 from __future__ import absolute_import, print_function
-from datetime import timedelta, datetime
+import six
+
+from datetime import datetime, timedelta
+from pprint import pprint
 import logging.handlers
 import traceback
-import requests
-from pprint import pprint
-import six
-from flask import g, request, session
-from .auth import current_auth
 
+from flask import g, request, session
+
+import requests
+
+from .auth import current_auth
 
 # global var as lazy in-memory cache
 error_throttle_timestamp_sms = {}

@@ -26,19 +26,20 @@ To see all available commands::
     $ python manage.py --help
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
+from __future__ import absolute_import, print_function
+import six
 
 from sys import stdout
-import six
-import flask
+
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
-from flask_script import Manager, prompt_bool, Shell
-from flask_script.commands import Clean, ShowUrls
-from flask_migrate import MigrateCommand
 
+from flask_migrate import MigrateCommand
+import flask
+
+from flask_script import Manager, Shell, prompt_bool
+from flask_script.commands import Clean, ShowUrls
 
 manager = Manager()
 

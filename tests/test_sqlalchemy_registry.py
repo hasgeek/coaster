@@ -2,8 +2,8 @@
 
 import unittest
 
-from coaster.sqlalchemy import BaseMixin
 from coaster.db import db
+from coaster.sqlalchemy import BaseMixin
 
 # We have two sample models and two registered items to test that
 # the registry is unique to each model and is not a global registry

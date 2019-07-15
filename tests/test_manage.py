@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+
+from flask_sqlalchemy import SQLAlchemy
+
+from flask import Flask
+
 from coaster.manage import init_manager, set_alembic_revision
 import coaster
-from flask_sqlalchemy import SQLAlchemy
-from flask import Flask
 
 
 class TestManagePy(unittest.TestCase):

@@ -34,8 +34,8 @@ for ``new`` and ``edit`` actions could use those names instead.
 """
 
 from functools import partial
-from sqlalchemy.ext.declarative import declared_attr
 
+from sqlalchemy.ext.declarative import declared_attr
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 

@@ -7,7 +7,8 @@ Utility classes
 
 from __future__ import absolute_import
 import six
-from collections import namedtuple, OrderedDict, Set
+
+from collections import OrderedDict, Set, namedtuple
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 

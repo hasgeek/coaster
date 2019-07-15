@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+
+from flask import Flask, json, session
 from werkzeug.exceptions import BadRequest, Forbidden
-from flask import Flask, session, json
+
 from coaster.app import load_config_from_file
-from coaster.auth import current_auth, add_auth_attribute
-from coaster.views import (get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform,
-    requires_permission)
+from coaster.auth import add_auth_attribute, current_auth
+from coaster.views import (
+    get_current_url,
+    get_next_url,
+    jsonp,
+    requestargs,
+    requestform,
+    requestquery,
+    requires_permission,
+)
 
 
 def index():

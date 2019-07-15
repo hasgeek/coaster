@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+
 from flask import Flask
+
 from coaster.views import endpoint_for
 
 

@@ -2,9 +2,11 @@
 
 from __future__ import absolute_import
 
-import warnings
 import unittest
+import warnings
+
 import sqlalchemy.exc
+
 from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 

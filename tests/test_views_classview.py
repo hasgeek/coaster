@@ -3,16 +3,29 @@
 from __future__ import absolute_import, unicode_literals
 
 import unittest
-from werkzeug.exceptions import Forbidden
-from flask import Flask, json
-from coaster.sqlalchemy import BaseNameMixin, BaseScopedNameMixin, BaseIdNameMixin
-from coaster.auth import add_auth_attribute
-from coaster.utils import InspectableSet
-from coaster.db import SQLAlchemy
-from coaster.views import (ClassView, ModelView, UrlForView, UrlChangeCheck, InstanceLoader,
-    route, viewdata, requestargs, requestform, render_with, current_view, requires_permission,
-    requires_roles)
 
+from flask import Flask, json
+from werkzeug.exceptions import Forbidden
+
+from coaster.auth import add_auth_attribute
+from coaster.db import SQLAlchemy
+from coaster.sqlalchemy import BaseIdNameMixin, BaseNameMixin, BaseScopedNameMixin
+from coaster.utils import InspectableSet
+from coaster.views import (
+    ClassView,
+    InstanceLoader,
+    ModelView,
+    UrlChangeCheck,
+    UrlForView,
+    current_view,
+    render_with,
+    requestargs,
+    requestform,
+    requires_permission,
+    requires_roles,
+    route,
+    viewdata,
+)
 
 app = Flask(__name__)
 app.testing = True
@@ -201,6 +214,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
         if access_token == 'owner-admin-secret':  # NOQA: S105 # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        if access_token == 'owner-secret':  # NOQA: S105 # nosec
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         return super(ModelDocumentView, self).before_request()
 

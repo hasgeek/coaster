@@ -1,14 +1,24 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 import unittest
 import warnings
+
 from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 import sqlalchemy.exc
+
 from flask import Flask
-from coaster.sqlalchemy import BaseMixin, UuidMixin, immutable, cached, ImmutableColumnError
+
 from coaster.db import db
+from coaster.sqlalchemy import (
+    BaseMixin,
+    ImmutableColumnError,
+    UuidMixin,
+    cached,
+    immutable,
+)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'

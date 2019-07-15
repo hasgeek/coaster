@@ -6,14 +6,18 @@ Text processing utilities
 """
 
 from __future__ import absolute_import
-from functools import partial
-import string
-import re
 import six
-import html5lib
-from markupsafe import Markup
+
+from functools import partial
+import re
+import string
+
+from bleach.linkifier import DEFAULT_CALLBACKS, LinkifyFilter
 from bleach.sanitizer import Cleaner
-from bleach.linkifier import LinkifyFilter, DEFAULT_CALLBACKS
+from markupsafe import Markup
+import html5lib
+
+from .misc import _punctuation_re, _strip_re, _tag_re
 
 if six.PY3:  # pragma: no cover
     from html import unescape
@@ -21,8 +25,6 @@ else:  # pragma: no cover
     import HTMLParser
     unescape = HTMLParser.HTMLParser().unescape
     del HTMLParser
-
-from .misc import _strip_re, _punctuation_re, _tag_re
 
 
 __all__ = ['VALID_TAGS', 'unicode_extended_whitespace', 'sanitize_html', 'text_blocks', 'word_count',

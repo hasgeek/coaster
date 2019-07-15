@@ -3,8 +3,10 @@
 from __future__ import absolute_import
 
 import unittest
-from werkzeug.routing import BuildError
+
 from flask import Flask
+from werkzeug.routing import BuildError
+
 from coaster.db import db
 
 from .test_models import Container, NamedDocument, ScopedNamedDocument

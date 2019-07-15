@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, unicode_literals
-import unittest
-from flask import Flask, has_request_context, _request_ctx_stack
-from flask_sqlalchemy import SQLAlchemy
-from coaster.auth import add_auth_attribute, add_auth_anchor, request_has_auth, current_auth, AuthAnchors
-from coaster.sqlalchemy import BaseMixin
 
+import unittest
+
+from flask_sqlalchemy import SQLAlchemy
+
+from flask import Flask, _request_ctx_stack, has_request_context
+
+from coaster.auth import (
+    AuthAnchors,
+    add_auth_anchor,
+    add_auth_attribute,
+    current_auth,
+    request_has_auth,
+)
+from coaster.sqlalchemy import BaseMixin
 
 # --- App context -------------------------------------------------------------
 

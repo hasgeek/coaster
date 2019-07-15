@@ -10,15 +10,28 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from __future__ import absolute_import
-from functools import wraps
 import six
+
+from functools import wraps
+
+from flask import (
+    Response,
+    abort,
+    current_app,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
-from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
-    request, Response, url_for)
+
+from ..auth import add_auth_attribute, current_auth
 from ..utils import is_collection
-from ..auth import current_auth, add_auth_attribute
 from .misc import jsonp
 
 __all__ = [

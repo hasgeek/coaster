@@ -6,12 +6,13 @@ Helper functions
 """
 
 from __future__ import absolute_import
-from sqlalchemy import Table, Column, ForeignKey, TIMESTAMP, func, event, inspect, DDL
-from sqlalchemy.sql import functions
-from sqlalchemy.ext.compiler import compiles
+
+from sqlalchemy import DDL, TIMESTAMP, Column, ForeignKey, Table, event, func, inspect
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import relationship, ColumnProperty
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import ColumnProperty, relationship
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import functions
 
 __all__ = ['make_timestamp_columns', 'failsafe_add', 'add_primary_relationship', 'auto_init_default']
 

@@ -14,13 +14,16 @@ be careful about assumptions you make around them.
 """
 
 from __future__ import absolute_import
-import re
+import six
+
 from collections import defaultdict
-# Version is not used here but is made available for others to import from
-from semantic_version import Version, Spec
+import re
+
 from flask_assets import Bundle
 from webassets.filter import Filter, register_filter
-import six
+
+# Version is not used here but is made available for others to import from
+from semantic_version import Spec, Version
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 

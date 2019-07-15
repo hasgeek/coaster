@@ -21,26 +21,51 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 """
 
 from __future__ import absolute_import
+import six
+
 import uuid as uuid_
-from sqlalchemy import Column, Integer, Unicode, UnicodeText, CheckConstraint, Numeric, TIMESTAMP
-from sqlalchemy import event, inspect
-from sqlalchemy.sql import select, func
+
+from sqlalchemy import (
+    TIMESTAMP,
+    CheckConstraint,
+    Column,
+    Integer,
+    Numeric,
+    Unicode,
+    UnicodeText,
+    event,
+    inspect,
+)
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import synonym
+from sqlalchemy.sql import func, select
 from sqlalchemy_utils.types import UUIDType
-from werkzeug.routing import BuildError
-from flask import current_app, url_for
-import six
-from ..utils import make_name, uuid2suuid, uuid2buid, buid2uuid, suuid2uuid, InspectableSet
-from ..utils.misc import _punctuation_re
-from ..auth import current_auth
-from .immutable_annotation import immutable
-from .roles import RoleMixin, with_roles
-from .registry import RegistryMixin
-from .comparators import Query, SqlSplitIdComparator, SqlHexUuidComparator, SqlBuidComparator, SqlSuuidComparator
-from .functions import auto_init_default, failsafe_add
 
+from flask import current_app, url_for
+from werkzeug.routing import BuildError
+
+from ..auth import current_auth
+from ..utils import (
+    InspectableSet,
+    buid2uuid,
+    make_name,
+    suuid2uuid,
+    uuid2buid,
+    uuid2suuid,
+)
+from ..utils.misc import _punctuation_re
+from .comparators import (
+    Query,
+    SqlBuidComparator,
+    SqlHexUuidComparator,
+    SqlSplitIdComparator,
+    SqlSuuidComparator,
+)
+from .functions import auto_init_default, failsafe_add
+from .immutable_annotation import immutable
+from .registry import RegistryMixin
+from .roles import RoleMixin, with_roles
 
 __all__ = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
     'NoIdMixin', 'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
