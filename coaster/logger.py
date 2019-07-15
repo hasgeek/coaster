@@ -180,7 +180,7 @@ class SMSHandler(logging.Handler):
                         'To': number,
                         'Body': message
                     })
-        except:  # NOQA
+        except:  # NOQA  # nosec
             # We need a bare except clause because this is the exception handler.
             # It can't have exceptions of its own.
             pass
@@ -236,7 +236,7 @@ class SlackHandler(logging.Handler):
                 try:
                     requests.post(webhook['url'], json=payload,
                         headers={'Content-Type': 'application/json'})
-                except:  # NOQA
+                except:  # NOQA  # nosec
                     # We need a bare except clause because this is the exception handler.
                     # It can't have exceptions of its own.
                     pass

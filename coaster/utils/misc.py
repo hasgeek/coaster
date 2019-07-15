@@ -194,9 +194,9 @@ def newpin(digits=4):
     True
     """
     random = SystemRandom()
-    randnum = random.randint(0, 10 ** digits)
+    randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
     while len(str(randnum)) > digits:
-        randnum = random.randint(0, 10 ** digits)
+        randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
     return (u'%%0%dd' % digits) % randnum
 
 
@@ -317,14 +317,14 @@ def make_password(password, encoding='BCRYPT'):
         random = SystemRandom()
         salt = ''
         for n in range(7):
-            salt += chr(random.randrange(256))
+            salt += chr(random.randrange(256))  # NOQA: S311 # nosec
         # b64encode accepts only bytes in Python 3, so salt also has to be encoded
         salt = salt.encode('utf-8') if six.PY3 else salt
         if isinstance(password, six.text_type):
             password = password.encode('utf-8')
         else:
             password = str(password)
-        b64_encoded = b64encode(hashlib.sha1(password + salt).digest() + salt)
+        b64_encoded = b64encode(hashlib.sha1(password + salt).digest() + salt)  # NOQA: S303 # nosec
         b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
         return '{SSHA}%s' % b64_encoded
     elif encoding == 'BCRYPT':
@@ -376,7 +376,7 @@ def check_password(reference, attempt):
         if isinstance(attempt, six.text_type):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
-        b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)
+        b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)  # NOQA: S303 # nosec
         if six.PY3:  # pragma: no cover
             # type(b64_encoded) is bytes and can't be compared with type(reference) which is str
             compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
@@ -448,10 +448,9 @@ def md5sum(data):
     32
     """
     if six.PY3:  # pragma: no cover
-        return hashlib.md5(data.encode('utf-8')).hexdigest()
+        return hashlib.md5(data.encode('utf-8')).hexdigest()  # NOQA: S303 # nosec
     else:  # pragma: no cover
-        return hashlib.md5(data).hexdigest()
-
+        return hashlib.md5(data).hexdigest()  # NOQA: S303 # nosec
 
 
 def getbool(value):
@@ -635,8 +634,6 @@ def valid_username(candidate):
     False
     """
     return not _username_valid_re.search(candidate) is None
-
-
 
 
 def namespace_from_url(url):
