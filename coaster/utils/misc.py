@@ -27,23 +27,46 @@ import bcrypt
 import tldextract
 
 __all__ = [
-    'is_collection', 'buid', 'uuid1mc', 'uuid1mc_from_datetime', 'uuid2buid', 'buid2uuid',
-    'newsecret', 'newpin', 'make_name', 'make_password', 'check_password', 'format_currency',
-    'md5sum', 'getbool', 'nullint', 'nullstr', 'require_one_of', 'unicode_http_header',
-    'get_email_domain', 'valid_username', 'namespace_from_url', 'base_domain_matches',
-    'domain_namespace_match'
-    ]
+    'is_collection',
+    'buid',
+    'uuid1mc',
+    'uuid1mc_from_datetime',
+    'uuid2buid',
+    'buid2uuid',
+    'newsecret',
+    'newpin',
+    'make_name',
+    'make_password',
+    'check_password',
+    'format_currency',
+    'md5sum',
+    'getbool',
+    'nullint',
+    'nullstr',
+    'require_one_of',
+    'unicode_http_header',
+    'get_email_domain',
+    'valid_username',
+    'namespace_from_url',
+    'base_domain_matches',
+    'domain_namespace_match',
+]
 
 # --- Common delimiters and punctuation ---------------------------------------
 
 _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
-_punctuation_re = re.compile(u'[\x01-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+')
+_punctuation_re = re.compile(
+    u'[\x01-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+)
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
-_ipv4_re = re.compile(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
+_ipv4_re = re.compile(
+    r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+)
 _tag_re = re.compile('<.*?>')
 
 
 # --- Utilities ---------------------------------------------------------------
+
 
 def is_collection(item):
     """
@@ -72,7 +95,9 @@ def is_collection(item):
     >>> is_collection(InspectableSet({1, 2}))
     True
     """
-    return not isinstance(item, six.string_types) and isinstance(item, (collections.Set, collections.Sequence))
+    return not isinstance(item, six.string_types) and isinstance(
+        item, (collections.Set, collections.Sequence)
+    )
 
 
 def buid():
@@ -133,10 +158,10 @@ def uuid1mc_from_datetime(dt):
     nanoseconds = int(timeval * 1e9)
     # 0x01b21dd213814000 is the number of 100-ns intervals between the
     # UUID epoch 1582-10-15 00:00:00 and the Unix epoch 1970-01-01 00:00:00.
-    timestamp = int(nanoseconds // 100) + 0x01b21dd213814000
-    time_low = timestamp & 0xffffffff
-    time_mid = (timestamp >> 32) & 0xffff
-    time_hi_version = (timestamp >> 48) & 0x0fff
+    timestamp = int(nanoseconds // 100) + 0x01B21DD213814000
+    time_low = timestamp & 0xFFFFFFFF
+    time_mid = (timestamp >> 32) & 0xFFFF
+    time_hi_version = (timestamp >> 48) & 0x0FFF
 
     fields[0] = time_low
     fields[1] = time_mid
@@ -274,8 +299,18 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'these-are-equivalent-to-through'
     """
     name = text.replace('@', delim)
-    name = unidecode(name).replace('@', 'a')  # We don't know why unidecode uses '@' for 'a'-like chars
-    name = six.text_type(delim.join([_strip_re.sub('', x) for x in _punctuation_re.split(name.lower()) if x != '']))
+    name = unidecode(name).replace(
+        '@', 'a'
+    )  # We don't know why unidecode uses '@' for 'a'-like chars
+    name = six.text_type(
+        delim.join(
+            [
+                _strip_re.sub('', x)
+                for x in _punctuation_re.split(name.lower())
+                if x != ''
+            ]
+        )
+    )
     if isinstance(text, six.text_type):
         # Unidecode returns str. Restore to a unicode string if original was unicode
         name = six.text_type(name)
@@ -286,7 +321,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
         return candidate
     existing = checkused(candidate)
     while existing:
-        candidate = name[:maxlength - len(str(counter))] + str(counter)
+        candidate = name[: maxlength - len(str(counter))] + str(counter)
         counter += 1
         existing = checkused(candidate)
     return candidate
@@ -326,14 +361,19 @@ def make_password(password, encoding='BCRYPT'):
             password = password.encode('utf-8')
         else:
             password = str(password)
-        b64_encoded = b64encode(hashlib.sha1(password + salt).digest() + salt)  # NOQA: S303 # nosec
+        b64_encoded = b64encode(
+            hashlib.sha1(password + salt).digest() + salt  # NOQA: S303 # nosec
+        )
         b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
         return '{SSHA}%s' % b64_encoded
     elif encoding == 'BCRYPT':
         # BCRYPT is the recommended hash for secure passwords
         password_hashed = bcrypt.hashpw(
-            password.encode('utf-8') if isinstance(password, six.text_type) else password,
-            bcrypt.gensalt())
+            password.encode('utf-8')
+            if isinstance(password, six.text_type)
+            else password,
+            bcrypt.gensalt(),
+        )
         if six.PY3:  # pragma: no cover
             password_hashed = password_hashed.decode('utf-8')
         return '{BCRYPT}%s' % password_hashed
@@ -378,10 +418,16 @@ def check_password(reference, attempt):
         if isinstance(attempt, six.text_type):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
-        b64_encoded = b64encode(hashlib.sha1(attempt + salt).digest() + salt)  # NOQA: S303 # nosec
+        b64_encoded = b64encode(
+            hashlib.sha1(attempt + salt).digest() + salt  # NOQA: S303 # nosec
+        )
         if six.PY3:  # pragma: no cover
             # type(b64_encoded) is bytes and can't be compared with type(reference) which is str
-            compare = six.text_type('{SSHA}%s' % b64_encoded.decode('utf-8') if type(b64_encoded) is bytes else b64_encoded)
+            compare = six.text_type(
+                '{SSHA}%s' % b64_encoded.decode('utf-8')
+                if type(b64_encoded) is bytes
+                else b64_encoded
+            )
         else:  # pragma: no cover
             compare = six.text_type('{SSHA}%s' % b64_encoded)
         return compare == reference
@@ -393,9 +439,15 @@ def check_password(reference, attempt):
         if six.PY3:  # pragma: no cover
             return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
         else:  # pragma: no cover
-            return bcrypt.hashpw(
-                attempt.encode('utf-8') if isinstance(attempt, six.text_type) else attempt,
-                str(reference[8:])) == reference[8:]
+            return (
+                bcrypt.hashpw(
+                    attempt.encode('utf-8')
+                    if isinstance(attempt, six.text_type)
+                    else attempt,
+                    str(reference[8:]),
+                )
+                == reference[8:]
+            )
     return False
 
 
@@ -559,9 +611,13 @@ def require_one_of(_return=False, **kwargs):
         count = len(kwargs) - kwargs.values().count(None)
 
     if count == 0:
-        raise TypeError("One of these parameters is required: " + ', '.join(kwargs.keys()))
+        raise TypeError(
+            "One of these parameters is required: " + ', '.join(kwargs.keys())
+        )
     elif count != 1:
-        raise TypeError("Only one of these parameters is allowed: " + ', '.join(kwargs.keys()))
+        raise TypeError(
+            "Only one of these parameters is allowed: " + ', '.join(kwargs.keys())
+        )
 
     if _return:
         keys, values = zip(*[(k, 1 if v is not None else 0) for k, v in kwargs.items()])
@@ -587,8 +643,14 @@ def unicode_http_header(value):
         # a charset should work fine.
         if isinstance(value, six.binary_type):
             value = value.decode()
-    return u''.join([six.text_type(s, e or 'iso-8859-1') if not isinstance(s, six.text_type) else s
-        for s, e in decode_header(value)])
+    return u''.join(
+        [
+            six.text_type(s, e or 'iso-8859-1')
+            if not isinstance(s, six.text_type)
+            else s
+            for s, e in decode_header(value)
+        ]
+    )
 
 
 def get_email_domain(emailaddr):
@@ -643,8 +705,11 @@ def namespace_from_url(url):
     Construct a dotted namespace string from a URL.
     """
     parsed = urlparse(url)
-    if parsed.hostname is None or parsed.hostname in ['localhost', 'localhost.localdomain'] or (
-            _ipv4_re.search(parsed.hostname)):
+    if (
+        parsed.hostname is None
+        or parsed.hostname in ['localhost', 'localhost.localdomain']
+        or (_ipv4_re.search(parsed.hostname))
+    ):
         return None
 
     namespace = parsed.hostname.split('.')

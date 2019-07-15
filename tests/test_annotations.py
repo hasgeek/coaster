@@ -28,9 +28,9 @@ db.init_app(app)
 
 # --- Models ------------------------------------------------------------------
 
+
 class ReferralTarget(BaseMixin, db.Model):
     __tablename__ = 'referral_target'
-    pass
 
 
 class IdOnly(BaseMixin, db.Model):
@@ -42,7 +42,9 @@ class IdOnly(BaseMixin, db.Model):
     is_cached = cached(db.Column(db.Integer))
 
     # Make the raw column immutable, but allow changes via the relationship
-    referral_target_id = immutable(db.Column(None, db.ForeignKey('referral_target.id'), nullable=True))
+    referral_target_id = immutable(
+        db.Column(None, db.ForeignKey('referral_target.id'), nullable=True)
+    )
     referral_target = db.relationship(ReferralTarget)
 
 
@@ -55,7 +57,9 @@ class IdUuid(UuidMixin, BaseMixin, db.Model):
     is_cached = cached(db.Column(db.Unicode(250)))
 
     # Only block changes via the relationship; raw column remains mutable
-    referral_target_id = db.Column(None, db.ForeignKey('referral_target.id'), nullable=True)
+    referral_target_id = db.Column(
+        None, db.ForeignKey('referral_target.id'), nullable=True
+    )
     referral_target = immutable(db.relationship(ReferralTarget))
 
 
@@ -68,7 +72,9 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
     is_cached = cached(db.Column(db.Unicode(250)))
 
     # Make both raw column and relationship immutable
-    referral_target_id = immutable(db.Column(None, db.ForeignKey('referral_target.id'), nullable=True))
+    referral_target_id = immutable(
+        db.Column(None, db.ForeignKey('referral_target.id'), nullable=True)
+    )
     referral_target = immutable(db.relationship(ReferralTarget))
 
 
@@ -78,10 +84,7 @@ class PolymorphicParent(BaseMixin, db.Model):
     is_immutable = immutable(db.Column(db.Unicode(250), default='my_default'))
     also_immutable = immutable(db.Column(db.Unicode(250)))
 
-    __mapper_args__ = {
-        'polymorphic_on': ptype,
-        'polymorphic_identity': 'parent'
-        }
+    __mapper_args__ = {'polymorphic_on': ptype, 'polymorphic_identity': 'parent'}
 
 
 # Disable SQLAlchemy warning for the second `also_immutable` below
@@ -90,7 +93,12 @@ warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
-    id = db.Column(None, db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'), primary_key=True, nullable=False)  # NOQA: A003
+    id = db.Column(  # NOQA: A003
+        None,
+        db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'),
+        primary_key=True,
+        nullable=False,
+    )
     # Redefining a column will keep existing annotations, even if not specified here
     also_immutable = db.Column(db.Unicode(250))
     __mapper_args__ = {'polymorphic_identity': 'child'}
@@ -100,6 +108,7 @@ warnings.resetwarnings()
 
 
 # --- Tests -------------------------------------------------------------------
+
 
 class TestCoasterAnnotations(unittest.TestCase):
     app = app

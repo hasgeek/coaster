@@ -20,9 +20,15 @@ import docflow
 
 from .auth import current_auth
 
-__all__ = ['WorkflowStateException', 'WorkflowTransitionException',
-    'WorkflowPermissionException', 'WorkflowState', 'WorkflowStateGroup',
-    'InteractiveTransition', 'DocumentWorkflow']
+__all__ = [
+    'WorkflowStateException',
+    'WorkflowTransitionException',
+    'WorkflowPermissionException',
+    'WorkflowState',
+    'WorkflowStateGroup',
+    'InteractiveTransition',
+    'DocumentWorkflow',
+]
 
 
 class WorkflowStateException(docflow.WorkflowStateException, Forbidden):

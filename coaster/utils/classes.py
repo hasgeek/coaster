@@ -18,6 +18,7 @@ NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
+
     @classmethod
     def __prepare__(mcs, name, bases, **kwargs):  # NOQA: N804 # pragma: no cover
         return OrderedDict()
@@ -45,7 +46,9 @@ class _LabeledEnumMeta(type):
                     raise AttributeError("Unprocessed attribute %s" % key)
             elif key != '__order__' and isinstance(value, set):
                 # value = set of other unprocessed values
-                attrs[key] = names[key] = {v[0] if isinstance(v, tuple) else v for v in value}
+                attrs[key] = names[key] = {
+                    v[0] if isinstance(v, tuple) else v for v in value
+                }
 
         if '__order__' in attrs:
             ordered_labels = OrderedDict()
@@ -55,7 +58,12 @@ class _LabeledEnumMeta(type):
                 attr_name = pop_name_by_value(value[0])
                 if attr_name is not None:
                     ordered_names[attr_name] = value[0]
-            for key, value in labels.items():  # Left over items after processing the list in __order__
+            for (
+                key,
+                value,
+            ) in (
+                labels.items()
+            ):  # Left over items after processing the list in __order__
                 ordered_labels[key] = value
                 attr_name = pop_name_by_value(value)
                 if attr_name is not None:
@@ -262,12 +270,13 @@ class InspectableSet(Set):
         >>> len(emptyset)
         0
     """
+
     def __init__(self, members=()):
         if not isinstance(members, set):
             members = set(members)
         object.__setattr__(self, '_members', members)
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self):
         return 'InspectableSet({members})'.format(members=repr(self._members))
 
     def __len__(self):
@@ -338,6 +347,7 @@ class classmethodproperty(object):  # NOQA: N801
         >>> Foo.test
         'bar'
     """
+
     def __init__(self, func):
         self.func = func
 

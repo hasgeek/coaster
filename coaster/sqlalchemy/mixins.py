@@ -67,16 +67,30 @@ from .immutable_annotation import immutable
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
-__all__ = ['IdMixin', 'TimestampMixin', 'PermissionMixin', 'UrlForMixin',
-    'NoIdMixin', 'BaseMixin', 'BaseNameMixin', 'BaseScopedNameMixin', 'BaseIdNameMixin',
-    'BaseScopedIdMixin', 'BaseScopedIdNameMixin', 'CoordinatesMixin',
-    'UuidMixin', 'RoleMixin', 'RegistryMixin']
+__all__ = [
+    'IdMixin',
+    'TimestampMixin',
+    'PermissionMixin',
+    'UrlForMixin',
+    'NoIdMixin',
+    'BaseMixin',
+    'BaseNameMixin',
+    'BaseScopedNameMixin',
+    'BaseIdNameMixin',
+    'BaseScopedIdMixin',
+    'BaseScopedIdNameMixin',
+    'CoordinatesMixin',
+    'UuidMixin',
+    'RoleMixin',
+    'RegistryMixin',
+]
 
 
 class IdMixin(object):
     """
     Provides the :attr:`id` primary key column
     """
+
     query_class = Query
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database
@@ -88,7 +102,14 @@ class IdMixin(object):
         Database identity for this model, used for foreign key references from other models
         """
         if cls.__uuid_primary_key__:
-            return immutable(Column(UUIDType(binary=False), default=uuid_.uuid4, primary_key=True, nullable=False))
+            return immutable(
+                Column(
+                    UUIDType(binary=False),
+                    default=uuid_.uuid4,
+                    primary_key=True,
+                    nullable=False,
+                )
+            )
         else:
             return immutable(Column(Integer, primary_key=True, nullable=False))
 
@@ -96,6 +117,7 @@ class IdMixin(object):
     def url_id(cls):
         """The URL id"""
         if cls.__uuid_primary_key__:
+
             def url_id_func(self):
                 """The URL id, UUID primary key rendered as a hex string"""
                 return self.id.hex
@@ -108,6 +130,7 @@ class IdMixin(object):
             url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
         else:
+
             def url_id_func(self):
                 """The URL id, integer primary key rendered as a string"""
                 return six.text_type(self.id)
@@ -132,6 +155,7 @@ class UuidMixin(object):
     provides hybrid properties ``huuid``, ``buid`` and ``suuid`` that provide
     hex, URL-safe Base64 and ShortUUID representations of the ``uuid`` column.
     """
+
     @with_roles(read={'all'})
     @declared_attr
     def uuid(cls):
@@ -139,7 +163,14 @@ class UuidMixin(object):
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         else:
-            return immutable(Column(UUIDType(binary=False), default=uuid_.uuid4, unique=True, nullable=False))
+            return immutable(
+                Column(
+                    UUIDType(binary=False),
+                    default=uuid_.uuid4,
+                    unique=True,
+                    nullable=False,
+                )
+            )
 
     @hybrid_property
     def huuid(self):
@@ -193,6 +224,7 @@ class TimestampMixin(object):
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
+
     __with_timezone__ = False
     query_class = Query
 
@@ -203,7 +235,8 @@ class TimestampMixin(object):
         return Column(
             TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
-            nullable=False)
+            nullable=False,
+        )
 
     @declared_attr
     def updated_at(cls):
@@ -212,13 +245,15 @@ class TimestampMixin(object):
             TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
             onupdate=func.utcnow(),
-            nullable=False)
+            nullable=False,
+        )
 
 
 class PermissionMixin(object):
     """
     Provides the :meth:`permissions` method used by BaseMixin and derived classes
     """
+
     def permissions(self, actor, inherited=None):
         """
         Return permissions available to the given user on this object
@@ -236,13 +271,15 @@ class PermissionMixin(object):
         :obj:`~coaster.auth.current_auth`.
         """
         return InspectableSet(
-            self.permissions(current_auth.actor, current_auth.permissions or None))
+            self.permissions(current_auth.actor, current_auth.permissions or None)
+        )
 
 
 class UrlForMixin(object):
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
+
     #: Mapping of {app: {action: (endpoint, {param: attr}, _external)}}, where attr is a string or tuple of strings.
     #: The same action can point to different endpoints in different apps. The app may also be None as fallback.
     #: Each subclass will get its own dictionary. This particular dictionary is only used as an inherited fallback.
@@ -295,20 +332,33 @@ class UrlForMixin(object):
             return
 
     @classmethod
-    def is_url_for(cls, _action, _endpoint=None, _app=None, _external=None, **paramattrs):
+    def is_url_for(
+        cls, _action, _endpoint=None, _app=None, _external=None, **paramattrs
+    ):
         """
         View decorator that registers the view as a :meth:`url_for` target.
         """
+
         def decorator(f):
             if 'url_for_endpoints' not in cls.__dict__:
-                cls.url_for_endpoints = {None: {}}  # Stick it into the class with the first endpoint
+                cls.url_for_endpoints = {
+                    None: {}
+                }  # Stick it into the class with the first endpoint
             cls.url_for_endpoints.setdefault(_app, {})
 
             for keyword in paramattrs:
-                if isinstance(paramattrs[keyword], six.string_types) and '.' in paramattrs[keyword]:
+                if (
+                    isinstance(paramattrs[keyword], six.string_types)
+                    and '.' in paramattrs[keyword]
+                ):
                     paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
-            cls.url_for_endpoints[_app][_action] = _endpoint or f.__name__, paramattrs, _external
+            cls.url_for_endpoints[_app][_action] = (
+                _endpoint or f.__name__,
+                paramattrs,
+                _external,
+            )
             return f
+
         return decorator
 
     @classmethod
@@ -342,20 +392,24 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
     anywhere the timestamp columns and helper methods are required, but an
     id column is not.
     """
+
     def _set_fields(self, fields):
         """Helper method for :meth:`upsert` in the various subclasses"""
         for f in fields:
             if hasattr(self, f):
                 setattr(self, f, fields[f])
             else:
-                raise TypeError("'{arg}' is an invalid argument for {instance_type}".format(arg=f, instance_type=self.__class__.__name__))
+                raise TypeError(
+                    "'{arg}' is an invalid argument for {instance_type}".format(
+                        arg=f, instance_type=self.__class__.__name__
+                    )
+                )
 
 
 class BaseMixin(IdMixin, NoIdMixin):
     """
     Base mixin class for all tables that have an id column.
     """
-    pass
 
 
 class BaseNameMixin(BaseMixin):
@@ -376,6 +430,7 @@ class BaseNameMixin(BaseMixin):
             # Create CHECK constraint
             op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
+
     #: Prevent use of these reserved names
     reserved_names = []
     #: Allow blank names after all?
@@ -393,7 +448,9 @@ class BaseNameMixin(BaseMixin):
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False, unique=True)
         else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False, unique=True)
+            return Column(
+                column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
+            )
 
     @declared_attr
     def title(cls):
@@ -443,15 +500,33 @@ class BaseNameMixin(BaseMixin):
         """
         if self.title:
             if inspect(self).has_identity:
+
                 def checkused(c):
-                    return bool(c in reserved or c in self.reserved_names
-                        or self.__class__.query.filter(self.__class__.id != self.id).filter_by(name=c).notempty())
+                    return bool(
+                        c in reserved
+                        or c in self.reserved_names
+                        or self.__class__.query.filter(self.__class__.id != self.id)
+                        .filter_by(name=c)
+                        .notempty()
+                    )
+
             else:
+
                 def checkused(c):
-                    return bool(c in reserved or c in self.reserved_names
-                        or self.__class__.query.filter_by(name=c).notempty())
+                    return bool(
+                        c in reserved
+                        or c in self.reserved_names
+                        or self.__class__.query.filter_by(name=c).notempty()
+                    )
+
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(
+                    make_name(
+                        self.title_for_name,
+                        maxlength=self.__name_length__,
+                        checkused=checkused,
+                    )
+                )
 
 
 class BaseScopedNameMixin(BaseMixin):
@@ -482,6 +557,7 @@ class BaseScopedNameMixin(BaseMixin):
             # Create CHECK constraint
             op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
+
     #: Prevent use of these reserved names
     reserved_names = []
     #: Allow blank names after all?
@@ -516,8 +592,12 @@ class BaseScopedNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.name, self.title,
-            repr(self.parent)[1:-1] if self.parent else None)
+        return '<%s %s "%s" of %s>' % (
+            self.__class__.__name__,
+            self.name,
+            self.title,
+            repr(self.parent)[1:-1] if self.parent else None,
+        )
 
     @classmethod
     def get(cls, parent, name):
@@ -532,7 +612,9 @@ class BaseScopedNameMixin(BaseMixin):
             instance._set_fields(fields)
         else:
             instance = cls(parent=parent, name=name, **fields)
-            instance = failsafe_add(cls.query.session, instance, parent=parent, name=name)
+            instance = failsafe_add(
+                cls.query.session, instance, parent=parent, name=name
+            )
         return instance
 
     def make_name(self, reserved=[]):
@@ -543,27 +625,51 @@ class BaseScopedNameMixin(BaseMixin):
         """
         if self.title:
             if inspect(self).has_identity:
+
                 def checkused(c):
-                    return bool(c in reserved or c in self.reserved_names
-                        or self.__class__.query.filter(self.__class__.id != self.id).filter_by(
-                            name=c, parent=self.parent).first())
+                    return bool(
+                        c in reserved
+                        or c in self.reserved_names
+                        or self.__class__.query.filter(self.__class__.id != self.id)
+                        .filter_by(name=c, parent=self.parent)
+                        .first()
+                    )
+
             else:
+
                 def checkused(c):
-                    return bool(c in reserved or c in self.reserved_names
-                        or self.__class__.query.filter_by(name=c, parent=self.parent).first())
+                    return bool(
+                        c in reserved
+                        or c in self.reserved_names
+                        or self.__class__.query.filter_by(
+                            name=c, parent=self.parent
+                        ).first()
+                    )
+
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__, checkused=checkused))
+                self.name = six.text_type(
+                    make_name(
+                        self.title_for_name,
+                        maxlength=self.__name_length__,
+                        checkused=checkused,
+                    )
+                )
 
     def short_title(self):
         """
         Generates an abbreviated title by subtracting the parent's title from this instance's title.
         """
-        if self.title and self.parent is not None and hasattr(self.parent, 'title') and self.parent.title:
+        if (
+            self.title
+            and self.parent is not None
+            and hasattr(self.parent, 'title')
+            and self.parent.title
+        ):
             if self.title.startswith(self.parent.title):
-                short = self.title[len(self.parent.title):].strip()
+                short = self.title[len(self.parent.title) :].strip()
                 match = _punctuation_re.match(short)
                 if match:
-                    short = short[match.end():].strip()
+                    short = short[match.end() :].strip()
                 if short:
                     return short
         return self.title
@@ -580,7 +686,9 @@ class BaseScopedNameMixin(BaseMixin):
         if inherited is not None:
             return inherited | super(BaseScopedNameMixin, self).permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(BaseScopedNameMixin, self).permissions(actor)
+            return self.parent.permissions(actor) | super(
+                BaseScopedNameMixin, self
+            ).permissions(actor)
         else:
             return super(BaseScopedNameMixin, self).permissions(actor)
 
@@ -603,6 +711,7 @@ class BaseIdNameMixin(BaseMixin):
             # Create CHECK constraint
             op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
+
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
@@ -645,7 +754,9 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerates a :attr:`name` from :attr:`title_for_name`"""
         if self.title:
-            self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__))
+            self.name = six.text_type(
+                make_name(self.title_for_name, maxlength=self.__name_length__)
+            )
 
     @with_roles(read={'all'})
     @hybrid_property
@@ -694,6 +805,7 @@ class BaseScopedIdMixin(BaseMixin):
             parent = db.synonym('event')
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
+
     @with_roles(read={'all'})
     @declared_attr
     def url_id(cls):
@@ -706,8 +818,11 @@ class BaseScopedIdMixin(BaseMixin):
             self.make_id()
 
     def __repr__(self):
-        return '<%s %s of %s>' % (self.__class__.__name__, self.url_id,
-            repr(self.parent)[1:-1] if self.parent else None)
+        return '<%s %s of %s>' % (
+            self.__class__.__name__,
+            self.url_id,
+            repr(self.parent)[1:-1] if self.parent else None,
+        )
 
     @classmethod
     def get(cls, parent, url_id):
@@ -717,8 +832,10 @@ class BaseScopedIdMixin(BaseMixin):
     def make_id(self):
         """Create a new URL id that is unique to the parent container"""
         if self.url_id is None:  # Set id only if empty
-            self.url_id = select([func.coalesce(func.max(self.__class__.url_id + 1), 1)],
-                self.__class__.parent == self.parent)
+            self.url_id = select(
+                [func.coalesce(func.max(self.__class__.url_id + 1), 1)],
+                self.__class__.parent == self.parent,
+            )
 
     def permissions(self, actor, inherited=None):
         """
@@ -727,7 +844,9 @@ class BaseScopedIdMixin(BaseMixin):
         if inherited is not None:
             return inherited | super(BaseScopedIdMixin, self).permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(BaseScopedIdMixin, self).permissions(actor)
+            return self.parent.permissions(actor) | super(
+                BaseScopedIdMixin, self
+            ).permissions(actor)
         else:
             return super(BaseScopedIdMixin, self).permissions(actor)
 
@@ -760,6 +879,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             # Create CHECK constraint
             op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
+
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
@@ -799,8 +919,12 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (self.__class__.__name__, self.url_id_name, self.title,
-            repr(self.parent)[1:-1] if self.parent else None)
+        return '<%s %s "%s" of %s>' % (
+            self.__class__.__name__,
+            self.url_id_name,
+            self.title,
+            repr(self.parent)[1:-1] if self.parent else None,
+        )
 
     @classmethod
     def get(cls, parent, url_id):
@@ -810,7 +934,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = six.text_type(make_name(self.title_for_name, maxlength=self.__name_length__))
+            self.name = six.text_type(
+                make_name(self.title_for_name, maxlength=self.__name_length__)
+            )
 
     @with_roles(read={'all'})
     @hybrid_property

@@ -36,18 +36,18 @@ db = SQLAlchemy(app)
 
 # --- Models ------------------------------------------------------------------
 
+
 class ViewDocument(BaseNameMixin, db.Model):
     __tablename__ = 'view_document'
-    __roles__ = {
-        'all': {
-            'read': {'name', 'title'}
-            }
-        }
+    __roles__ = {'all': {'read': {'name', 'title'}}}
 
     def permissions(self, actor, inherited=()):
         perms = super(ViewDocument, self).permissions(actor, inherited)
         perms.add('view')
-        if actor in ('this-is-the-owner', 'this-is-the-editor'):  # Our hack of a user object, for testing
+        if actor in (
+            'this-is-the-owner',
+            'this-is-the-editor',
+        ):  # Our hack of a user object, for testing
             perms.add('edit')
             perms.add('delete')
         return perms
@@ -62,14 +62,12 @@ class ViewDocument(BaseNameMixin, db.Model):
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_view_document'
     parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
-    view_document = db.relationship(ViewDocument, backref=db.backref('children', cascade='all, delete-orphan'))
+    view_document = db.relationship(
+        ViewDocument, backref=db.backref('children', cascade='all, delete-orphan')
+    )
     parent = db.synonym('view_document')
 
-    __roles__ = {
-        'all': {
-            'read': {'name', 'title', 'doctype'}
-            }
-        }
+    __roles__ = {'all': {'read': {'name', 'title', 'doctype'}}}
 
     @property
     def doctype(self):
@@ -78,15 +76,14 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
 
 class RenameableDocument(BaseIdNameMixin, db.Model):
     __tablename__ = 'renameable_document'
-    __uuid_primary_key__ = False  # So that we can get consistent `1-<name>` url_name in tests
-    __roles__ = {
-        'all': {
-            'read': {'name', 'title'}
-            }
-        }
+    __uuid_primary_key__ = (
+        False  # So that we can get consistent `1-<name>` url_name in tests
+    )
+    __roles__ = {'all': {'read': {'name', 'title'}}}
 
 
 # --- Views -------------------------------------------------------------------
+
 
 @route('/')
 class IndexView(ClassView):
@@ -205,17 +202,19 @@ AnotherSubView.init_app(app)
 @route('/model/<document>')
 class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
-    route_model_map = {
-        'document': 'name',
-        }
+    route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
         if access_token == 'owner-admin-secret':  # NOQA: S105 # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
-            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+            add_auth_attribute(
+                'user', 'this-is-the-owner'
+            )  # See ViewDocument.permissions
         if access_token == 'owner-secret':  # NOQA: S105 # nosec
-            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+            add_auth_attribute(
+                'user', 'this-is-the-owner'
+            )  # See ViewDocument.permissions
         return super(ModelDocumentView, self).before_request()
 
     @route('')
@@ -237,10 +236,7 @@ ModelDocumentView.init_app(app)
 @route('/model/<parent>/<document>')
 class ScopedDocumentView(ModelDocumentView):
     model = ScopedViewDocument
-    route_model_map = {
-        'document': 'name',
-        'parent': 'parent.name',
-        }
+    route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
 ScopedViewDocument.views.main = ScopedDocumentView
@@ -250,9 +246,7 @@ ScopedDocumentView.init_app(app)
 @route('/rename/<document>')
 class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
     model = RenameableDocument
-    route_model_map = {
-        'document': 'url_name',
-        }
+    route_model_map = {'document': 'url_name'}
 
     @route('')
     @render_with(json=True)
@@ -267,10 +261,7 @@ RenameableDocumentView.init_app(app)
 @route('/multi/<doc1>/<doc2>')
 class MultiDocumentView(UrlForView, ModelView):
     model = ViewDocument
-    route_model_map = {
-        'doc1': 'name',
-        'doc2': '**doc2.url_name'
-        }
+    route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
     def loader(self, doc1, doc2):
         doc1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
@@ -289,18 +280,22 @@ MultiDocumentView.init_app(app)
 @route('/gated/<document>')
 class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
     model = ViewDocument
-    route_model_map = {
-        'document': 'name',
-        }
+    route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
         if access_token == 'owner-secret':  # NOQA: S105 # nosec
-            add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+            add_auth_attribute(
+                'user', 'this-is-the-owner'
+            )  # See ViewDocument.permissions
         if access_token == 'editor-secret':  # NOQA: S105 # nosec
-            add_auth_attribute('user', 'this-is-the-editor')  # See ViewDocument.permissions
+            add_auth_attribute(
+                'user', 'this-is-the-editor'
+            )  # See ViewDocument.permissions
         if access_token == 'another-owner-secret':  # NOQA: S105 # nosec
-            add_auth_attribute('user', 'this-is-another-owner')  # See ViewDocument.permissions
+            add_auth_attribute(
+                'user', 'this-is-another-owner'
+            )  # See ViewDocument.permissions
         return super(GatedDocumentView, self).before_request()
 
     @route('perm')
@@ -331,6 +326,7 @@ GatedDocumentView.init_app(app)
 
 
 # --- Tests -------------------------------------------------------------------
+
 
 class TestClassView(unittest.TestCase):
     app = app
@@ -494,7 +490,10 @@ class TestClassView(unittest.TestCase):
         assert BaseView.inherited.endpoints == set()
         assert SubView.inherited.endpoints == {'SubView_inherited'}
         assert BaseView.also_inherited.endpoints == set()
-        assert SubView.also_inherited.endpoints == {'SubView_also_inherited', 'just_also_inherited'}
+        assert SubView.also_inherited.endpoints == {
+            'SubView_also_inherited',
+            'just_also_inherited',
+        }
 
     def test_viewdata(self):
         """View handlers can have additional data fields"""
@@ -503,13 +502,20 @@ class TestClassView(unittest.TestCase):
         assert BaseView.first.data['title'] == "First"
         assert BaseView.second.data['title'] == "Second"
         assert SubView.first.data['title'] == "Still first"
-        assert SubView.second.data['title'] != "Not still second"  # Reroute took priority
+        assert (
+            SubView.second.data['title'] != "Not still second"
+        )  # Reroute took priority
         assert SubView.second.data['title'] == "Second"
 
     def test_viewlist(self):
         assert IndexView.__views__ == {
-            'current_handler_is_self', 'current_handler_is_wrapper', 'current_view_is_self', 'index', 'page',
-            'view_args_are_received'}
+            'current_handler_is_self',
+            'current_handler_is_wrapper',
+            'current_view_is_self',
+            'index',
+            'page',
+            'view_args_are_received',
+        }
 
     def test_modelview_instanceloader_view(self):
         """Test document view in ModelView with InstanceLoader"""
@@ -625,7 +631,10 @@ class TestClassView(unittest.TestCase):
 
         # doc.view_for() returns the view handler. Calling it with
         # _render=False will disable the @render_with wrapper.
-        assert dict(doc.view_for()(_render=False)) == {'name': doc.name, 'title': doc.title}
+        assert dict(doc.view_for()(_render=False)) == {
+            'name': doc.name,
+            'title': doc.title,
+        }
 
         # Calling the 'edit' view will abort with a Forbidden as we have
         # not granted any access rights in the request context

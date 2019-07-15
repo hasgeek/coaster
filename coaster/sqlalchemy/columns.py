@@ -22,8 +22,14 @@ import simplejson
 
 from ..utils import markdown
 
-__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType',
-    'markdown_column']
+__all__ = [
+    'JsonDict',
+    'MarkdownComposite',
+    'MarkdownColumn',
+    'UUIDType',
+    'UrlType',
+    'markdown_column',
+]
 
 
 class JsonType(UserDefinedType):
@@ -41,6 +47,7 @@ class JsonbType(UserDefinedType):
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
+
 
 class JsonDict(TypeDecorator):
     """
@@ -121,6 +128,7 @@ class MarkdownComposite(MutableComposite):
     """
     Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
     """
+
     def __init__(self, text, html=None):
         if html is None:
             self.text = text  # This will regenerate HTML
@@ -154,7 +162,11 @@ class MarkdownComposite(MutableComposite):
 
     # Compare text value
     def __eq__(self, other):
-        return (self.text == other.text) if isinstance(other, MarkdownComposite) else (self.text == other)
+        return (
+            (self.text == other.text)
+            if isinstance(other, MarkdownComposite)
+            else (self.text == other)
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -185,11 +197,13 @@ def markdown_column(name, deferred=False, group=None, **kwargs):
     Create a composite column that autogenerates HTML from Markdown text,
     storing data in db columns named with ``_html`` and ``_text`` prefixes.
     """
-    return composite(MarkdownComposite,
+    return composite(
+        MarkdownComposite,
         Column(name + '_text', UnicodeText, **kwargs),
         Column(name + '_html', UnicodeText, **kwargs),
-        deferred=deferred, group=group or name
-        )
+        deferred=deferred,
+        group=group or name,
+    )
 
 
 # Compatibility name
@@ -208,9 +222,12 @@ class UrlType(UrlTypeBase):
     :param optional_scheme: Schemes are optional (allows URLs starting with ``//``)
     :param optional_host: Allow URLs without a hostname (required for ``mailto`` and ``file`` schemes)
     """
+
     impl = UnicodeText
 
-    def __init__(self, schemes=('http', 'https'), optional_scheme=False, optional_host=False):
+    def __init__(
+        self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
+    ):
         super(UrlType, self).__init__()
         self.schemes = schemes
         self.optional_host = optional_host

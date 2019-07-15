@@ -39,7 +39,10 @@ def _clean_external_url(url):
         preq = urlsplit(request.url)
         if pnext.port != preq.port:
             return ''
-        if not (pnext.hostname == preq.hostname or pnext.hostname.endswith('.' + preq.hostname)):
+        if not (
+            pnext.hostname == preq.hostname
+            or pnext.hostname.endswith('.' + preq.hostname)
+        ):
             return ''
     return url
 
@@ -50,8 +53,10 @@ def get_current_url():
     subdomains, return an absolute path
     """
     if current_app.config.get('SERVER_NAME') and (
-            # Check current hostname against server name, ignoring port numbers, if any (split on ':')
-            request.environ['HTTP_HOST'].split(':', 1)[0] != current_app.config['SERVER_NAME'].split(':', 1)[0]):
+        # Check current hostname against server name, ignoring port numbers, if any (split on ':')
+        request.environ['HTTP_HOST'].split(':', 1)[0]
+        != current_app.config['SERVER_NAME'].split(':', 1)[0]
+    ):
         return request.url
 
     url = url_for(request.endpoint, **request.view_args)
@@ -95,7 +100,9 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
         if external:
             return request.referrer
         else:
-            return _clean_external_url(request.referrer) or (default if usedefault else _index_url())
+            return _clean_external_url(request.referrer) or (
+                default if usedefault else _index_url()
+            )
     else:
         return default if usedefault else _index_url()
 
@@ -137,7 +144,7 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     # ...but replace the HTTP host with the URL's host...
     environ['HTTP_HOST'] = parsed_url.netloc
     # ...and the path with the URL's path (after discounting the app path, if not hosted at root).
-    environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')):]
+    environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')) :]
     # Create a new request with this environment...
     url_request = current_app.request_class(environ)
     # ...and a URL adapter with the new request.
@@ -155,7 +162,9 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
         pass
 
     # 3. If subdomain matching is enabled, does the subdomain match?
-    elif current_app.subdomain_matching and parsed_url.netloc.endswith('.' + url_adapter.server_name):
+    elif current_app.subdomain_matching and parsed_url.netloc.endswith(
+        '.' + url_adapter.server_name
+    ):
         pass
 
     # If no test passed, we don't have a matching endpoint.
@@ -169,7 +178,12 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
         # A redirect typically implies `/folder` -> `/folder/`
         # This will not be a redirect response from a view, since the view isn't being called
         if follow_redirects:
-            return endpoint_for(r.new_url, method=method, return_rule=return_rule, follow_redirects=follow_redirects)
+            return endpoint_for(
+                r.new_url,
+                method=method,
+                return_rule=return_rule,
+                follow_redirects=follow_redirects,
+            )
     except (NotFound, MethodNotAllowed):
         pass
     # If we got here, no endpoint was found.

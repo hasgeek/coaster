@@ -156,6 +156,7 @@ class RoleAccessProxy(collections.Mapping):
     :param roles: A set of roles to determine what attributes are accessible
 
     """
+
     def __init__(self, obj, roles, actor, anchors):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
@@ -176,9 +177,10 @@ class RoleAccessProxy(collections.Mapping):
         object.__setattr__(self, '_read', read)
         object.__setattr__(self, '_write', write)
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self):
         return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
-            obj=repr(self._obj), roles=repr(self.current_roles))
+            obj=repr(self._obj), roles=repr(self.current_roles)
+        )
 
     def __get_processed_attr(self, name):
         attr = getattr(self._obj, name)
@@ -188,11 +190,15 @@ class RoleAccessProxy(collections.Mapping):
         if isinstance(attr, RoleMixin):
             return attr.access_for(actor=self._actor, anchors=self._anchors)
         elif isinstance(attr, (InstrumentedDict, MappedCollection)):
-            return {k: v.access_for(actor=self._actor, anchors=self._anchors)
-                for k, v in attr.items()}
+            return {
+                k: v.access_for(actor=self._actor, anchors=self._anchors)
+                for k, v in attr.items()
+            }
         elif isinstance(attr, (InstrumentedList, InstrumentedSet)):
             # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
-            return tuple(m.access_for(actor=self._actor, anchors=self._anchors) for m in attr)
+            return tuple(
+                m.access_for(actor=self._actor, anchors=self._anchors) for m in attr
+            )
         else:
             return attr
 
@@ -327,6 +333,7 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
         Use :func:`with_roles` instead. It works for
         :class:`~sqlalchemy.ext.declarative.declared_attr` since 0.6.1
     """
+
     def inner(f):
         @wraps(f)
         def attr(cls):
@@ -335,7 +342,9 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
             # declared_attr in downstream code. There could be a declared_attr
             # that returns a list that should be accessible via the proxy.
             return with_roles(rw=rw, call=call, read=read, write=write)(f(cls))
+
         return attr
+
     warnings.warn("declared_attr_roles is deprecated; use with_roles", stacklevel=2)
     return inner
 
@@ -357,6 +366,7 @@ class RoleMixin(object):
 
     The :func:`with_roles` decorator is recommended over :attr:`__roles__`.
     """
+
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
 
@@ -402,7 +412,9 @@ class RoleMixin(object):
 
         This property is also available in :class:`RoleAccessProxy`.
         """
-        return InspectableSet(self.roles_for(actor=current_auth.actor, anchors=current_auth.anchors))
+        return InspectableSet(
+            self.roles_for(actor=current_auth.actor, anchors=current_auth.anchors)
+        )
 
     def actors_with(self, roles):
         """
@@ -427,7 +439,9 @@ class RoleMixin(object):
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
         elif actor is not None or anchors:
-            raise TypeError('If roles are specified, actor/anchors must not be specified')
+            raise TypeError(
+                'If roles are specified, actor/anchors must not be specified'
+            )
         return RoleAccessProxy(self, roles=roles, actor=actor, anchors=anchors)
 
     def current_access(self):
@@ -476,11 +490,17 @@ def _configure_roles(mapper, cls):
                 data = None
             if data is not None:
                 for role in data.get('call', []):
-                    cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(name)
+                    cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(
+                        name
+                    )
                 for role in data.get('read', []):
-                    cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(name)
+                    cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(
+                        name
+                    )
                 for role in data.get('write', []):
-                    cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(name)
+                    cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(
+                        name
+                    )
                 processed.add(name)
 
 

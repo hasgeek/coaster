@@ -56,32 +56,60 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(MY_ENUM[MY_ENUM.THIRD], "Third")
 
         if six.PY2:
-            self.assertEqual(sorted(MY_ENUM.items()), [(1, "First"), (2, "Second"), (3, "Third")])
+            self.assertEqual(
+                sorted(MY_ENUM.items()), [(1, "First"), (2, "Second"), (3, "Third")]
+            )
         else:
-            self.assertEqual(MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")])
+            self.assertEqual(
+                MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")]
+            )
 
-        self.assertEqual(MY_ENUM_TWO.nametitles(), [('first', "First"), ('second', "Second"), ('third', "Third")])
+        self.assertEqual(
+            MY_ENUM_TWO.nametitles(),
+            [('first', "First"), ('second', "Second"), ('third', "Third")],
+        )
         self.assertEqual(MY_ENUM_TWO.value_for('second'), 2)
 
         with self.assertRaises(TypeError):
-            MY_ENUM[2] = "SECOND"  # NOQA
+            MY_ENUM[2] = "SECOND"
 
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes.
         """
-        self.assertRaises(ValueError, make_password, password='password', encoding=u'DES')  # NOQA: S106
+        self.assertRaises(  # NOQA: S106
+            ValueError, make_password, password='password', encoding=u'DES'
+        )
 
     def test_check_password(self):
-        self.assertFalse(check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword'))
-        self.assertTrue(check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword'))
-        self.assertTrue(check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test'))
-        self.assertTrue(check_password(u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi', u'test'))
+        self.assertFalse(
+            check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword')
+        )
+        self.assertTrue(
+            check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword')
+        )
+        self.assertTrue(
+            check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test')
+        )
+        self.assertTrue(
+            check_password(
+                u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
+                u'test',
+            )
+        )
 
     def test_parse_isoformat(self):
-        assert parse_isoformat('1882-12-11T00:00:00.1234Z') == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400)
-        assert parse_isoformat('1882-12-11T00:00:00Z'), datetime.datetime(1882, 12, 11, 0, 0)
-        assert parse_isoformat('1882-12-11T00:00:00.1234Z', naive=False) == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400, tzinfo=UTC)
-        assert parse_isoformat('1882-12-11T00:00:00Z', naive=False) == datetime.datetime(1882, 12, 11, 0, 0, tzinfo=UTC)
+        assert parse_isoformat('1882-12-11T00:00:00.1234Z') == datetime.datetime(
+            1882, 12, 11, 0, 0, 0, 123400
+        )
+        assert parse_isoformat('1882-12-11T00:00:00Z'), datetime.datetime(
+            1882, 12, 11, 0, 0
+        )
+        assert parse_isoformat(
+            '1882-12-11T00:00:00.1234Z', naive=False
+        ) == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400, tzinfo=UTC)
+        assert parse_isoformat(
+            '1882-12-11T00:00:00Z', naive=False
+        ) == datetime.datetime(1882, 12, 11, 0, 0, tzinfo=UTC)
 
         with self.assertRaises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'')
@@ -92,22 +120,35 @@ class TestCoasterUtils(unittest.TestCase):
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
         self.assertEqual(sanitize_html(html), u'Test sanitize_htmlBodyalert("foo");')
-        self.assertEqual(sanitize_html("<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"), u'Test sanitize_html<p>P</p>')
+        self.assertEqual(
+            sanitize_html(
+                "<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"
+            ),
+            u'Test sanitize_html<p>P</p>',
+        )
 
     def test_sorted_timezones(self):
         assert isinstance(sorted_timezones(), list)
 
     def test_namespace_from_url(self):
-        self.assertEqual(namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github')
-        self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'),
-            u'com.hasgeek.funnel')
+        self.assertEqual(
+            namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github'
+        )
+        self.assertEqual(
+            namespace_from_url(
+                u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'
+            ),
+            u'com.hasgeek.funnel',
+        )
         self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
         assert namespace_from_url(u'www.hasgeek.com') is None
         assert namespace_from_url(u'This is an invalid url') is None
         # IP addresses are rejected
         assert namespace_from_url('127.0.0.1') is None
         # Return string type is the input type
-        assert isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type)
+        assert isinstance(
+            namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type
+        )
         assert isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str)
 
     def test_deobfuscate_email(self):
@@ -151,7 +192,9 @@ class TestCoasterUtils(unittest.TestCase):
         """Test that midnight_to_utc works for all timezones"""
         for timezone in common_timezones:
             for day in range(365):
-                midnight_to_utc(datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone)
+                midnight_to_utc(
+                    datetime.date(2017, 1, 1) + datetime.timedelta(days=day), timezone
+                )
 
     def test_utcnow(self):
         """Test that Coaster's utcnow works correctly"""

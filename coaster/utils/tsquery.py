@@ -72,10 +72,18 @@ def for_tsquery(text):
     >>> for_tsquery("/etc/passwd\x00")
     "'/etc/passwd'"
     """
-    tokens = [_token_map.get(t, t) for t in _tsquery_tokens_re.split(
-        _whitespace_re.sub(' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')))]
-    tokens = [t if t in ('&', '|', '!', ':*', '(', ')', ' ') else "'" + t.strip() + "'"
-        for t in tokens]
+    tokens = [
+        _token_map.get(t, t)
+        for t in _tsquery_tokens_re.split(
+            _whitespace_re.sub(
+                ' ', text.replace("'", " ").replace('"', ' ').replace('\0', '')
+            )
+        )
+    ]
+    tokens = [
+        t if t in ('&', '|', '!', ':*', '(', ')', ' ') else "'" + t.strip() + "'"
+        for t in tokens
+    ]
     tokens = [t for t in tokens if t not in ('', ' ', "''")]
     if not tokens:
         return ''
@@ -105,19 +113,29 @@ def for_tsquery(text):
                 tokens.pop(counter)
                 counter -= 1
                 counterlength -= 1
-            elif tokens and counter > 0 and tokens[counter - 1:counter + 1] in (['&', '!'], ['|', '!']):
+            elif (
+                tokens
+                and counter > 0
+                and tokens[counter - 1 : counter + 1] in (['&', '!'], ['|', '!'])
+            ):
                 tokens.pop(counter)
                 tokens.pop(counter - 1)
                 counter -= 2
                 counterlength -= 2
-        elif tokens[counter].startswith("'") and tokens[counter - 1] not in ('&', '|', '!', '('):
+        elif tokens[counter].startswith("'") and tokens[counter - 1] not in (
+            '&',
+            '|',
+            '!',
+            '(',
+        ):
             tokens.insert(counter, '&')
             counter += 1
             counterlength += 1
         elif (
-                tokens[counter] in ('&', '|') and tokens[counter - 1] in ('&', '|')) or (
-                tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|')) or (
-                tokens[counter] == ':*' and not tokens[counter - 1].startswith("'")):
+            (tokens[counter] in ('&', '|') and tokens[counter - 1] in ('&', '|'))
+            or (tokens[counter] == '!' and tokens[counter - 1] not in ('&', '|'))
+            or (tokens[counter] == ':*' and not tokens[counter - 1].startswith("'"))
+        ):
             # Invalid token: is a dupe or follows a token it shouldn't follow
             tokens.pop(counter)
             counter -= 1

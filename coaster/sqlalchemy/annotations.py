@@ -45,21 +45,21 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from ..signals import coaster_signals
 
-__all__ = [
-    'annotations_configured',
-    'annotation_wrapper'
-    ]
+__all__ = ['annotations_configured', 'annotation_wrapper']
 
 # Global dictionary for temporary storage of annotations until the mapper_configured events
 __cache__ = {}
 
 # --- Signals -----------------------------------------------------------------
 
-annotations_configured = coaster_signals.signal('annotations-configured',
-    doc="Signal raised after all annotations on a class are configured")
+annotations_configured = coaster_signals.signal(
+    'annotations-configured',
+    doc="Signal raised after all annotations on a class are configured",
+)
 
 
 # --- SQLAlchemy signals for base class ---------------------------------------
+
 
 @event.listens_for(mapper, 'mapper_configured')
 def _configure_annotations(mapper, cls):
@@ -114,10 +114,12 @@ def _clear_cache():
 
 # --- Helpers -----------------------------------------------------------------
 
+
 def annotation_wrapper(annotation, doc=None):
     """
     Defines an annotation, which can be applied to attributes in a database model.
     """
+
     def decorator(attr):
         __cache__.setdefault(attr, []).append(annotation)
         # Also mark the annotation on the object itself. This will

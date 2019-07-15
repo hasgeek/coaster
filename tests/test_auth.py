@@ -41,6 +41,7 @@ class LoginManager(object):
 
 # --- Models ------------------------------------------------------------------
 
+
 class User(BaseMixin, db.Model):
     __tablename__ = 'authenticated_user'
     username = db.Column(db.Unicode(80))
@@ -60,8 +61,10 @@ class Client(BaseMixin, db.Model):
 
 # --- Tests -------------------------------------------------------------------
 
+
 class TestAuthAnchors(unittest.TestCase):
     """Tests for the AuthAnchors class"""
+
     def test_empty(self):
         """Test the AuthAnchors container"""
         empty = AuthAnchors()
@@ -217,7 +220,14 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertEqual(current_auth.actor, user)
 
     def test_invalid_auth_attribute(self):
-        for attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
+        for attr in (
+            'actor',
+            'anchors',
+            'is_anonymous',
+            'not_anonymous',
+            'is_authenticated',
+            'not_authenticated',
+        ):
             with self.assertRaises(AttributeError):
                 add_auth_attribute(attr, None)
 
@@ -235,7 +245,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         self.assertTrue(current_auth)
         self.assertIsNone(current_auth.user)  # It's not the user
         self.assertEqual(current_auth.client, client)  # There's now a client attribute
-        self.assertEqual(current_auth.actor, client)   # The client is also the actor
+        self.assertEqual(current_auth.actor, client)  # The client is also the actor
 
     def test_auth_anchor(self):
         """A request starts with zero anchors, but they can be added"""

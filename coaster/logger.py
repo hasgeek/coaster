@@ -40,6 +40,7 @@ class LocalVarFormatter(logging.Formatter):
     """
     Custom log formatter that logs the contents of local variables in the stack frame.
     """
+
     def format(self, record):  # NOQA: A003
         """
         Format the specified record as text. Overrides
@@ -72,9 +73,11 @@ class LocalVarFormatter(logging.Formatter):
         print("Stack frames (most recent call first):", file=sio)
         for frame in stack:
             print('\n----\n', file=sio)
-            print("Frame %s in %s at line %s" % (frame.f_code.co_name,
-                frame.f_code.co_filename,
-                frame.f_lineno), file=sio)
+            print(
+                "Frame %s in %s at line %s"
+                % (frame.f_code.co_name, frame.f_code.co_filename, frame.f_lineno),
+                file=sio,
+            )
             for key, value in list(frame.f_locals.items()):
                 print("\t%20s = " % key, end=' ', file=sio)
                 try:
@@ -99,8 +102,8 @@ class LocalVarFormatter(logging.Formatter):
                 'method': request.method,
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,
-                'view_args': request.view_args
-                }
+                'view_args': request.view_args,
+            }
             try:
                 pprint_with_indent(request_data, sio)
             except:  # NOQA
@@ -141,7 +144,18 @@ class SMSHandler(logging.Handler):
     """
     Custom logging handler to send SMSes to admins
     """
-    def __init__(self, app_name, exotel_sid, exotel_token, exotel_from, twilio_sid, twilio_token, twilio_from, phonenumbers):
+
+    def __init__(
+        self,
+        app_name,
+        exotel_sid,
+        exotel_token,
+        exotel_from,
+        twilio_sid,
+        twilio_token,
+        twilio_from,
+        phonenumbers,
+    ):
         logging.Handler.__init__(self)
         self.app_name = app_name
         self.phonenumbers = phonenumbers
@@ -155,34 +169,40 @@ class SMSHandler(logging.Handler):
     def emit(self, record):
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_sms or (
-                (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key]) > timedelta(minutes=5)):
+            (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key])
+            > timedelta(minutes=5)
+        ):
             msg = u"{message}: {info}".format(
                 message=record.message,
-                info=repr(record.exc_info[1]) if record.exc_info else '')
+                info=repr(record.exc_info[1]) if record.exc_info else '',
+            )
             for phonenumber in self.phonenumbers:
-                self.sendsms(phonenumber,
+                self.sendsms(
+                    phonenumber,
                     u"Error in {name}. {msg}. Please check your email for details".format(
-                        name=self.app_name, msg=msg))
+                        name=self.app_name, msg=msg
+                    ),
+                )
             error_throttle_timestamp_sms[throttle_key] = datetime.utcnow()
 
     def sendsms(self, number, message):
         try:
             if number.startswith('+91'):  # Indian
-                requests.post('https://twilix.exotel.in/v1/Accounts/{sid}/Sms/send.json'.format(sid=self.exotel_sid),
+                requests.post(
+                    'https://twilix.exotel.in/v1/Accounts/{sid}/Sms/send.json'.format(
+                        sid=self.exotel_sid
+                    ),
                     auth=(self.exotel_sid, self.exotel_token),
-                    data={
-                        'From': self.exotel_from,
-                        'To': number,
-                        'Body': message
-                    })
+                    data={'From': self.exotel_from, 'To': number, 'Body': message},
+                )
             else:
-                requests.post('https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(sid=self.twilio_sid),
+                requests.post(
+                    'https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json'.format(
+                        sid=self.twilio_sid
+                    ),
                     auth=(self.twilio_sid, self.twilio_token),
-                    data={
-                        'From': self.twilio_from,
-                        'To': number,
-                        'Body': message
-                    })
+                    data={'From': self.twilio_from, 'To': number, 'Body': message},
+                )
         except:  # NOQA  # nosec
             # We need a bare except clause because this is the exception handler.
             # It can't have exceptions of its own.
@@ -193,6 +213,7 @@ class SlackHandler(logging.Handler):
     """
     Custom logging handler to post error reports to Slack.
     """
+
     def __init__(self, app_name, webhooks):
         super(SlackHandler, self).__init__()
         self.app_name = app_name
@@ -201,15 +222,23 @@ class SlackHandler(logging.Handler):
     def emit(self, record):
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_slack or (
-                (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key]) > timedelta(minutes=5)):
+            (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key])
+            > timedelta(minutes=5)
+        ):
 
             # Sanity check:
             # If we're not going to be reporting this, don't bother to format the payload
-            if record.levelname not in [lname for webhook in self.webhooks for lname in webhook.get('levelnames', [])]:
+            if record.levelname not in [
+                lname
+                for webhook in self.webhooks
+                for lname in webhook.get('levelnames', [])
+            ]:
                 return
 
             if record.exc_text:
-                double_split = [s.split('----') for s in record.exc_text.split('----------')]
+                double_split = [
+                    s.split('----') for s in record.exc_text.split('----------')
+                ]
                 flat_list = [item for sublist in double_split for item in sublist]
                 # Separate out the first line of each section. It'll be used as the "pretext"
                 # while the rest will be used as a "text" attachment.
@@ -219,14 +248,23 @@ class SlackHandler(logging.Handler):
 
             data = {
                 'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
-                    levelname=record.levelname, name=self.app_name, message=record.message,
-                    info=repr(record.exc_info[1]) if record.exc_info else ''),
-                'attachments': [{
-                    'mrkdwn_in': ['text'],
-                    'fallback': section[0],
-                    'pretext': section[0],
-                    'text': ('```\n' + section[1] + '\n```') if len(section) > 1 else '',
-                    } for section in sections]}
+                    levelname=record.levelname,
+                    name=self.app_name,
+                    message=record.message,
+                    info=repr(record.exc_info[1]) if record.exc_info else '',
+                ),
+                'attachments': [
+                    {
+                        'mrkdwn_in': ['text'],
+                        'fallback': section[0],
+                        'pretext': section[0],
+                        'text': ('```\n' + section[1] + '\n```')
+                        if len(section) > 1
+                        else '',
+                    }
+                    for section in sections
+                ],
+            }
 
             for webhook in self.webhooks:
                 if record.levelname not in webhook.get('levelnames', []):
@@ -237,8 +275,11 @@ class SlackHandler(logging.Handler):
                         payload[attr] = webhook[attr]
 
                 try:
-                    requests.post(webhook['url'], json=payload,
-                        headers={'Content-Type': 'application/json'})
+                    requests.post(
+                        webhook['url'],
+                        json=payload,
+                        headers={'Content-Type': 'application/json'},
+                    )
                 except:  # NOQA  # nosec
                     # We need a bare except clause because this is the exception handler.
                     # It can't have exceptions of its own.
@@ -284,8 +325,17 @@ def init_app(app):
         app.logger.addHandler(file_handler)
 
     if app.config.get('ADMIN_NUMBERS'):
-        if all(key in app.config for key in ['SMS_EXOTEL_SID', 'SMS_EXOTEL_TOKEN', 'SMS_EXOTEL_FROM',
-                'SMS_TWILIO_SID', 'SMS_TWILIO_TOKEN', 'SMS_TWILIO_FROM']):
+        if all(
+            key in app.config
+            for key in [
+                'SMS_EXOTEL_SID',
+                'SMS_EXOTEL_TOKEN',
+                'SMS_EXOTEL_FROM',
+                'SMS_TWILIO_SID',
+                'SMS_TWILIO_TOKEN',
+                'SMS_TWILIO_FROM',
+            ]
+        ):
 
             # A little trickery because directly creating
             # an SMSHandler object didn't work
@@ -299,14 +349,16 @@ def init_app(app):
                 twilio_sid=app.config['SMS_TWILIO_SID'],
                 twilio_token=app.config['SMS_TWILIO_TOKEN'],
                 twilio_from=app.config['SMS_TWILIO_FROM'],
-                phonenumbers=app.config['ADMIN_NUMBERS'])
+                phonenumbers=app.config['ADMIN_NUMBERS'],
+            )
             sms_handler.setLevel(logging.ERROR)
             app.logger.addHandler(sms_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler
         slack_handler = logging.handlers.SlackHandler(
-            app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS'])
+            app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS']
+        )
         slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
         app.logger.addHandler(slack_handler)
@@ -315,18 +367,21 @@ def init_app(app):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail
         # DEFAULT_MAIL_SENDER is the old setting. We look for both
         mail_sender = app.config.get('MAIL_DEFAULT_SENDER') or app.config.get(
-            'DEFAULT_MAIL_SENDER', 'logs@example.com')
+            'DEFAULT_MAIL_SENDER', 'logs@example.com'
+        )
         if isinstance(mail_sender, (list, tuple)):
             mail_sender = mail_sender[1]  # Get email from (name, email)
         if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD'):
             credentials = (app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
         else:
             credentials = None
-        mail_handler = logging.handlers.SMTPHandler(app.config.get('MAIL_SERVER', 'localhost'),
+        mail_handler = logging.handlers.SMTPHandler(
+            app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
             '%s failure' % app.name,
-            credentials=credentials)
+            credentials=credentials,
+        )
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
         app.logger.addHandler(mail_handler)

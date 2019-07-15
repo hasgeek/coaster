@@ -47,8 +47,11 @@ manager = Manager()
 def alembic_table_metadata():
     db = manager.db
     metadata = db.MetaData(bind=db.engine)
-    alembic_version = db.Table('alembic_version', metadata,
-        db.Column('version_num', db.Unicode(32), nullable=False))
+    alembic_version = db.Table(
+        'alembic_version',
+        metadata,
+        db.Column('version_num', db.Unicode(32), nullable=False),
+    )
     return metadata, alembic_version
 
 
@@ -135,6 +138,8 @@ def init_manager(app, db, **kwargs):
     manager.add_command('clean', Clean())
     manager.add_command('showurls', ShowUrls())
     manager.add_command('shell', Shell(make_context=shell_context))
-    manager.add_command('plainshell', Shell(make_context=shell_context,
-        use_ipython=False, use_bpython=False))
+    manager.add_command(
+        'plainshell',
+        Shell(make_context=shell_context, use_ipython=False, use_bpython=False),
+    )
     return manager

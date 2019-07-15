@@ -31,12 +31,12 @@ db.init_app(app)
 
 # --- Models ------------------------------------------------------------------
 
+
 class DeclaredAttrMixin(object):
     # with_roles can be used within a declared attr
     @declared_attr
     def mixed_in1(cls):
-        return with_roles(db.Column(db.Unicode(250)),
-            rw={'owner'})
+        return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
     # declared_attr_roles is deprecated since 0.6.1. Use with_roles
     # as the outer decorator now. It remains here for the test case.
@@ -62,24 +62,21 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     # Approach one, declare roles in advance.
     # 'all' is a special role that is always granted from the base class
 
-    __roles__ = {
-        'all': {
-            'read': {'id', 'name', 'title'}
-            }
-        }
+    __roles__ = {'all': {'read': {'id', 'name', 'title'}}}
 
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
     id = db.Column(db.Integer, primary_key=True)  # NOQA: A003
-    name = with_roles(db.Column(db.Unicode(250)),
-        rw={'owner'})  # Specify read+write access
+    name = with_roles(
+        db.Column(db.Unicode(250)), rw={'owner'}
+    )  # Specify read+write access
 
-    title = with_roles(db.Column(db.Unicode(250)),
-        write={'owner', 'editor'})  # Grant 'owner' and 'editor' write but not read access
+    title = with_roles(
+        db.Column(db.Unicode(250)), write={'owner', 'editor'}
+    )  # Grant 'owner' and 'editor' write but not read access
 
-    defval = with_roles(db.deferred(db.Column(db.Unicode(250))),
-        rw={'owner'})
+    defval = with_roles(db.deferred(db.Column(db.Unicode(250))), rw={'owner'})
 
     @with_roles(call={'all'})  # 'call' grants call access to the decorated method
     def hello(self):
@@ -121,11 +118,7 @@ class RelationshipChild(BaseNameMixin, db.Model):
 
     parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
 
-    __roles__ = {
-        'all': {
-            'read': {'name', 'title', 'parent'},
-            }
-        }
+    __roles__ = {'all': {'read': {'name', 'title', 'parent'}}}
 
 
 class RelationshipParent(BaseNameMixin, db.Model):
@@ -133,20 +126,30 @@ class RelationshipParent(BaseNameMixin, db.Model):
 
     children_list = db.relationship(RelationshipChild, backref='parent')
     children_set = db.relationship(RelationshipChild, collection_class=set)
-    children_dict_attr = db.relationship(RelationshipChild,
-        collection_class=attribute_mapped_collection('name'))
-    children_dict_column = db.relationship(RelationshipChild,
-        collection_class=column_mapped_collection(RelationshipChild.name))
+    children_dict_attr = db.relationship(
+        RelationshipChild, collection_class=attribute_mapped_collection('name')
+    )
+    children_dict_column = db.relationship(
+        RelationshipChild,
+        collection_class=column_mapped_collection(RelationshipChild.name),
+    )
 
     __roles__ = {
         'all': {
-            'read': {'name', 'title', 'children_list', 'children_set',
-                'children_dict_attr', 'children_dict_column'},
+            'read': {
+                'name',
+                'title',
+                'children_list',
+                'children_set',
+                'children_dict_attr',
+                'children_dict_column',
             }
         }
+    }
 
 
 # --- Tests -------------------------------------------------------------------
+
 
 class TestCoasterRoles(unittest.TestCase):
     app = app
@@ -171,32 +174,45 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_role_dict(self):
         """Roles may be declared multiple ways and they all work"""
-        self.assertEqual(RoleModel.__roles__, {
-            'all': {
-                'call': {'hello', },
-                'read': {'id', 'name', 'title', 'mixed_in2'},
+        self.assertEqual(
+            RoleModel.__roles__,
+            {
+                'all': {
+                    'call': {'hello'},
+                    'read': {'id', 'name', 'title', 'mixed_in2'},
                 },
-            'editor': {
-                'read': {'mixed_in2'},
-                'write': {'title', 'mixed_in2'},
+                'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
+                'owner': {
+                    'read': {
+                        'name',
+                        'defval',
+                        'mixed_in1',
+                        'mixed_in2',
+                        'mixed_in3',
+                        'mixed_in4',
+                    },
+                    'write': {
+                        'name',
+                        'title',
+                        'defval',
+                        'mixed_in1',
+                        'mixed_in2',
+                        'mixed_in3',
+                        'mixed_in4',
+                    },
                 },
-            'owner': {
-                'read': {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
-                'write': {'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
-                },
-            })
+            },
+        )
 
     def test_autorole_dict(self):
         """A model without __roles__, using only with_roles, also works as expected"""
-        self.assertEqual(AutoRoleModel.__roles__, {
-            'all': {
-                'read': {'id', 'name'},
-                },
-            'owner': {
-                'read': {'name'},
-                'write': {'name'},
-                },
-            })
+        self.assertEqual(
+            AutoRoleModel.__roles__,
+            {
+                'all': {'read': {'id', 'name'}},
+                'owner': {'read': {'name'}, 'write': {'name'}},
+            },
+        )
 
     def test_basemixin_roles(self):
         """A model with BaseMixin by default exposes nothing to the 'all' role"""
@@ -204,7 +220,9 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_uuidmixin_roles(self):
         """A model with UuidMixin provides 'all' read access to uuid, huuid, buid and suuid"""
-        self.assertLessEqual({'uuid', 'huuid', 'buid', 'suuid'}, UuidModel.__roles__['all']['read'])
+        self.assertLessEqual(
+            {'uuid', 'huuid', 'buid', 'suuid'}, UuidModel.__roles__['all']['read']
+        )
 
     def test_roles_for_anon(self):
         """An anonymous actor should have 'all' and 'anon' roles"""
@@ -277,9 +295,23 @@ class TestCoasterRoles(unittest.TestCase):
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
         self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2'})
-        self.assertEqual(set(proxy2), {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
-        self.assertEqual(set(proxy3),
-            {'id', 'name', 'title', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'})
+        self.assertEqual(
+            set(proxy2),
+            {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
+        )
+        self.assertEqual(
+            set(proxy3),
+            {
+                'id',
+                'name',
+                'title',
+                'defval',
+                'mixed_in1',
+                'mixed_in2',
+                'mixed_in3',
+                'mixed_in4',
+            },
+        )
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
@@ -326,13 +358,14 @@ class TestCoasterRoles(unittest.TestCase):
         """A proxy can be compared with a dictionary"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'all'})
-        self.assertEqual(proxy,
-            {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
-            )
+        self.assertEqual(
+            proxy, {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
+        )
 
     def test_bad_decorator(self):
         """Prevent with_roles from being used with a positional parameter"""
         with self.assertRaises(TypeError):
+
             @with_roles({'all'})
             def f():
                 pass

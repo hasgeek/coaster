@@ -86,8 +86,15 @@ def return_siteadmin_perms():
 
 # --- load_models decorators --------------------------------------------------
 
-@load_model(Container, {'name': 'container'}, 'container', permission='siteadmin',
-        kwargs=True, addlperms=return_siteadmin_perms)
+
+@load_model(
+    Container,
+    {'name': 'container'},
+    'container',
+    permission='siteadmin',
+    kwargs=True,
+    addlperms=return_siteadmin_perms,
+)
 def t_container(container, kwargs):
     return container
 
@@ -97,32 +104,35 @@ def t_load_user_to_g(user):
     return user
 
 
-@load_models(
-    (User, {'username': 'username'}, 'g.user'))
+@load_models((User, {'username': 'username'}, 'g.user'))
 def t_single_model_in_loadmodels(user):
     return user
 
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (NamedDocument, {'name': 'document', 'container': 'container'}, 'document')
-    )
+    (NamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
+)
 def t_named_document(container, document):
     return document
 
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    ((NamedDocument, RedirectDocument), {'name': 'document', 'container': 'container'}, 'document')
-    )
+    (
+        (NamedDocument, RedirectDocument),
+        {'name': 'document', 'container': 'container'},
+        'document',
+    ),
+)
 def t_redirect_document(container, document):
     return document
 
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document')
-    )
+    (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
+)
 def t_scoped_named_document(container, document):
     return document
 
@@ -130,41 +140,49 @@ def t_scoped_named_document(container, document):
 @load_models(
     (Container, {'name': 'container'}, 'container'),
     (IdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
-    urlcheck=['url_name']
-    )
+    urlcheck=['url_name'],
+)
 def t_id_named_document(container, document):
     return document
 
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document')
-    )
+    (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document'),
+)
 def t_scoped_id_document(container, document):
     return document
 
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (ScopedIdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
+    (
+        ScopedIdNamedDocument,
+        {'url_name': 'document', 'container': 'container'},
+        'document',
+    ),
     urlcheck=['url_name'],
-    )
+)
 def t_scoped_id_named_document(container, document):
     return document
 
 
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
-    (ChildDocument, {'id': 'child', 'parent': lambda r, p: r['document'].middle}, 'child')
-    )
+    (
+        ChildDocument,
+        {'id': 'child', 'parent': lambda r, p: r['document'].middle},
+        'child',
+    ),
+)
 def t_callable_document(document, child):
     return child
 
 
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
-    (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child')
-    )
+    (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
+)
 def t_dotted_document(document, child):
     return child
 
@@ -172,8 +190,8 @@ def t_dotted_document(document, child):
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
-    permission='view'
-    )
+    permission='view',
+)
 def t_dotted_document_view(document, child):
     return child
 
@@ -181,8 +199,8 @@ def t_dotted_document_view(document, child):
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
-    permission='edit'
-    )
+    permission='edit',
+)
 def t_dotted_document_edit(document, child):
     return child
 
@@ -190,13 +208,14 @@ def t_dotted_document_edit(document, child):
 @load_models(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
-    permission='delete'
-    )
+    permission='delete',
+)
 def t_dotted_document_delete(document, child):
     return child
 
 
 # --- Tests -------------------------------------------------------------------
+
 
 class TestLoadModels(unittest.TestCase):
     app = app1
@@ -216,13 +235,17 @@ class TestLoadModels(unittest.TestCase):
         self.nd2 = NamedDocument(container=c, title=u"Another Named Document")
         self.session.add(self.nd2)
         self.session.commit()
-        self.rd1 = RedirectDocument(container=c, title=u"Redirect Document", target=self.nd1)
+        self.rd1 = RedirectDocument(
+            container=c, title=u"Redirect Document", target=self.nd1
+        )
         self.session.add(self.rd1)
         self.session.commit()
         self.snd1 = ScopedNamedDocument(container=c, title=u"Scoped Named Document")
         self.session.add(self.snd1)
         self.session.commit()
-        self.snd2 = ScopedNamedDocument(container=c, title=u"Another Scoped Named Document")
+        self.snd2 = ScopedNamedDocument(
+            container=c, title=u"Another Scoped Named Document"
+        )
         self.session.add(self.snd2)
         self.session.commit()
         self.ind1 = IdNamedDocument(container=c, title=u"Id Named Document")
@@ -237,10 +260,14 @@ class TestLoadModels(unittest.TestCase):
         self.sid2 = ScopedIdDocument(container=c)
         self.session.add(self.sid2)
         self.session.commit()
-        self.sind1 = ScopedIdNamedDocument(container=c, title=u"Scoped Id Named Document")
+        self.sind1 = ScopedIdNamedDocument(
+            container=c, title=u"Scoped Id Named Document"
+        )
         self.session.add(self.sind1)
         self.session.commit()
-        self.sind2 = ScopedIdNamedDocument(container=c, title=u"Another Scoped Id Named Document")
+        self.sind2 = ScopedIdNamedDocument(
+            container=c, title=u"Another Scoped Id Named Document"
+        )
         self.session.add(self.sind2)
         self.session.commit()
         self.pc = ParentDocument(title=u"Parent")
@@ -253,7 +280,9 @@ class TestLoadModels(unittest.TestCase):
         self.session.add(self.child2)
         self.session.commit()
         self.app = Flask(__name__)
-        self.app.add_url_rule('/<container>/<document>', 'redirect_document', t_redirect_document)
+        self.app.add_url_rule(
+            '/<container>/<document>', 'redirect_document', t_redirect_document
+        )
 
     def tearDown(self):
         self.session.rollback()
@@ -266,30 +295,63 @@ class TestLoadModels(unittest.TestCase):
             self.assertEqual(t_container(container=u'c'), self.container)
 
     def test_named_document(self):
-        self.assertEqual(t_named_document(container=u'c', document=u'named-document'), self.nd1)
-        self.assertEqual(t_named_document(container=u'c', document=u'another-named-document'), self.nd2)
+        self.assertEqual(
+            t_named_document(container=u'c', document=u'named-document'), self.nd1
+        )
+        self.assertEqual(
+            t_named_document(container=u'c', document=u'another-named-document'),
+            self.nd2,
+        )
 
     def test_redirect_document(self):
         with self.app.test_request_context('/c/named-document'):
-            self.assertEqual(t_redirect_document(container=u'c', document=u'named-document'), self.nd1)
+            self.assertEqual(
+                t_redirect_document(container=u'c', document=u'named-document'),
+                self.nd1,
+            )
         with self.app.test_request_context('/c/another-named-document'):
-            self.assertEqual(t_redirect_document(container=u'c', document=u'another-named-document'), self.nd2)
+            self.assertEqual(
+                t_redirect_document(container=u'c', document=u'another-named-document'),
+                self.nd2,
+            )
         with self.app.test_request_context('/c/redirect-document'):
-            response = t_redirect_document(container=u'c', document=u'redirect-document')
+            response = t_redirect_document(
+                container=u'c', document=u'redirect-document'
+            )
             self.assertEqual(response.status_code, 307)
             self.assertEqual(response.headers['Location'], '/c/named-document')
         with self.app.test_request_context('/c/redirect-document?preserve=this'):
-            response = t_redirect_document(container=u'c', document=u'redirect-document')
+            response = t_redirect_document(
+                container=u'c', document=u'redirect-document'
+            )
             self.assertEqual(response.status_code, 307)
-            self.assertEqual(response.headers['Location'], '/c/named-document?preserve=this')
+            self.assertEqual(
+                response.headers['Location'], '/c/named-document?preserve=this'
+            )
 
     def test_scoped_named_document(self):
-        self.assertEqual(t_scoped_named_document(container=u'c', document=u'scoped-named-document'), self.snd1)
-        self.assertEqual(t_scoped_named_document(container=u'c', document=u'another-scoped-named-document'), self.snd2)
+        self.assertEqual(
+            t_scoped_named_document(container=u'c', document=u'scoped-named-document'),
+            self.snd1,
+        )
+        self.assertEqual(
+            t_scoped_named_document(
+                container=u'c', document=u'another-scoped-named-document'
+            ),
+            self.snd2,
+        )
 
     def test_id_named_document(self):
-        self.assertEqual(t_id_named_document(container=u'c', document=u'1-id-named-document'), self.ind1)
-        self.assertEqual(t_id_named_document(container=u'c', document=u'2-another-id-named-document'), self.ind2)
+        self.assertEqual(
+            t_id_named_document(container=u'c', document=u'1-id-named-document'),
+            self.ind1,
+        )
+        self.assertEqual(
+            t_id_named_document(
+                container=u'c', document=u'2-another-id-named-document'
+            ),
+            self.ind2,
+        )
         with self.app.test_request_context('/c/1-wrong-name'):
             r = t_id_named_document(container=u'c', document=u'1-wrong-name')
             self.assertEqual(r.status_code, 302)
@@ -298,7 +360,12 @@ class TestLoadModels(unittest.TestCase):
             r = t_id_named_document(container=u'c', document=u'1-wrong-name')
             self.assertEqual(r.status_code, 302)
             self.assertEqual(r.location, '/c/1-id-named-document?preserve=this')
-        self.assertRaises(NotFound, t_id_named_document, container=u'c', document=u'random-non-integer')
+        self.assertRaises(
+            NotFound,
+            t_id_named_document,
+            container=u'c',
+            document=u'random-non-integer',
+        )
 
     def test_scoped_id_document(self):
         self.assertEqual(t_scoped_id_document(container=u'c', document=u'1'), self.sid1)
@@ -307,13 +374,28 @@ class TestLoadModels(unittest.TestCase):
         self.assertEqual(t_scoped_id_document(container=u'c', document=2), self.sid2)
 
     def test_scoped_id_named_document(self):
-        self.assertEqual(t_scoped_id_named_document(container=u'c', document=u'1-scoped-id-named-document'), self.sind1)
-        self.assertEqual(t_scoped_id_named_document(container=u'c', document=u'2-another-scoped-id-named-document'), self.sind2)
+        self.assertEqual(
+            t_scoped_id_named_document(
+                container=u'c', document=u'1-scoped-id-named-document'
+            ),
+            self.sind1,
+        )
+        self.assertEqual(
+            t_scoped_id_named_document(
+                container=u'c', document=u'2-another-scoped-id-named-document'
+            ),
+            self.sind2,
+        )
         with self.app.test_request_context('/c/1-wrong-name'):
             r = t_scoped_id_named_document(container=u'c', document=u'1-wrong-name')
             self.assertEqual(r.status_code, 302)
             self.assertEqual(r.location, '/c/1-scoped-id-named-document')
-        self.assertRaises(NotFound, t_scoped_id_named_document, container=u'c', document=u'random-non-integer')
+        self.assertRaises(
+            NotFound,
+            t_scoped_id_named_document,
+            container=u'c',
+            document=u'random-non-integer',
+        )
 
     def test_callable_document(self):
         self.assertEqual(t_callable_document(document=u'parent', child=1), self.child1)
@@ -328,26 +410,42 @@ class TestLoadModels(unittest.TestCase):
         user2 = User(username='bar')
         self.assertEqual(self.pc.permissions(user1), {'view', 'edit', 'delete'})
         self.assertEqual(self.pc.permissions(user2), {'view'})
-        self.assertEqual(self.child1.permissions(user1, inherited=self.pc.permissions(user1)), {'view', 'edit'})
-        self.assertEqual(self.child1.permissions(user2, inherited=self.pc.permissions(user2)), {'view'})
+        self.assertEqual(
+            self.child1.permissions(user1, inherited=self.pc.permissions(user1)),
+            {'view', 'edit'},
+        )
+        self.assertEqual(
+            self.child1.permissions(user2, inherited=self.pc.permissions(user2)),
+            {'view'},
+        )
 
     def test_inherited_permissions(self):
         user = User(username='admin')
-        self.assertEqual(self.pc.permissions(user, inherited={'add-video'}), {'add-video', 'view'})
+        self.assertEqual(
+            self.pc.permissions(user, inherited={'add-video'}), {'add-video', 'view'}
+        )
 
     def test_unmutated_inherited_permissions(self):
         """The inherited permission set should not be mutated by a permission check"""
         user = User(username='admin')
         inherited = {'add-video'}
-        self.assertEqual(self.pc.permissions(user, inherited=inherited), {'add-video', 'view'})
+        self.assertEqual(
+            self.pc.permissions(user, inherited=inherited), {'add-video', 'view'}
+        )
         self.assertEqual(inherited, {'add-video'})
 
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():
             login_manager.set_user_for_testing(User(username='foo'), load=True)
-            self.assertEqual(t_dotted_document_view(document=u'parent', child=1), self.child1)
-            self.assertEqual(t_dotted_document_edit(document=u'parent', child=1), self.child1)
-            self.assertRaises(Forbidden, t_dotted_document_delete, document=u'parent', child=1)
+            self.assertEqual(
+                t_dotted_document_view(document=u'parent', child=1), self.child1
+            )
+            self.assertEqual(
+                t_dotted_document_edit(document=u'parent', child=1), self.child1
+            )
+            self.assertRaises(
+                Forbidden, t_dotted_document_delete, document=u'parent', child=1
+            )
 
     def test_load_user_to_g(self):
         with self.app.test_request_context():

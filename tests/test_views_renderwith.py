@@ -34,38 +34,44 @@ def myview():
 
 
 @app.route('/renderedview2')
-@render_with({
-    'text/html': 'renderedview2.html',
-    'text/xml': 'renderedview2.xml',
-    'text/plain': viewcallable}, jsonp=True)
+@render_with(
+    {
+        'text/html': 'renderedview2.html',
+        'text/xml': 'renderedview2.xml',
+        'text/plain': viewcallable,
+    },
+    jsonp=True,
+)
 def otherview():
     return {'data': 'value'}, 201
 
 
 @app.route('/renderedview3')
-@render_with({
-    'text/html': 'renderedview2.html',
-    'text/xml': 'renderedview2.xml',
-    'text/plain': viewcallable})
+@render_with(
+    {
+        'text/html': 'renderedview2.html',
+        'text/xml': 'renderedview2.xml',
+        'text/plain': viewcallable,
+    }
+)
 def onemoreview():
-    return {'data': 'value'},
+    return ({'data': 'value'},)
 
 
 @app.route('/renderedview4')
-@render_with({
-    'text/plain': viewcallable})
+@render_with({'text/plain': viewcallable})
 def view_for_text():
     return {'data': 'value'}, 201, {'Referrer': 'http://example.com'}
 
 
 @app.route('/renderedview5')
-@render_with({
-    'text/plain': returns_string})
+@render_with({'text/plain': returns_string})
 def view_for_star():
     return {'data': 'value'}, 201
 
 
 # --- Tests -------------------------------------------------------------------
+
 
 class TestLoadModels(unittest.TestCase):
     def setUp(self):
@@ -88,9 +94,13 @@ class TestLoadModels(unittest.TestCase):
             raise Exception("Wrong template rendered")
 
         for acceptheader, template in [
-                ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
-                ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml'),
-                ('Text/Html,Application/Xhtml Xml,Application/Xml;Q=0.9,*/*;Q=0.8', 'renderedview2.html')]:
+            ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
+            ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml'),
+            (
+                'Text/Html,Application/Xhtml Xml,Application/Xml;Q=0.9,*/*;Q=0.8',
+                'renderedview2.html',
+            ),
+        ]:
             try:
                 self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
             except TemplateNotFound as e:
@@ -100,13 +110,18 @@ class TestLoadModels(unittest.TestCase):
 
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.
-        response = self.app.get('/renderedview2', headers=[('Accept', 'application/json')])
+        response = self.app.get(
+            '/renderedview2', headers=[('Accept', 'application/json')]
+        )
         assert isinstance(response, Response)
         with app.test_request_context():  # jsonp requires a request context
             self.assertEqual(response.data, jsonp({"data": "value"}).data)
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
-        self.assertEqual(response.data.decode('utf-8') if six.PY3 else response.data, "{'data': 'value'}")
+        self.assertEqual(
+            response.data.decode('utf-8') if six.PY3 else response.data,
+            "{'data': 'value'}",
+        )
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])

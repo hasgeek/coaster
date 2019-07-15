@@ -236,36 +236,51 @@ from ..signals import coaster_signals
 from ..utils import NameTitle, is_collection
 from .roles import RoleMixin
 
-__all__ = ['StateManager', 'ManagedState', 'ManagedStateGroup', 'StateTransition',
-    'StateManagerWrapper', 'ManagedStateWrapper', 'StateTransitionWrapper',
-    'StateTransitionError', 'AbortTransition',
-    'transition_error', 'transition_before', 'transition_after', 'transition_exception']
+__all__ = [
+    'StateManager',
+    'ManagedState',
+    'ManagedStateGroup',
+    'StateTransition',
+    'StateManagerWrapper',
+    'ManagedStateWrapper',
+    'StateTransitionWrapper',
+    'StateTransitionError',
+    'AbortTransition',
+    'transition_error',
+    'transition_before',
+    'transition_after',
+    'transition_exception',
+]
 
 
 # --- Signals -----------------------------------------------------------------
 
 #: Signal raised when a transition fails validation
-transition_error = coaster_signals.signal('transition-error',
-    doc="Signal raised when a transition fails validation")
+transition_error = coaster_signals.signal(
+    'transition-error', doc="Signal raised when a transition fails validation"
+)
 
 #: Signal raised before a transition (after validation)
-transition_before = coaster_signals.signal('transition-before',
-    doc="Signal raised before a transition (after validation)")
+transition_before = coaster_signals.signal(
+    'transition-before', doc="Signal raised before a transition (after validation)"
+)
 
 #: Signal raised after a successful transition
-transition_after = coaster_signals.signal('transition-after',
-    doc="Signal raised after a successful transition")
+transition_after = coaster_signals.signal(
+    'transition-after', doc="Signal raised after a successful transition"
+)
 
 #: Signal raised when a transition raises an exception
-transition_exception = coaster_signals.signal('transition-exception',
-    doc="Signal raised when a transition raises an exception")
+transition_exception = coaster_signals.signal(
+    'transition-exception', doc="Signal raised when a transition raises an exception"
+)
 
 
 # --- Exceptions --------------------------------------------------------------
 
+
 class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state"""
-    pass
 
 
 class AbortTransition(Exception):
@@ -279,19 +294,30 @@ class AbortTransition(Exception):
 
     :param result: Value to return to the transition's caller
     """
+
     def __init__(self, result=None):
         super(AbortTransition, self).__init__(result)
 
 
 # --- Classes -----------------------------------------------------------------
 
+
 class ManagedState(object):
     """
     Represents a state managed by a :class:`StateManager`. Do not use this
     class directly. Use :meth:`~StateManager.add_conditional_state` instead.
     """
-    def __init__(self, name, statemanager, value, label=None,
-            validator=None, class_validator=None, cache_for=None):
+
+    def __init__(
+        self,
+        name,
+        statemanager,
+        value,
+        label=None,
+        validator=None,
+        class_validator=None,
+        cache_for=None,
+    ):
         self.name = name
         self.statemanager = statemanager
         self.value = value
@@ -354,6 +380,7 @@ class ManagedStateGroup(object):
     Represents a group of managed states in a :class:`StateManager`. Do not use
     this class directly. Use :meth:`~StateManager.add_state_group` instead.
     """
+
     def __init__(self, name, statemanager, states):
         self.name = name
         self.statemanager = statemanager
@@ -361,8 +388,13 @@ class ManagedStateGroup(object):
 
         # First, ensure all provided states are StateManager instances and associated with the state manager
         for state in states:
-            if not isinstance(state, ManagedState) or state.statemanager != statemanager:
-                raise ValueError("Invalid state %s for state group %s" % (repr(state), repr(self)))
+            if (
+                not isinstance(state, ManagedState)
+                or state.statemanager != statemanager
+            ):
+                raise ValueError(
+                    "Invalid state %s for state group %s" % (repr(state), repr(self))
+                )
 
         # Second, separate conditional from regular states (regular states may still be grouped states)
         regular_states = [s for s in states if not s.is_conditional]
@@ -381,9 +413,14 @@ class ManagedStateGroup(object):
         # regular state. This is an error as the condition will never be tested
         for state in conditional_states:
             # Prevent grouping of conditional states with their original states
-            state_values = set(state.value if is_collection(state.value) else [state.value])
+            state_values = set(
+                state.value if is_collection(state.value) else [state.value]
+            )
             if state_values & values:  # They overlap
-                raise ValueError("The value for state %s is already in this state group" % repr(state))
+                raise ValueError(
+                    "The value for state %s is already in this state group"
+                    % repr(state)
+                )
             self.states.append(state)
             values.update(state_values)
 
@@ -410,6 +447,7 @@ class ManagedStateWrapper(object):
 
     This class is automatically constructed by :class:`StateManager`.
     """
+
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
             raise TypeError("Parameter is not a managed state: %s" % repr(mstate))
@@ -427,10 +465,12 @@ class ManagedStateWrapper(object):
         return getattr(self._mstate, attr)
 
     def __eq__(self, other):
-        return (isinstance(other, ManagedStateWrapper)
+        return (
+            isinstance(other, ManagedStateWrapper)
             and self._mstate == other._mstate
             and self._obj == other._obj
-            and self._cls == other._cls)
+            and self._cls == other._cls
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -449,6 +489,7 @@ class StateTransition(object):
 
     To access the decorated function with ``help()``, use ``help(obj.func)``.
     """
+
     def __init__(self, func, statemanager, from_, to, if_=None, data=None):
         self.func = func
         functools.update_wrapper(self, func)
@@ -465,17 +506,29 @@ class StateTransition(object):
     def add_transition(self, statemanager, from_, to, if_=None, data=None):
         if statemanager in self.transitions:
             raise StateTransitionError("Duplicate transition decorator")
-        if from_ is not None and not isinstance(from_, (ManagedState, ManagedStateGroup)):
-            raise StateTransitionError("From state is not a managed state: %s" % repr(from_))
+        if from_ is not None and not isinstance(
+            from_, (ManagedState, ManagedStateGroup)
+        ):
+            raise StateTransitionError(
+                "From state is not a managed state: %s" % repr(from_)
+            )
         if from_ and from_.statemanager != statemanager:
-            raise StateTransitionError("From state is not managed by this state manager: %s" % repr(from_))
+            raise StateTransitionError(
+                "From state is not managed by this state manager: %s" % repr(from_)
+            )
         if to is not None:
             if not isinstance(to, ManagedState):
-                raise StateTransitionError("To state is not a managed state: %s" % repr(to))
+                raise StateTransitionError(
+                    "To state is not a managed state: %s" % repr(to)
+                )
             if to.statemanager != statemanager:
-                raise StateTransitionError("To state is not managed by this state manager: %s" % repr(to))
+                raise StateTransitionError(
+                    "To state is not managed by this state manager: %s" % repr(to)
+                )
             if not to.is_direct:
-                raise StateTransitionError("To state must be a direct state: %s" % repr(to))
+                raise StateTransitionError(
+                    "To state must be a direct state: %s" % repr(to)
+                )
         if data:
             if 'name' in data:
                 raise TypeError("Invalid transition data parameter 'name'")
@@ -507,9 +560,9 @@ class StateTransition(object):
 
         self.transitions[statemanager] = {
             'from': state_values,  # Dict of scalar_value: ManagedState
-            'to': to,              # ManagedState (is_direct) of new state
-            'if': if_,             # Additional conditions that must ALL pass
-            }
+            'to': to,  # ManagedState (is_direct) of new state
+            'if': if_,  # Additional conditions that must ALL pass
+        }
 
     def __set_name__(self, owner, name):  # pragma: no cover
         self.name = name
@@ -528,6 +581,7 @@ class StateTransitionWrapper(object):
     Wraps :class:`StateTransition` with the context of the object it is
     accessed from. Automatically constructed by :class:`StateTransition`.
     """
+
     def __init__(self, statetransition, obj):
         self.statetransition = statetransition
         self.obj = obj
@@ -556,7 +610,11 @@ class StateTransitionWrapper(object):
             if state_valid and conditions['if']:
                 state_valid = all(v(self.obj) for v in conditions['if'])
             if not state_valid:
-                return statemanager, current_state, statemanager.lenum.get(current_state)
+                return (
+                    statemanager,
+                    current_state,
+                    statemanager.lenum.get(current_state),
+                )
 
     @property
     def is_available(self):
@@ -573,7 +631,9 @@ class StateTransitionWrapper(object):
         # Validate that each of the state managers is in the correct state
         state_invalid = self._state_invalid()
         if state_invalid:
-            transition_error.send(self.obj, transition=self.statetransition, statemanager=state_invalid[0])
+            transition_error.send(
+                self.obj, transition=self.statetransition, statemanager=state_invalid[0]
+            )
             label = state_invalid[2]
             if isinstance(label, NameTitle):
                 label = label.title
@@ -581,8 +641,9 @@ class StateTransitionWrapper(object):
                 u"Invalid state for transition {transition}: {state} = {label}".format(
                     transition=self.statetransition.name,
                     state=repr(state_invalid[0]),
-                    label=label
-                    ))
+                    label=label,
+                )
+            )
 
         # Send a transition-before signal
         transition_before.send(self.obj, transition=self.statetransition)
@@ -590,15 +651,21 @@ class StateTransitionWrapper(object):
         try:
             result = self.statetransition.func(self.obj, *args, **kwargs)
         except AbortTransition as e:
-            transition_exception.send(self.obj, transition=self.statetransition, exception=e)
+            transition_exception.send(
+                self.obj, transition=self.statetransition, exception=e
+            )
             return e.args[0]
         except Exception as e:
-            transition_exception.send(self.obj, transition=self.statetransition, exception=e)
+            transition_exception.send(
+                self.obj, transition=self.statetransition, exception=e
+            )
             raise
 
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
-            if conditions['to'] is not None:  # Allow to=None for the @requires decorator
+            if (
+                conditions['to'] is not None
+            ):  # Allow to=None for the @requires decorator
                 statemanager._set(self.obj, conditions['to'].value)  # Change state
         # Send a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
@@ -616,6 +683,7 @@ class StateManager(object):
     :param LabeledEnum lenum: The :class:`~coaster.utils.classes.LabeledEnum` containing valid values
     :param str doc: Optional docstring
     """
+
     def __init__(self, propname, lenum, doc=None):
         self.owner = None  # Depend on __set_name__ or __get__ to correct
         self.propname = propname
@@ -623,8 +691,12 @@ class StateManager(object):
         self.lenum = lenum
         self.__doc__ = doc
         self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
-        self.states_by_value = OrderedDict()  # value: ManagedState (no conditional states or groups)
-        self.all_states_by_value = OrderedDict()  # Same, but as a list including conditional states
+        self.states_by_value = (
+            OrderedDict()
+        )  # value: ManagedState (no conditional states or groups)
+        self.all_states_by_value = (
+            OrderedDict()
+        )  # Same, but as a list including conditional states
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a ManagedState.
@@ -632,9 +704,12 @@ class StateManager(object):
         # is more efficient at testing whether a value is in a group: it uses the `in` operator
         # while ManagedStateGroup does `any(s() for s in states)`.
         for state_name, value in lenum.__names__.items():
-            self._add_state_internal(state_name, value,
+            self._add_state_internal(
+                state_name,
+                value,
                 # Grouped states are represented as sets and can't have labels, so be careful about those
-                label=lenum[value] if not isinstance(value, (list, set)) else None)
+                label=lenum[value] if not isinstance(value, (list, set)) else None,
+            )
 
     # Python 3.6+
     def __set_name__(self, owner, name):  # pragma: no cover
@@ -671,14 +746,30 @@ class StateManager(object):
 
         type(obj).__dict__[self.propname].__set__(obj, value)
 
-    def _add_state_internal(self, name, value, label=None,
-            validator=None, class_validator=None, cache_for=None):
+    def _add_state_internal(
+        self,
+        name,
+        value,
+        label=None,
+        validator=None,
+        class_validator=None,
+        cache_for=None,
+    ):
         # Also see `add_state_group` for similar code
         if hasattr(self, name):  # Don't clobber self with a state name
             raise AttributeError(
-                "State name %s conflicts with existing attribute in the state manager" % name)
-        mstate = ManagedState(name=name, statemanager=self, value=value, label=label,
-            validator=validator, class_validator=class_validator, cache_for=cache_for)
+                "State name %s conflicts with existing attribute in the state manager"
+                % name
+            )
+        mstate = ManagedState(
+            name=name,
+            statemanager=self,
+            value=value,
+            label=label,
+            validator=validator,
+            class_validator=class_validator,
+            cache_for=cache_for,
+        )
         # XXX: Since mstate.statemanager == self, the following assignments setup looping
         # references and could cause a memory leak if the statemanager is ever deleted. We
         # depend on it being permanent for the lifetime of the process in typical use (or
@@ -690,7 +781,9 @@ class StateManager(object):
             self.all_states_by_value.setdefault(value, []).insert(0, mstate)
         # Make the ManagedState available as `statemanager.STATE` (assuming original was uppercased)
         setattr(self, name, mstate)
-        setattr(self, 'is_' + name.lower(), mstate)  # Also make available as `statemanager.is_state`
+        setattr(
+            self, 'is_' + name.lower(), mstate
+        )  # Also make available as `statemanager.is_state`
 
     def add_state_group(self, name, *states):
         """
@@ -705,13 +798,17 @@ class StateManager(object):
         # See `_add_state_internal` for explanation of the following
         if hasattr(self, name):
             raise AttributeError(
-                "State group name %s conflicts with existing attribute in the state manager" % name)
+                "State group name %s conflicts with existing attribute in the state manager"
+                % name
+            )
         mstate = ManagedStateGroup(name, self, states)
         self.states[name] = mstate
         setattr(self, name, mstate)
         setattr(self, 'is_' + name.lower(), mstate)
 
-    def add_conditional_state(self, name, state, validator, class_validator=None, cache_for=None, label=None):
+    def add_conditional_state(
+        self, name, state, validator, class_validator=None, cache_for=None, label=None
+    ):
         """
         Add a conditional state that combines an existing state with a validator
         that must also pass. The validator receives the object on which the property
@@ -736,11 +833,19 @@ class StateManager(object):
         if not isinstance(state, ManagedState):
             raise TypeError("Not a managed state: %s" % repr(state))
         elif state.statemanager != self:
-            raise ValueError("State %s is not associated with this state manager" % repr(state))
+            raise ValueError(
+                "State %s is not associated with this state manager" % repr(state)
+            )
         if isinstance(label, tuple) and len(label) == 2:
             label = NameTitle(*label)
-        self._add_state_internal(name, state.value, label=label,
-            validator=validator, class_validator=class_validator, cache_for=cache_for)
+        self._add_state_internal(
+            name,
+            state.value,
+            label=label,
+            validator=validator,
+            class_validator=class_validator,
+            cache_for=cache_for,
+        )
 
     def transition(self, from_, to, if_=None, **data):
         """
@@ -756,6 +861,7 @@ class StateManager(object):
         :param if_: Validator(s) that, given the object, must all return True for the transition to proceed
         :param data: Additional metadata, stored on the `StateTransition` object as a :attr:`data` attribute
         """
+
         def decorator(f):
             if isinstance(f, StateTransition):
                 f.add_transition(self, from_, to, if_, data)
@@ -805,8 +911,13 @@ class StateManager(object):
         :param kwargs: Additional options passed to CheckConstraint
         """
         return CheckConstraint(
-            str(column_constructor(column).in_(lenum.keys()).compile(compile_kwargs={'literal_binds': True})),
-            **kwargs)
+            str(
+                column_constructor(column)
+                .in_(lenum.keys())
+                .compile(compile_kwargs={'literal_binds': True})
+            ),
+            **kwargs
+        )
 
 
 class StateManagerWrapper(object):
@@ -818,11 +929,16 @@ class StateManagerWrapper(object):
 
     def __init__(self, statemanager, obj, cls):
         self.statemanager = statemanager  # StateManager
-        self.obj = obj  # Instance we're being called on, None if called on the class instead
+        self.obj = (
+            obj  # Instance we're being called on, None if called on the class instead
+        )
         self.cls = cls  # The class of the instance we're being called on
 
     def __repr__(self):
-        return '<StateManagerWrapper(%s.%s)>' % (type(self.obj).__name__, self.statemanager.name)
+        return '<StateManagerWrapper(%s.%s)>' % (
+            type(self.obj).__name__,
+            self.statemanager.name,
+        )
 
     @property
     def value(self):
@@ -850,9 +966,11 @@ class StateManagerWrapper(object):
         All states and state groups that are currently active.
         """
         if self.obj is not None:
-            return {name: mstate(self.obj, self.cls)
+            return {
+                name: mstate(self.obj, self.cls)
                 for name, mstate in self.statemanager.states.items()
-                if mstate(self.obj, self.cls)}
+                if mstate(self.obj, self.cls)
+            }
 
     def transitions(self, current=True):
         """
@@ -867,10 +985,13 @@ class StateManagerWrapper(object):
         else:
             proxy = {}
             current = False  # In case the host object is not a RoleMixin
-        return OrderedDict((name, transition) for name, transition in
+        return OrderedDict(
+            (name, transition)
+            for name, transition in
             # Retrieve transitions from the host object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
-            if transition.is_available and (name in proxy if current else True))
+            if transition.is_available and (name in proxy if current else True)
+        )
 
     def transitions_for(self, roles=None, actor=None, anchors=[]):
         """
@@ -879,8 +1000,11 @@ class StateManagerWrapper(object):
         roles or actor as a dictionary of name: :class:`StateTransitionWrapper`.
         """
         proxy = self.obj.access_for(roles, actor, anchors)
-        return {name: transition for name, transition in self.transitions(current=False).items()
-            if name in proxy}
+        return {
+            name: transition
+            for name, transition in self.transitions(current=False).items()
+            if name in proxy
+        }
 
     def group(self, items, keep_empty=False):
         """
@@ -890,7 +1014,9 @@ class StateManagerWrapper(object):
 
         :param bool keep_empty: If ``True``, empty states are included in the result
         """
-        cls = self.cls if self.cls is not None else type(self.obj)  # Class of the item being managed
+        cls = (
+            self.cls if self.cls is not None else type(self.obj)
+        )  # Class of the item being managed
         groups = OrderedDict()
         for mstate in self.statemanager.states_by_value.values():
             # Ensure we sort groups using the order of states in the source LabeledEnum.
@@ -900,7 +1026,10 @@ class StateManagerWrapper(object):
         for item in items:
             # Use isinstance instead of `type(item) != cls` to account for subclasses
             if not isinstance(item, cls):
-                raise TypeError("Item %s is not an instance of type %s" % (repr(item), repr(self.cls)))
+                raise TypeError(
+                    "Item %s is not an instance of type %s"
+                    % (repr(item), repr(self.cls))
+                )
             statevalue = self.statemanager._value(item)
             mstate = self.statemanager.states_by_value[statevalue]
             groups[mstate].append(item)
