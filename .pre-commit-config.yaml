@@ -1,0 +1,29 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.6.2
+    hooks:
+      - id: bandit
+        args: ["--ini", "setup.cfg"]
+        files: coaster/.*\.py$
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.2.3
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: flake8
+        additional_dependencies:
+          - toml
+          - flake8-assertive
+          - flake8-bandit
+          - flake8-blind-except
+          - flake8-builtins
+          - flake8-coding
+          - flake8-comprehensions
+          - flake8-isort
+          - flake8-logging-format
+          - flake8-mutable
+          - pep8-naming
