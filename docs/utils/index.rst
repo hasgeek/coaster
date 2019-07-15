@@ -1,5 +1,5 @@
 .. automodule:: coaster.utils
-   :members: 
+   :members:
 
 .. toctree::
 
