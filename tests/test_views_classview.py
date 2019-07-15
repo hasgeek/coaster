@@ -198,10 +198,9 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
-        if access_token == 'owner-admin-secret':
+        if access_token == 'owner-admin-secret':  # NOQA: S105 # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
-        if access_token == 'owner-secret':
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         return super(ModelDocumentView, self).before_request()
 
@@ -282,11 +281,11 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
-        if access_token == 'owner-secret':
+        if access_token == 'owner-secret':  # NOQA: S105 # nosec
             add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
-        if access_token == 'editor-secret':
+        if access_token == 'editor-secret':  # NOQA: S105 # nosec
             add_auth_attribute('user', 'this-is-the-editor')  # See ViewDocument.permissions
-        if access_token == 'another-owner-secret':
+        if access_token == 'another-owner-secret':  # NOQA: S105 # nosec
             add_auth_attribute('user', 'this-is-another-owner')  # See ViewDocument.permissions
         return super(GatedDocumentView, self).before_request()
 
