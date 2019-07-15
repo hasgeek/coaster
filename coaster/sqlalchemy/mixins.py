@@ -490,7 +490,7 @@ class BaseNameMixin(BaseMixin):
             instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
-    def make_name(self, reserved=[]):
+    def make_name(self, reserved=()):
         """
         Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
         in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2
@@ -617,7 +617,7 @@ class BaseScopedNameMixin(BaseMixin):
             )
         return instance
 
-    def make_name(self, reserved=[]):
+    def make_name(self, reserved=()):
         """
         Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
         in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2

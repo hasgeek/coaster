@@ -97,7 +97,7 @@ extension_configs = {
 }
 
 
-def markdown(text, html=False, valid_tags=MARKDOWN_HTML_TAGS):
+def markdown(text, html=False, valid_tags=None):
     """
     Markdown parser with a number of sane defaults that resembles
     GitHub-Flavoured Markdown.
@@ -107,6 +107,8 @@ def markdown(text, html=False, valid_tags=MARKDOWN_HTML_TAGS):
     """
     if text is None:
         return None
+    if valid_tags is None:
+        valid_tags = MARKDOWN_HTML_TAGS
     if html:
         return Markup(
             sanitize_html(

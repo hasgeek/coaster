@@ -67,7 +67,7 @@ def get_current_url():
         return url
 
 
-__marker = []
+__marker = object()
 
 
 def get_next_url(referrer=False, external=False, session=False, default=__marker):

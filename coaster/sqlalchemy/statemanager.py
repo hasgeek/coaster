@@ -993,7 +993,7 @@ class StateManagerWrapper(object):
             if transition.is_available and (name in proxy if current else True)
         )
 
-    def transitions_for(self, roles=None, actor=None, anchors=[]):
+    def transitions_for(self, roles=None, actor=None, anchors=()):
         """
         For use on :class:`~coaster.sqlalchemy.mixins.RoleMixin` classes:
         returns currently available transitions for the specified

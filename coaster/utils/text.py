@@ -107,10 +107,12 @@ VALID_TAGS = {
 }
 
 
-def sanitize_html(value, valid_tags=VALID_TAGS, strip=True, linkify=False):
+def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
     """
     Strips unwanted markup out of HTML.
     """
+    if valid_tags is None:
+        valid_tags = VALID_TAGS
     if linkify:
         filters = [
             partial(LinkifyFilter, skip_tags=['pre'], callbacks=DEFAULT_CALLBACKS)

@@ -56,7 +56,7 @@ class RequestValueError(BadRequest, ValueError):
     """Exception that combines ValueError with BadRequest. Used by :func:`requestargs`."""
 
 
-def requestargs(*vars, **config):
+def requestargs(*args, **config):
     """
     Decorator that loads parameters from request.values if not specified in the
     function's keyword arguments. Usage::
@@ -113,8 +113,8 @@ def requestargs(*vars, **config):
         namefilt = [
             (name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
             for name, filt in [
-                (v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None)
-                for v in vars
+                (a[0], a[1]) if isinstance(a, (list, tuple)) else (a, None)
+                for a in args
             ]
         ]
 
@@ -158,18 +158,18 @@ def requestargs(*vars, **config):
     return inner
 
 
-def requestform(*vars):
+def requestform(*args):
     """
     Like :func:`requestargs`, but loads from request.form (the form submission).
     """
-    return requestargs(*vars, **{'source': 'form'})
+    return requestargs(*args, **{'source': 'form'})
 
 
-def requestquery(*vars):
+def requestquery(*args):
     """
     Like :func:`requestargs`, but loads from request.args (the query string).
     """
-    return requestargs(*vars, **{'source': 'query'})
+    return requestargs(*args, **{'source': 'query'})
 
 
 def load_model(
@@ -179,7 +179,7 @@ def load_model(
     kwargs=False,
     permission=None,
     addlperms=None,
-    urlcheck=[],
+    urlcheck=(),
 ):
     """
     Decorator to load a model given a query parameter.
@@ -574,14 +574,14 @@ def render_with(template=None, json=False, jsonp=False):
 
 def cors(
     origins,
-    methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    headers=[
+    methods=('HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'),
+    headers=(
         'Accept',
         'Accept-Language',
         'Content-Language',
         'Content-Type',
         'X-Requested-With',
-    ],
+    ),
     max_age=None,
 ):
     """

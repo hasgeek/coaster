@@ -110,13 +110,13 @@ class ViewHandler(object):
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
 
-    def __init__(self, rule, rule_options={}, viewdata={}, requires_roles={}):
+    def __init__(self, rule, rule_options=None, viewdata=None, requires_roles=None):
         if rule is not None:
-            self.routes = [(rule, rule_options)]
+            self.routes = [(rule, rule_options or {})]
         else:
             self.routes = []
-        self.data = viewdata
-        self.requires_roles = requires_roles
+        self.data = viewdata or {}
+        self.requires_roles = requires_roles or {}
         self.endpoints = set()
 
     def reroute(self, f):
