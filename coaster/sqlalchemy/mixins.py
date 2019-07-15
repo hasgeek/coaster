@@ -57,7 +57,7 @@ class IdMixin(object):
     #: the need to commit to the database
     __uuid_primary_key__ = False
 
-    @declared_attr
+    @declared_attr  # NOQA: A003
     def id(cls):
         """
         Database identity for this model, used for foreign key references from other models
@@ -834,12 +834,12 @@ class CoordinatesMixin(object):
 # --- Auto-populate columns ---------------------------------------------------
 
 # Setup listeners for UUID-based subclasses
-def __configure_id_listener(mapper, class_):
+def _configure_id_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         auto_init_default(mapper.column_attrs.id)
 
 
-def __configure_uuid_listener(mapper, class_):
+def _configure_uuid_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         return
     # Only configure this listener if the class doesn't use UUID primary keys,
@@ -847,29 +847,29 @@ def __configure_uuid_listener(mapper, class_):
     auto_init_default(mapper.column_attrs.uuid)
 
 
-event.listen(IdMixin, 'mapper_configured', __configure_id_listener, propagate=True)
-event.listen(UuidMixin, 'mapper_configured', __configure_uuid_listener, propagate=True)
+event.listen(IdMixin, 'mapper_configured', _configure_id_listener, propagate=True)
+event.listen(UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate=True)
 
 
 # Populate name and url_id columns
-def __make_name(mapper, connection, target):
+def _make_name(mapper, connection, target):
     if target.name is None:
         target.make_name()
 
 
-def __make_scoped_name(mapper, connection, target):
+def _make_scoped_name(mapper, connection, target):
     if target.name is None and target.parent is not None:
         target.make_name()
 
 
-def __make_scoped_id(mapper, connection, target):
+def _make_scoped_id(mapper, connection, target):
     if target.url_id is None and target.parent is not None:
         target.make_id()
 
 
-event.listen(BaseNameMixin, 'before_insert', __make_name, propagate=True)
-event.listen(BaseIdNameMixin, 'before_insert', __make_name, propagate=True)
-event.listen(BaseScopedIdMixin, 'before_insert', __make_scoped_id, propagate=True)
-event.listen(BaseScopedNameMixin, 'before_insert', __make_scoped_name, propagate=True)
-event.listen(BaseScopedIdNameMixin, 'before_insert', __make_scoped_id, propagate=True)
-event.listen(BaseScopedIdNameMixin, 'before_insert', __make_name, propagate=True)
+event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)
+event.listen(BaseIdNameMixin, 'before_insert', _make_name, propagate=True)
+event.listen(BaseScopedIdMixin, 'before_insert', _make_scoped_id, propagate=True)
+event.listen(BaseScopedNameMixin, 'before_insert', _make_scoped_name, propagate=True)
+event.listen(BaseScopedIdNameMixin, 'before_insert', _make_scoped_id, propagate=True)
+event.listen(BaseScopedIdNameMixin, 'before_insert', _make_name, propagate=True)

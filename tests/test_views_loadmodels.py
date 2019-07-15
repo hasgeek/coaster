@@ -72,7 +72,7 @@ class RedirectDocument(BaseNameMixin, db.Model):
 
 
 def return_siteadmin_perms():
-    return set(['siteadmin'])
+    return {'siteadmin'}
 
 
 # --- load_models decorators --------------------------------------------------
@@ -317,21 +317,21 @@ class TestLoadModels(unittest.TestCase):
     def test_direct_permissions(self):
         user1 = User(username='foo')
         user2 = User(username='bar')
-        self.assertEqual(self.pc.permissions(user1), set(['view', 'edit', 'delete']))
-        self.assertEqual(self.pc.permissions(user2), set(['view']))
-        self.assertEqual(self.child1.permissions(user1, inherited=self.pc.permissions(user1)), set(['view', 'edit']))
-        self.assertEqual(self.child1.permissions(user2, inherited=self.pc.permissions(user2)), set(['view']))
+        self.assertEqual(self.pc.permissions(user1), {'view', 'edit', 'delete'})
+        self.assertEqual(self.pc.permissions(user2), {'view'})
+        self.assertEqual(self.child1.permissions(user1, inherited=self.pc.permissions(user1)), {'view', 'edit'})
+        self.assertEqual(self.child1.permissions(user2, inherited=self.pc.permissions(user2)), {'view'})
 
     def test_inherited_permissions(self):
         user = User(username='admin')
-        self.assertEqual(self.pc.permissions(user, inherited=set(['add-video'])), set(['add-video', 'view']))
+        self.assertEqual(self.pc.permissions(user, inherited={'add-video'}), {'add-video', 'view'})
 
     def test_unmutated_inherited_permissions(self):
         """The inherited permission set should not be mutated by a permission check"""
         user = User(username='admin')
-        inherited = set(['add-video'])
-        self.assertEqual(self.pc.permissions(user, inherited=inherited), set(['add-video', 'view']))
-        self.assertEqual(inherited, set(['add-video']))
+        inherited = {'add-video'}
+        self.assertEqual(self.pc.permissions(user, inherited=inherited), {'add-video', 'view'})
+        self.assertEqual(inherited, {'add-video'})
 
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():

@@ -171,13 +171,13 @@ class User(BaseMixin, db.Model):
 
 class MyData(db.Model):
     __tablename__ = 'my_data'
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)  # NOQA: A003
     data = Column(JsonDict)
 
 
 class MyUrlModel(db.Model):
     __tablename__ = 'my_url'
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)  # NOQA: A003
     url = Column(UrlType)
     url_all_scheme = Column(UrlType(schemes=None))
     url_custom_scheme = Column(UrlType(schemes=('ftp')))
@@ -199,7 +199,7 @@ class UuidKey(BaseMixin, db.Model):
 class UuidKeyNoDefault(BaseMixin, db.Model):
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(UUIDType(binary=False), primary_key=True)
+    id = db.Column(UUIDType(binary=False), primary_key=True)  # NOQA: A003
 
 
 class UuidForeignKey1(BaseMixin, db.Model):
@@ -291,7 +291,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_container(self):
         c = self.make_container()
-        self.assertEqual(c.id, None)
+        assert c.id is None
         self.session.commit()
         self.assertEqual(c.id, 1)
 
@@ -312,15 +312,15 @@ class TestCoasterModels(unittest.TestCase):
         # 1. utcnow will have timezone in PostgreSQL, but not in SQLite
         # 2. columns will have timezone iff PostgreSQL and the model has __with_timezone__ = True
         self.assertNotEqual(now1.replace(tzinfo=None), c.created_at.replace(tzinfo=None))
-        self.assertTrue(now1.replace(tzinfo=None) < c.created_at.replace(tzinfo=None))
-        self.assertTrue(now2.replace(tzinfo=None) > c.created_at.replace(tzinfo=None))
+        assert now1.replace(tzinfo=None) < c.created_at.replace(tzinfo=None)
+        assert now2.replace(tzinfo=None) > c.created_at.replace(tzinfo=None)
         sleep(1)
         c.content = "updated"
         self.session.commit()
         self.assertNotEqual(c.updated_at, u)
-        self.assertTrue(c.updated_at.replace(tzinfo=None) > now2.replace(tzinfo=None))
-        self.assertTrue(c.updated_at > c.created_at)
-        self.assertTrue(c.updated_at > u)
+        assert c.updated_at.replace(tzinfo=None) > now2.replace(tzinfo=None)
+        assert c.updated_at > c.created_at
+        assert c.updated_at > u
 
     def test_unnamed(self):
         c = self.make_container()
@@ -399,8 +399,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         self.assertEqual(ScopedNamedDocument.get(c1, 'hello'), d1)
         self.assertEqual(d1.name, 'hello')
-        self.assertEqual(d1.permissions(actor=u), set([]))
-        self.assertEqual(d1.permissions(actor=u, inherited=set(['view'])), set(['view']))
+        self.assertEqual(d1.permissions(actor=u), set())
+        self.assertEqual(d1.permissions(actor=u, inherited={'view'}), {'view'})
 
         d2 = ScopedNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
@@ -484,8 +484,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         self.session.commit()
         self.assertEqual(ScopedIdDocument.get(c1, d1.url_id), d1)
-        self.assertEqual(d1.permissions(actor=u, inherited=set(['view'])), set(['view']))
-        self.assertEqual(d1.permissions(actor=u), set([]))
+        self.assertEqual(d1.permissions(actor=u, inherited={'view'}), {'view'})
+        self.assertEqual(d1.permissions(actor=u), set())
 
         d2 = ScopedIdDocument(content="New document", container=c1)
         self.session.add(d2)
@@ -664,15 +664,15 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d)
         self.session.commit()
         sleep(1)
-        self.assertTrue(d.created_at is not None)
-        self.assertTrue(d.updated_at is not None)
+        assert d.created_at is not None
+        assert d.updated_at is not None
         updated_at = d.updated_at
-        self.assertTrue(d.updated_at - d.created_at < timedelta(seconds=1))
-        self.assertTrue(isinstance(d.created_at, datetime))
-        self.assertTrue(isinstance(d.updated_at, datetime))
+        assert d.updated_at - d.created_at < timedelta(seconds=1)
+        assert isinstance(d.created_at, datetime)
+        assert isinstance(d.updated_at, datetime)
         d.title = "Updated hello"
         self.session.commit()
-        self.assertTrue(d.updated_at > updated_at)
+        assert d.updated_at > updated_at
 
     def test_url_for_fail(self):
         d = UnnamedDocument(content="hello")
@@ -772,7 +772,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
 
         self.assertEqual(Container.query.filter_by(name='c1').one_or_none(), c1)
-        self.assertEqual(Container.query.filter_by(name='c3').one_or_none(), None)
+        assert Container.query.filter_by(name='c3').one_or_none() is None
         self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
 
     def test_failsafe_add(self):
@@ -781,12 +781,12 @@ class TestCoasterModels(unittest.TestCase):
         """
         d1 = NamedDocument(name='add_and_commit_test', title="Test")
         d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
-        self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
+        assert d1a is d1  # We got back what we created, so the commit succeeded
 
         d2 = NamedDocument(name='add_and_commit_test', title="Test")
         d2a = failsafe_add(self.session, d2, name='add_and_commit_test')
-        self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
-        self.assertTrue(d2a is d1)
+        assert d2a is not d2  # This time we got back d1 instead of d2
+        assert d2a is d1
 
     def test_failsafe_add_existing(self):
         """
@@ -794,13 +794,13 @@ class TestCoasterModels(unittest.TestCase):
         """
         d1 = NamedDocument(name='add_and_commit_test', title="Test")
         d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
-        self.assertTrue(d1a is d1)  # We got back what we created, so the commit succeeded
+        assert d1a is d1  # We got back what we created, so the commit succeeded
 
         d2 = NamedDocument(name='add_and_commit_test', title="Test")
         self.session.add(d2)  # Add to session before going to failsafe_add
         d2a = failsafe_add(self.session, d2, name='add_and_commit_test')
-        self.assertFalse(d2a is d2)  # This time we got back d1 instead of d2
-        self.assertTrue(d2a is d1)
+        assert d2a is not d2  # This time we got back d1 instead of d2
+        assert d2a is d1
 
     def test_failsafe_add_fail(self):
         """
@@ -826,8 +826,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(u1)
         self.session.add(u2)
         self.session.commit()
-        self.assertTrue(isinstance(u1.id, uuid.UUID))
-        self.assertTrue(isinstance(u2.id, uuid.UUID))
+        assert isinstance(u1.id, uuid.UUID)
+        assert isinstance(u2.id, uuid.UUID)
         self.assertNotEqual(u1.id, u2.id)
 
         fk1 = UuidForeignKey1(uuidkey=u1)
@@ -838,8 +838,8 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertIs(fk1.uuidkey, u1)
         self.assertIs(fk2.uuidkey, u2)
-        self.assertTrue(isinstance(fk1.uuidkey_id, uuid.UUID))
-        self.assertTrue(isinstance(fk2.uuidkey_id, uuid.UUID))
+        assert isinstance(fk1.uuidkey_id, uuid.UUID)
+        assert isinstance(fk2.uuidkey_id, uuid.UUID)
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
 
@@ -873,17 +873,17 @@ class TestCoasterModels(unittest.TestCase):
         self.assertIsInstance(i2, uuid.UUID)
         self.assertEqual(u2.url_id, i2.hex)
         self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
-        self.assertFalse('-' in u2.url_id)  # Without dashes
+        assert '-' not in u2.url_id  # Without dashes
 
         self.assertIsInstance(i3, uuid.UUID)
         self.assertEqual(u3.huuid, i3.hex)
         self.assertEqual(len(u3.huuid), 32)  # This is a 32-byte hex representation
-        self.assertFalse('-' in u3.huuid)  # Without dashes
+        assert '-' not in u3.huuid  # Without dashes
 
         self.assertIsInstance(i4, uuid.UUID)
         self.assertEqual(u4.huuid, i4.hex)
         self.assertEqual(len(u4.huuid), 32)  # This is a 32-byte hex representation
-        self.assertFalse('-' in u4.huuid)  # Without dashes
+        assert '-' not in u4.huuid  # Without dashes
 
         # Querying against `url_id` redirects the query to
         # `id` (IdMixin) or `uuid` (UuidMixin).
@@ -948,12 +948,12 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_mixin_key.uuid IS NULL")
 
         # Query returns False (or True) if given an invalid value
-        self.assertFalse(UuidKey.url_id == 'garbage!')
-        self.assertTrue(UuidKey.url_id != 'garbage!')
-        self.assertFalse(NonUuidMixinKey.url_id == 'garbage!')
-        self.assertTrue(NonUuidMixinKey.url_id != 'garbage!')
-        self.assertFalse(UuidMixinKey.url_id == 'garbage!')
-        self.assertTrue(UuidMixinKey.url_id != 'garbage!')
+        assert bool(UuidKey.url_id == 'garbage!') is False
+        assert bool(UuidKey.url_id != 'garbage!') is True
+        assert bool(NonUuidMixinKey.url_id == 'garbage!') is False
+        assert bool(NonUuidMixinKey.url_id != 'garbage!') is True
+        assert bool(UuidMixinKey.url_id == 'garbage!') is False
+        assert bool(UuidMixinKey.url_id != 'garbage!') is True
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
@@ -1048,14 +1048,14 @@ class TestCoasterModels(unittest.TestCase):
             "uuid_mixin_key.id IS NULL")
 
         # Query returns False (or True) if given an invalid value
-        self.assertFalse(NonUuidMixinKey.buid == 'garbage!')
-        self.assertTrue(NonUuidMixinKey.buid != 'garbage!')
-        self.assertFalse(NonUuidMixinKey.suuid == 'garbage!')
-        self.assertTrue(NonUuidMixinKey.suuid != 'garbage!')
-        self.assertFalse(UuidMixinKey.buid == 'garbage!')
-        self.assertTrue(UuidMixinKey.buid != 'garbage!')
-        self.assertFalse(UuidMixinKey.suuid == 'garbage!')
-        self.assertTrue(UuidMixinKey.suuid != 'garbage!')
+        assert bool(NonUuidMixinKey.buid == 'garbage!') is False
+        assert bool(NonUuidMixinKey.buid != 'garbage!') is True
+        assert bool(NonUuidMixinKey.suuid == 'garbage!') is False
+        assert bool(NonUuidMixinKey.suuid != 'garbage!') is True
+        assert bool(UuidMixinKey.buid == 'garbage!') is False
+        assert bool(UuidMixinKey.buid != 'garbage!') is True
+        assert bool(UuidMixinKey.suuid == 'garbage!') is False
+        assert bool(UuidMixinKey.suuid != 'garbage!') is True
 
     def test_uuid_url_id_name_suuid(self):
         """

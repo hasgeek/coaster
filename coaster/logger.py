@@ -37,7 +37,7 @@ class LocalVarFormatter(logging.Formatter):
     """
     Custom log formatter that logs the contents of local variables in the stack frame.
     """
-    def format(self, record):
+    def format(self, record):  # NOQA: A003
         """
         Format the specified record as text. Overrides
         :meth:`logging.Formatter.format` to remove cache of
@@ -49,7 +49,7 @@ class LocalVarFormatter(logging.Formatter):
                     record.exc_text = None
         return super(LocalVarFormatter, self).format(record)
 
-    def formatException(self, ei):
+    def formatException(self, ei):  # NOQA: N802
         tb = ei[2]
         while True:
             if not tb.tb_next:

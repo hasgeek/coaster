@@ -64,12 +64,12 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
 
 class PolymorphicParent(BaseMixin, db.Model):
     __tablename__ = 'polymorphic_parent'
-    type = immutable(db.Column(db.Unicode(30), index=True))
+    ptype = immutable(db.Column('type', db.Unicode(30), index=True))
     is_immutable = immutable(db.Column(db.Unicode(250), default='my_default'))
     also_immutable = immutable(db.Column(db.Unicode(250)))
 
     __mapper_args__ = {
-        'polymorphic_on': type,  # The ``type`` column in this model, not the ``type`` builtin
+        'polymorphic_on': ptype,
         'polymorphic_identity': 'parent'
         }
 
@@ -80,7 +80,7 @@ warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
-    id = db.Column(None, db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    id = db.Column(None, db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'), primary_key=True, nullable=False)  # NOQA: A003
     # Redefining a column will keep existing annotations, even if not specified here
     also_immutable = db.Column(db.Unicode(250))
     __mapper_args__ = {'polymorphic_identity': 'child'}

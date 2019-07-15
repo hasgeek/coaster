@@ -129,7 +129,7 @@ def for_tsquery(text):
             tokens.pop(-1)  # Can't end with a binary or prefix operator
     if not tokens:
         return ''  # Did we just eliminate all tokens?
-    missing_brackets = sum([1 if t == '(' else -1 for t in tokens if t in ('(', ')')])
+    missing_brackets = sum(1 if t == '(' else -1 for t in tokens if t in ('(', ')'))
     if missing_brackets > 0:
         tokens.append(')' * missing_brackets)
     elif missing_brackets < 0:

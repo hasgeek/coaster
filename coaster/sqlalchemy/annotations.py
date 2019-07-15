@@ -59,7 +59,7 @@ annotations_configured = coaster_signals.signal('annotations-configured',
 # --- SQLAlchemy signals for base class ---------------------------------------
 
 @event.listens_for(mapper, 'mapper_configured')
-def __configure_annotations(mapper, cls):
+def _configure_annotations(mapper, cls):
     """
     Run through attributes of the class looking for annotations from
     :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
@@ -104,7 +104,7 @@ def __configure_annotations(mapper, cls):
 
 
 @event.listens_for(mapper, 'after_configured')
-def __clear_cache():
+def _clear_cache():
     for key in tuple(__cache__):
         del __cache__[key]
 

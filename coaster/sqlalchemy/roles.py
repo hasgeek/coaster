@@ -185,7 +185,7 @@ class RoleAccessProxy(collections.Mapping):
                 for k, v in attr.items()}
         elif isinstance(attr, (InstrumentedList, InstrumentedSet)):
             # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
-            return tuple([m.access_for(actor=self._actor, anchors=self._anchors) for m in attr])
+            return tuple(m.access_for(actor=self._actor, anchors=self._anchors) for m in attr)
         else:
             return attr
 
@@ -432,7 +432,7 @@ class RoleMixin(object):
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def __configure_roles(mapper, cls):
+def _configure_roles(mapper, cls):
     """
     Run through attributes of the class looking for role decorations from
     :func:`with_roles` and add them to :attr:`cls.__roles__`
@@ -478,6 +478,6 @@ def __configure_roles(mapper, cls):
 
 
 @event.listens_for(mapper, 'after_configured')
-def __clear_cache():
+def _clear_cache():
     for key in tuple(__cache__):
         del __cache__[key]

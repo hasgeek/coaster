@@ -20,22 +20,22 @@ __all__ = ['make_timestamp_columns', 'failsafe_add', 'add_primary_relationship',
 
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
-class utcnow(functions.GenericFunction):
-    type = TIMESTAMP()
+class utcnow(functions.GenericFunction):  # NOQA: N801
+    type = TIMESTAMP()  # NOQA: A003
 
 
 @compiles(utcnow)
-def __utcnow_default(element, compiler, **kw):
+def _utcnow_default(element, compiler, **kw):
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(utcnow, 'mysql')
-def __utcnow_mysql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mysql(element, compiler, **kw):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(utcnow, 'mssql')
-def __utcnow_mssql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 

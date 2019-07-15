@@ -33,7 +33,7 @@ class ImmutableColumnError(AttributeError):
 
 
 @annotations_configured.connect
-def __make_immutable(cls):
+def _make_immutable(cls):
     if hasattr(cls, '__annotations__') and immutable.name in cls.__annotations__:
         for attr in cls.__annotations__[immutable.name]:
             col = getattr(cls, attr)

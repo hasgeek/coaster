@@ -18,7 +18,7 @@ NameTitle = namedtuple('NameTitle', ['name', 'title'])
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
     @classmethod
-    def __prepare__(mcs, name, bases, **kwargs):  # pragma: no cover
+    def __prepare__(mcs, name, bases, **kwargs):  # NOQA: N804 # pragma: no cover
         return OrderedDict()
 
     def __new__(cls, name, bases, attrs, **kwargs):
@@ -220,7 +220,7 @@ class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
 
     @classmethod
     def nametitles(cls):
-        return list((name, title) for name, title in cls.values())
+        return [(name, title) for name, title in cls.values()]
 
 
 class InspectableSet(Set):
@@ -289,7 +289,7 @@ class InspectableSet(Set):
         raise AttributeError(attr)
 
 
-class classmethodproperty(object):
+class classmethodproperty(object):  # NOQA: N801
     """
     Class method decorator to make class methods behave like properties::
 

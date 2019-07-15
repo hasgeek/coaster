@@ -241,7 +241,7 @@ def load_models(*chain, **kwargs):
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
             if isinstance(permission_required, six.string_types):
-                permission_required = set([permission_required])
+                permission_required = {permission_required}
             elif permission_required is not None:
                 permission_required = set(permission_required)
             result = {}

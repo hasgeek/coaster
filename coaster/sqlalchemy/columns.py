@@ -17,7 +17,8 @@ from furl import furl
 import six
 from ..utils import markdown
 
-__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
+__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType',
+    'markdown_column']
 
 
 class JsonType(UserDefinedType):
@@ -75,7 +76,7 @@ class JsonDict(TypeDecorator):
 
 
 class MutableDict(Mutable, dict):
-    @classmethod
+    @classmethod  # NOQA: A003
     def coerce(cls, key, value):
         """Convert plain dictionaries to MutableDict."""
 
@@ -169,12 +170,12 @@ class MarkdownComposite(MutableComposite):
     __nonzero__ = __bool__
 
     # Allow a composite column to be assigned a string value
-    @classmethod
+    @classmethod  # NOQA: A003
     def coerce(cls, key, value):
         return cls(value)
 
 
-def MarkdownColumn(name, deferred=False, group=None, **kwargs):
+def markdown_column(name, deferred=False, group=None, **kwargs):
     """
     Create a composite column that autogenerates HTML from Markdown text,
     storing data in db columns named with ``_html`` and ``_text`` prefixes.
@@ -184,6 +185,10 @@ def MarkdownColumn(name, deferred=False, group=None, **kwargs):
         Column(name + '_html', UnicodeText, **kwargs),
         deferred=deferred, group=group or name
         )
+
+
+# Compatibility name
+MarkdownColumn = markdown_column
 
 
 class UrlType(UrlTypeBase):

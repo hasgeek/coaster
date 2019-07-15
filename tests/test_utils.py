@@ -11,13 +11,13 @@ from coaster.utils import (LabeledEnum, make_password, check_password, parse_iso
     InspectableSet, ParseError)
 
 
-class MY_ENUM(LabeledEnum):
+class MY_ENUM(LabeledEnum):  # NOQA: N801
     FIRST = (1, "First")
     SECOND = (2, "Second")
     THIRD = (3, "Third")
 
 
-class MY_ENUM_TWO(LabeledEnum):
+class MY_ENUM_TWO(LabeledEnum):  # NOQA: N801
     FIRST = (1, 'first', "First")
     SECOND = (2, 'second', "Second")
     THIRD = (3, 'third', "Third")
@@ -74,23 +74,23 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertEqual(sanitize_html("<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"), u'Test sanitize_html<p>P</p>')
 
     def test_sorted_timezones(self):
-        self.assertTrue(isinstance(sorted_timezones(), list))
+        assert isinstance(sorted_timezones(), list)
 
     def test_namespace_from_url(self):
         self.assertEqual(namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github')
         self.assertEqual(namespace_from_url(u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'),
             u'com.hasgeek.funnel')
         self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
-        self.assertEqual(namespace_from_url(u'www.hasgeek.com'), None)
-        self.assertEqual(namespace_from_url(u'This is an invalid url'), None)
+        assert namespace_from_url(u'www.hasgeek.com') is None
+        assert namespace_from_url(u'This is an invalid url') is None
         # IP addresses are rejected
-        self.assertEqual(namespace_from_url('127.0.0.1'), None)
+        assert namespace_from_url('127.0.0.1') is None
         # Return string type is the input type
-        self.assertTrue(isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type))
-        self.assertTrue(isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str))
+        assert isinstance(namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type)
+        assert isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str)
 
     def test_deobfuscate_email(self):
-        input = """
+        in_text = """
             test at example dot com
             test@example dot com
             test at example.com
@@ -104,7 +104,7 @@ class TestCoasterUtils(unittest.TestCase):
             <a href="mailto:test@example.com">this</a>
             <test@example.com>
             """
-        output = """
+        out_text = """
             test@example.com
             test@example.com
             test@example.com
@@ -118,7 +118,7 @@ class TestCoasterUtils(unittest.TestCase):
             <a href="mailto:test@example.com">this</a>
             <test@example.com>
             """
-        self.assertEqual(deobfuscate_email(input), output)
+        self.assertEqual(deobfuscate_email(in_text), out_text)
 
     def test_isoweek_datetime_all_timezones(self):
         """Test that isoweek_datetime works for all timezones"""
@@ -182,16 +182,16 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_inspectable_set(self):
         s1 = InspectableSet(['all', 'anon'])
-        self.assertTrue('all' in s1)
-        self.assertFalse('auth' in s1)
+        assert 'all' in s1
+        assert 'auth' not in s1
         self.assertTrue(s1['all'])
         self.assertFalse(s1['auth'])
         self.assertTrue(s1.all)
         self.assertFalse(s1.auth)
 
         s2 = InspectableSet({'all', 'anon', 'other'})
-        self.assertTrue('all' in s2)
-        self.assertFalse('auth' in s2)
+        assert 'all' in s2
+        assert 'auth' not in s2
         self.assertTrue(s2['all'])
         self.assertFalse(s2['auth'])
         self.assertTrue(s2.all)

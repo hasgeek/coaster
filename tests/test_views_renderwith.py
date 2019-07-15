@@ -96,14 +96,14 @@ class TestLoadModels(unittest.TestCase):
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.
         response = self.app.get('/renderedview2', headers=[('Accept', 'application/json')])
-        self.assertTrue(isinstance(response, Response))
+        assert isinstance(response, Response)
         with app.test_request_context():  # jsonp requires a request context
             self.assertEqual(response.data, jsonp({"data": "value"}).data)
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
-        self.assertTrue(isinstance(response, Response))
+        assert isinstance(response, Response)
         self.assertEqual(response.data.decode('utf-8') if six.PY3 else response.data, "{'data': 'value'}")
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
-        self.assertTrue(isinstance(response, Response))
+        assert isinstance(response, Response)
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
         self.assertEqual(resp.headers['Referrer'], "http://example.com")
         # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])

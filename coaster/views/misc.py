@@ -21,14 +21,14 @@ __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 
-def __index_url():
+def _index_url():
     if request:
         return request.script_root or '/'
     else:
         return '/'
 
 
-def __clean_external_url(url):
+def _clean_external_url(url):
     if url.startswith(('http://', 'https://', '//')):
         # Do the domains and ports match?
         pnext = urlsplit(url)
@@ -78,7 +78,7 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
     else:
         next_url = request.args.get('next', '')
     if next_url and not external:
-        next_url = __clean_external_url(next_url)
+        next_url = _clean_external_url(next_url)
     if next_url:
         return next_url
 
@@ -91,9 +91,9 @@ def get_next_url(referrer=False, external=False, session=False, default=__marker
         if external:
             return request.referrer
         else:
-            return __clean_external_url(request.referrer) or (default if usedefault else __index_url())
+            return _clean_external_url(request.referrer) or (default if usedefault else _index_url())
     else:
-        return default if usedefault else __index_url()
+        return default if usedefault else _index_url()
 
 
 def jsonp(*args, **kw):

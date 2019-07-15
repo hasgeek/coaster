@@ -24,7 +24,7 @@ db = SQLAlchemy(app)
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
 # StateManager is agnostic to which syntax you use.
-class MY_STATE(LabeledEnum):
+class MY_STATE(LabeledEnum):  # NOQA: N801
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
     PUBLISHED = (2, 'published', "Published")
@@ -34,7 +34,7 @@ class MY_STATE(LabeledEnum):
     PUBLISHED_AND_AFTER = {PUBLISHED}
 
 
-class REVIEW_STATE(LabeledEnum):
+class REVIEW_STATE(LabeledEnum):  # NOQA: N801
     UNSUBMITTED = (0, "Unsubmitted")
     PENDING = (1, "Pending")
     LOCKED = (2, "Locked")
@@ -526,17 +526,17 @@ class TestStateManager(unittest.TestCase):
 
         # A transition can abort returning a value (a 2-tuple here)
         success, message = self.post.abort(success=False)
-        self.assertEqual(success, False)
+        assert success is False
         self.assertEqual(message, "failed")
         self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
         # A transition can abort without returning a value
         result = self.post.abort(success=False, empty_abort=True)
-        self.assertEqual(result, None)
+        assert result is None
         self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
         success, message = self.post.abort(success=True)
-        self.assertEqual(success, True)
+        assert success is True
         self.assertEqual(message, 'passed')
         self.assertTrue(self.post.state.PUBLISHED)  # state has changed
 
@@ -617,12 +617,12 @@ class TestStateManager(unittest.TestCase):
     def test_current_states(self):
         """All states that are currently active"""
         current = self.post.state.current()
-        self.assertEqual(set(current.keys()), set(['DRAFT', 'UNPUBLISHED', 'REDRAFTABLE']))
+        assert set(current.keys()) == {'DRAFT', 'UNPUBLISHED', 'REDRAFTABLE'}
         self.assertTrue(current['DRAFT']())
         self.assertEqual(current['DRAFT'].value, MY_STATE.DRAFT)
 
         # Classes don't have a current state
-        self.assertEqual(MyPost.state.current(), None)
+        assert MyPost.state.current() is None
 
     def test_managed_state_wrapper(self):
         """ManagedStateWrapper will only wrap a managed state or group"""

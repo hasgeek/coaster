@@ -20,7 +20,7 @@ class TestCoasterUtils(unittest.TestCase):
     def test_additional_settings_from_file(self):
         env = 'COASTER_ENV'
         environ[env] = "gibberish"
-        self.assertEqual(_additional_config.get(environ[env]), None)
+        assert _additional_config.get(environ[env]) is None
         for k, v in _additional_config.items():
             environ[env] = k
             self.assertEqual(_additional_config.get(environ[env]), v)
@@ -42,7 +42,7 @@ class TestCoasterUtils(unittest.TestCase):
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())
 
-    def test_load_config_from_file_IOError(self):
+    def test_load_config_from_file_ioerror(self):
         app = Flask(__name__)
         self.assertFalse(load_config_from_file(app, "notfound.py"))
 

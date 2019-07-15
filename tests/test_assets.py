@@ -73,7 +73,7 @@ class TestAssets(unittest.TestCase):
             };
             """)
         outfile = six.StringIO()
-        filter = UglipyJS()
-        filter.setup()
-        filter.output(infile, outfile)
+        afilter = UglipyJS()
+        afilter.setup()
+        afilter.output(infile, outfile)
         self.assertEqual(outfile.getvalue(), 'function test(){alert("Hello, world!")};')

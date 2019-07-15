@@ -34,8 +34,8 @@ class TestCoordinatesColumn(unittest.TestCase):
 
     def test_columns_created(self):
         table = CoordinatesData.__table__
-        self.assertTrue(isinstance(table.c.latitude.type, db.Numeric))
-        self.assertTrue(isinstance(table.c.longitude.type, db.Numeric))
+        assert isinstance(table.c.latitude.type, db.Numeric)
+        assert isinstance(table.c.longitude.type, db.Numeric)
 
     def test_columns_when_null(self):
         data = CoordinatesData()
