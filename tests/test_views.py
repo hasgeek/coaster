@@ -1,12 +1,21 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+
+from flask import Flask, json, session
 from werkzeug.exceptions import BadRequest, Forbidden
-from flask import Flask, session, json
+
 from coaster.app import load_config_from_file
-from coaster.auth import current_auth, add_auth_attribute
-from coaster.views import (get_current_url, get_next_url, jsonp, requestargs, requestquery, requestform,
-    requires_permission)
+from coaster.auth import add_auth_attribute, current_auth
+from coaster.views import (
+    get_current_url,
+    get_next_url,
+    jsonp,
+    requestargs,
+    requestform,
+    requestquery,
+    requires_permission,
+)
 
 
 def index():
@@ -26,7 +35,7 @@ def requestargs_test1(p1, p2=None, p3=None):
     return p1, p2, p3
 
 
-@requestargs('p1', ('p2', int), ('p3[]'))
+@requestargs('p1', ('p2', int), 'p3[]')
 def requestargs_test2(p1, p2=None, p3=None):
     return p1, p2, p3
 
@@ -59,13 +68,14 @@ def permission2():
 
 # --- Tests -------------------------------------------------------------------
 
+
 class TestCoasterViews(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
         load_config_from_file(self.app, 'settings.py')
         self.app.add_url_rule('/', 'index', index)
         self.app.add_url_rule('/', 'external', external)
-        self.app.add_url_rule('/somewhere', 'somewhere', )
+        self.app.add_url_rule('/somewhere', 'somewhere')
 
     def test_get_current_url(self):
         with self.app.test_request_context('/'):
@@ -76,10 +86,14 @@ class TestCoasterViews(unittest.TestCase):
 
         self.app.config['SERVER_NAME'] = 'example.com'
 
-        with self.app.test_request_context('/somewhere', environ_overrides={'HTTP_HOST': 'example.com'}):
+        with self.app.test_request_context(
+            '/somewhere', environ_overrides={'HTTP_HOST': 'example.com'}
+        ):
             self.assertEqual(get_current_url(), '/somewhere')
 
-        with self.app.test_request_context('/somewhere', environ_overrides={'HTTP_HOST': 'sub.example.com'}):
+        with self.app.test_request_context(
+            '/somewhere', environ_overrides={'HTTP_HOST': 'sub.example.com'}
+        ):
             self.assertEqual(get_current_url(), 'http://sub.example.com/somewhere')
 
     def test_get_next_url(self):
@@ -97,9 +111,9 @@ class TestCoasterViews(unittest.TestCase):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
             response = (
-                u'callback({\n  "%s": "%s",\n  "%s": "%s"\n});' % (
-                    'lang', kwargs['lang'], 'query', kwargs['query'])
-                ).encode('utf-8')
+                u'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'
+                % ('lang', kwargs['lang'], 'query', kwargs['query'])
+            ).encode('utf-8')
 
             self.assertEqual(response, r.get_data())
 
@@ -140,10 +154,14 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
             self.assertEqual(requestquery_test(), (u'1', 3, [1, 2]))
 
-        with self.app.test_request_context('/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'):
+        with self.app.test_request_context(
+            '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
+        ):
             self.assertEqual(requestform_test(), (u'1', 3, [1, 2]))
 
-        with self.app.test_request_context('/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'):
+        with self.app.test_request_context(
+            '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
+        ):
             self.assertEqual(requestcombo_test(), ('foo', 'bar'))
 
         # Calling without a request context works as well
@@ -170,7 +188,9 @@ class TestCoasterViews(unittest.TestCase):
             with self.assertRaises(Forbidden):
                 permission2()
 
-            current_auth.permissions.add('allow-that')  # FIXME! Shouldn't this be a frozenset?
+            current_auth.permissions.add(
+                'allow-that'
+            )  # FIXME! Shouldn't this be a frozenset?
 
             assert permission1.is_available() is False
             assert permission2.is_available() is True

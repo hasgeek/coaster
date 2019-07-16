@@ -14,13 +14,16 @@ be careful about assumptions you make around them.
 """
 
 from __future__ import absolute_import
-import re
+import six
+
 from collections import defaultdict
-# Version is not used here but is made available for others to import from
-from semantic_version import Version, Spec
+import re
+
 from flask_assets import Bundle
 from webassets.filter import Filter, register_filter
-import six
+
+# Version is not used here but is made available for others to import from
+from semantic_version import Spec, Version
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 
@@ -33,14 +36,13 @@ def split_namespec(namespec):
         name = namespec
         spec = Spec()
     else:
-        name = namespec[:find_mark.start()]
-        spec = Spec(namespec[find_mark.start():])
+        name = namespec[: find_mark.start()]
+        spec = Spec(namespec[find_mark.start() :])
     return name, spec
 
 
 class AssetNotFound(Exception):
     """No asset with this name"""
-    pass
 
 
 class VersionedAssets(defaultdict):
@@ -103,6 +105,7 @@ class VersionedAssets(defaultdict):
         {%- endassets -%}
 
     """
+
     def __init__(self):
         # Override dict's __init__ to prevent parameters
         super(VersionedAssets, self).__init__(dict)
@@ -116,8 +119,10 @@ class VersionedAssets(defaultdict):
             if version:
                 if name in asset_versions:
                     if asset_versions[name] not in spec:
-                        raise ValueError("%s does not match already requested asset %s==%s" % (
-                            namespec, name, asset_versions[name]))
+                        raise ValueError(
+                            "%s does not match already requested asset %s==%s"
+                            % (namespec, name, asset_versions[name])
+                        )
                 else:
                     asset = self[name][version]
                     if isinstance(asset, (list, tuple)):
@@ -143,8 +148,10 @@ class VersionedAssets(defaultdict):
                         if req_name in asset_versions:
                             if asset_versions[req_name] not in req_spec:
                                 # The version asked for conflicts with a version currently used.
-                                raise ValueError("%s is not compatible with already requested version %s" % (
-                                    req, asset_versions[req_name]))
+                                raise ValueError(
+                                    "%s is not compatible with already requested version %s"
+                                    % (req, asset_versions[req_name])
+                                )
                         else:
                             filtered_requires.append(req)
                     # Get these requirements
@@ -164,10 +171,15 @@ class VersionedAssets(defaultdict):
 
     def require(self, *namespecs):
         """Return a bundle of the requested assets and their dependencies."""
-        blacklist = set([n[1:] for n in namespecs if n.startswith('!')])
+        blacklist = {n[1:] for n in namespecs if n.startswith('!')}
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
-        return Bundle(*[bundle for name, version, bundle
-            in self._require_recursive(*not_blacklist) if name not in blacklist])
+        return Bundle(
+            *[
+                bundle
+                for name, version, bundle in self._require_recursive(*not_blacklist)
+                if name not in blacklist
+            ]
+        )
 
 
 class UglipyJS(Filter):
@@ -179,6 +191,7 @@ class UglipyJS(Filter):
 
     def setup(self):
         import uglipyjs
+
         self.uglipyjs = uglipyjs
 
     def output(self, _in, out, **kw):

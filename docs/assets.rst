@@ -1,2 +1,2 @@
 .. automodule:: coaster.assets
-   :members: 
+   :members:

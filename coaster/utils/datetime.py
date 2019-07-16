@@ -6,16 +6,22 @@ Date, time and timezone utilities
 """
 
 from __future__ import absolute_import
-from datetime import datetime
 import six
-import pytz
+
+from datetime import datetime
+
+from iso8601 import ParseError, parse_date
 import isoweek
-from iso8601 import parse_date, ParseError
+import pytz
 
 __all__ = [
-    'utcnow', 'parse_isoformat', 'isoweek_datetime', 'midnight_to_utc', 'sorted_timezones',
-    'ParseError'
-    ]
+    'utcnow',
+    'parse_isoformat',
+    'isoweek_datetime',
+    'midnight_to_utc',
+    'sorted_timezones',
+    'ParseError',
+]
 
 # --- Thread safety fix -------------------------------------------------------
 
@@ -41,8 +47,11 @@ def parse_isoformat(text, naive=True):
     :param bool naive: If `True`, strips timezone and returns datetime at UTC.
     """
     if naive:
-        return parse_date(text, default_timezone=pytz.UTC
-            ).astimezone(pytz.UTC).replace(tzinfo=None)
+        return (
+            parse_date(text, default_timezone=pytz.UTC)
+            .astimezone(pytz.UTC)
+            .replace(tzinfo=None)
+        )
     else:
         return parse_date(text, default_timezone=pytz.UTC)
 
@@ -118,6 +127,7 @@ def sorted_timezones():
     """
     Return a list of timezones sorted by offset from UTC.
     """
+
     def hourmin(delta):
         if delta.days < 0:
             hours, remaining = divmod(86400 - delta.seconds, 3600)
@@ -135,15 +145,33 @@ def sorted_timezones():
 
     # Make a list of timezones, discarding the US/* and Canada/* zones since they aren't reliable for
     # DST, and discarding UTC and GMT since timezones in that zone have their own names
-    timezones = [(pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname) for tzname in pytz.common_timezones
-        if not tzname.startswith('US/') and not tzname.startswith('Canada/') and tzname not in ('GMT', 'UTC')]
+    timezones = [
+        (pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname)
+        for tzname in pytz.common_timezones
+        if not tzname.startswith('US/')
+        and not tzname.startswith('Canada/')
+        and tzname not in ('GMT', 'UTC')
+    ]
     # Sort timezones by offset from UTC and their human-readable name
-    presorted = [(delta, '%s%s - %s%s (%s)' % (
-        (delta.days < 0 and '-') or (delta.days == 0 and delta.seconds == 0 and ' ') or '+',
-        '%02d:%02d' % hourmin(delta),
-        (pytz.country_names[timezone_country[name]] + ': ') if name in timezone_country else '',
-        name.replace('_', ' '),
-        pytz.timezone(name).tzname(now, is_dst=False)), name) for delta, name in timezones]
+    presorted = [
+        (
+            delta,
+            '%s%s - %s%s (%s)'
+            % (
+                (delta.days < 0 and '-')
+                or (delta.days == 0 and delta.seconds == 0 and ' ')
+                or '+',
+                '%02d:%02d' % hourmin(delta),
+                (pytz.country_names[timezone_country[name]] + ': ')
+                if name in timezone_country
+                else '',
+                name.replace('_', ' '),
+                pytz.timezone(name).tzname(now, is_dst=False),
+            ),
+            name,
+        )
+        for delta, name in timezones
+    ]
     presorted.sort()
     # Return a list of (timezone, label) with the timezone offset included in the label.
     return [(name, label) for (delta, label, name) in presorted]

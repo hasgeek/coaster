@@ -36,30 +36,33 @@ reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
 """
 
 from __future__ import absolute_import
+
 import collections
+
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+
 from ..signals import coaster_signals
 
-__all__ = [
-    'annotations_configured',
-    'annotation_wrapper'
-    ]
+__all__ = ['annotations_configured', 'annotation_wrapper']
 
 # Global dictionary for temporary storage of annotations until the mapper_configured events
 __cache__ = {}
 
 # --- Signals -----------------------------------------------------------------
 
-annotations_configured = coaster_signals.signal('annotations-configured',
-    doc="Signal raised after all annotations on a class are configured")
+annotations_configured = coaster_signals.signal(
+    'annotations-configured',
+    doc="Signal raised after all annotations on a class are configured",
+)
 
 
 # --- SQLAlchemy signals for base class ---------------------------------------
 
+
 @event.listens_for(mapper, 'mapper_configured')
-def __configure_annotations(mapper, cls):
+def _configure_annotations(mapper, cls):
     """
     Run through attributes of the class looking for annotations from
     :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
@@ -104,17 +107,19 @@ def __configure_annotations(mapper, cls):
 
 
 @event.listens_for(mapper, 'after_configured')
-def __clear_cache():
+def _clear_cache():
     for key in tuple(__cache__):
         del __cache__[key]
 
 
 # --- Helpers -----------------------------------------------------------------
 
+
 def annotation_wrapper(annotation, doc=None):
     """
     Defines an annotation, which can be applied to attributes in a database model.
     """
+
     def decorator(attr):
         __cache__.setdefault(attr, []).append(annotation)
         # Also mark the annotation on the object itself. This will

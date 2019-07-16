@@ -19,9 +19,12 @@ For compatibility with Flask-Login, a user object loaded at
 """
 
 from __future__ import absolute_import
+
 import collections
-from werkzeug.local import LocalProxy
+
 from flask import _request_ctx_stack, current_app, has_request_context
+from werkzeug.local import LocalProxy
+
 from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
@@ -48,7 +51,14 @@ def add_auth_attribute(attr, value, actor=False):
     2. ``user`` is also made available as ``_request_ctx_stack.top.user`` for
        compatibility with Flask-Login
     """
-    if attr in ('actor', 'anchors', 'is_anonymous', 'not_anonymous', 'is_authenticated', 'not_authenticated'):
+    if attr in (
+        'actor',
+        'anchors',
+        'is_anonymous',
+        'not_anonymous',
+        'is_authenticated',
+        'not_authenticated',
+    ):
         raise AttributeError("Attribute name %s is reserved by current_auth" % attr)
 
     # Invoking current_auth will also create it on the local stack. We can
@@ -88,6 +98,7 @@ class AuthAnchors(collections.Set):
     """
     Hosts a set without write access.
     """
+
     def __init__(self, members=None):
         self.__members = set(members) if members is not None else set()
 
@@ -138,11 +149,14 @@ class CurrentAuth(object):
     Additional attributes provided by your login manager are also available as
     direct attributes of :obj:`current_auth`.
     """
+
     def __init__(self, user):
         object.__setattr__(self, 'user', user)
         object.__setattr__(self, 'actor', user)
         object.__setattr__(self, 'permissions', InspectableSet())
-        object.__setattr__(self, 'anchors', AuthAnchors())  # TODO: Placeholder for anchors
+        object.__setattr__(  # TODO: Placeholder for anchors
+            self, 'anchors', AuthAnchors()
+        )
 
     def __setattr__(self, attr, value):
         raise AttributeError('CurrentAuth is read-only')
@@ -200,7 +214,9 @@ def _get_current_auth():
 
         # 3. If not, does it have a known user (Flask-Login protocol)? If so, construct current_auth
         if hasattr(_request_ctx_stack.top, 'user'):
-            _request_ctx_stack.top.current_auth = CurrentAuth(_request_ctx_stack.top.user)
+            _request_ctx_stack.top.current_auth = CurrentAuth(
+                _request_ctx_stack.top.user
+            )
         # 4. If none of these, construct a blank one and probe for content
         else:
             ca = CurrentAuth(None)
@@ -210,12 +226,16 @@ def _get_current_auth():
             _request_ctx_stack.top.current_auth = ca
             # 4.1. Now check for a login manager and call it
             # Flask-Login, Flask-Lastuser or equivalent must add a login_manager
-            if hasattr(current_app, 'login_manager') and hasattr(current_app.login_manager, '_load_user'):
+            if hasattr(current_app, 'login_manager') and hasattr(
+                current_app.login_manager, '_load_user'
+            ):
                 current_app.login_manager._load_user()
             # 4.2. In case the login manager did not call :func:`add_auth_attribute`, we'll
             # need to do it
             if ca.user is None:
-                add_auth_attribute('user', getattr(_request_ctx_stack.top, 'user', None))
+                add_auth_attribute(
+                    'user', getattr(_request_ctx_stack.top, 'user', None)
+                )
 
         # Return the newly constructed current_auth
         return _request_ctx_stack.top.current_auth

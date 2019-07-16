@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
+
 import unittest
+
 from coaster.gfm import markdown
 
 sample_markdown = '''
@@ -186,11 +188,17 @@ class TestMarkdown(unittest.TestCase):
 
     def test_text_markdown(self):
         """Markdown rendering with HTML disabled (default)"""
-        assert markdown('hello <del>there</del>') == '<p>hello &lt;del&gt;there&lt;/del&gt;</p>'
+        assert (
+            markdown('hello <del>there</del>')
+            == '<p>hello &lt;del&gt;there&lt;/del&gt;</p>'
+        )
 
     def test_html_markdown(self):
         """Markdown rendering with HTML enabled"""
-        assert markdown('hello <del>there</del>', html=True) == '<p>hello <del>there</del></p>'
+        assert (
+            markdown('hello <del>there</del>', html=True)
+            == '<p>hello <del>there</del></p>'
+        )
 
     def test_empty_markdown(self):
         """Don't choke on None"""

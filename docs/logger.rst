@@ -1,2 +1,2 @@
 .. automodule:: coaster.logger
-   :members: 
+   :members:

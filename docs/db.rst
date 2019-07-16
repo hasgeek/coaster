@@ -18,4 +18,4 @@ nodular_ and `Flask-Commentease`_ depend on this instance for their models.
         apps in the same process.
 
 .. _nodular: https://github.com/hasgeek/nodular
-.. _Flask-Commentease: https://github.com/hasgeek/flask-commentease 
+.. _Flask-Commentease: https://github.com/hasgeek/flask-commentease

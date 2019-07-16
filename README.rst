@@ -32,7 +32,7 @@ SQLite driver shipped with 2.7::
 
 To run a single test::
 
-    $ nosetests tests.<test_filename> 
+    $ nosetests tests.<test_filename>
     $ # Example: nosetests tests.test_render_with
 
 To run all tests in one go::

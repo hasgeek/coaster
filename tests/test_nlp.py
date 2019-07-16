@@ -1,6 +1,8 @@
-import unittest
-from coaster.utils import text_blocks
+# -*- coding: utf-8 -*-
 
+import unittest
+
+from coaster.utils import text_blocks
 
 sample_html = u"""
 This is some <em>sample</em> HTML<br>with various features.
@@ -39,7 +41,7 @@ sample_text_blocks = [
     u"Now for some fun, let's  have a comment.",
     u"Submit or\n  Cancel",
     u"Don't forget the capitalised tags.",
-    ]
+]
 
 
 class TestExtractText(unittest.TestCase):

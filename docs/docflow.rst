@@ -1,2 +1,2 @@
 .. automodule:: coaster.docflow
-   :members: 
+   :members:

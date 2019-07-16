@@ -11,10 +11,13 @@ in Flask-based applications.
 
 
 from __future__ import absolute_import
-from .misc import *
-from .datetime import *
-from .text import *
-from .markdown import *
-from .tsquery import *
+
+from ..shortuuid import decode as suuid2uuid
+from ..shortuuid import encode as uuid2suuid
+from ..shortuuid import suuid
 from .classes import *
-from ..shortuuid import suuid, encode as uuid2suuid, decode as suuid2uuid
+from .datetime import *
+from .markdown import *
+from .misc import *
+from .text import *
+from .tsquery import *

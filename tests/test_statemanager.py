@@ -2,16 +2,23 @@
 
 from __future__ import absolute_import
 
-import unittest
 from datetime import datetime, timedelta
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from coaster.utils import LabeledEnum
-from coaster.auth import add_auth_attribute
-from coaster.sqlalchemy import (with_roles, BaseMixin,
-    StateManager, StateTransitionError, AbortTransition)
-from coaster.sqlalchemy.statemanager import ManagedStateWrapper
+import unittest
 
+from flask_sqlalchemy import SQLAlchemy
+
+from flask import Flask
+
+from coaster.auth import add_auth_attribute
+from coaster.sqlalchemy import (
+    AbortTransition,
+    BaseMixin,
+    StateManager,
+    StateTransitionError,
+    with_roles,
+)
+from coaster.sqlalchemy.statemanager import ManagedStateWrapper
+from coaster.utils import LabeledEnum
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -24,7 +31,7 @@ db = SQLAlchemy(app)
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
 # StateManager is agnostic to which syntax you use.
-class MY_STATE(LabeledEnum):
+class MY_STATE(LabeledEnum):  # NOQA: N801
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
     PUBLISHED = (2, 'published', "Published")
@@ -34,7 +41,7 @@ class MY_STATE(LabeledEnum):
     PUBLISHED_AND_AFTER = {PUBLISHED}
 
 
-class REVIEW_STATE(LabeledEnum):
+class REVIEW_STATE(LabeledEnum):  # NOQA: N801
     UNSUBMITTED = (0, "Unsubmitted")
     PENDING = (1, "Pending")
     LOCKED = (2, "Locked")
@@ -45,10 +52,20 @@ class REVIEW_STATE(LabeledEnum):
 class MyPost(BaseMixin, db.Model):
     __tablename__ = 'my_post'
     # Database state columns
-    _state = db.Column('state', db.Integer, StateManager.check_constraint('state', MY_STATE),
-        default=MY_STATE.DRAFT, nullable=False)
-    _reviewstate = db.Column('reviewstate', db.Integer, StateManager.check_constraint('state', REVIEW_STATE),
-        default=REVIEW_STATE.UNSUBMITTED, nullable=False)
+    _state = db.Column(
+        'state',
+        db.Integer,
+        StateManager.check_constraint('state', MY_STATE),
+        default=MY_STATE.DRAFT,
+        nullable=False,
+    )
+    _reviewstate = db.Column(
+        'reviewstate',
+        db.Integer,
+        StateManager.check_constraint('state', REVIEW_STATE),
+        default=REVIEW_STATE.UNSUBMITTED,
+        nullable=False,
+    )
     # State managers
     state = StateManager('_state', MY_STATE, doc="The post's state")
     reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
@@ -60,9 +77,12 @@ class MyPost(BaseMixin, db.Model):
     datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     # Conditional states (adds ManagedState instances)
-    state.add_conditional_state('RECENT', state.PUBLISHED,
+    state.add_conditional_state(
+        'RECENT',
+        state.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
-        label=('recent', "Recently published"))
+        label=('recent', "Recently published"),
+    )
 
     # State groups (apart from those in the LabeledEnum), used here to include the
     # conditional state in a group. Adds ManagedStateGroup instances
@@ -83,7 +103,9 @@ class MyPost(BaseMixin, db.Model):
     def publish(self):
         if self.state.DRAFT:
             # Use AssertionError to distinguish from the wrapper's StateTransitionError (a TypeError) in tests below
-            raise AssertionError("We don't actually support transitioning from draft to published")
+            raise AssertionError(
+                "We don't actually support transitioning from draft to published"
+            )
         self.datetime = datetime.utcnow()
 
     @with_roles(call={'author'})
@@ -99,7 +121,9 @@ class MyPost(BaseMixin, db.Model):
         pass
 
     @with_roles(call={'reviewer'})
-    @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.LOCKED, if_=state.PUBLISHED, title="Lock")
+    @reviewstate.transition(
+        reviewstate.UNLOCKED, reviewstate.LOCKED, if_=state.PUBLISHED, title="Lock"
+    )
     def review_lock(self):
         pass
 
@@ -114,7 +138,9 @@ class MyPost(BaseMixin, db.Model):
         self.datetime = datetime.utcnow() - timedelta(hours=2)
 
     @with_roles(call={'author'})
-    @state.transition(state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition")
+    @state.transition(
+        state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition"
+    )
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def abort(self, success=False, empty_abort=False):
         if not success:
@@ -136,8 +162,10 @@ class MyPost(BaseMixin, db.Model):
 
 # --- Tests -------------------------------------------------------------------
 
+
 class TestStateManager(unittest.TestCase):
     """SQLite tests"""
+
     app = app
 
     def setUp(self):
@@ -168,9 +196,13 @@ class TestStateManager(unittest.TestCase):
         state = MyPost.__dict__['state']
         reviewstate = MyPost.__dict__['reviewstate']
         with self.assertRaises(TypeError):
-            state.add_conditional_state('TEST_STATE1', MY_STATE.DRAFT, lambda post: True)
+            state.add_conditional_state(
+                'TEST_STATE1', MY_STATE.DRAFT, lambda post: True
+            )
         with self.assertRaises(ValueError):
-            state.add_conditional_state('TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True)
+            state.add_conditional_state(
+                'TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True
+            )
 
     def test_conditional_state_label(self):
         """Conditional states can have labels"""
@@ -330,9 +362,9 @@ class TestStateManager(unittest.TestCase):
         self.assertEqual(post1.id, self.post.id)
         post2 = MyPost.query.filter(MyPost.state.PENDING).first()
         self.assertIsNone(post2)
-        post3 = MyPost.query.filter(~MyPost.state.DRAFT).first()
+        post3 = MyPost.query.filter(~(MyPost.state.DRAFT)).first()
         self.assertIsNone(post3)
-        post4 = MyPost.query.filter(~MyPost.state.PENDING).first()
+        post4 = MyPost.query.filter(~(MyPost.state.PENDING)).first()
         self.assertEqual(post4.id, self.post.id)
 
     def test_sql_query_multi_value(self):
@@ -526,17 +558,17 @@ class TestStateManager(unittest.TestCase):
 
         # A transition can abort returning a value (a 2-tuple here)
         success, message = self.post.abort(success=False)
-        self.assertEqual(success, False)
+        assert success is False
         self.assertEqual(message, "failed")
         self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
         # A transition can abort without returning a value
         result = self.post.abort(success=False, empty_abort=True)
-        self.assertEqual(result, None)
+        assert result is None
         self.assertTrue(self.post.state.DRAFT)  # state has not changed
 
         success, message = self.post.abort(success=True)
-        self.assertEqual(success, True)
+        assert success is True
         self.assertEqual(message, 'passed')
         self.assertTrue(self.post.state.PUBLISHED)  # state has changed
 
@@ -568,6 +600,7 @@ class TestStateManager(unittest.TestCase):
         """The `name` data field on transitions is reserved and cannot be specified"""
         state = MyPost.__dict__['state']
         with self.assertRaises(TypeError):
+
             @state.transition(None, state.DRAFT, name='invalid_data_field')
             def name_test(self):
                 pass
@@ -576,6 +609,7 @@ class TestStateManager(unittest.TestCase):
         """Transitions can't be decorated twice with the same state manager"""
         state = MyPost.__dict__['state']
         with self.assertRaises(TypeError):
+
             @state.transition(state.DRAFT, state.PENDING)
             @state.transition(state.PENDING, state.PUBLISHED)
             def dupe_decorator(self):
@@ -593,13 +627,18 @@ class TestStateManager(unittest.TestCase):
         """State managers maintain the order of transitions from the class definition"""
         self.assertTrue(self.post.state.DRAFT)
         # `submit` must come before `publish`
-        self.assertEqual(list(self.post.state.transitions(current=False).keys())[:2], ['submit', 'publish'])
+        self.assertEqual(
+            list(self.post.state.transitions(current=False).keys())[:2],
+            ['submit', 'publish'],
+        )
 
     def test_currently_available_transitions(self):
         """State managers indicate the currently available transitions (using current_auth)"""
         self.assertTrue(self.post.state.DRAFT)
         self.assertNotIn('submit', self.post.state.transitions())
-        add_auth_attribute('user', 'author')  # Add a user using the string 'author' (see MyPost.roles_for)
+        add_auth_attribute(
+            'user', 'author'
+        )  # Add a user using the string 'author' (see MyPost.roles_for)
         self.assertIn('submit', self.post.state.transitions())
         self.post.state.transitions()['submit']()
         self.assertFalse(self.post.state.DRAFT)
@@ -617,12 +656,12 @@ class TestStateManager(unittest.TestCase):
     def test_current_states(self):
         """All states that are currently active"""
         current = self.post.state.current()
-        self.assertEqual(set(current.keys()), set(['DRAFT', 'UNPUBLISHED', 'REDRAFTABLE']))
+        assert set(current.keys()) == {'DRAFT', 'UNPUBLISHED', 'REDRAFTABLE'}
         self.assertTrue(current['DRAFT']())
         self.assertEqual(current['DRAFT'].value, MY_STATE.DRAFT)
 
         # Classes don't have a current state
-        self.assertEqual(MyPost.state.current(), None)
+        assert MyPost.state.current() is None
 
     def test_managed_state_wrapper(self):
         """ManagedStateWrapper will only wrap a managed state or group"""
@@ -630,14 +669,18 @@ class TestStateManager(unittest.TestCase):
         wdraft = ManagedStateWrapper(draft, self.post, MyPost)
         self.assertEqual(draft.value, wdraft.value)
         self.assertTrue(wdraft())  # Result is False
-        self.assertTrue(wdraft)    # Object is falsy
+        self.assertTrue(wdraft)  # Object is falsy
         self.assertEqual(self.post.state.DRAFT, wdraft)
         self.post.submit()
         self.assertFalse(wdraft())
         self.assertFalse(wdraft)
-        self.assertEqual(self.post.state.DRAFT(), wdraft())       # False == False
-        self.assertEqual(self.post.state.DRAFT, wdraft)           # Object remains the same even if not active
-        self.assertNotEqual(self.post.state.PENDING, wdraft)      # These objects don't match
+        self.assertEqual(self.post.state.DRAFT(), wdraft())  # False == False
+        self.assertEqual(
+            self.post.state.DRAFT, wdraft
+        )  # Object remains the same even if not active
+        self.assertNotEqual(
+            self.post.state.PENDING, wdraft
+        )  # These objects don't match
         self.assertNotEqual(self.post.state.PENDING(), wdraft())  # True != False
 
         with self.assertRaises(TypeError):
@@ -683,16 +726,22 @@ class TestStateManager(unittest.TestCase):
         self.session.commit()
         groups1 = MyPost.state.group(MyPost.query.all())
         # Order is preserved. Draft before Published. No Pending.
-        self.assertEqual([g.label for g in groups1.keys()],
-            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PUBLISHED]])
+        self.assertEqual(
+            [g.label for g in groups1.keys()],
+            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PUBLISHED]],
+        )
         # Order is preserved. Draft before Pending before Published.
         groups2 = MyPost.state.group(MyPost.query.all(), keep_empty=True)
-        self.assertEqual([g.label for g in groups2.keys()],
-            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PENDING], MY_STATE[MY_STATE.PUBLISHED]])
-        self.assertEqual(list(groups1.values()),
-            [[self.post], [post2, post3]])
-        self.assertEqual(list(groups2.values()),
-            [[self.post], [], [post2, post3]])
+        self.assertEqual(
+            [g.label for g in groups2.keys()],
+            [
+                MY_STATE[MY_STATE.DRAFT],
+                MY_STATE[MY_STATE.PENDING],
+                MY_STATE[MY_STATE.PUBLISHED],
+            ],
+        )
+        self.assertEqual(list(groups1.values()), [[self.post], [post2, post3]])
+        self.assertEqual(list(groups2.values()), [[self.post], [], [post2, post3]])
 
         with self.assertRaises(TypeError):
             MyPost.state.group([self.post, "Invalid type"])

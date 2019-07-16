@@ -1,0 +1,13 @@
+isort
+toml
+flake8
+flake8-assertive
+flake8-blind-except
+flake8-builtins
+flake8-coding
+flake8-comprehensions
+flake8-isort
+flake8-logging-format
+flake8-mutable
+pep8-naming
+pre-commit

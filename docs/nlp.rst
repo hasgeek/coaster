@@ -1,2 +1,2 @@
 .. automodule:: coaster.nlp
-   :members: 
+   :members:

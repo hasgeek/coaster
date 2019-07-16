@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+
+from flask_sqlalchemy import SQLAlchemy
+
+from flask import Flask
+
 from coaster.manage import init_manager, set_alembic_revision
 import coaster
-from flask_sqlalchemy import SQLAlchemy
-from flask import Flask
 
 
 class TestManagePy(unittest.TestCase):
@@ -18,7 +21,9 @@ class TestManagePy(unittest.TestCase):
 
     def test_sqlalchemy_database_uri(self):
         """Check settings file loaded properly"""
-        self.assertEqual('postgresql:///coaster_test', self.app.config.get('SQLALCHEMY_DATABASE_URI'))
+        self.assertEqual(
+            'postgresql:///coaster_test', self.app.config.get('SQLALCHEMY_DATABASE_URI')
+        )
 
     def test_set_alembic_revision(self):
         set_alembic_revision(path='tests/alembic')

@@ -1,11 +1,19 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 from os import environ
 import sys
+import unittest
+
 from flask import Flask, render_template_string
-from coaster.app import _additional_config, init_app, load_config_from_file, SandboxedFlask
-from coaster.logger import init_app as logger_init_app, LocalVarFormatter
+
+from coaster.app import (
+    SandboxedFlask,
+    _additional_config,
+    init_app,
+    load_config_from_file,
+)
+from coaster.logger import LocalVarFormatter
+from coaster.logger import init_app as logger_init_app
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -20,7 +28,7 @@ class TestCoasterUtils(unittest.TestCase):
     def test_additional_settings_from_file(self):
         env = 'COASTER_ENV'
         environ[env] = "gibberish"
-        self.assertEqual(_additional_config.get(environ[env]), None)
+        assert _additional_config.get(environ[env]) is None
         for k, v in _additional_config.items():
             environ[env] = k
             self.assertEqual(_additional_config.get(environ[env]), v)
@@ -42,7 +50,7 @@ class TestCoasterUtils(unittest.TestCase):
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())
 
-    def test_load_config_from_file_IOError(self):
+    def test_load_config_from_file_ioerror(self):
         app = Flask(__name__)
         self.assertFalse(load_config_from_file(app, "notfound.py"))
 
@@ -51,8 +59,11 @@ class TestCoasterUtils(unittest.TestCase):
         init_app(self.app, env)
         with self.app.test_request_context():
             self.assertEqual(
-                render_template_string('{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'),
-                'No')
+                render_template_string(
+                    '{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'
+                ),
+                'No',
+            )
 
 
 class TestSandBoxedFlask(unittest.TestCase):

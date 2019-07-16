@@ -6,16 +6,23 @@ Immutable annotation
 """
 
 from __future__ import absolute_import
+
 from sqlalchemy import event, inspect
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
+
 from .annotations import annotation_wrapper, annotations_configured
 
 __all__ = ['immutable', 'cached', 'ImmutableColumnError']
 
 
-immutable = annotation_wrapper('immutable', "Marks a column as immutable once set. "
-    "Only blocks direct changes; columns may still be updated via relationships or SQL")
-cached = annotation_wrapper('cached', "Marks the column's contents as a cached value from another source")
+immutable = annotation_wrapper(
+    'immutable',
+    "Marks a column as immutable once set. "
+    "Only blocks direct changes; columns may still be updated via relationships or SQL",
+)
+cached = annotation_wrapper(
+    'cached', "Marks the column's contents as a cached value from another source"
+)
 
 
 class ImmutableColumnError(AttributeError):
@@ -29,11 +36,16 @@ class ImmutableColumnError(AttributeError):
             self.message = (
                 u"Cannot update column {class_name}.{column_name} from {old_value} to {new_value}: "
                 u"column is immutable.".format(
-                    column_name=column_name, class_name=class_name, old_value=old_value, new_value=new_value))
+                    column_name=column_name,
+                    class_name=class_name,
+                    old_value=old_value,
+                    new_value=new_value,
+                )
+            )
 
 
 @annotations_configured.connect
-def __make_immutable(cls):
+def _make_immutable(cls):
     if hasattr(cls, '__annotations__') and immutable.name in cls.__annotations__:
         for attr in cls.__annotations__[immutable.name]:
             col = getattr(cls, attr)

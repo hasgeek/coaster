@@ -6,40 +6,47 @@ Helper functions
 """
 
 from __future__ import absolute_import
-from sqlalchemy import Table, Column, ForeignKey, TIMESTAMP, func, event, inspect, DDL
-from sqlalchemy.sql import functions
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import relationship, ColumnProperty
-from sqlalchemy.orm.exc import NoResultFound
 
-__all__ = ['make_timestamp_columns', 'failsafe_add', 'add_primary_relationship', 'auto_init_default']
+from sqlalchemy import DDL, TIMESTAMP, Column, ForeignKey, Table, event, func, inspect
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import ColumnProperty, relationship
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql import functions
+
+__all__ = [
+    'make_timestamp_columns',
+    'failsafe_add',
+    'add_primary_relationship',
+    'auto_init_default',
+]
 
 
 # --- SQL functions -----------------------------------------------------------
 
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
-class utcnow(functions.GenericFunction):
-    type = TIMESTAMP()
+class utcnow(functions.GenericFunction):  # NOQA: N801
+    type = TIMESTAMP()  # NOQA: A003
 
 
 @compiles(utcnow)
-def __utcnow_default(element, compiler, **kw):
+def _utcnow_default(element, compiler, **kw):
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(utcnow, 'mysql')
-def __utcnow_mysql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mysql(element, compiler, **kw):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(utcnow, 'mssql')
-def __utcnow_mssql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 
 # --- Helper functions --------------------------------------------------------
+
 
 def make_timestamp_columns(timezone=False):
     """Return two columns, `created_at` and `updated_at`, with appropriate defaults"""
@@ -48,16 +55,16 @@ def make_timestamp_columns(timezone=False):
             'created_at',
             TIMESTAMP(timezone=timezone),
             default=func.utcnow(),
-            nullable=False
-            ),
+            nullable=False,
+        ),
         Column(
             'updated_at',
             TIMESTAMP(timezone=timezone),
             default=func.utcnow(),
             onupdate=func.utcnow(),
-            nullable=False
-            ),
-        )
+            nullable=False,
+        ),
+    )
 
 
 def failsafe_add(_session, _instance, **filters):
@@ -146,19 +153,27 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
     child_id_columns = [c.name for c in inspect(child).primary_key]
 
     primary_table_columns = (
-        [Column(
-            parent_table_name + '_' + name,
-            None,
-            ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
-            primary_key=True,
-            nullable=False) for name in parent_id_columns]
-        + [Column(
-            child_table_name + '_' + name,
-            None,
-            ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
-            nullable=False) for name in child_id_columns]
+        [
+            Column(
+                parent_table_name + '_' + name,
+                None,
+                ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
+                primary_key=True,
+                nullable=False,
+            )
+            for name in parent_id_columns
+        ]
+        + [
+            Column(
+                child_table_name + '_' + name,
+                None,
+                ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
+                nullable=False,
+            )
+            for name in child_id_columns
+        ]
         + list(make_timestamp_columns(timezone=parent.__with_timezone__))
-        )
+    )
 
     primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
     rel = relationship(child, uselist=False, secondary=primary_table)
@@ -170,8 +185,11 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             raise ValueError("The target is not affiliated with this parent")
 
     # XXX: To support multi-column primary keys, update this SQL function
-    event.listen(primary_table, 'after_create',
-        DDL('''
+    event.listen(
+        primary_table,
+        'after_create',
+        DDL(
+            '''
             CREATE FUNCTION %(function)s() RETURNS TRIGGER AS $$
             DECLARE
                 target RECORD;
@@ -198,12 +216,15 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'child_id_column': child_id_columns[0],
                 'lhs': '%s_%s' % (parent_table_name, parent_id_columns[0]),
                 'rhs': '%s_%s' % (child_table_name, child_id_columns[0]),
-                }
-            ).execute_if(dialect='postgresql')
-        )
+            },
+        ).execute_if(dialect='postgresql'),
+    )
 
-    event.listen(primary_table, 'before_drop',
-        DDL('''
+    event.listen(
+        primary_table,
+        'before_drop',
+        DDL(
+            '''
             DROP TRIGGER %(trigger)s ON %(table)s;
             DROP FUNCTION %(function)s();
             ''',
@@ -211,9 +232,9 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'table': primary_table_name,
                 'trigger': '%s_trigger' % primary_table_name,
                 'function': '%s_validate' % primary_table_name,
-                }
-            ).execute_if(dialect='postgresql')
-        )
+            },
+        ).execute_if(dialect='postgresql'),
+    )
 
 
 def auto_init_default(column):
@@ -235,6 +256,8 @@ def auto_init_default(column):
             elif default.is_scalar:
                 value = default.arg
             else:
-                raise NotImplementedError("Can't invoke pre-default for a SQL-level column default")
+                raise NotImplementedError(
+                    "Can't invoke pre-default for a SQL-level column default"
+                )
             dict_[column.key] = value
             return value

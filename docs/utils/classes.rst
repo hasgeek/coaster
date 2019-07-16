@@ -1,2 +1,2 @@
 .. automodule:: coaster.utils.classes
-   :members: 
+   :members:

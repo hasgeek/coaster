@@ -8,30 +8,51 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from functools import wraps, update_wrapper
+
+from functools import update_wrapper, wraps
+
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.descriptor_props import SynonymProperty
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
-from sqlalchemy.orm.descriptor_props import SynonymProperty
-from werkzeug.routing import parse_rule
+
+from flask import (
+    Blueprint,
+    _request_ctx_stack,
+    abort,
+    has_request_context,
+    make_response,
+    redirect,
+    request,
+)
 from werkzeug.local import LocalProxy
-from flask import (_request_ctx_stack, abort, has_request_context, request, redirect, make_response,
-    Blueprint)
-from ..auth import current_auth, add_auth_attribute
+from werkzeug.routing import parse_rule
+
+from ..auth import add_auth_attribute, current_auth
 from ..utils import InspectableSet
 
 __all__ = [
-    'rulejoin', 'current_view',  # Functions
-    'ClassView', 'ModelView',  # View base classes
-    'route', 'viewdata', 'url_change_check', 'requires_roles',  # View decorators
-    'UrlChangeCheck', 'UrlForView', 'InstanceLoader',  # Mixin classes
-    ]
+    'rulejoin',
+    'current_view',  # Functions
+    'ClassView',
+    'ModelView',  # View base classes
+    'route',
+    'viewdata',
+    'url_change_check',
+    'requires_roles',  # View decorators
+    'UrlChangeCheck',
+    'UrlForView',
+    'InstanceLoader',  # Mixin classes
+]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
 #: Note that the current view handler method within the class is named
 #: :attr:`~current_view.current_handler`, so to examine it, use :attr:`current_view.current_handler`.
-current_view = LocalProxy(lambda: has_request_context() and getattr(_request_ctx_stack.top, 'current_view', None))
+current_view = LocalProxy(
+    lambda: has_request_context()
+    and getattr(_request_ctx_stack.top, 'current_view', None)
+)
 
 
 # :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
@@ -77,20 +98,25 @@ def rulejoin(class_rule, method_rule):
     if method_rule.startswith('/'):
         return method_rule
     else:
-        return class_rule + ('' if class_rule.endswith('/') or not method_rule else '/') + method_rule
+        return (
+            class_rule
+            + ('' if class_rule.endswith('/') or not method_rule else '/')
+            + method_rule
+        )
 
 
 class ViewHandler(object):
     """
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
-    def __init__(self, rule, rule_options={}, viewdata={}, requires_roles={}):
+
+    def __init__(self, rule, rule_options=None, viewdata=None, requires_roles=None):
         if rule is not None:
-            self.routes = [(rule, rule_options)]
+            self.routes = [(rule, rule_options or {})]
         else:
             self.routes = []
-        self.data = viewdata
-        self.requires_roles = requires_roles
+        self.data = viewdata or {}
+        self.requires_roles = requires_roles or {}
         self.endpoints = set()
 
     def reroute(self, f):
@@ -105,7 +131,9 @@ class ViewHandler(object):
         r = type(self)(None)
         r.routes = self.routes
         r.data = self.data
-        r.func = self.func  # Copy func but not wrapped_func, as it will be re-wrapped by init_app
+        r.func = (
+            self.func
+        )  # Copy func but not wrapped_func, as it will be re-wrapped by init_app
         r.name = self.name
         r.endpoint = self.endpoint
         r.__doc__ = self.__doc__
@@ -158,6 +186,7 @@ class ViewHandler(object):
         * :attr:`view_func`: The view function registered as a Flask view handler
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
+
         def view_func(**view_args):
             # view_func does not make any reference to variables from init_app to avoid creating
             # a closure. Instead, the code further below sticks all relevant variables into
@@ -167,7 +196,9 @@ class ViewHandler(object):
             viewinst = view_func.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
-            viewinst.current_handler = ViewHandlerWrapper(view_func.view, viewinst, view_func.view_class)
+            viewinst.current_handler = ViewHandlerWrapper(
+                view_func.view, viewinst, view_func.view_class
+            )
             # Place view arguments in the instance, in case they are needed outside the dispatch process
             viewinst.view_args = view_args
             # Place the view instance on the request stack for :obj:`current_view` to discover
@@ -228,6 +259,7 @@ class ViewHandler(object):
 
 class ViewHandlerWrapper(object):
     """Wrapper for a view at runtime"""
+
     def __init__(self, viewh, obj, cls=None):
         # obj is the ClassView instance
         self._viewh = viewh
@@ -243,10 +275,12 @@ class ViewHandlerWrapper(object):
         return getattr(self._viewh, name)
 
     def __eq__(self, other):
-        return (isinstance(other, ViewHandlerWrapper)
+        return (
+            isinstance(other, ViewHandlerWrapper)
             and self._viewh == other._viewh
             and self._obj == other._obj
-            and self._cls == other._cls)
+            and self._cls == other._cls
+        )
 
     def __ne__(self, other):  # pragma: no cover
         return not self.__eq__(other)
@@ -313,6 +347,7 @@ class ClassView(object):
 
     See :class:`ModelView` for a better way to build views around a model.
     """
+
     # If the class did not get a @route decorator, provide a fallback route
     __routes__ = [('', {})]
     #: Track all the views registered in this class
@@ -570,6 +605,7 @@ def requires_roles(roles):
     Decorator for :class:`ModelView` views that limits access to the specified
     roles.
     """
+
     def inner(f):
         def is_available_here(context):
             return bool(roles.intersection(context.obj.current_roles))
@@ -591,6 +627,7 @@ def requires_roles(roles):
         wrapper.requires_roles = roles
         wrapper.is_available = is_available
         return wrapper
+
     return inner
 
 
@@ -600,6 +637,7 @@ class UrlForView(object):
     :class:`~coaster.sqlalchemy.mixins.UrlForMixin`'s
     :meth:`~coaster.sqlalchemy.mixins.UrlForMixin.is_url_for`.
     """
+
     @classmethod
     def init_app(cls, app, callback=None):
         def register_view_on_model(rule, endpoint, view_func, **options):
@@ -611,7 +649,9 @@ class UrlForView(object):
             if options.get('subdomain'):
                 rulevars.extend(v for c, a, v in parse_rule(options['subdomain']))
             # Make a subset of cls.route_model_map with the required variables
-            params = {v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map}
+            params = {
+                v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map
+            }
             # Hook up is_url_for with the view function's name, endpoint name and parameters.
             # Register the view for a specific app, unless we're in a Blueprint,
             # in which case it's not an app.
@@ -622,9 +662,15 @@ class UrlForView(object):
             else:
                 prefix = ''
                 reg_app = app
-            cls.model.is_url_for(view_func.__name__, prefix + endpoint, _app=reg_app, **params)(view_func)
+            cls.model.is_url_for(
+                view_func.__name__, prefix + endpoint, _app=reg_app, **params
+            )(view_func)
             cls.model.register_view_for(
-                app=reg_app, action=view_func.__name__, classview=cls, attr=view_func.__name__)
+                app=reg_app,
+                action=view_func.__name__,
+                classview=cls,
+                attr=view_func.__name__,
+            )
             if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 
@@ -653,6 +699,7 @@ def url_change_check(f):
     If the decorator is required for all view handlers in the class, use
     :class:`UrlChangeCheck`.
     """
+
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         if request.method == 'GET' and self.obj is not None:
@@ -660,8 +707,11 @@ def url_change_check(f):
             if correct_url != request.base_url:
                 if request.query_string:
                     correct_url = correct_url + '?' + request.query_string.decode()
-                return redirect(correct_url)  # TODO: Decide if this should be 302 (default) or 301
+                return redirect(
+                    correct_url
+                )  # TODO: Decide if this should be 302 (default) or 301
         return f(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -683,6 +733,7 @@ class UrlChangeCheck(UrlForView):
             def view(self):
                 return self.obj.current_access()
     """
+
     __decorators__ = [url_change_check]
 
 
@@ -695,13 +746,16 @@ class InstanceLoader(object):
     :class:`InstanceLoader` will traverse relationships (many-to-one or
     one-to-one) and perform a SQL ``JOIN`` with the target class.
     """
+
     def loader(self, **view_args):
         if any((name in self.route_model_map for name in view_args)):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
-            filters = {self.route_model_map[key]: value
+            filters = {
+                self.route_model_map[key]: value
                 for key, value in view_args.items()
-                if key in self.route_model_map}
+                if key in self.route_model_map
+            }
 
             query = self.query or self.model.query
             joined_models = set()
@@ -716,12 +770,16 @@ class InstanceLoader(object):
                         # 1. If it's a synonym, get the attribute it is a synonym for
                         # 2. If it's a relationship, find the source class, join it to
                         # the query, and then continue looking for attributes over there
-                        if hasattr(attr, 'original_property') and isinstance(attr.original_property, SynonymProperty):
+                        if hasattr(attr, 'original_property') and isinstance(
+                            attr.original_property, SynonymProperty
+                        ):
                             attr = getattr(source, attr.original_property.name)
                         if isinstance(attr, InstrumentedAttribute):
                             if isinstance(attr.property, RelationshipProperty):
                                 if isinstance(attr.property.argument, Mapper):
-                                    attr = attr.property.argument.class_  # Unlikely to be used. pragma: no cover
+                                    attr = (
+                                        attr.property.argument.class_
+                                    )  # Unlikely to be used. pragma: no cover
                                 else:
                                     attr = attr.property.argument
                                 if attr not in joined_models:

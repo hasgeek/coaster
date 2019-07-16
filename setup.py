@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
+
 import os
-import sys
 import re
+import sys
+
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -53,14 +56,13 @@ requires = [
     'Flask>=1.0',
     'furl',
     'iso8601',
-    ]
+]
 
 if PY2:
-    requires.extend([
-        'PySqlite',
-        ])
+    requires.extend(['PySqlite'])
 
-setup(name='coaster',
+setup(
+    name='coaster',
     version=version,
     description='Coaster for Flask',
     long_description=README + '\n\n' + CHANGES,
@@ -74,7 +76,7 @@ setup(name='coaster',
         "Intended Audience :: Developers",
         "Development Status :: 3 - Alpha",
         "Topic :: Software Development :: Libraries",
-        ],
+    ],
     author='Kiran Jonnalagadda',
     author_email='kiran@hasgeek.com',
     url='https://github.com/hasgeek/coaster',
@@ -84,4 +86,4 @@ setup(name='coaster',
     zip_safe=False,
     test_suite='tests',
     install_requires=requires,
-    )
+)

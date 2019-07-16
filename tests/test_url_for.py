@@ -3,8 +3,10 @@
 from __future__ import absolute_import
 
 import unittest
-from werkzeug.routing import BuildError
+
 from flask import Flask
+from werkzeug.routing import BuildError
+
 from coaster.db import db
 
 from .test_models import Container, NamedDocument, ScopedNamedDocument
@@ -56,7 +58,9 @@ def sdoc_view(container, doc):
 
 
 @app1.route('/<container>/<doc>/edit')
-@ScopedNamedDocument.is_url_for('edit', _external=True, container=('parent', 'id'), doc='name')
+@ScopedNamedDocument.is_url_for(
+    'edit', _external=True, container=('parent', 'id'), doc='name'
+)
 def sdoc_edit(container, doc):
     return u'{} {} {}'.format('edit', container, doc)
 
@@ -81,6 +85,7 @@ def doc_per_app2(doc):
 
 # --- Tests -------------------------------------------------------------------
 
+
 class TestUrlForBase(unittest.TestCase):
     app = app1
 
@@ -101,7 +106,9 @@ class TestUrlFor(TestUrlForBase):
         """
         Test that is_url_for declarations on one class are distinct from those on another class.
         """
-        assert NamedDocument.url_for_endpoints is not ScopedNamedDocument.url_for_endpoints
+        assert (
+            NamedDocument.url_for_endpoints is not ScopedNamedDocument.url_for_endpoints
+        )
 
     def test_url_for(self):
         """
@@ -130,7 +137,9 @@ class TestUrlFor(TestUrlForBase):
         # Test _external flag
         assert doc2.url_for('edit') == 'http://localhost/1/document2/edit'
         assert doc2.url_for('edit', _external=False) == '/1/document2/edit'
-        assert doc2.url_for('edit', _external=True) == 'http://localhost/1/document2/edit'
+        assert (
+            doc2.url_for('edit', _external=True) == 'http://localhost/1/document2/edit'
+        )
 
     def test_absolute_url(self):
         """

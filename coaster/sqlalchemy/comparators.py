@@ -6,16 +6,25 @@ Enhanced query and custom comparators
 """
 
 from __future__ import absolute_import
-import uuid as uuid_
-from sqlalchemy.ext.hybrid import Comparator
-from flask import abort
-from flask_sqlalchemy import BaseQuery
 import six
+
+import uuid as uuid_
+
+from flask_sqlalchemy import BaseQuery
+from sqlalchemy.ext.hybrid import Comparator
+
+from flask import abort
+
 from ..utils import buid2uuid, suuid2uuid
 
-
-__all__ = ['Query', 'SplitIndexComparator',
-    'SqlSplitIdComparator', 'SqlHexUuidComparator', 'SqlBuidComparator', 'SqlSuuidComparator']
+__all__ = [
+    'Query',
+    'SplitIndexComparator',
+    'SqlSplitIdComparator',
+    'SqlHexUuidComparator',
+    'SqlBuidComparator',
+    'SqlSuuidComparator',
+]
 
 
 class Query(BaseQuery):
@@ -98,6 +107,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
     the splitindex feature, which splits an incoming string along the ``-``
     character and picks one of the splits for comparison.
     """
+
     def _decode(self, other):
         if other is None:
             return
@@ -110,6 +120,7 @@ class SqlHexUuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with hex representations of the UUID
     """
+
     def _decode(self, other):
         if other is None:
             return
@@ -125,6 +136,7 @@ class SqlBuidComparator(SplitIndexComparator):
     Allows comparing UUID fields with URL-safe Base64 (BUID) representations
     of the UUID
     """
+
     def _decode(self, other):
         if other is None:
             return
@@ -139,6 +151,7 @@ class SqlSuuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with ShortUUID representations of the UUID
     """
+
     def _decode(self, other):
         if other is None:
             return

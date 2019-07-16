@@ -9,15 +9,19 @@ from __future__ import absolute_import, print_function
 
 from os import environ
 import sys
+
+from flask import Flask, g, get_flashed_messages, request, session, url_for
+
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
-from flask import Flask, url_for, get_flashed_messages, request, session, g
+
+from . import logger
+from .auth import current_auth
+from .views import current_view
+
 try:
     from flask.helpers import _tojson_filter
 except ImportError:
     from flask.json import tojson_filter as _tojson_filter
-from . import logger
-from .auth import current_auth
-from .views import current_view
 
 __all__ = ['SandboxedFlask', 'init_app']
 
@@ -28,7 +32,7 @@ _additional_config = {
     'testing': 'testing.py',
     'prod': 'production.py',
     'production': 'production.py',
-    }
+}
 
 
 class SandboxedEnvironment(BaseSandboxedEnvironment):
@@ -56,6 +60,7 @@ class SandboxedFlask(Flask):
 
     .. _sandboxed: http://jinja.pocoo.org/docs/2.9/sandbox/
     """
+
     def create_jinja_environment(self):
         """Creates the Jinja2 environment based on :attr:`jinja_options`
         and :meth:`select_jinja_autoescape`.  Since 0.7 this also adds
@@ -75,8 +80,8 @@ class SandboxedFlask(Flask):
             # templates we also want the proxies in there.
             request=request,
             session=session,
-            g=g  # FIXME: Similarly with g: no access for sandboxed templates
-            )
+            g=g,  # FIXME: Similarly with g: no access for sandboxed templates
+        )
         rv.filters['tojson'] = _tojson_filter
         return rv
 
@@ -113,8 +118,12 @@ def init_app(app, env=None):
     load_config_from_file(app, 'settings.py')
     # Load additional settings from the app's environment-specific config file
     if not env:
-        env = environ.get('FLASK_ENV', 'DEVELOPMENT')  # Uppercase for compatibility with Flask-Environments
-    additional = _additional_config.get(env.lower())  # Lowercase because that's how we define it
+        env = environ.get(
+            'FLASK_ENV', 'DEVELOPMENT'
+        )  # Uppercase for compatibility with Flask-Environments
+    additional = _additional_config.get(
+        env.lower()
+    )  # Lowercase because that's how we define it
     if additional:
         load_config_from_file(app, additional)
 
@@ -129,5 +138,10 @@ def load_config_from_file(app, filepath):
     except IOError:
         # TODO: Can we print to sys.stderr in production? Should this go to
         # logs instead?
-        print("Did not find settings file %s for additional settings, skipping it" % filepath, file=sys.stderr)
+        print(
+            "Did not find settings file {filepath} for additional settings, skipping it".format(
+                filepath=filepath
+            ),
+            file=sys.stderr,
+        )
         return False

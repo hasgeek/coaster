@@ -6,18 +6,30 @@ SQLAlchemy column types
 """
 
 from __future__ import absolute_import
-import simplejson
-from sqlalchemy import Column, UnicodeText
-from sqlalchemy.types import UserDefinedType, TypeDecorator, TEXT
-from sqlalchemy.orm import composite
-from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy_utils.types import UUIDType, URLType as UrlTypeBase
-from flask import Markup
-from furl import furl
 import six
+
+from sqlalchemy import Column, UnicodeText
+from sqlalchemy.ext.mutable import Mutable, MutableComposite
+from sqlalchemy.orm import composite
+from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
+from sqlalchemy_utils.types import URLType as UrlTypeBase
+from sqlalchemy_utils.types import UUIDType
+
+from flask import Markup
+
+from furl import furl
+import simplejson
+
 from ..utils import markdown
 
-__all__ = ['JsonDict', 'MarkdownComposite', 'MarkdownColumn', 'UUIDType', 'UrlType']
+__all__ = [
+    'JsonDict',
+    'MarkdownComposite',
+    'MarkdownColumn',
+    'UUIDType',
+    'UrlType',
+    'markdown_column',
+]
 
 
 class JsonType(UserDefinedType):
@@ -35,6 +47,7 @@ class JsonbType(UserDefinedType):
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
+
 
 class JsonDict(TypeDecorator):
     """
@@ -75,7 +88,7 @@ class JsonDict(TypeDecorator):
 
 
 class MutableDict(Mutable, dict):
-    @classmethod
+    @classmethod  # NOQA: A003
     def coerce(cls, key, value):
         """Convert plain dictionaries to MutableDict."""
 
@@ -115,6 +128,7 @@ class MarkdownComposite(MutableComposite):
     """
     Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
     """
+
     def __init__(self, text, html=None):
         if html is None:
             self.text = text  # This will regenerate HTML
@@ -148,7 +162,11 @@ class MarkdownComposite(MutableComposite):
 
     # Compare text value
     def __eq__(self, other):
-        return (self.text == other.text) if isinstance(other, MarkdownComposite) else (self.text == other)
+        return (
+            (self.text == other.text)
+            if isinstance(other, MarkdownComposite)
+            else (self.text == other)
+        )
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -169,21 +187,27 @@ class MarkdownComposite(MutableComposite):
     __nonzero__ = __bool__
 
     # Allow a composite column to be assigned a string value
-    @classmethod
+    @classmethod  # NOQA: A003
     def coerce(cls, key, value):
         return cls(value)
 
 
-def MarkdownColumn(name, deferred=False, group=None, **kwargs):
+def markdown_column(name, deferred=False, group=None, **kwargs):
     """
     Create a composite column that autogenerates HTML from Markdown text,
     storing data in db columns named with ``_html`` and ``_text`` prefixes.
     """
-    return composite(MarkdownComposite,
+    return composite(
+        MarkdownComposite,
         Column(name + '_text', UnicodeText, **kwargs),
         Column(name + '_html', UnicodeText, **kwargs),
-        deferred=deferred, group=group or name
-        )
+        deferred=deferred,
+        group=group or name,
+    )
+
+
+# Compatibility name
+MarkdownColumn = markdown_column
 
 
 class UrlType(UrlTypeBase):
@@ -198,9 +222,12 @@ class UrlType(UrlTypeBase):
     :param optional_scheme: Schemes are optional (allows URLs starting with ``//``)
     :param optional_host: Allow URLs without a hostname (required for ``mailto`` and ``file`` schemes)
     """
+
     impl = UnicodeText
 
-    def __init__(self, schemes=('http', 'https'), optional_scheme=False, optional_host=False):
+    def __init__(
+        self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
+    ):
         super(UrlType, self).__init__()
         self.schemes = schemes
         self.optional_host = optional_host

@@ -34,8 +34,8 @@ for ``new`` and ``edit`` actions could use those names instead.
 """
 
 from functools import partial
-from sqlalchemy.ext.declarative import declared_attr
 
+from sqlalchemy.ext.declarative import declared_attr
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
@@ -44,6 +44,7 @@ class Registry(object):
     """
     Container for items registered to a model.
     """
+
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
@@ -57,6 +58,7 @@ class InstanceRegistry(object):
     Used internally by :class:`Registry`. Returns a partial that will pass
     in an ``obj`` parameter when called.
     """
+
     def __init__(self, registry, obj):
         self.__registry = registry
         self.__obj = obj
@@ -71,6 +73,7 @@ class RegistryMixin(object):
     :class:`Registry`. Additional registries, if needed, should be
     added directly to the model class.
     """
+
     @declared_attr
     def forms(self):
         return Registry()

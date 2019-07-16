@@ -10,36 +10,53 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from __future__ import absolute_import
-from functools import wraps
 import six
+
+from functools import wraps
+
+from flask import (
+    Response,
+    abort,
+    current_app,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
-from flask import (abort, current_app, g, jsonify, make_response, redirect, render_template,
-    request, Response, url_for)
+
+from ..auth import add_auth_attribute, current_auth
 from ..utils import is_collection
-from ..auth import current_auth, add_auth_attribute
 from .misc import jsonp
 
 __all__ = [
-    'RequestTypeError', 'RequestValueError',
-    'requestargs', 'requestform', 'requestquery',
-    'load_model', 'load_models',
-    'render_with', 'cors', 'requires_permission',
-    ]
+    'RequestTypeError',
+    'RequestValueError',
+    'requestargs',
+    'requestform',
+    'requestquery',
+    'load_model',
+    'load_models',
+    'render_with',
+    'cors',
+    'requires_permission',
+]
 
 
 class RequestTypeError(BadRequest, TypeError):
     """Exception that combines TypeError with BadRequest. Used by :func:`requestargs`."""
-    pass
 
 
 class RequestValueError(BadRequest, ValueError):
     """Exception that combines ValueError with BadRequest. Used by :func:`requestargs`."""
-    pass
 
 
-def requestargs(*vars, **config):
+def requestargs(*args, **config):
     """
     Decorator that loads parameters from request.values if not specified in the
     function's keyword arguments. Usage::
@@ -93,17 +110,26 @@ def requestargs(*vars, **config):
         raise TypeError("Unrecognised parameters: %s" % repr(config.keys()))
 
     def inner(f):
-        namefilt = [(name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
-            for name, filt in
-                [(v[0], v[1]) if isinstance(v, (list, tuple)) else (v, None) for v in vars]]
+        namefilt = [
+            (name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
+            for name, filt in [
+                (a[0], a[1]) if isinstance(a, (list, tuple)) else (a, None)
+                for a in args
+            ]
+        ]
 
         if config and config.get('source') == 'form':
+
             def datasource():
                 return request.form if request else {}
+
         elif config and config.get('source') == 'query':
+
             def datasource():
                 return request.args if request else {}
+
         else:
+
             def datasource():
                 return request.values if request else {}
 
@@ -126,26 +152,35 @@ def requestargs(*vars, **config):
                 return f(*args, **kw)
             except TypeError as e:
                 raise RequestTypeError(e)
+
         return decorated_function
+
     return inner
 
 
-def requestform(*vars):
+def requestform(*args):
     """
     Like :func:`requestargs`, but loads from request.form (the form submission).
     """
-    return requestargs(*vars, **{'source': 'form'})
+    return requestargs(*args, **{'source': 'form'})
 
 
-def requestquery(*vars):
+def requestquery(*args):
     """
     Like :func:`requestargs`, but loads from request.args (the query string).
     """
-    return requestargs(*vars, **{'source': 'query'})
+    return requestargs(*args, **{'source': 'query'})
 
 
-def load_model(model, attributes=None, parameter=None,
-        kwargs=False, permission=None, addlperms=None, urlcheck=[]):
+def load_model(
+    model,
+    attributes=None,
+    parameter=None,
+    kwargs=False,
+    permission=None,
+    addlperms=None,
+    urlcheck=(),
+):
     """
     Decorator to load a model given a query parameter.
 
@@ -199,8 +234,13 @@ def load_model(model, attributes=None, parameter=None,
         issue a redirect to the corrected URL. This is useful for attributes like
         ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may change
     """
-    return load_models((model, attributes, parameter),
-        kwargs=kwargs, permission=permission, addlperms=addlperms, urlcheck=urlcheck)
+    return load_models(
+        (model, attributes, parameter),
+        kwargs=kwargs,
+        permission=permission,
+        addlperms=addlperms,
+        urlcheck=urlcheck,
+    )
 
 
 def load_models(*chain, **kwargs):
@@ -234,6 +274,7 @@ def load_models(*chain, **kwargs):
         def show_page(folder, page):
             return render_template('page.html', folder=folder, page=page)
     """
+
     def inner(f):
         @wraps(f)
         def decorated_function(*args, **kw):
@@ -241,7 +282,7 @@ def load_models(*chain, **kwargs):
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
             if isinstance(permission_required, six.string_types):
-                permission_required = set([permission_required])
+                permission_required = {permission_required}
             elif permission_required is not None:
                 permission_required = set(permission_required)
             result = {}
@@ -285,7 +326,9 @@ def load_models(*chain, **kwargs):
                     return redirect(location, code=307)
 
                 if permission_required:
-                    permissions = item.permissions(current_auth.actor, inherited=permissions)
+                    permissions = item.permissions(
+                        current_auth.actor, inherited=permissions
+                    )
                     addlperms = kwargs.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms() or []
@@ -294,7 +337,9 @@ def load_models(*chain, **kwargs):
                     g.permissions = permissions
                 if request:
                     add_auth_attribute('permissions', permissions)
-                if url_check and request.method == 'GET':  # Only do urlcheck redirects on GET requests
+                if (
+                    url_check and request.method == 'GET'
+                ):  # Only do urlcheck redirects on GET requests
                     url_redirect = False
                     view_args = None
                     for k, v in url_check_paramvalues.items():
@@ -319,7 +364,9 @@ def load_models(*chain, **kwargs):
                 return f(*args, kwargs=kw, **result)
             else:
                 return f(*args, **result)
+
         return decorated_function
+
     return inner
 
 
@@ -408,11 +455,9 @@ def render_with(template=None, json=False, jsonp=False):
         templates = {
             'application/json': dict_jsonp,
             'application/javascript': dict_jsonp,
-            }
+        }
     elif json:
-        templates = {
-            'application/json': dict_jsonify,
-            }
+        templates = {'application/json': dict_jsonify}
     else:
         templates = {}
     if isinstance(template, six.string_types):
@@ -431,11 +476,15 @@ def render_with(template=None, json=False, jsonp=False):
         for mimetype in ('text/html', 'text/plain', 'application/json'):
             if mimetype in templates:
                 templates['*/*'] = templates[mimetype]
-                default_mimetype = mimetype  # Remember which mimetype's handler is serving for */*
+                default_mimetype = (
+                    mimetype  # Remember which mimetype's handler is serving for */*
+                )
                 break
 
     template_mimetypes = list(templates.keys())
-    template_mimetypes.remove('*/*')  # */* messes up matching, so supply it only as last resort
+    template_mimetypes.remove(
+        '*/*'
+    )  # */* messes up matching, so supply it only as last resort
 
     def inner(f):
         @wraps(f)
@@ -447,7 +496,9 @@ def render_with(template=None, json=False, jsonp=False):
             result = f(*args, **kwargs)
 
             # Is the result a Response object? Don't attempt rendering
-            if isinstance(result, (Response, WerkzeugResponse, current_app.response_class)):
+            if isinstance(
+                result, (Response, WerkzeugResponse, current_app.response_class)
+            ):
                 return result
 
             # Did the result include status code and headers?
@@ -481,7 +532,9 @@ def render_with(template=None, json=False, jsonp=False):
                 # We do not use request.accept_mimetypes.best_match because it turns out to
                 # be buggy: it returns the least match instead of the best match.
                 # use_mimetype = request.accept_mimetypes.best_match(template_mimetypes, '*/*')
-                use_mimetype = _best_mimetype_match(template_mimetypes, request.accept_mimetypes, '*/*')
+                use_mimetype = _best_mimetype_match(
+                    template_mimetypes, request.accept_mimetypes, '*/*'
+                )
 
             # Now render the result with the template for the mimetype
             if use_mimetype is not None:
@@ -497,23 +550,40 @@ def render_with(template=None, json=False, jsonp=False):
                             rendered,
                             status=status_code,
                             headers=headers,
-                            mimetype=default_mimetype if use_mimetype == '*/*' else use_mimetype)
+                            mimetype=default_mimetype
+                            if use_mimetype == '*/*'
+                            else use_mimetype,
+                        )
                 else:  # Not a callable mimetype. Render as a jinja2 template
                     rendered = current_app.response_class(
                         render_template(templates[use_mimetype], **result),
-                        status=status_code or 200, headers=headers,
-                        mimetype=default_mimetype if use_mimetype == '*/*' else use_mimetype)
+                        status=status_code or 200,
+                        headers=headers,
+                        mimetype=default_mimetype
+                        if use_mimetype == '*/*'
+                        else use_mimetype,
+                    )
                 return rendered
             else:
                 return result
+
         return decorated_function
+
     return inner
 
 
-def cors(origins,
-        methods=['HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-        headers=['Accept', 'Accept-Language', 'Content-Language', 'Content-Type', 'X-Requested-With'],
-        max_age=None):
+def cors(
+    origins,
+    methods=('HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'),
+    headers=(
+        'Accept',
+        'Accept-Language',
+        'Content-Language',
+        'Content-Type',
+        'X-Requested-With',
+    ),
+    max_age=None,
+):
     """
     Adds CORS headers to the decorated view function.
 
@@ -555,6 +625,7 @@ def cors(origins,
         def callable_function():
             return Response()
     """
+
     def inner(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
@@ -576,8 +647,13 @@ def cors(origins,
                 resp = Response()
             else:
                 result = f(*args, **kwargs)
-                resp = make_response(result) if not isinstance(result,
-                    (Response, WerkzeugResponse, current_app.response_class)) else result
+                resp = (
+                    make_response(result)
+                    if not isinstance(
+                        result, (Response, WerkzeugResponse, current_app.response_class)
+                    )
+                    else result
+                )
 
             resp.headers['Access-Control-Allow-Origin'] = origin if origin else ''
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
@@ -594,7 +670,9 @@ def cors(origins,
                 resp.headers['Vary'] = 'Origin'
 
             return resp
+
         return wrapper
+
     return inner
 
 
@@ -610,6 +688,7 @@ def requires_permission(permission):
     :param permission: Permission that is required. If a collection type is
         provided, any one permission must be available
     """
+
     def inner(f):
         def is_available_here():
             if not current_auth.permissions:
@@ -636,4 +715,5 @@ def requires_permission(permission):
         wrapper.requires_permission = permission
         wrapper.is_available = is_available
         return wrapper
+
     return inner
