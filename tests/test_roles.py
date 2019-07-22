@@ -16,12 +16,14 @@ from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
     BaseNameMixin,
+    LazyRoleSet,
     RoleAccessProxy,
     RoleMixin,
     UuidMixin,
     declared_attr_roles,
     with_roles,
 )
+from coaster.utils import InspectableSet
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -86,11 +88,11 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     # (an iterable). The format for anchors is not specified by RoleMixin.
 
     def roles_for(self, actor=None, anchors=()):
-        # Calling super give us a result set with the standard roles
-        result = super(RoleModel, self).roles_for(actor, anchors)
+        # Calling super gives us a set with the standard roles
+        roles = super(RoleModel, self).roles_for(actor, anchors)
         if 'owner-secret' in anchors:
-            result.add('owner')  # Grant owner role
-        return result
+            roles.add('owner')  # Grant owner role
+        return roles
 
 
 class AutoRoleModel(RoleMixin, db.Model):
@@ -146,6 +148,10 @@ class RelationshipParent(BaseNameMixin, db.Model):
             }
         }
     }
+
+
+class GrantedRoles(BaseMixin, db.Model):
+    __tablename__ = 'granted_roles'
 
 
 # --- Tests -------------------------------------------------------------------
@@ -419,3 +425,199 @@ class TestCoasterRoles(unittest.TestCase):
         assert isinstance(proxy.children_dict_column, dict)
         assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
         assert proxy.children_dict_column['child'].title == child.title
+
+
+class TestLazyRoleSet(unittest.TestCase):
+    """Tests for LazyRoleSet, isolated from RoleMixin"""
+
+    class EmptyDocument(RoleMixin):
+        pass
+
+    class Document(RoleMixin):
+        _user = None
+        _userlist = ()
+        __roles__ = {'owner': {'granted_by': ['user', 'userlist']}}
+
+        # Test flags
+        accessed_user = False
+        accessed_userlist = False
+
+        @property
+        def user(self):
+            self.accessed_user = True
+            return self._user
+
+        @user.setter
+        def user(self, value):
+            self._user = value
+            self.accessed_user = False
+
+        @property
+        def userlist(self):
+            self.accessed_userlist = True
+            return self._userlist
+
+        @userlist.setter
+        def userlist(self, value):
+            self._userlist = value
+            self.accessed_userlist = False
+
+    class User(object):
+        pass
+
+    def test_initial(self):
+        r1 = LazyRoleSet(self.EmptyDocument(), self.User(), {'all', 'auth'})
+        assert r1._present == {'all', 'auth'}
+        assert r1._not_present == set()
+
+        r2 = LazyRoleSet(self.EmptyDocument(), self.User())
+        assert r2._present == set()
+        assert r2._not_present == set()
+
+    def test_set_add_remove_discard(self):
+        r = LazyRoleSet(self.EmptyDocument(), self.User())
+
+        assert r._present == set()
+        assert r._not_present == set()
+        assert not r
+
+        r.add('role1')
+        assert r._present == {'role1'}
+        assert r._not_present == set()
+        assert r
+
+        r.discard('role1')
+        assert r._present == set()
+        assert r._not_present == {'role1'}
+        assert not r
+
+        r.update({'role2', 'role3'})
+        assert r._present == {'role2', 'role3'}
+        assert r._not_present == {'role1'}
+        assert r
+
+        r.add('role1')
+        assert r._present == {'role1', 'role2', 'role3'}
+        assert r._not_present == set()
+        assert r
+
+        r.remove('role2')
+        assert r._present == {'role1', 'role3'}
+        assert r._not_present == {'role2'}
+        assert r
+
+    def test_set_operations(self):
+        # Confirm we support common set operations
+        doc = self.Document()
+        user = self.User()
+        r = LazyRoleSet(doc, user, {'all', 'auth'})
+        assert r == {'all', 'auth'}
+        assert r == LazyRoleSet(doc, user, {'all', 'auth'})
+        assert r != LazyRoleSet(doc, None, {'all', 'auth'})
+        assert len(r) == 2
+        assert 'all' in r
+        assert 'random' not in r
+        assert r != {'all', 'anon'}
+        assert r.isdisjoint({'random'})
+        assert r.issubset({'all', 'auth', 'owner'})
+        assert r <= {'all', 'auth', 'owner'}
+        assert r < {'all', 'auth', 'owner'}
+        assert not r < {'all', 'auth'}
+        assert r.issuperset({'all'})
+        assert r >= {'all'}
+        assert r > {'all'}
+        assert not r > {'all', 'auth'}
+        assert r.union({'owner'}) == LazyRoleSet(doc, user, {'all', 'auth', 'owner'})
+        assert r | {'owner'} == LazyRoleSet(doc, user, {'all', 'auth', 'owner'})
+        assert r.union({'owner'}) == {'all', 'auth', 'owner'}
+        assert r | {'owner'} == {'all', 'auth', 'owner'}
+        assert r.intersection({'all'}) == LazyRoleSet(doc, user, {'all'})
+        assert r & {'all'} == LazyRoleSet(doc, user, {'all'})
+        assert r.intersection({'all'}) == {'all'}
+        assert r & {'all'} == {'all'}
+
+        r2 = r.copy()
+        assert r is not r2
+        assert r2 is not r
+        assert r == r2
+        assert r2 == r
+
+    def test_lazyroleset(self):
+        d = self.Document()
+        u1 = self.User()
+        u2 = self.User()
+        d.user = u1
+
+        # At the start, the access flags are false
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+
+        # Standard roles work
+        assert 'all' in d.roles_for(u1)
+        assert 'all' in d.roles_for(u2)
+
+        # 'owner' relationships are untouched when testing for standard roles
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+
+        # The 'owner' role is granted for the user present in d.user
+        assert 'owner' in d.roles_for(u1)
+
+        # Confirm which relationship was examined
+        assert d.accessed_user is True
+        assert d.accessed_userlist is False
+
+        # The 'owner' role is not granted for a user not present in
+        # both relationships.
+        assert 'owner' not in d.roles_for(u2)
+
+        # Both relationships have been examined this time
+        assert d.accessed_user is True
+        assert d.accessed_userlist is True
+
+        # Now test the other relationship for granting a role
+        d.user = None
+        d.userlist = [u2]
+
+        # Confirm flags were reset
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+
+        # The 'owner' role is granted for the user present in d.userlist
+        assert 'owner' not in d.roles_for(u1)
+        assert 'owner' in d.roles_for(u2)
+
+        # We know it's via 'userlist' because the flag is set. Further,
+        # 'user' was also examined because it has prority (`granted_by` is ordered)
+        assert d.accessed_user is True
+        assert d.accessed_userlist is True
+
+    def test_inspectable_lazyroleset(self):
+        d = self.Document()
+        u1 = self.User()
+        u2 = self.User()
+        d.user = u1
+
+        # At the start, the access flags are false
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+
+        # Constructing an inspectable set does not enumerate roles
+        r1 = InspectableSet(d.roles_for(u1))
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+
+        # However, accessing the role does
+        assert r1.owner is True
+        assert d.accessed_user is True
+        assert d.accessed_userlist is False
+
+        # Reset and try the other relationship
+        d.user = None
+        d.userlist = [u2]
+        r2 = InspectableSet(d.roles_for(u2))
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+        assert r2.owner is True
+        assert d.accessed_user is True
+        assert d.accessed_userlist is True

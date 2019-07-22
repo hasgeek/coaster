@@ -36,7 +36,7 @@ Example use::
     class ColumnMixin(object):
         '''
         Mixin class that offers some columns to the RoleModel class below,
-        demonstrating two ways to use with_roles.
+        demonstrating two ways to use `with_roles`.
         '''
         @with_roles(rw={'owner'})
         def mixed_in1(cls):
@@ -53,25 +53,34 @@ Example use::
 
         # The low level approach is to declare roles in advance.
         # 'all' is a special role that is always granted from the base class.
-        # Avoid this approach because you may accidentally lose roles if a
-        # subclass does not copy __roles__ from parent classes.
+        # Avoid this approach in a parent class because you may accidentally
+        # lose roles if a subclass does not copy `__roles__` from the parent.
 
         __roles__ = {
             'all': {
-                'read': {'id', 'name', 'title'}
-            }
+                'read': {'id', 'name', 'title'},
+            },
+            'owner': {
+                'granted_by': ['user'],
+            },
         }
 
-        # Recommended: annotate roles on the attributes using ``with_roles``.
-        # These annotations always add to anything specified in ``__roles__``.
+        # Recommended: annotate roles on the attributes using `with_roles`.
+        # These annotations always add to anything specified in `__roles__`.
 
         id = db.Column(db.Integer, primary_key=True)
         name = with_roles(db.Column(db.Unicode(250)),
             rw={'owner'})  # Specify read+write access
 
-        # ``with_roles`` can also be called later. This is required for
+        user_id = db.Column(None, db.ForeignKey('user.id'), nullable=False)
+        user = with_roles(
+            db.relationship(User),
+            grants={'owner'},  # Use `grants` here or `granted_by` in `__roles__`
+            )
+
+        # `with_roles` can also be called later. This is required for
         # properties, where roles must be assigned after the property is
-        # fully described.
+        # fully described:
 
         _title = db.Column('title', db.Unicode(250))
 
@@ -86,22 +95,27 @@ Example use::
         # This grants 'owner' and 'editor' write but not read access
         title = with_roles(title, write={'owner', 'editor'})
 
-        # ``with_roles`` can be used as a decorator on methods, in which case
+        # `with_roles` can be used as a decorator on methods, in which case
         # access is controlled with the 'call' action.
 
         @with_roles(call={'all'})
         def hello(self):
             return "Hello!"
 
-        # Your model is responsible for granting roles given an actor or anchors
-        # (an iterable).
+        # `RoleMixin` will grant roles by examining relationships specified in the
+        # `granted_by` list under each role in `__roles__`. The `actor` parameter
+        # to `roles_for` must be present in the relationship. You can augment this
+        # by providing a custom `roles_for` method:
 
         def roles_for(self, actor=None, anchors=()):
-            # Calling super give us a result set with the standard roles
-            result = super(RoleModel, self).roles_for(actor, anchors)
+            # Calling super gives us a LazyRoleSet with the standard roles
+            # and with lazy evaluation of the `owner` role (from `granted_by`)
+            roles = super(RoleModel, self).roles_for(actor, anchors)
+
+            # We can manually add an `owner` role to turn off lazy evaluation
             if 'owner-secret' in anchors:
-                result.add('owner')  # Grant owner role
-            return result
+                roles.add('owner')
+            return roles
 """
 
 from __future__ import absolute_import
@@ -120,14 +134,126 @@ from sqlalchemy.orm.collections import (
     InstrumentedSet,
     MappedCollection,
 )
+from sqlalchemy.orm.dynamic import AppenderMixin
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection
 
-__all__ = ['RoleAccessProxy', 'RoleMixin', 'with_roles', 'declared_attr_roles']
+__all__ = [
+    'LazyRoleSet',
+    'RoleAccessProxy',
+    'RoleMixin',
+    'with_roles',
+    'declared_attr_roles',
+]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
 __cache__ = {}
+
+
+class LazyRoleSet(collections.MutableSet):
+    """
+    Set that provides lazy evaluations for whether a role is present
+    """
+
+    def __init__(self, obj, actor, initial=()):
+        self.obj = obj
+        self.actor = actor
+        self._present = set(initial)  # Make a copy if it's already a set
+        self._not_present = set()
+
+    def __repr__(self):  # pragma: no cover
+        return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
+
+    def _from_iterable(self, iterable):
+        return LazyRoleSet(self.obj, self.actor, iterable)
+
+    def _actor_in_relationship(self, relationship):
+        """Test whether an actor is present in a relationship"""
+        attr = getattr(self.obj, relationship)
+        if self.actor == attr:
+            return True
+        elif isinstance(attr, (AppenderMixin, collections.Container)):
+            return self.actor in attr
+        return False
+
+    def _role_is_present(self, role):
+        """Test whether a role has been granted to the given actor"""
+        if role in self._present:
+            return True
+        elif role in self._not_present:
+            return False
+        elif self.actor is not None:
+            if role not in self.obj.__roles__:
+                self._not_present.add(role)
+                return False
+            for relattr in self.obj.__roles__[role].get('granted_by', ()):
+                is_present = self._actor_in_relationship(relattr)
+                if is_present:
+                    self._present.add(role)
+                    return True
+        self._not_present.add(role)
+        return False
+
+    def _contents(self):
+        """Return all available roles"""
+        # Populate cache
+        [self._role_is_present(role) for role in self.obj.__roles__]
+        return self._present
+
+    def __contains__(self, key):
+        return self._role_is_present(key)
+
+    def __iter__(self):
+        return iter(self._contents())
+
+    def __len__(self):
+        return len(self._contents())
+
+    def __bool__(self):
+        # Make bool() faster than len() by using the cache first
+        return bool(self._present) or bool(self._contents())
+
+    __nonzero__ = __bool__  # For Python 2.7 compatibility
+
+    def __eq__(self, other):
+        if isinstance(other, LazyRoleSet):
+            return (self.obj == other.obj and self.actor == other.actor and self._contents() == other._contents())
+        else:
+            return self._contents() == other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def add(self, elem):
+        """Add role `elem` to the set."""
+        self._present.add(elem)
+        self._not_present.discard(elem)
+
+    def discard(self, elem):
+        """Remove role `elem` from the set if it is present."""
+        self._present.discard(elem)
+        self._not_present.add(elem)
+
+    # The following are for transparent compatibility with sets
+    # with the most commonly used methods
+
+    def copy(self):
+        """Return a shallow copy of the :class:`LazyRoleSet`."""
+        result = LazyRoleSet(self.obj, self.actor, self._present)
+        result._not_present = set(self._not_present)
+        return result
+
+    issubset = collections.MutableSet.__le__
+    issuperset = collections.MutableSet.__ge__
+    union = collections.MutableSet.__or__
+    intersection = collections.MutableSet.__and__
+    difference = collections.MutableSet.__sub__
+    symmetric_difference = collections.MutableSet.__xor__
+    update = collections.MutableSet.__ior__
+    intersection_update = collections.MutableSet.__iand__
+    difference_update = collections.MutableSet.__isub__
+    symmetric_difference_update = collections.MutableSet.__ixor__
 
 
 class RoleAccessProxy(collections.Mapping):
@@ -194,7 +320,7 @@ class RoleAccessProxy(collections.Mapping):
                 k: v.access_for(actor=self._actor, anchors=self._anchors)
                 for k, v in attr.items()
             }
-        elif isinstance(attr, (InstrumentedList, InstrumentedSet)):
+        elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
             # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
             return tuple(
                 m.access_for(actor=self._actor, anchors=self._anchors) for m in attr
@@ -241,7 +367,7 @@ class RoleAccessProxy(collections.Mapping):
             yield key
 
 
-def with_roles(obj=None, rw=None, call=None, read=None, write=None):
+def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None):
     """
     Convenience function and decorator to define roles on an attribute. Only
     works with :class:`RoleMixin`, which reads the annotations made by this
@@ -281,20 +407,27 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None):
     :param set call: Roles which get call access to the decorated method
     :param set read: Roles which get read access to the decorated attribute
     :param set write: Roles which get write access to the decorated attribute
+    :param set grants: The decorated attribute contains actors with the given roles
     """
     # Convert lists and None values to sets
     rw = set(rw) if rw else set()
     call = set(call) if call else set()
     read = set(read) if read else set()
     write = set(write) if write else set()
+    grants = set(grants) if grants else set()
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
 
     def inner(attr):
-        __cache__[attr] = {'call': call, 'read': read, 'write': write}
+        __cache__[attr] = {'call': call, 'read': read, 'write': write, 'grants': grants}
         try:
-            attr._coaster_roles = {'call': call, 'read': read, 'write': write}
+            attr._coaster_roles = {
+                'call': call,
+                'read': read,
+                'write': write,
+                'grants': grants,
+            }
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
             # into subclasses, the cache alone is not a reliable mechanism. We need both.
@@ -361,8 +494,14 @@ class RoleMixin(object):
                 'call': {'meth1', 'meth2'},
                 'read': {'attr1', 'attr2'},
                 'write': {'attr1', 'attr2'},
+                'grant': {'rel1', 'rel2'},
                 },
             }
+
+    The ``grant`` key works in reverse: if the actor is present in any of the
+    attributes in the set, they are granted that role via :meth:`roles_for`.
+    Attributes must be SQLAlchemy relationships and can be scalar, a collection
+    or dynamic.
 
     The :func:`with_roles` decorator is recommended over :attr:`__roles__`.
     """
@@ -392,9 +531,9 @@ class RoleMixin(object):
                 return roles
         """
         if actor is None:
-            result = {'all', 'anon'}
+            result = LazyRoleSet(self, actor, {'all', 'anon'})
         else:
-            result = {'all', 'auth'}
+            result = LazyRoleSet(self, actor, {'all', 'auth'})
         return result
 
     @property
@@ -423,6 +562,7 @@ class RoleMixin(object):
 
         Must be implemented by subclasses.
         """
+        # TODO: Enumerate from granted_by
         raise NotImplementedError('Subclasses must implement actors_with')
 
     def access_for(self, roles=None, actor=None, anchors=()):
@@ -501,6 +641,12 @@ def _configure_roles(mapper, cls):
                     cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(
                         name
                     )
+                for role in data.get('grants', ()):
+                    granted_by = cls.__roles__.setdefault(role, {}).setdefault(
+                        'granted_by', []
+                    )
+                    if name not in granted_by:
+                        granted_by.append(name)
                 processed.add(name)
 
 

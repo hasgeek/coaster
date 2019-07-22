@@ -272,7 +272,7 @@ class InspectableSet(Set):
     """
 
     def __init__(self, members=()):
-        if not isinstance(members, set):
+        if not isinstance(members, Set):
             members = set(members)
         object.__setattr__(self, '_members', members)
 
