@@ -153,6 +153,17 @@ __all__ = [
 __cache__ = {}
 
 
+def _actor_in_relationship(actor, relationship):
+    """Test whether the given actor is present in the given attribute"""
+    if actor == relationship:
+        return True
+    elif isinstance(relationship, (AppenderMixin, collections.Container)):
+        return actor in relationship
+    elif callable(relationship):
+        return relationship(actor)
+    return False
+
+
 class LazyRoleSet(collections.MutableSet):
     """
     Set that provides lazy evaluations for whether a role is present
@@ -171,15 +182,6 @@ class LazyRoleSet(collections.MutableSet):
     def _from_iterable(self, iterable):
         return LazyRoleSet(self.obj, self.actor, iterable)
 
-    def _actor_in_relationship(self, relationship):
-        """Test whether the bound actor is present in a relationship"""
-        attr = getattr(self.obj, relationship)
-        if self.actor == attr:
-            return True
-        elif isinstance(attr, (AppenderMixin, collections.Container)):
-            return self.actor in attr
-        return False
-
     def _role_is_present(self, role):
         """Test whether a role has been granted to the bound actor"""
         if role in self._present:
@@ -191,7 +193,9 @@ class LazyRoleSet(collections.MutableSet):
                 self._not_present.add(role)
                 return False
             for relattr in self.obj.__roles__[role].get('granted_by', ()):
-                is_present = self._actor_in_relationship(relattr)
+                is_present = _actor_in_relationship(
+                    self.actor, getattr(self.obj, relattr)
+                )
                 if is_present:
                     self._present.add(role)
                     return True

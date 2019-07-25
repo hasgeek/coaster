@@ -517,7 +517,10 @@ class TestLazyRoleSet(unittest.TestCase):
     class Document(RoleMixin):
         _user = None
         _userlist = ()
-        __roles__ = {'owner': {'granted_by': ['user', 'userlist']}}
+        __roles__ = {
+            'owner': {'granted_by': ['user', 'userlist']},
+            'any_role': {'granted_by': ['user_in_any']},
+        }
 
         # Test flags
         accessed_user = False
@@ -542,6 +545,9 @@ class TestLazyRoleSet(unittest.TestCase):
         def userlist(self, value):
             self._userlist = value
             self.accessed_userlist = False
+
+        def user_in_any(self, user):
+            return user is not None and (user == self.user or user in self.userlist)
 
     class User(object):
         pass
@@ -670,6 +676,16 @@ class TestLazyRoleSet(unittest.TestCase):
 
         # We know it's via 'userlist' because the flag is set. Further,
         # 'user' was also examined because it has prority (`granted_by` is ordered)
+        assert d.accessed_user is True
+        assert d.accessed_userlist is True
+
+        # Finally, confirm callable relationships are accessed
+        d.user = None
+        d.userlist = [u2]
+        assert d.accessed_user is False
+        assert d.accessed_userlist is False
+        assert 'any_role' not in d.roles_for(u1)
+        assert 'any_role' in d.roles_for(u2)
         assert d.accessed_user is True
         assert d.accessed_userlist is True
 
