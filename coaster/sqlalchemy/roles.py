@@ -167,11 +167,12 @@ class LazyRoleSet(collections.MutableSet):
     def __repr__(self):  # pragma: no cover
         return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
 
+    # This is required by the `MutableSet` base class
     def _from_iterable(self, iterable):
         return LazyRoleSet(self.obj, self.actor, iterable)
 
     def _actor_in_relationship(self, relationship):
-        """Test whether an actor is present in a relationship"""
+        """Test whether the bound actor is present in a relationship"""
         attr = getattr(self.obj, relationship)
         if self.actor == attr:
             return True
@@ -180,7 +181,7 @@ class LazyRoleSet(collections.MutableSet):
         return False
 
     def _role_is_present(self, role):
-        """Test whether a role has been granted to the given actor"""
+        """Test whether a role has been granted to the bound actor"""
         if role in self._present:
             return True
         elif role in self._not_present:
