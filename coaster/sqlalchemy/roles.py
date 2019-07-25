@@ -11,8 +11,8 @@ classes. Access is defined as one of 'call' (for methods), 'read' or 'write' (bo
 attributes).
 
 Roles are freeform string tokens. A model may freely define and grant roles to actors
-(users and sometimes client apps) based on internal criteria. The following standard tokens
-are recommended. Required tokens are granted by :class:`RoleMixin` itself.
+(users and sometimes client apps) based on internal criteria. The following standard
+tokens are recommended. Required tokens are granted by :class:`RoleMixin` itself.
 
 1. ``all``: Any actor, authenticated or anonymous (required)
 2. ``anon``: Anonymous actor (required)
@@ -136,8 +136,10 @@ from sqlalchemy.orm.collections import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
+from werkzeug.utils import cached_property
+
 from ..auth import current_auth
-from ..utils import InspectableSet, is_collection
+from ..utils import InspectableSet, is_collection, nary_op
 
 __all__ = [
     'LazyRoleSet',
@@ -218,7 +220,11 @@ class LazyRoleSet(collections.MutableSet):
 
     def __eq__(self, other):
         if isinstance(other, LazyRoleSet):
-            return (self.obj == other.obj and self.actor == other.actor and self._contents() == other._contents())
+            return (
+                self.obj == other.obj
+                and self.actor == other.actor
+                and self._contents() == other._contents()
+            )
         else:
             return self._contents() == other
 
@@ -235,7 +241,7 @@ class LazyRoleSet(collections.MutableSet):
         self._present.discard(elem)
         self._not_present.add(elem)
 
-    # The following are for transparent compatibility with sets
+    # The following are for transparent compatibility with sets,
     # with the most commonly used methods
 
     def copy(self):
@@ -244,21 +250,24 @@ class LazyRoleSet(collections.MutableSet):
         result._not_present = set(self._not_present)
         return result
 
-    issubset = collections.MutableSet.__le__
-    issuperset = collections.MutableSet.__ge__
-    union = collections.MutableSet.__or__
-    intersection = collections.MutableSet.__and__
-    difference = collections.MutableSet.__sub__
-    symmetric_difference = collections.MutableSet.__xor__
-    update = collections.MutableSet.__ior__
-    intersection_update = collections.MutableSet.__iand__
-    difference_update = collections.MutableSet.__isub__
-    symmetric_difference_update = collections.MutableSet.__ixor__
+    # Set operators take a single `other` parameter while these methods
+    # are required to take multiple `others` to be API-compatible with sets.
+    # The `nary_op` decorator does that
+    issubset = nary_op(collections.MutableSet.__le__)
+    issuperset = nary_op(collections.MutableSet.__ge__)
+    union = nary_op(collections.MutableSet.__or__)
+    intersection = nary_op(collections.MutableSet.__and__)
+    difference = nary_op(collections.MutableSet.__sub__)
+    symmetric_difference = nary_op(collections.MutableSet.__xor__)
+    update = nary_op(collections.MutableSet.__ior__)
+    intersection_update = nary_op(collections.MutableSet.__iand__)
+    difference_update = nary_op(collections.MutableSet.__isub__)
+    symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
 
 
 class RoleAccessProxy(collections.Mapping):
     """
-    A proxy interface that wraps an object and provides passthrough read and
+    A proxy interface that wraps an object and provides pass-through read and
     write access to attributes that the specified roles have access to.
     Consults the ``__roles__`` dictionary on the object for determining which roles can
     access which attributes. Provides both attribute and dictionary interfaces.
@@ -280,7 +289,6 @@ class RoleAccessProxy(collections.Mapping):
 
     :param obj: The object that should be wrapped with the proxy
     :param roles: A set of roles to determine what attributes are accessible
-
     """
 
     def __init__(self, obj, roles, actor, anchors):
@@ -321,7 +329,8 @@ class RoleAccessProxy(collections.Mapping):
                 for k, v in attr.items()
             }
         elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
-            # InstrumentedSet is converted into a tuple because the role access proxy isn't hashable
+            # InstrumentedSet is converted into a tuple because the role access proxy
+            # isn't hashable
             return tuple(
                 m.access_for(actor=self._actor, anchors=self._anchors) for m in attr
             )
@@ -401,7 +410,6 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
         with_roles(title, read={'all'}, write={'owner', 'editor'})
         title = with_roles(title, read={'all'}, write={'owner', 'editor'})
 
-
     :param set rw: Roles which get read and write access to the decorated
         attribute
     :param set call: Roles which get call access to the decorated method
@@ -430,7 +438,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
             }
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
-            # into subclasses, the cache alone is not a reliable mechanism. We need both.
+            # into subclasses, the cache alone is not a reliable mechanism. We need both
         except AttributeError:
             pass
         return attr
@@ -536,7 +544,7 @@ class RoleMixin(object):
             result = LazyRoleSet(self, actor, {'all', 'auth'})
         return result
 
-    @property
+    @cached_property
     def current_roles(self):
         """
         :class:`~coaster.utils.classes.InspectableSet` containing currently

@@ -150,8 +150,48 @@ class RelationshipParent(BaseNameMixin, db.Model):
     }
 
 
-class GrantedRoles(BaseMixin, db.Model):
-    __tablename__ = 'granted_roles'
+granted_users = db.Table(
+    'granted_users',
+    db.Model.metadata,
+    db.Column('role_grant_many_id', None, db.ForeignKey('role_grant_many.id')),
+    db.Column('role_user_id', None, db.ForeignKey('role_user.id')),
+)
+
+
+class RoleGrantMany(BaseMixin, db.Model):
+    """Test model for granting roles to users in many-to-one and many-to-many relationships"""
+
+    __tablename__ = 'role_grant_many'
+
+    __roles__ = {
+        'primary_role': {'granted_by': ['primary_users']},
+        'secondary_role': {'granted_by': ['secondary_users']},
+    }
+
+
+class RoleUser(BaseMixin, db.Model):
+    """Test model represent a user who has roles"""
+
+    __tablename__ = 'role_user'
+
+    doc_id = db.Column(None, db.ForeignKey('role_grant_many.id'))
+    doc = db.relationship(
+        RoleGrantMany,
+        foreign_keys=[doc_id],
+        backref=db.backref('primary_users', lazy='dynamic'),
+    )
+    secondary_docs = db.relationship(
+        RoleGrantMany, secondary=granted_users, backref='secondary_users'
+    )
+
+
+class RoleGrantOne(BaseMixin, db.Model):
+    """Test model for granting roles to users in a one-to-many relationship"""
+
+    __tablename__ = 'role_grant_one'
+
+    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user = with_roles(db.relationship(RoleUser), grants={'creator'})
 
 
 # --- Tests -------------------------------------------------------------------
@@ -165,8 +205,8 @@ class TestCoasterRoles(unittest.TestCase):
         self.ctx.push()
         db.create_all()
         self.session = db.session
-        # SQLAlchemy doesn't fire mapper_configured events until the first time a mapping is used,
-        # or configuration is explicitly requested
+        # SQLAlchemy doesn't fire mapper_configured events until the first time a
+        # mapping is used, or configuration is explicitly requested
         db.configure_mappers()
 
     def tearDown(self):
@@ -225,7 +265,9 @@ class TestCoasterRoles(unittest.TestCase):
         self.assertEqual(BaseModel.__roles__.get('all', {}).get('read', set()), set())
 
     def test_uuidmixin_roles(self):
-        """A model with UuidMixin provides 'all' read access to uuid, huuid, buid and suuid"""
+        """
+        A model with UuidMixin provides 'all' read access to uuid, huuid, buid and suuid
+        """
         self.assertLessEqual(
             {'uuid', 'huuid', 'buid', 'suuid'}, UuidModel.__roles__['all']['read']
         )
@@ -426,11 +468,50 @@ class TestCoasterRoles(unittest.TestCase):
         assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
         assert proxy.children_dict_column['child'].title == child.title
 
+    def test_role_grant(self):
+        m1 = RoleGrantMany()
+        m2 = RoleGrantMany()
+        u1 = RoleUser(doc=m1)
+        u2 = RoleUser(doc=m2)
+
+        m1.secondary_users.extend([u1, u2])
+
+        rm1u1 = m1.roles_for(u1)
+        rm1u2 = m1.roles_for(u2)
+        rm2u1 = m2.roles_for(u1)
+        rm2u2 = m2.roles_for(u2)
+
+        # Test that roles are discovered from lazy=dynamic relationships
+        assert 'primary_role' in rm1u1
+        assert 'primary_role' not in rm1u2
+        assert 'primary_role' not in rm2u1
+        assert 'primary_role' in rm2u2
+
+        # Test that roles are discovered from list/set collection relationships
+        assert 'secondary_role' in rm1u1
+        assert 'secondary_role' in rm1u1
+        assert 'secondary_role' not in rm2u1
+        assert 'secondary_role' not in rm2u2
+
+        o1 = RoleGrantOne(user=u1)
+        o2 = RoleGrantOne(user=u2)
+
+        ro1u1 = o1.roles_for(u1)
+        ro1u2 = o1.roles_for(u2)
+        ro2u1 = o2.roles_for(u1)
+        ro2u2 = o2.roles_for(u2)
+
+        assert 'creator' in ro1u1
+        assert 'creator' not in ro1u2
+        assert 'creator' not in ro2u1
+        assert 'creator' in ro2u2
+
 
 class TestLazyRoleSet(unittest.TestCase):
     """Tests for LazyRoleSet, isolated from RoleMixin"""
 
     class EmptyDocument(RoleMixin):
+        # Test LazyRoleSet without the side effects of roles defined in the document
         pass
 
     class Document(RoleMixin):
