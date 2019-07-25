@@ -506,6 +506,31 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'creator' not in ro2u1
         assert 'creator' in ro2u2
 
+    def test_actors_with(self):
+        m1 = RoleGrantMany()
+        m2 = RoleGrantMany()
+        u1 = RoleUser(doc=m1)
+        u2 = RoleUser(doc=m2)
+        o1 = RoleGrantOne(user=u1)
+        o2 = RoleGrantOne(user=u2)
+        m1.secondary_users.extend([u1, u2])
+
+        assert o1.actors_with({'creator'}) == {u1}
+        assert o2.actors_with({'creator'}) == {u2}
+
+        assert m1.actors_with({'primary_role'}) == {u1}
+        assert m2.actors_with({'primary_role'}) == {u2}
+        assert m1.actors_with({'secondary_role'}) == {u1, u2}
+        assert m2.actors_with({'secondary_role'}) == set()
+        assert m1.actors_with({'primary_role', 'secondary_role'}) == {u1, u2}
+        assert m2.actors_with({'primary_role', 'secondary_role'}) == {u2}
+
+    def test_actors_with_invalid(self):
+        m1 = RoleGrantMany()
+        with self.assertRaises(ValueError):
+            # Parameter can't be a string
+            m1.actors_with('owner')
+
 
 class TestLazyRoleSet(unittest.TestCase):
     """Tests for LazyRoleSet, isolated from RoleMixin"""

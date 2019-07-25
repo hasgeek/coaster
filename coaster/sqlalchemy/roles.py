@@ -577,13 +577,21 @@ class RoleMixin(object):
 
     def actors_with(self, roles):
         """
-        Return an iterable of all actors who have the specified roles on this
-        object. The iterable may be a list, tuple, set or SQLAlchemy query.
+        Return actors who have the specified roles on this object.
 
-        Must be implemented by subclasses.
+        Uses ``__roles__[role]['granted_by']`` to discover actors via relationships.
         """
-        # TODO: Enumerate from granted_by
-        raise NotImplementedError('Subclasses must implement actors_with')
+        if not is_collection(roles):
+            raise ValueError("`roles` parameter must be a set")
+        actors = set()
+        for role in roles:
+            for relattr in self.__roles__.get(role, {}).get('granted_by', []):
+                attr = getattr(self, relattr)
+                if isinstance(attr, (AppenderMixin, collections.Iterable)):
+                    actors.update(attr)
+                elif isinstance(getattr(type(self), relattr), InstrumentedAttribute):
+                    actors.add(attr)
+        return actors
 
     def access_for(self, roles=None, actor=None, anchors=()):
         """
