@@ -136,9 +136,7 @@ from sqlalchemy.orm.collections import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
-from werkzeug.utils import cached_property
-
-from ..auth import current_auth
+from ..auth import current_auth, add_auth_attribute
 from ..utils import InspectableSet, is_collection, nary_op
 
 __all__ = [
@@ -545,7 +543,7 @@ class RoleMixin(object):
             result = LazyRoleSet(self, actor, {'all', 'auth'})
         return result
 
-    @cached_property
+    @property
     def current_roles(self):
         """
         :class:`~coaster.utils.classes.InspectableSet` containing currently
@@ -560,9 +558,16 @@ class RoleMixin(object):
 
         This property is also available in :class:`RoleAccessProxy`.
         """
-        return InspectableSet(
-            self.roles_for(actor=current_auth.actor, anchors=current_auth.anchors)
-        )
+        cache = getattr(current_auth, 'role_cache', None)
+        if cache is None:
+            cache = {}
+            add_auth_attribute('role_cache', cache)
+        cache_key = (self, current_auth.actor, current_auth.anchors)
+        if cache_key not in cache:
+            cache[cache_key] = InspectableSet(
+                self.roles_for(actor=current_auth.actor, anchors=current_auth.anchors)
+            )
+        return cache[cache_key]
 
     def actors_with(self, roles):
         """
