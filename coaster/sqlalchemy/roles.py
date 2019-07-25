@@ -136,7 +136,9 @@ from sqlalchemy.orm.collections import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
-from ..auth import add_auth_attribute, current_auth
+from flask import _request_ctx_stack
+
+from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
 
 __all__ = [
@@ -558,10 +560,10 @@ class RoleMixin(object):
 
         This property is also available in :class:`RoleAccessProxy`.
         """
-        cache = getattr(current_auth, 'role_cache', None)
+        cache = getattr(_request_ctx_stack.top, '_role_cache', None)
         if cache is None:
             cache = {}
-            add_auth_attribute('role_cache', cache)
+            setattr(_request_ctx_stack.top, '_role_cache', cache)
         cache_key = (self, current_auth.actor, current_auth.anchors)
         if cache_key not in cache:
             cache[cache_key] = InspectableSet(
