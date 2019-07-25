@@ -136,7 +136,7 @@ from sqlalchemy.orm.collections import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
-from ..auth import current_auth, add_auth_attribute
+from ..auth import add_auth_attribute, current_auth
 from ..utils import InspectableSet, is_collection, nary_op
 
 __all__ = [
