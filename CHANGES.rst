@@ -40,6 +40,8 @@
   longer a hack to be embarrassed by.
 * New: Unicode whitespace strippers, ``ulstrip``, ``urstrip`` and ``ustrip``
 * Added lazy role grant evaluation and declarative role grants
+* New: ``nary_op`` decorator to turn a binary operator into a chained n-ary
+  operator
 
 
 0.6.0
