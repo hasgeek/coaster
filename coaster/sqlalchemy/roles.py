@@ -51,10 +51,10 @@ Example use::
     class RoleModel(ColumnMixin, RoleMixin, db.Model):
         __tablename__ = 'role_model'
 
-        # The low level approach is to declare roles in advance.
+        # The low level approach is to declare roles all at once.
         # 'all' is a special role that is always granted from the base class.
-        # Avoid this approach in a parent class because you may accidentally
-        # lose roles if a subclass does not copy `__roles__` from the parent.
+        # Avoid this approach in a parent or mixin class as definitions will
+        # be lost if the subclass does not copy `__roles__`.
 
         __roles__ = {
             'all': {
@@ -65,8 +65,9 @@ Example use::
             },
         }
 
-        # Recommended: annotate roles on the attributes using `with_roles`.
-        # These annotations always add to anything specified in `__roles__`.
+        # Recommended for parent and mixin classes: annotate roles on the attributes
+        # using `with_roles`. These annotations are added to `__roles__` when
+        # SQLAlchemy configures mappers.
 
         id = db.Column(db.Integer, primary_key=True)
         name = with_roles(db.Column(db.Unicode(250)),
@@ -109,10 +110,10 @@ Example use::
 
         def roles_for(self, actor=None, anchors=()):
             # Calling super gives us a LazyRoleSet with the standard roles
-            # and with lazy evaluation of the `owner` role (from `granted_by`)
+            # and with lazy evaluation of of other roles from `granted_by`
             roles = super(RoleModel, self).roles_for(actor, anchors)
 
-            # We can manually add an `owner` role to turn off lazy evaluation
+            # We can manually add a role to override lazy evaluation
             if 'owner-secret' in anchors:
                 roles.add('owner')
             return roles
