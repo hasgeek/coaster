@@ -160,8 +160,6 @@ def _actor_in_relationship(actor, relationship):
         return True
     elif isinstance(relationship, (AppenderMixin, collections.Container)):
         return actor in relationship
-    elif callable(relationship):
-        return relationship(actor)
     return False
 
 
