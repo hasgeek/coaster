@@ -564,6 +564,13 @@ class RoleMixin(object):
             {% if obj.current_roles.editor %}...{% endif %}
 
         This property is also available in :class:`RoleAccessProxy`.
+
+        .. warning::
+            `current_roles` maintains a cache for efficient use in a template where
+            it may be consulted multiple times. It is therefore not safe to use
+            before *and* after code that modifies role assignment. Use
+            :meth:`roles_for` instead, or use `current_roles` only after roles are
+            changed.
         """
         cache = getattr(_request_ctx_stack.top, '_role_cache', None)
         if cache is None:
