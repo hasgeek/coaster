@@ -12,6 +12,7 @@ import six
 from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
 from email.header import decode_header
+from functools import wraps
 from random import SystemRandom
 import binascii
 import collections
@@ -36,6 +37,7 @@ __all__ = [
     'newpin',
     'make_name',
     'make_password',
+    'nary_op',
     'check_password',
     'format_currency',
     'md5sum',
@@ -760,3 +762,19 @@ def domain_namespace_match(domain, namespace):
     True
     """
     return base_domain_matches(domain, ".".join(namespace.split(".")[::-1]))
+
+
+def nary_op(f, doc=None):
+    """
+    Decorator to convert a binary operator into a chained n-ary operator.
+    """
+
+    @wraps(f)
+    def inner(lhs, *others):
+        for other in others:
+            lhs = f(lhs, other)
+        return lhs
+
+    if doc is not None:
+        inner.__doc__ = doc
+    return inner

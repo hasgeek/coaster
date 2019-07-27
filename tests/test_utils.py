@@ -2,6 +2,7 @@
 
 import six
 
+from collections import MutableSet
 import datetime
 import unittest
 import uuid
@@ -18,6 +19,7 @@ from coaster.utils import (
     make_password,
     midnight_to_utc,
     namespace_from_url,
+    nary_op,
     parse_isoformat,
     require_one_of,
     sanitize_html,
@@ -280,3 +282,37 @@ class TestCoasterUtils(unittest.TestCase):
     def test_ustrip(self):
         assert ustrip(u' Test this ') == u'Test this'
         assert ustrip(u'\u200b Test this \u200b') == u'Test this'
+
+    def test_nary_op(self):
+        class DemoSet(MutableSet):
+            def __init__(self, members):
+                self.set = set(members)
+
+            def __contains__(self, value):
+                return value in self.set
+
+            def __iter__(self):
+                return iter(self.set)
+
+            def __len__(self):
+                return len(self.set)
+
+            def add(self, value):
+                return self.set.add(value)
+
+            def discard(self, value):
+                return self.set.discard(value)
+
+            update = nary_op(MutableSet.__ior__, "Custom docstring")
+
+        # Confirm docstrings are added
+        assert DemoSet.update.__doc__ == "Custom docstring"
+
+        d = DemoSet(set())
+        assert d == set()
+        # Confirm the wrapped operator works with a single parameter
+        d.update(['a'])
+        assert d == {'a'}
+        # Confirm the wrapped operator works with multiple parameters
+        d.update(['b', 'c'], ['d', 'e'])
+        assert d == {'a', 'b', 'c', 'd', 'e'}

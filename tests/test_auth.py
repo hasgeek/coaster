@@ -9,7 +9,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, _request_ctx_stack, has_request_context
 
 from coaster.auth import (
-    AuthAnchors,
     add_auth_anchor,
     add_auth_attribute,
     current_auth,
@@ -60,36 +59,6 @@ class Client(BaseMixin, db.Model):
 
 
 # --- Tests -------------------------------------------------------------------
-
-
-class TestAuthAnchors(unittest.TestCase):
-    """Tests for the AuthAnchors class"""
-
-    def test_empty(self):
-        """Test the AuthAnchors container"""
-        empty = AuthAnchors()
-        self.assertEqual(len(empty), 0)
-        self.assertFalse(empty)
-        self.assertEqual(empty, set())
-
-    def test_prefilled(self):
-        prefilled = AuthAnchors({1, 2})
-        self.assertEqual(len(prefilled), 2)
-        self.assertTrue(prefilled)
-        self.assertIn(1, prefilled)
-        self.assertIn(2, prefilled)
-        self.assertNotIn(3, prefilled)
-        self.assertEqual(prefilled, {1, 2})
-
-    def test_postfilled(self):
-        postfilled = AuthAnchors()
-        self.assertEqual(len(postfilled), 0)
-        postfilled._add(1)
-        self.assertIn(1, postfilled)
-        self.assertNotIn(2, postfilled)
-        postfilled._add(2)
-        self.assertIn(2, postfilled)
-        self.assertEqual(postfilled, {1, 2})
 
 
 class TestCurrentUserNoRequest(unittest.TestCase):

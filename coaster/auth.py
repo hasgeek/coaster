@@ -20,8 +20,6 @@ For compatibility with Flask-Login, a user object loaded at
 
 from __future__ import absolute_import
 
-import collections
-
 from flask import _request_ctx_stack, current_app, has_request_context
 from werkzeug.local import LocalProxy
 
@@ -82,7 +80,10 @@ def add_auth_anchor(anchor):
     Helper function for login managers and view handlers to add a new auth anchor.
     This is a placeholder until anchors are properly specified.
     """
-    current_auth.anchors._add(anchor)
+    existing = set(current_auth.anchors)
+    existing.add(anchor)
+    ca = current_auth._get_current_object()
+    object.__setattr__(ca, 'anchors', frozenset(existing))
 
 
 def request_has_auth():
@@ -92,31 +93,6 @@ def request_has_auth():
     to set cookies or perform other housekeeping functions.
     """
     return hasattr(_request_ctx_stack.top, 'current_auth')
-
-
-class AuthAnchors(collections.Set):
-    """
-    Hosts a set without write access.
-    """
-
-    def __init__(self, members=None):
-        self.__members = set(members) if members is not None else set()
-
-    def __repr__(self):  # pragma: no cover
-        return 'AuthAnchors({members})'.format(members=repr(self.__members))
-
-    def __len__(self):
-        return len(self.__members)
-
-    def __contains__(self, member):
-        return member in self.__members
-
-    def __iter__(self):
-        for member in self.__members:
-            yield member
-
-    def _add(self, member):
-        self.__members.add(member)
 
 
 class CurrentAuth(object):
@@ -155,7 +131,7 @@ class CurrentAuth(object):
         object.__setattr__(self, 'actor', user)
         object.__setattr__(self, 'permissions', InspectableSet())
         object.__setattr__(  # TODO: Placeholder for anchors
-            self, 'anchors', AuthAnchors()
+            self, 'anchors', frozenset()
         )
 
     def __setattr__(self, attr, value):
