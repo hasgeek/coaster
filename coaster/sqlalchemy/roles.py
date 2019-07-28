@@ -293,13 +293,28 @@ class RoleAccessProxy(collections.Mapping):
 
     :param obj: The object that should be wrapped with the proxy
     :param roles: A set of roles to determine what attributes are accessible
+    :param actor: The actor this proxy has been constructed for
+    :param anchors: The anchors this proxy has been constructed with
+    :param profiles: Data profiles to limit attribute enumeration to
+
+    The `actor` and `anchors` parameters are not used by the proxy, but are used to
+    construct proxies for objects accessed via relationships.
     """
 
-    def __init__(self, obj, roles, actor, anchors):
+    def __init__(self, obj, roles, actor, anchors, data_profiles):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
         object.__setattr__(self, '_actor', actor)
         object.__setattr__(self, '_anchors', anchors)
+        if data_profiles is None:
+            data_profile_attrs = None
+            object.__setattr__(self, '_data_profiles', None)
+        else:
+            # This will raise an IndexError if profiles is empty, an expected outcome
+            # signalling that data profiles have been misconfigured.
+            data_profile_attrs = obj.__data_profiles__[data_profiles[0]]
+            object.__setattr__(self, '_data_profiles', data_profiles[1:])
+        object.__setattr__(self, '_data_profile_attrs', data_profile_attrs)
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -326,17 +341,31 @@ class RoleAccessProxy(collections.Mapping):
         # A proper take will require custom dict and list subclasses, similar to the
         # role access proxy itself.
         if isinstance(attr, RoleMixin):
-            return attr.access_for(actor=self._actor, anchors=self._anchors)
+            return attr.access_for(
+                actor=self._actor,
+                anchors=self._anchors,
+                data_profiles=self._data_profiles,
+            )
         elif isinstance(attr, (InstrumentedDict, MappedCollection)):
             return {
-                k: v.access_for(actor=self._actor, anchors=self._anchors)
+                k: v.access_for(
+                    actor=self._actor,
+                    anchors=self._anchors,
+                    data_profiles=self._data_profiles,
+                )
                 for k, v in attr.items()
             }
         elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
             # InstrumentedSet is converted into a tuple because the role access proxy
-            # isn't hashable
+            # isn't hashable and can't be placed in a set. This is a side-effect of
+            # subclassing collections.Mapping: dicts are also not hashable.
             return tuple(
-                m.access_for(actor=self._actor, anchors=self._anchors) for m in attr
+                m.access_for(
+                    actor=self._actor,
+                    anchors=self._anchors,
+                    data_profiles=self._data_profiles,
+                )
+                for m in attr
             )
         else:
             return attr
@@ -363,7 +392,10 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __len__(self):
-        return len(self._read)
+        if self._data_profile_attrs is not None:
+            return len(self._read & self._data_profile_attrs)
+        else:
+            return len(self._read)
 
     def __contains__(self, key):
         return key in self._read or key in self._call
@@ -376,7 +408,11 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __iter__(self):
-        for key in self._read:
+        if self._data_profile_attrs is not None:
+            source = self._read & self._data_profile_attrs
+        else:
+            source = self._read
+        for key in source:
             yield key
 
 
@@ -520,6 +556,8 @@ class RoleMixin(object):
 
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
+    # Data profiles for limited access to attributes
+    __data_profiles__ = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
@@ -599,16 +637,15 @@ class RoleMixin(object):
                     actors.add(attr)
         return actors
 
-    def access_for(self, roles=None, actor=None, anchors=()):
+    def access_for(self, roles=None, actor=None, anchors=(), data_profiles=None):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the actor's roles. If the ``roles`` parameter isn't
-        provided, :meth:`roles_for` is called with the other parameters::
+        based on the actor's roles.
 
-            # This typical call:
-            obj.access_for(actor=current_auth.actor)
-            # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(actor=current_auth.actor))
+        .. warning::
+            If the `roles` parameter is provided, it overrides discovery of the actor's
+            roles in both the current object and related objects. It should only be
+            used when roles are pre-determined and related objects are not required.
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
@@ -616,7 +653,9 @@ class RoleMixin(object):
             raise TypeError(
                 'If roles are specified, actor/anchors must not be specified'
             )
-        return RoleAccessProxy(self, roles=roles, actor=actor, anchors=anchors)
+        return RoleAccessProxy(
+            self, roles=roles, actor=actor, anchors=anchors, data_profiles=data_profiles
+        )
 
     def current_access(self):
         """

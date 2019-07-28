@@ -2,6 +2,7 @@
 
 from __future__ import unicode_literals
 
+import json
 import unittest
 
 from sqlalchemy.ext.declarative import declared_attr
@@ -66,6 +67,11 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 
     __roles__ = {'all': {'read': {'id', 'name', 'title'}}}
 
+    __data_profiles__ = {
+        'minimal': {'id', 'name', 'title'},
+        'extra': {'id', 'name', 'title', 'mixed_in1'},
+    }
+
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
@@ -84,8 +90,11 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     def hello(self):
         return "Hello!"
 
-    # Your model is responsible for granting roles given an actor or anchors
-    # (an iterable). The format for anchors is not specified by RoleMixin.
+    # RoleMixin provides a `roles_for` that automatically grants roles from
+    # `granted_by` declarations. See the RoleGrant models below for examples.
+    # This is optional however, and your model can take independent responsibility
+    # for granting roles given an actor and anchors (an iterable). The format for
+    # anchors is not specified by RoleMixin.
 
     def roles_for(self, actor=None, anchors=()):
         # Calling super gives us a set with the standard roles
@@ -121,6 +130,10 @@ class RelationshipChild(BaseNameMixin, db.Model):
     parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
 
     __roles__ = {'all': {'read': {'name', 'title', 'parent'}}}
+    __data_profiles__ = {
+        'primary': {'name', 'title', 'parent'},
+        'related': {'name', 'title'},
+    }
 
 
 class RelationshipParent(BaseNameMixin, db.Model):
@@ -147,6 +160,17 @@ class RelationshipParent(BaseNameMixin, db.Model):
                 'children_dict_column',
             }
         }
+    }
+    __data_profiles__ = {
+        'primary': {
+            'name',
+            'title',
+            'children_list',
+            'children_set',
+            'children_dict_attr',
+            'children_dict_column',
+        },
+        'related': {'name', 'title'},
     }
 
 
@@ -192,6 +216,16 @@ class RoleGrantOne(BaseMixin, db.Model):
 
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
     user = with_roles(db.relationship(RoleUser), grants={'creator'})
+
+
+# --- Utilities ---------------------------------------------------------------
+
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, RoleAccessProxy):
+            return dict(o)
+        return super(JsonEncoder, self).default(o)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -361,6 +395,29 @@ class TestCoasterRoles(unittest.TestCase):
             },
         )
 
+    def test_diff_roles_single_model_data_profile(self):
+        """Data profiles constrain the attributes available via enumeration"""
+        rm = RoleModel(name='test', title='Test')
+        proxy1a = rm.access_for(roles={'all'}, data_profiles=('minimal',))
+        proxy2a = rm.access_for(roles={'owner'}, data_profiles=('minimal',))
+        proxy3a = rm.access_for(roles={'all', 'owner'}, data_profiles=('minimal',))
+        assert set(proxy1a) == {'id', 'name', 'title'}
+        assert len(proxy1a) == 3
+        assert set(proxy2a) == {'name'}
+        assert len(proxy2a) == 1
+        assert set(proxy3a) == {'id', 'name', 'title'}
+        assert len(proxy3a) == 3
+
+        proxy1b = rm.access_for(roles={'all'}, data_profiles=('extra',))
+        proxy2b = rm.access_for(roles={'owner'}, data_profiles=('extra',))
+        proxy3b = rm.access_for(roles={'all', 'owner'}, data_profiles=('extra',))
+        assert set(proxy1b) == {'id', 'name', 'title'}
+        assert len(proxy1b) == 3
+        assert set(proxy2b) == {'name', 'mixed_in1'}
+        assert len(proxy2b) == 2
+        assert set(proxy3b) == {'id', 'name', 'title', 'mixed_in1'}
+        assert len(proxy3b) == 4
+
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
         rm = RoleModel(name='test', title='Test')
@@ -467,6 +524,53 @@ class TestCoasterRoles(unittest.TestCase):
         assert isinstance(proxy.children_dict_column, dict)
         assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
         assert proxy.children_dict_column['child'].title == child.title
+
+    def test_cascading_data_profiles(self):
+        """Test data profile cascades"""
+        parent = RelationshipParent(title="Parent")
+        child = RelationshipChild(title="Child", parent=parent)
+        self.session.add_all([parent, child])
+        self.session.commit()
+
+        pchild = child.access_for(roles={'all'}, data_profiles=('primary',))
+        assert set(pchild) == {'name', 'title', 'parent'}
+
+        # pchild's 'primary' profile includes 'parent', but we haven't specified a
+        # profile for the parent
+        with self.assertRaises(IndexError):
+            pchild.parent
+
+        pchild = child.access_for(roles={'all'}, data_profiles=('primary', 'primary'))
+        pparent = pchild.parent
+        assert set(pparent) == {
+            'name',
+            'title',
+            'children_list',
+            'children_set',
+            'children_dict_attr',
+            'children_dict_column',
+        }
+        # Same error when we recursively access the child
+        with self.assertRaises(IndexError):
+            pparent.children_list[0]
+
+        # Using a well crafted set of profiles will result in a clean containment
+        pchild = child.access_for(roles={'all'}, data_profiles=('primary', 'related'))
+        assert json.loads(json.dumps(pchild, cls=JsonEncoder)) == {
+            'name': "child",
+            'title': "Child",
+            'parent': {'name': "parent", 'title': "Parent"},
+        }
+
+        pparent = parent.access_for(roles={'all'}, data_profiles=('primary', 'related'))
+        assert json.loads(json.dumps(pparent, cls=JsonEncoder)) == {
+            'name': "parent",
+            'title': "Parent",
+            'children_list': [{'name': "child", 'title': "Child"}],
+            'children_set': [{'name': "child", 'title': "Child"}],
+            'children_dict_attr': {'child': {'name': "child", 'title': "Child"}},
+            'children_dict_column': {'child': {'name': "child", 'title': "Child"}},
+        }
 
     def test_role_grant(self):
         m1 = RoleGrantMany()
