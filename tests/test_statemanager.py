@@ -690,8 +690,8 @@ class TestStateManager(unittest.TestCase):
         """with_roles works on the transition decorator"""
         self.assertTrue(self.post.state.DRAFT)
         # Create access proxies for each of these roles
-        author = self.post.access_for({'author'})
-        reviewer = self.post.access_for({'reviewer'})
+        author = self.post.access_for(roles={'author'})
+        reviewer = self.post.access_for(roles={'reviewer'})
 
         # Transitions are listed in the proxy even if not callable
         self.assertIn('submit', author)

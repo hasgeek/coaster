@@ -293,13 +293,30 @@ class RoleAccessProxy(collections.Mapping):
 
     :param obj: The object that should be wrapped with the proxy
     :param roles: A set of roles to determine what attributes are accessible
+    :param actor: The actor this proxy has been constructed for
+    :param anchors: The anchors this proxy has been constructed with
+    :param datasets: Datasets to limit attribute enumeration to
+
+    The `actor` and `anchors` parameters are not used by the proxy, but are used to
+    construct proxies for objects accessed via relationships.
     """
 
-    def __init__(self, obj, roles, actor, anchors):
+    def __init__(self, obj, roles, actor, anchors, datasets):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
         object.__setattr__(self, '_actor', actor)
         object.__setattr__(self, '_anchors', anchors)
+        if datasets is None:
+            dataset_attrs = None
+            object.__setattr__(self, '_datasets', None)
+        else:
+            if datasets:
+                dataset_attrs = set(obj.__datasets__[datasets[0]])
+            else:
+                # Got an empty list, so turn off enumeration
+                dataset_attrs = set()
+            object.__setattr__(self, '_datasets', datasets[1:])
+        object.__setattr__(self, '_dataset_attrs', dataset_attrs)
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -326,17 +343,25 @@ class RoleAccessProxy(collections.Mapping):
         # A proper take will require custom dict and list subclasses, similar to the
         # role access proxy itself.
         if isinstance(attr, RoleMixin):
-            return attr.access_for(actor=self._actor, anchors=self._anchors)
+            return attr.access_for(
+                actor=self._actor, anchors=self._anchors, datasets=self._datasets
+            )
         elif isinstance(attr, (InstrumentedDict, MappedCollection)):
             return {
-                k: v.access_for(actor=self._actor, anchors=self._anchors)
+                k: v.access_for(
+                    actor=self._actor, anchors=self._anchors, datasets=self._datasets
+                )
                 for k, v in attr.items()
             }
         elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
             # InstrumentedSet is converted into a tuple because the role access proxy
-            # isn't hashable
+            # isn't hashable and can't be placed in a set. This is a side-effect of
+            # subclassing collections.Mapping: dicts are also not hashable.
             return tuple(
-                m.access_for(actor=self._actor, anchors=self._anchors) for m in attr
+                m.access_for(
+                    actor=self._actor, anchors=self._anchors, datasets=self._datasets
+                )
+                for m in attr
             )
         else:
             return attr
@@ -363,7 +388,10 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __len__(self):
-        return len(self._read)
+        if self._dataset_attrs is not None:
+            return len(self._read & self._dataset_attrs)
+        else:
+            return len(self._read)
 
     def __contains__(self, key):
         return key in self._read or key in self._call
@@ -376,7 +404,11 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __iter__(self):
-        for key in self._read:
+        if self._dataset_attrs is not None:
+            source = self._read & self._dataset_attrs
+        else:
+            source = self._read
+        for key in source:
             yield key
 
 
@@ -520,6 +552,8 @@ class RoleMixin(object):
 
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
+    # Datasets for limited access to attributes
+    __datasets__ = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
@@ -599,16 +633,43 @@ class RoleMixin(object):
                     actors.add(attr)
         return actors
 
-    def access_for(self, roles=None, actor=None, anchors=()):
+    def access_for(self, roles=None, actor=None, anchors=(), datasets=None):
         """
         Return a proxy object that limits read and write access to attributes
-        based on the actor's roles. If the ``roles`` parameter isn't
-        provided, :meth:`roles_for` is called with the other parameters::
+        based on the actor's roles.
 
-            # This typical call:
-            obj.access_for(actor=current_auth.actor)
-            # Is shorthand for:
-            obj.access_for(roles=obj.roles_for(actor=current_auth.actor))
+        .. warning::
+            If the `roles` parameter is provided, it overrides discovery of the actor's
+            roles in both the current object and related objects. It should only be
+            used when roles are pre-determined and related objects are not required.
+
+        :param set roles: Roles to limit access to (not recommended)
+        :param actor: Limit access to this actor's roles
+        :param anchors: Retrieve additional roles from anchors
+        :param tuple datasets: Limit enumeration to the attributes in the dataset
+
+        If a `datasets` sequence is provided, the first dataset is applied to the
+        current object and subsequent datasets are applied to objects accessed via
+        relationships. Datasets limit the attributes available via enumeration when the
+        proxy is cast into a dict or JSON. This can be used to remove unnecessary data
+        or bi-directional relationships, which JSON can't handle.
+
+        Attributes must be specified in a ``__datasets__`` dictionary on the object::
+
+            __datasets__ = {
+                'primary': {'uuid', 'name', 'title', 'children', 'parent'},
+                'related': {'uuid', 'name', 'title'}
+            }
+
+        Objects and related objects can be safely enumerated like this::
+
+            proxy = obj.access_for(user, datasets=('primary', 'related'))
+            proxydict = dict(proxy)
+            proxyjson = json.dumps(proxy)  # This needs a custom JSON encoder
+
+        If a dataset includes an attribute the role doesn't have access to, it will be
+        skipped. If it includes a relationship for which no dataset is specified, it
+        will be rendered as an empty object.
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
@@ -616,14 +677,20 @@ class RoleMixin(object):
             raise TypeError(
                 'If roles are specified, actor/anchors must not be specified'
             )
-        return RoleAccessProxy(self, roles=roles, actor=actor, anchors=anchors)
+        return RoleAccessProxy(
+            self, roles=roles, actor=actor, anchors=anchors, datasets=datasets
+        )
 
-    def current_access(self):
+    def current_access(self, datasets=None):
         """
         Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
         return a proxy for the currently authenticated user.
+
+        :param tuple datasets: Datasets to limit enumeration to
         """
-        return self.access_for(actor=current_auth.actor, anchors=current_auth.anchors)
+        return self.access_for(
+            actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
+        )
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)

@@ -42,6 +42,8 @@
 * Added lazy role grant evaluation and declarative role grants
 * New: ``nary_op`` decorator to turn a binary operator into a chained n-ary
   operator
+* Added datasets for limited enumeration in role access, as a stopgap until
+  migration to GraphQL
 
 
 0.6.0

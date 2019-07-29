@@ -999,7 +999,7 @@ class StateManagerWrapper(object):
         returns currently available transitions for the specified
         roles or actor as a dictionary of name: :class:`StateTransitionWrapper`.
         """
-        proxy = self.obj.access_for(roles, actor, anchors)
+        proxy = self.obj.access_for(roles=roles, actor=actor, anchors=anchors)
         return {
             name: transition
             for name, transition in self.transitions(current=False).items()
