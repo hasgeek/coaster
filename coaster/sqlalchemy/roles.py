@@ -651,12 +651,16 @@ class RoleMixin(object):
             self, roles=roles, actor=actor, anchors=anchors, datasets=datasets
         )
 
-    def current_access(self):
+    def current_access(self, datasets=None):
         """
         Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
         return a proxy for the currently authenticated user.
+
+        :param tuple datasets: Datasets to limit enumeration to
         """
-        return self.access_for(actor=current_auth.actor, anchors=current_auth.anchors)
+        return self.access_for(
+            actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
+        )
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
