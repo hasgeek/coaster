@@ -295,26 +295,26 @@ class RoleAccessProxy(collections.Mapping):
     :param roles: A set of roles to determine what attributes are accessible
     :param actor: The actor this proxy has been constructed for
     :param anchors: The anchors this proxy has been constructed with
-    :param profiles: Data profiles to limit attribute enumeration to
+    :param datasets: Datasets to limit attribute enumeration to
 
     The `actor` and `anchors` parameters are not used by the proxy, but are used to
     construct proxies for objects accessed via relationships.
     """
 
-    def __init__(self, obj, roles, actor, anchors, data_profiles):
+    def __init__(self, obj, roles, actor, anchors, datasets):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
         object.__setattr__(self, '_actor', actor)
         object.__setattr__(self, '_anchors', anchors)
-        if data_profiles is None:
-            data_profile_attrs = None
-            object.__setattr__(self, '_data_profiles', None)
+        if datasets is None:
+            dataset_attrs = None
+            object.__setattr__(self, '_datasets', None)
         else:
             # This will raise an IndexError if profiles is empty, an expected outcome
-            # signalling that data profiles have been misconfigured.
-            data_profile_attrs = obj.__data_profiles__[data_profiles[0]]
-            object.__setattr__(self, '_data_profiles', data_profiles[1:])
-        object.__setattr__(self, '_data_profile_attrs', data_profile_attrs)
+            # signalling that datasets have been misconfigured.
+            dataset_attrs = obj.__datasets__[datasets[0]]
+            object.__setattr__(self, '_datasets', datasets[1:])
+        object.__setattr__(self, '_dataset_attrs', dataset_attrs)
 
         # Call, read and write access attributes for the given roles
         call = set()
@@ -342,16 +342,12 @@ class RoleAccessProxy(collections.Mapping):
         # role access proxy itself.
         if isinstance(attr, RoleMixin):
             return attr.access_for(
-                actor=self._actor,
-                anchors=self._anchors,
-                data_profiles=self._data_profiles,
+                actor=self._actor, anchors=self._anchors, datasets=self._datasets
             )
         elif isinstance(attr, (InstrumentedDict, MappedCollection)):
             return {
                 k: v.access_for(
-                    actor=self._actor,
-                    anchors=self._anchors,
-                    data_profiles=self._data_profiles,
+                    actor=self._actor, anchors=self._anchors, datasets=self._datasets
                 )
                 for k, v in attr.items()
             }
@@ -361,9 +357,7 @@ class RoleAccessProxy(collections.Mapping):
             # subclassing collections.Mapping: dicts are also not hashable.
             return tuple(
                 m.access_for(
-                    actor=self._actor,
-                    anchors=self._anchors,
-                    data_profiles=self._data_profiles,
+                    actor=self._actor, anchors=self._anchors, datasets=self._datasets
                 )
                 for m in attr
             )
@@ -392,8 +386,8 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __len__(self):
-        if self._data_profile_attrs is not None:
-            return len(self._read & self._data_profile_attrs)
+        if self._dataset_attrs is not None:
+            return len(self._read & self._dataset_attrs)
         else:
             return len(self._read)
 
@@ -408,8 +402,8 @@ class RoleAccessProxy(collections.Mapping):
             raise KeyError(key)
 
     def __iter__(self):
-        if self._data_profile_attrs is not None:
-            source = self._read & self._data_profile_attrs
+        if self._dataset_attrs is not None:
+            source = self._read & self._dataset_attrs
         else:
             source = self._read
         for key in source:
@@ -556,8 +550,8 @@ class RoleMixin(object):
 
     # This empty dictionary is necessary for the configure step below to work
     __roles__ = {}
-    # Data profiles for limited access to attributes
-    __data_profiles__ = {}
+    # Datasets for limited access to attributes
+    __datasets__ = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
@@ -637,7 +631,7 @@ class RoleMixin(object):
                     actors.add(attr)
         return actors
 
-    def access_for(self, roles=None, actor=None, anchors=(), data_profiles=None):
+    def access_for(self, roles=None, actor=None, anchors=(), datasets=None):
         """
         Return a proxy object that limits read and write access to attributes
         based on the actor's roles.
@@ -654,7 +648,7 @@ class RoleMixin(object):
                 'If roles are specified, actor/anchors must not be specified'
             )
         return RoleAccessProxy(
-            self, roles=roles, actor=actor, anchors=anchors, data_profiles=data_profiles
+            self, roles=roles, actor=actor, anchors=anchors, datasets=datasets
         )
 
     def current_access(self):

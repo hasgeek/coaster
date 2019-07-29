@@ -67,7 +67,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 
     __roles__ = {'all': {'read': {'id', 'name', 'title'}}}
 
-    __data_profiles__ = {
+    __datasets__ = {
         'minimal': {'id', 'name', 'title'},
         'extra': {'id', 'name', 'title', 'mixed_in1'},
     }
@@ -130,7 +130,7 @@ class RelationshipChild(BaseNameMixin, db.Model):
     parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
 
     __roles__ = {'all': {'read': {'name', 'title', 'parent'}}}
-    __data_profiles__ = {
+    __datasets__ = {
         'primary': {'name', 'title', 'parent'},
         'related': {'name', 'title'},
     }
@@ -161,7 +161,7 @@ class RelationshipParent(BaseNameMixin, db.Model):
             }
         }
     }
-    __data_profiles__ = {
+    __datasets__ = {
         'primary': {
             'name',
             'title',
@@ -395,12 +395,12 @@ class TestCoasterRoles(unittest.TestCase):
             },
         )
 
-    def test_diff_roles_single_model_data_profile(self):
+    def test_diff_roles_single_model_dataset(self):
         """Data profiles constrain the attributes available via enumeration"""
         rm = RoleModel(name='test', title='Test')
-        proxy1a = rm.access_for(roles={'all'}, data_profiles=('minimal',))
-        proxy2a = rm.access_for(roles={'owner'}, data_profiles=('minimal',))
-        proxy3a = rm.access_for(roles={'all', 'owner'}, data_profiles=('minimal',))
+        proxy1a = rm.access_for(roles={'all'}, datasets=('minimal',))
+        proxy2a = rm.access_for(roles={'owner'}, datasets=('minimal',))
+        proxy3a = rm.access_for(roles={'all', 'owner'}, datasets=('minimal',))
         assert set(proxy1a) == {'id', 'name', 'title'}
         assert len(proxy1a) == 3
         assert set(proxy2a) == {'name'}
@@ -408,9 +408,9 @@ class TestCoasterRoles(unittest.TestCase):
         assert set(proxy3a) == {'id', 'name', 'title'}
         assert len(proxy3a) == 3
 
-        proxy1b = rm.access_for(roles={'all'}, data_profiles=('extra',))
-        proxy2b = rm.access_for(roles={'owner'}, data_profiles=('extra',))
-        proxy3b = rm.access_for(roles={'all', 'owner'}, data_profiles=('extra',))
+        proxy1b = rm.access_for(roles={'all'}, datasets=('extra',))
+        proxy2b = rm.access_for(roles={'owner'}, datasets=('extra',))
+        proxy3b = rm.access_for(roles={'all', 'owner'}, datasets=('extra',))
         assert set(proxy1b) == {'id', 'name', 'title'}
         assert len(proxy1b) == 3
         assert set(proxy2b) == {'name', 'mixed_in1'}
@@ -530,7 +530,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
         assert proxy.children_dict_column['child'].title == child.title
 
-    def test_cascading_data_profiles(self):
+    def test_cascading_datasets(self):
         """Test data profile cascades"""
         parent = RelationshipParent(title="Parent")
         child = RelationshipChild(title="Child", parent=parent)
@@ -542,7 +542,7 @@ class TestCoasterRoles(unittest.TestCase):
         # to an object. This is okay here only because the 'all' role is automatically
         # granted on all objects. Production use should be with `actor` and `anchors`.
 
-        pchild = child.access_for(roles={'all'}, data_profiles=('primary',))
+        pchild = child.access_for(roles={'all'}, datasets=('primary',))
         assert set(pchild) == {'name', 'title', 'parent'}
 
         # pchild's 'primary' profile includes 'parent', but we haven't specified a
@@ -550,7 +550,7 @@ class TestCoasterRoles(unittest.TestCase):
         with self.assertRaises(IndexError):
             pchild.parent
 
-        pchild = child.access_for(roles={'all'}, data_profiles=('primary', 'primary'))
+        pchild = child.access_for(roles={'all'}, datasets=('primary', 'primary'))
         pparent = pchild.parent
         assert set(pparent) == {
             'name',
@@ -565,14 +565,14 @@ class TestCoasterRoles(unittest.TestCase):
             pparent.children_list[0]
 
         # Using a well crafted set of profiles will result in a clean containment
-        pchild = child.access_for(roles={'all'}, data_profiles=('primary', 'related'))
+        pchild = child.access_for(roles={'all'}, datasets=('primary', 'related'))
         assert json.loads(json.dumps(pchild, cls=JsonEncoder)) == {
             'name': "child",
             'title': "Child",
             'parent': {'name': "parent", 'title': "Parent"},
         }
 
-        pparent = parent.access_for(roles={'all'}, data_profiles=('primary', 'related'))
+        pparent = parent.access_for(roles={'all'}, datasets=('primary', 'related'))
         assert json.loads(json.dumps(pparent, cls=JsonEncoder)) == {
             'name': "parent",
             'title': "Parent",
@@ -585,7 +585,7 @@ class TestCoasterRoles(unittest.TestCase):
         # Data profiles only affect enumeration
         # Actual availability is determined by role access
 
-        pchild = child.access_for(roles={'all'}, data_profiles=('related', 'related'))
+        pchild = child.access_for(roles={'all'}, datasets=('related', 'related'))
         assert 'parent' not in set(pchild)  # Enumerate and test for containment
         assert 'parent' in pchild  # Test for containment directly
         assert pchild['parent'] is not None
