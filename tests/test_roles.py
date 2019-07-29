@@ -572,6 +572,15 @@ class TestCoasterRoles(unittest.TestCase):
             'children_dict_column': {'child': {'name': "child", 'title': "Child"}},
         }
 
+        # Data profiles only affect enumeration
+        # Actual availability is determined by role access
+
+        pchild = child.access_for(roles={'all'}, data_profiles=('related', 'related'))
+        assert 'parent' not in set(pchild)  # Enumerate and test for containment
+        assert 'parent' in pchild  # Test for containment directly
+        assert pchild['parent'] is not None
+        assert pchild.parent is not None
+
     def test_role_grant(self):
         m1 = RoleGrantMany()
         m2 = RoleGrantMany()
