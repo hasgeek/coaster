@@ -310,9 +310,11 @@ class RoleAccessProxy(collections.Mapping):
             dataset_attrs = None
             object.__setattr__(self, '_datasets', None)
         else:
-            # This will raise an IndexError if profiles is empty, an expected outcome
-            # signalling that datasets have been misconfigured.
-            dataset_attrs = obj.__datasets__[datasets[0]]
+            if datasets:
+                dataset_attrs = set(obj.__datasets__[datasets[0]])
+            else:
+                # Got an empty list, so turn off enumeration
+                dataset_attrs = set()
             object.__setattr__(self, '_datasets', datasets[1:])
         object.__setattr__(self, '_dataset_attrs', dataset_attrs)
 
@@ -640,6 +642,34 @@ class RoleMixin(object):
             If the `roles` parameter is provided, it overrides discovery of the actor's
             roles in both the current object and related objects. It should only be
             used when roles are pre-determined and related objects are not required.
+
+        :param set roles: Roles to limit access to (not recommended)
+        :param actor: Limit access to this actor's roles
+        :param anchors: Retrieve additional roles from anchors
+        :param tuple datasets: Limit enumeration to the attributes in the dataset
+
+        If a `datasets` sequence is provided, the first dataset is applied to the
+        current object and subsequent datasets are applied to objects accessed via
+        relationships. Datasets limit the attributes available via enumeration when the
+        proxy is cast into a dict or JSON. This can be used to remove unnecessary data
+        or bi-directional relationships, which JSON can't handle.
+
+        Attributes must be specified in a ``__datasets__`` dictionary on the object::
+
+            __datasets__ = {
+                'primary': {'uuid', 'name', 'title', 'children', 'parent'},
+                'related': {'uuid', 'name', 'title'}
+            }
+
+        Objects and related objects can be safely enumerated like this::
+
+            proxy = obj.access_for(user, datasets=('primary', 'related'))
+            proxydict = dict(proxy)
+            proxyjson = json.dumps(proxy)  # This needs a custom JSON encoder
+
+        If a dataset includes an attribute the role doesn't have access to, it will be
+        skipped. If it includes a relationship for which no dataset is specified, it
+        will be rendered as an empty object.
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)

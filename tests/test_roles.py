@@ -546,9 +546,8 @@ class TestCoasterRoles(unittest.TestCase):
         assert set(pchild) == {'name', 'title', 'parent'}
 
         # pchild's 'primary' profile includes 'parent', but we haven't specified a
-        # profile for the parent
-        with self.assertRaises(IndexError):
-            pchild.parent
+        # profile for the parent so it will be empty
+        assert pchild.parent == {}
 
         pchild = child.access_for(roles={'all'}, datasets=('primary', 'primary'))
         pparent = pchild.parent
@@ -560,9 +559,8 @@ class TestCoasterRoles(unittest.TestCase):
             'children_dict_attr',
             'children_dict_column',
         }
-        # Same error when we recursively access the child
-        with self.assertRaises(IndexError):
-            pparent.children_list[0]
+        # Same blank object when we recursively access the child
+        assert pparent.children_list[0] == {}
 
         # Using a well crafted set of profiles will result in a clean containment
         pchild = child.access_for(roles={'all'}, datasets=('primary', 'related'))
