@@ -506,6 +506,11 @@ class TestCoasterRoles(unittest.TestCase):
         self.session.add_all([parent, child])
         self.session.commit()
 
+        # These tests use ``access_for(roles={'all'})`` even though the `roles`
+        # parameter is not suitable for accessing relationships, as roles are specific
+        # to an object. This is okay here only because the 'all' role is automatically
+        # granted on all objects. Production use should be with `actor` and `anchors`.
+
         proxy = parent.access_for(roles={'all'})
         assert proxy.title == parent.title
 
@@ -531,6 +536,11 @@ class TestCoasterRoles(unittest.TestCase):
         child = RelationshipChild(title="Child", parent=parent)
         self.session.add_all([parent, child])
         self.session.commit()
+
+        # These tests use ``access_for(roles={'all'})`` even though the `roles`
+        # parameter is not suitable for accessing relationships, as roles are specific
+        # to an object. This is okay here only because the 'all' role is automatically
+        # granted on all objects. Production use should be with `actor` and `anchors`.
 
         pchild = child.access_for(roles={'all'}, data_profiles=('primary',))
         assert set(pchild) == {'name', 'title', 'parent'}
