@@ -974,7 +974,18 @@ class CoordinatesMixin(object):
     longitude = Column(Numeric)
 
     @property
+    def has_coordinates(self):
+        """Return `True` if both latitude and longitude are present."""
+        return self.latitude is not None and self.longitude is not None
+
+    @property
+    def has_missing_coordinates(self):
+        """Return `True` if one or both of latitude and longitude are missing."""
+        return self.latitude is None or self.longitude is None
+
+    @property
     def coordinates(self):
+        """Tuple of (latitude, longitude)."""
         return self.latitude, self.longitude
 
     @coordinates.setter
