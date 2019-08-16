@@ -1,0 +1,17 @@
+version = 1
+test_patterns = [
+  "tests/**",
+  "test_*.py"
+]
+
+[[analyzers]]
+name = "python"  # https://deepsource.io/docs/analyzers/python.html#configuration-analysis
+enabled = true
+runtime_version = "3.x.x"
+dependency_file_paths = [
+  "dev_requirements.txt",
+  "test_requirements.txt"
+]
+
+    [analyzers.meta]  # https://deepsource.io/docs/analyzers/python.html#meta
+    max_line_length = 88
