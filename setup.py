@@ -48,7 +48,7 @@ requires = [
     'markdown>=3.1.0',
     'pymdown-extensions>=6.0',
     'pytz',
-    'semantic_version',
+    'semantic_version>=2.8.0',
     'simplejson',
     'werkzeug',
     'markupsafe',

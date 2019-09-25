@@ -23,21 +23,21 @@ from flask_assets import Bundle
 from webassets.filter import Filter, register_filter
 
 # Version is not used here but is made available for others to import from
-from semantic_version import Spec, Version
+from semantic_version import SimpleSpec, Version
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!]')
 
-__all__ = ['Version', 'Spec', 'VersionedAssets', 'AssetNotFound']
+__all__ = ['Version', 'SimpleSpec', 'VersionedAssets', 'AssetNotFound']
 
 
 def split_namespec(namespec):
     find_mark = _VERSION_SPECIFIER_RE.search(namespec)
     if find_mark is None:
         name = namespec
-        spec = Spec()
+        spec = SimpleSpec('*')
     else:
         name = namespec[: find_mark.start()]
-        spec = Spec(namespec[find_mark.start() :])
+        spec = SimpleSpec(namespec[find_mark.start() :])
     return name, spec
 
 
