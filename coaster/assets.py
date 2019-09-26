@@ -25,7 +25,7 @@ from webassets.filter import Filter, register_filter
 # Version is not used here but is made available for others to import from
 from semantic_version import SimpleSpec, Version
 
-_VERSION_SPECIFIER_RE = re.compile('[<=>!]')
+_VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
 __all__ = ['Version', 'SimpleSpec', 'VersionedAssets', 'AssetNotFound']
 
