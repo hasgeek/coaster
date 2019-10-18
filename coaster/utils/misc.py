@@ -57,7 +57,7 @@ __all__ = [
 
 _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
-    u'[\x01-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+    u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
@@ -301,7 +301,7 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name(u"feedback;\\x00")
     u'feedback'
     """
-    name = text.replace('@', delim).replace('\x00', '')
+    name = text.replace('@', delim)
     name = unidecode(name).replace(
         '@', 'a'
     )  # We don't know why unidecode uses '@' for 'a'-like chars
