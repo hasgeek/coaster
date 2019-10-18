@@ -298,8 +298,10 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'what-if-a-html-tag'
     >>> make_name('These are equivalent to \\x01 through \\x1A')
     'these-are-equivalent-to-through'
+    >>> make_name(u"feedback;\\x00")
+    u'feedback'
     """
-    name = text.replace('@', delim)
+    name = text.replace('@', delim).replace('\x00', '')
     name = unidecode(name).replace(
         '@', 'a'
     )  # We don't know why unidecode uses '@' for 'a'-like chars
