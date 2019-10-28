@@ -57,7 +57,7 @@ __all__ = [
 
 _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
-    u'[\x01-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+    u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
@@ -298,6 +298,8 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'what-if-a-html-tag'
     >>> make_name('These are equivalent to \\x01 through \\x1A')
     'these-are-equivalent-to-through'
+    >>> make_name(u"feedback;\\x00")
+    u'feedback'
     """
     name = text.replace('@', delim)
     name = unidecode(name).replace(
