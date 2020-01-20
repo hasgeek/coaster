@@ -273,7 +273,33 @@ class LazyRoleSet(collections.MutableSet):
 
 class LazyAssociationProxy(collections.Set):
     """
-    Lazy set that acts as the association proxy of given relationship
+    Lazy set that acts as the association proxy of given relationship.
+
+    Example usage:
+
+        class Project(db.Model):
+            ...
+
+            @with_roles(grants={'profile_admin'})
+            @property
+            def profile_admins(self):
+                return LazyAssociationProxy(self, 'profile', 'admins')
+
+    along with,
+
+        class Profile(db.Model):
+            ...
+
+            @property
+            def admins(self):
+                return LazyAssociationProxy(self, 'active_admin_memberships', 'user')
+
+    where,
+
+        Profile.active_admin_memberships = db.relationship(
+            ProfileAdminMembership,
+            ...
+        )
     """
 
     def __init__(self, obj, target_collection, attr, initial=()):
