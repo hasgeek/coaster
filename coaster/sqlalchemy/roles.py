@@ -272,18 +272,6 @@ class LazyRoleSet(collections.MutableSet):
 
 
 class LazyAssociationProxy(object):
-    def __init__(self, target_collection, attr):
-        # import ipdb; ipdb.set_trace()
-        self.target_collection = target_collection
-        self.attr = attr
-
-    def __get__(self, obj, cls):
-        return LazyAssociationProxyWrapper(
-            obj, self.target_collection, self.attr, cls
-        )
-
-
-class LazyAssociationProxyWrapper(collections.Set):
     """
     Lazy set that acts as the association proxy of given relationship.
 
@@ -309,13 +297,25 @@ class LazyAssociationProxyWrapper(collections.Set):
         )
     """
 
-    def __init__(self, obj, target_collection, attr, cls=None):
+    def __init__(self, target_collection, attr):
         # import ipdb; ipdb.set_trace()
+        self.target_collection = target_collection
+        self.attr = attr
+
+    def __get__(self, obj, cls):
+        return LazyAssociationProxyWrapper(
+            obj, self.target_collection, self.attr, cls
+        )
+
+
+class LazyAssociationProxyWrapper(collections.Set):
+    def __init__(self, obj, target_collection, attr, cls=None):
         self.obj = obj
         self.target_collection = target_collection
-        self._target_collection_obj = getattr(self.obj, self.target_collection)
         self.attr = attr
         self.cls = cls
+
+        self._target_collection_obj = getattr(self.obj, self.target_collection)
         self._length = 0
 
     def __repr__(self):  # pragma: no cover
