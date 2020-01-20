@@ -126,6 +126,7 @@ from functools import wraps
 import collections
 import warnings
 
+from flask_sqlalchemy import Model
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -145,6 +146,7 @@ from ..utils import InspectableSet, is_collection, nary_op
 __all__ = [
     'LazyRoleSet',
     'RoleAccessProxy',
+    'LazyAssociationProxy',
     'RoleMixin',
     'with_roles',
     'declared_attr_roles',
@@ -267,6 +269,87 @@ class LazyRoleSet(collections.MutableSet):
     intersection_update = nary_op(collections.MutableSet.__iand__)
     difference_update = nary_op(collections.MutableSet.__isub__)
     symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
+
+
+class LazyAssociationProxy(collections.Set):
+    """
+    Lazy set that acts as the association proxy of given relationship
+    """
+
+    def __init__(self, obj, target_collection, attr, initial=()):
+        # import ipdb; ipdb.set_trace()
+        self.obj = obj
+        self.target_collection = target_collection
+        self._target_collection_obj = getattr(self.obj, self.target_collection)
+        self.attr = attr
+
+    def __repr__(self):  # pragma: no cover
+        return "LazyAssociationProxy generator (%r, %r)" % (
+            self.target_collection,
+            self.attr,
+        )
+
+    def _member_is_present(self, member):
+        if member is not None:
+            if isinstance(self._target_collection_obj, Model):
+                return member in getattr(self._target_collection_obj, self.attr)
+            else:
+                return (
+                    self._target_collection_obj.filter(
+                        getattr(
+                            self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
+                            self.attr,  # user
+                        )  # ProfileAdminMembership.user
+                        == member
+                    ).count()
+                    > 0
+                )
+
+        return False
+
+    def _contents(self):
+        """Return all available members"""
+        # Populate cache
+        # if type(self._target_collection_obj) == AppenderBaseQuery:
+        #     target_class = self._target_collection_obj.attr.target_mapper.class_
+
+        # all_members = User.query.join(
+        #     ProfileAdminMembership,
+        #     ProfileAdminMembership.user_id == User.id
+        # ).filter(
+        #     ProfileAdminMembership.id.in_(
+        #         {c.id for c in self.obj.active_admin_memberships.all()}
+        #     ), ProfileAdminMembership.profile == self.obj
+        # ).all()
+        for target_obj in self._target_collection_obj:
+            yield getattr(target_obj, self.attr)
+
+    def __contains__(self, member):
+        return self._member_is_present(member)
+
+    __iter__ = _contents
+
+    def __len__(self):
+        return len(self._contents())
+
+    def __bool__(self):
+        # Make bool() faster than len() by using the cache first
+        return bool(self._present) or bool(self._contents())
+
+    __nonzero__ = __bool__  # For Python 2.7 compatibility
+
+    def __eq__(self, other):
+        if isinstance(other, LazyAssociationProxy):
+            return (
+                self.target_collection == other.target_collection
+                and self.attr == other.attr
+                and self._contents() == other._contents()
+            )
+        else:
+            return self._contents() == other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class RoleAccessProxy(collections.Mapping):
