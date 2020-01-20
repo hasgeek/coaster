@@ -271,28 +271,35 @@ class LazyRoleSet(collections.MutableSet):
     symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
 
 
-class LazyAssociationProxy(collections.Set):
+class LazyAssociationProxy(object):
+    def __init__(self, target_collection, attr):
+        # import ipdb; ipdb.set_trace()
+        self.target_collection = target_collection
+        self.attr = attr
+
+    def __get__(self, obj, cls):
+        return LazyAssociationProxyWrapper(
+            obj, self.target_collection, self.attr, cls
+        )
+
+
+class LazyAssociationProxyWrapper(collections.Set):
     """
     Lazy set that acts as the association proxy of given relationship.
 
     Example usage:
 
         class Project(db.Model):
-            ...
+            pass
 
-            @with_roles(grants={'profile_admin'})
-            @property
-            def profile_admins(self):
-                return LazyAssociationProxy(self, 'profile', 'admins')
+        Project.profile_admins = LazyAssociationProxy('profile', 'admins')
 
     along with,
 
         class Profile(db.Model):
-            ...
+            pass
 
-            @property
-            def admins(self):
-                return LazyAssociationProxy(self, 'active_admin_memberships', 'user')
+        Profile.admins = LazyAssociationProxy('active_admin_memberships', 'user')
 
     where,
 
@@ -302,18 +309,23 @@ class LazyAssociationProxy(collections.Set):
         )
     """
 
-    def __init__(self, obj, target_collection, attr, initial=()):
+    def __init__(self, obj, target_collection, attr, cls=None):
         # import ipdb; ipdb.set_trace()
         self.obj = obj
         self.target_collection = target_collection
         self._target_collection_obj = getattr(self.obj, self.target_collection)
         self.attr = attr
+        self.cls = cls
+        self._length = 0
 
     def __repr__(self):  # pragma: no cover
         return "LazyAssociationProxy generator (%r, %r)" % (
             self.target_collection,
             self.attr,
         )
+
+    def __getattr__(self, name):
+        return getattr(self.obj, name)
 
     def _member_is_present(self, member):
         if member is not None:
@@ -330,23 +342,10 @@ class LazyAssociationProxy(collections.Set):
                     ).count()
                     > 0
                 )
-
         return False
 
     def _contents(self):
         """Return all available members"""
-        # Populate cache
-        # if type(self._target_collection_obj) == AppenderBaseQuery:
-        #     target_class = self._target_collection_obj.attr.target_mapper.class_
-
-        # all_members = User.query.join(
-        #     ProfileAdminMembership,
-        #     ProfileAdminMembership.user_id == User.id
-        # ).filter(
-        #     ProfileAdminMembership.id.in_(
-        #         {c.id for c in self.obj.active_admin_memberships.all()}
-        #     ), ProfileAdminMembership.profile == self.obj
-        # ).all()
         for target_obj in self._target_collection_obj:
             yield getattr(target_obj, self.attr)
 
@@ -355,12 +354,19 @@ class LazyAssociationProxy(collections.Set):
 
     __iter__ = _contents
 
+    def _len(self):
+        if isinstance(self._target_collection_obj, Model):
+            return len(getattr(self._target_collection_obj, self.attr))
+        else:
+            self._length = self._target_collection_obj.count()
+            return self._length
+
     def __len__(self):
-        return len(self._contents())
+        return self._length or self._len()
 
     def __bool__(self):
         # Make bool() faster than len() by using the cache first
-        return bool(self._present) or bool(self._contents())
+        return len(self) > 0
 
     __nonzero__ = __bool__  # For Python 2.7 compatibility
 
@@ -369,7 +375,7 @@ class LazyAssociationProxy(collections.Set):
             return (
                 self.target_collection == other.target_collection
                 and self.attr == other.attr
-                and self._contents() == other._contents()
+                and set(self._contents()) == set(other._contents())
             )
         else:
             return self._contents() == other
