@@ -126,7 +126,6 @@ from functools import wraps
 import collections
 import warnings
 
-from flask_sqlalchemy import Model
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -329,19 +328,26 @@ class LazyAssociationProxyWrapper(collections.Set):
 
     def _member_is_present(self, member):
         if member is not None:
-            if isinstance(self._target_collection_obj, Model):
-                return member in getattr(self._target_collection_obj, self.attr)
+            if isinstance(self._target_collection_obj, collections.Iterable):
+                if hasattr(self._target_collection_obj, 'filter'):
+                    # A sqlalchemy relationship
+                    return (
+                        self._target_collection_obj.filter(
+                            getattr(
+                                self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
+                                self.attr,  # user
+                            )  # ProfileAdminMembership.user
+                            == member
+                        ).count()
+                        > 0
+                    )
+                else:
+                    # any regular iterable
+                    for target_member in self._target_collection_obj:
+                        if target_member == member:
+                            return True
             else:
-                return (
-                    self._target_collection_obj.filter(
-                        getattr(
-                            self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
-                            self.attr,  # user
-                        )  # ProfileAdminMembership.user
-                        == member
-                    ).count()
-                    > 0
-                )
+                return member in getattr(self._target_collection_obj, self.attr)
         return False
 
     def _contents(self):
@@ -355,11 +361,14 @@ class LazyAssociationProxyWrapper(collections.Set):
     __iter__ = _contents
 
     def _len(self):
-        if isinstance(self._target_collection_obj, Model):
-            return len(getattr(self._target_collection_obj, self.attr))
-        else:
-            self._length = self._target_collection_obj.count()
+        if isinstance(self._target_collection_obj, collections.Iterable):
+            if hasattr(self._target_collection_obj, 'count'):
+                self._length = self._target_collection_obj.count()
+            else:
+                self._length = len(self._target_collection_obj)
             return self._length
+        else:
+            return len(getattr(self._target_collection_obj, self.attr))
 
     def __len__(self):
         return self._length or self._len()
