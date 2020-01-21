@@ -365,7 +365,8 @@ class LazyAssociationProxyWrapper(collections.Set):
             if hasattr(self._target_collection_obj, 'count'):
                 self._length = self._target_collection_obj.count()
             else:
-                self._length = len(self._target_collection_obj)
+                # if it's an iterable, good chance that it can be flattened
+                self._length = len(list(self._target_collection_obj))
             return self._length
         else:
             return len(getattr(self._target_collection_obj, self.attr))
