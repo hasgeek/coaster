@@ -331,13 +331,16 @@ class LazyAssociationProxyWrapper(collections.Set):
             else:
                 if hasattr(self._target_collection_obj, 'filter'):
                     # A sqlalchemy relationship
-                    return self._target_collection_obj.filter(
-                        getattr(
-                            self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
-                            self.attr,  # user
-                        )  # ProfileAdminMembership.user
-                        == member
-                    ).limit(1) is not None
+                    return (
+                        self._target_collection_obj.filter(
+                            getattr(
+                                self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
+                                self.attr,  # user
+                            )  # ProfileAdminMembership.user
+                            == member
+                        ).limit(1)
+                        is not None
+                    )
                 else:
                     # any regular iterable
                     for target_member in self._target_collection_obj:
