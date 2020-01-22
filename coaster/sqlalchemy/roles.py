@@ -302,9 +302,7 @@ class LazyAssociationProxy(object):
         self.attr = attr
 
     def __get__(self, obj, cls):
-        return LazyAssociationProxyWrapper(
-            obj, self.target_collection, self.attr, cls
-        )
+        return LazyAssociationProxyWrapper(obj, self.target_collection, self.attr, cls)
 
 
 class LazyAssociationProxyWrapper(collections.Set):
@@ -328,26 +326,23 @@ class LazyAssociationProxyWrapper(collections.Set):
 
     def _member_is_present(self, member):
         if member is not None:
-            if isinstance(self._target_collection_obj, collections.Iterable):
+            if isinstance(self._target_collection_obj, LazyAssociationProxy):
+                return member in getattr(self._target_collection_obj, self.attr)
+            else:
                 if hasattr(self._target_collection_obj, 'filter'):
                     # A sqlalchemy relationship
-                    return (
-                        self._target_collection_obj.filter(
-                            getattr(
-                                self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
-                                self.attr,  # user
-                            )  # ProfileAdminMembership.user
-                            == member
-                        ).count()
-                        > 0
-                    )
+                    return self._target_collection_obj.filter(
+                        getattr(
+                            self._target_collection_obj.attr.target_mapper.class_,  # ProfileAdminMembership
+                            self.attr,  # user
+                        )  # ProfileAdminMembership.user
+                        == member
+                    ).limit(1) is not None
                 else:
                     # any regular iterable
                     for target_member in self._target_collection_obj:
                         if target_member == member:
                             return True
-            else:
-                return member in getattr(self._target_collection_obj, self.attr)
         return False
 
     def _contents(self):
