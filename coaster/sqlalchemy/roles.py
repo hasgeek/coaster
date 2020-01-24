@@ -306,7 +306,10 @@ class LazyAssociationProxyWrapper(collections.Set):
         self.cls = cls
 
         self._target_collection_obj = getattr(self.obj, self.target_collection)
-        self._length = 0
+
+        # if _length is 0 by default, and then the calculated count is 0 as well,
+        # this cache variable will never get used. So setting it to None.
+        self._length = None
 
     def __repr__(self):  # pragma: no cover
         return "LazyAssociationProxy generator (%r, %r)" % (
@@ -322,7 +325,7 @@ class LazyAssociationProxyWrapper(collections.Set):
             if isinstance(self._target_collection_obj, LazyAssociationProxy):
                 return member in getattr(self._target_collection_obj, self.attr)
             else:
-                if hasattr(self._target_collection_obj, 'filter'):
+                if hasattr(self._target_collection_obj, 'session'):
                     # A sqlalchemy relationship
                     return self._target_collection_obj.session.query(
                         self._target_collection_obj.filter_by(
@@ -358,7 +361,7 @@ class LazyAssociationProxyWrapper(collections.Set):
             return len(getattr(self._target_collection_obj, self.attr))
 
     def __len__(self):
-        return self._length or self._len()
+        return self._len() if self._length is None else self._length
 
     def __bool__(self):
         # Make bool() faster than len() by using the cache first
