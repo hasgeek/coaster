@@ -276,13 +276,6 @@ class LazyAssociationProxy(object):
 
     Example usage:
 
-        class Project(db.Model):
-            pass
-
-        Project.profile_admins = LazyAssociationProxy('profile', 'admins')
-
-    along with,
-
         class Profile(db.Model):
             pass
 
