@@ -126,7 +126,6 @@ from functools import wraps
 import collections
 import warnings
 
-from flask_sqlalchemy import BaseQuery
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -273,7 +272,8 @@ class LazyRoleSet(collections.MutableSet):
 
 class LazyAssociationProxy(object):
     """
-    Lazy set that acts as the association proxy of given relationship.
+    Lazy set that acts as the association proxy of given lazy relationship.
+    This is only required in case the relationship has `lazy='dynamic'` defined.
 
     Example usage:
 
@@ -285,6 +285,7 @@ class LazyAssociationProxy(object):
 
         Document.collection_name = db.relationship(
             ChildDocument,
+            lazy='dynamic,
             ...
         )
 
@@ -330,18 +331,12 @@ class LazyAssociationProxyWrapper(collections.Set):
             if isinstance(self._target_collection_obj, LazyAssociationProxy):
                 return member in getattr(self._target_collection_obj, self.attr)
             else:
-                if hasattr(self._target_collection_obj, 'session'):
-                    # A sqlalchemy relationship
-                    return self._target_collection_obj.session.query(
-                        self._target_collection_obj.filter_by(
-                            **{self.attr: member}
-                        ).exists()
-                    ).scalar()
-                else:
-                    # any regular iterable
-                    for target_member in self._target_collection_obj:
-                        if getattr(target_member, self.attr) == member:
-                            return True
+                # A sqlalchemy relationship
+                return self._target_collection_obj.session.query(
+                    self._target_collection_obj.filter_by(
+                        **{self.attr: member}
+                    ).exists()
+                ).scalar()
         return False
 
     def _contents(self):
@@ -355,14 +350,7 @@ class LazyAssociationProxyWrapper(collections.Set):
     __iter__ = _contents
 
     def _len(self):
-        if isinstance(self._target_collection_obj, list):
-            self._length = len(self._target_collection_obj)
-        elif isinstance(self._target_collection_obj, BaseQuery):
-            self._length = self._target_collection_obj.count()
-        else:
-            # If it's a collection, good chance that it can be flattened.
-            # This is an unknown case. More conditions might need to be added.
-            self._length = len(list(self._target_collection_obj))
+        self._length = self._target_collection_obj.count()
         return self._length
 
     def __len__(self):

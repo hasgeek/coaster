@@ -141,6 +141,7 @@ class RelationshipParent(BaseNameMixin, db.Model):
     __tablename__ = 'relationship_parent'
 
     children_list = db.relationship(RelationshipChild, backref='parent')
+    children_list_lazy = db.relationship(RelationshipChild, lazy='dynamic')
     children_set = db.relationship(RelationshipChild, collection_class=set)
     children_dict_attr = db.relationship(
         RelationshipChild, collection_class=attribute_mapped_collection('name')
@@ -183,7 +184,7 @@ granted_users = db.Table(
 )
 
 
-RelationshipParent.children_names = LazyAssociationProxy('children_list', 'name')
+RelationshipParent.children_names = LazyAssociationProxy('children_list_lazy', 'name')
 
 
 class RoleGrantMany(BaseMixin, db.Model):
