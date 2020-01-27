@@ -331,7 +331,7 @@ class LazyAssociationProxyWrapper(collections.Set):
             if isinstance(self._target_collection_obj, LazyAssociationProxy):
                 return member in getattr(self._target_collection_obj, self.attr)
             else:
-                # A sqlalchemy relationship
+                # A lazy sqlalchemy relationship
                 return self._target_collection_obj.session.query(
                     self._target_collection_obj.filter_by(
                         **{self.attr: member}
@@ -340,7 +340,7 @@ class LazyAssociationProxyWrapper(collections.Set):
         return False
 
     def _contents(self):
-        """Return all available members"""
+        # Return all available members
         for target_obj in self._target_collection_obj:
             yield getattr(target_obj, self.attr)
 
@@ -354,10 +354,11 @@ class LazyAssociationProxyWrapper(collections.Set):
         return self._length
 
     def __len__(self):
+        # check cache first and then calculate if needed
         return self._len() if self._length is None else self._length
 
     def __bool__(self):
-        # Make bool() faster than len() by using the cache first
+        # len() checks cache first
         return len(self) > 0
 
     __nonzero__ = __bool__  # For Python 2.7 compatibility
