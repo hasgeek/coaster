@@ -294,7 +294,6 @@ class LazyAssociationProxy(object):
     """
 
     def __init__(self, target_collection, attr):
-        # import ipdb; ipdb.set_trace()
         self.target_collection = target_collection
         self.attr = attr
 
