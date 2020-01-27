@@ -126,6 +126,7 @@ from functools import wraps
 import collections
 import warnings
 
+from flask_sqlalchemy import BaseQuery
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -136,7 +137,6 @@ from sqlalchemy.orm.collections import (
     MappedCollection,
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
-from sqlalchemy.orm.query import Query
 
 from flask import _request_ctx_stack
 
@@ -357,7 +357,7 @@ class LazyAssociationProxyWrapper(collections.Set):
     def _len(self):
         if isinstance(self._target_collection_obj, list):
             self._length = len(self._target_collection_obj)
-        elif isinstance(self._target_collection_obj, Query):
+        elif isinstance(self._target_collection_obj, BaseQuery):
             self._length = self._target_collection_obj.count()
         else:
             # If it's a collection, good chance that it can be flattened.
