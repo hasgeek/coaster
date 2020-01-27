@@ -136,6 +136,7 @@ from sqlalchemy.orm.collections import (
     MappedCollection,
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
+from sqlalchemy.orm.query import Query
 
 from flask import _request_ctx_stack
 
@@ -276,17 +277,19 @@ class LazyAssociationProxy(object):
 
     Example usage:
 
-        class Profile(db.Model):
+        class ChildDocument (db.Model):
+            property = db.Column()
+
+        class Document(db.Model):
             pass
 
-        Profile.admins = LazyAssociationProxy('active_admin_memberships', 'user')
-
-    where,
-
-        Profile.active_admin_memberships = db.relationship(
-            ProfileAdminMembership,
+        Document.collection_name = db.relationship(
+            ChildDocument,
             ...
         )
+
+        Document.properties = LazyAssociationProxy('collection_name', 'property')
+
     """
 
     def __init__(self, target_collection, attr):
@@ -295,6 +298,8 @@ class LazyAssociationProxy(object):
         self.attr = attr
 
     def __get__(self, obj, cls):
+        if obj is None:
+            return self
         return LazyAssociationProxyWrapper(obj, self.target_collection, self.attr, cls)
 
 
@@ -335,7 +340,7 @@ class LazyAssociationProxyWrapper(collections.Set):
                 else:
                     # any regular iterable
                     for target_member in self._target_collection_obj:
-                        if target_member == member:
+                        if getattr(target_member, self.attr) == member:
                             return True
         return False
 
@@ -350,15 +355,15 @@ class LazyAssociationProxyWrapper(collections.Set):
     __iter__ = _contents
 
     def _len(self):
-        if isinstance(self._target_collection_obj, collections.Iterable):
-            if hasattr(self._target_collection_obj, 'count'):
-                self._length = self._target_collection_obj.count()
-            else:
-                # if it's an iterable, good chance that it can be flattened
-                self._length = len(list(self._target_collection_obj))
-            return self._length
+        if isinstance(self._target_collection_obj, list):
+            self._length = len(self._target_collection_obj)
+        elif isinstance(self._target_collection_obj, Query):
+            self._length = self._target_collection_obj.count()
         else:
-            return len(getattr(self._target_collection_obj, self.attr))
+            # If it's a collection, good chance that it can be flattened.
+            # This is an unknown case. More conditions might need to be added.
+            self._length = len(list(self._target_collection_obj))
+        return self._length
 
     def __len__(self):
         return self._len() if self._length is None else self._length

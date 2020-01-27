@@ -17,6 +17,7 @@ from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
     BaseNameMixin,
+    LazyAssociationProxy,
     LazyRoleSet,
     RoleAccessProxy,
     RoleMixin,
@@ -180,6 +181,9 @@ granted_users = db.Table(
     db.Column('role_grant_many_id', None, db.ForeignKey('role_grant_many.id')),
     db.Column('role_user_id', None, db.ForeignKey('role_user.id')),
 )
+
+
+RelationshipParent.children_names = LazyAssociationProxy('children_list', 'name')
 
 
 class RoleGrantMany(BaseMixin, db.Model):
@@ -651,6 +655,18 @@ class TestCoasterRoles(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Parameter can't be a string
             m1.actors_with('owner')
+
+    def test_lazy_proxy(self):
+        parent = RelationshipParent(title="Proxy Parent")
+        child = RelationshipChild(title="Proxy Child", parent=parent)
+        self.session.add_all([parent, child])
+        self.session.commit()
+
+        # calling the class attribute produces an instance of the proxy
+        assert isinstance(RelationshipParent.children_names, LazyAssociationProxy)
+        assert len(parent.children_names) == 1
+        assert list(parent.children_names) == [child.name]
+        assert child.name in parent.children_names
 
 
 class TestLazyRoleSet(unittest.TestCase):
