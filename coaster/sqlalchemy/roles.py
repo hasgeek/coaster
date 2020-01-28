@@ -145,7 +145,7 @@ from ..utils import InspectableSet, is_collection, nary_op
 __all__ = [
     'LazyRoleSet',
     'RoleAccessProxy',
-    'LazyAssociationProxy',
+    'DynamicAssociationProxy',
     'RoleMixin',
     'with_roles',
     'declared_attr_roles',
@@ -270,109 +270,88 @@ class LazyRoleSet(collections.MutableSet):
     symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
 
 
-class LazyAssociationProxy(object):
+class DynamicAssociationProxy(object):
     """
-    Lazy set that acts as the association proxy of given lazy relationship.
-    This is only required in case the relationship has `lazy='dynamic'` defined.
+    Association proxy for dynamic relationships. Use this instead of SQLAlchemy's
+    `association_proxy` when the underlying relationship uses `lazy='dynamic'`.
 
-    Example usage:
+    Usage::
 
-        class ChildDocument (db.Model):
-            property = db.Column()
+        # Assuming a relationship like this:
+        Document.child_relationship = db.relationship(ChildDocument, lazy='dynamic')
 
-        class Document(db.Model):
-            pass
+        # Proxy to an attribute on the target of the relationship:
+        Document.child_attributes = DynamicAssociationProxy(
+            'child_relationship', 'attribute')
 
-        Document.collection_name = db.relationship(
-            ChildDocument,
-            lazy='dynamic,
-            ...
-        )
+    This proxy does not provide access to the query capabilities of dynamic
+    relationships. It merely optimises for containment queries. A query like this::
 
-        Document.properties = LazyAssociationProxy('collection_name', 'property')
+        Document.child_relationship.filter_by(attribute=value).exists()
 
+    Can be reduced to this::
+
+        value in Document.child_attributes
+
+    :param str rel: Relationship name (must use ``lazy='dynamic'``)
+    :param str attr: Attribute on the target of the relationship
     """
 
-    def __init__(self, target_collection, attr):
-        self.target_collection = target_collection
+    def __init__(self, rel, attr):
+        self.rel = rel
         self.attr = attr
 
-    def __get__(self, obj, cls):
+    def __repr__(self):
+        return 'DynamicAssociationProxy(%s, %s)' % (repr(self.rel), repr(self.attr))
+
+    def __get__(self, obj, cls=None):
         if obj is None:
             return self
-        return LazyAssociationProxyWrapper(obj, self.target_collection, self.attr, cls)
+        return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
 
 
-class LazyAssociationProxyWrapper(collections.Set):
-    def __init__(self, obj, target_collection, attr, cls=None):
+class DynamicAssociationProxyWrapper(collections.Set):
+    """:class:`DynamicAssociationProxy` wrapped around an instance"""
+
+    def __init__(self, obj, rel, attr):
         self.obj = obj
-        self.target_collection = target_collection
+        self.rel = rel
         self.attr = attr
-        self.cls = cls
 
-        self._target_collection_obj = getattr(self.obj, self.target_collection)
-
-        # if _length is 0 by default, and then the calculated count is 0 as well,
-        # this cache variable will never get used. So setting it to None.
-        self._length = None
-
-    def __repr__(self):  # pragma: no cover
-        return "LazyAssociationProxy generator (%r, %r)" % (
-            self.target_collection,
-            self.attr,
+    def __repr__(self):
+        return 'DynamicAssociationProxyWrapper(%s, %s, %s)' % (
+            repr(self.obj),
+            repr(self.rel),
+            repr(self.attr),
         )
 
-    def __getattr__(self, name):
-        return getattr(self.obj, name)
-
-    def _member_is_present(self, member):
-        if member is not None:
-            if isinstance(self._target_collection_obj, LazyAssociationProxy):
-                return member in getattr(self._target_collection_obj, self.attr)
-            else:
-                # A lazy sqlalchemy relationship
-                return self._target_collection_obj.session.query(
-                    self._target_collection_obj.filter_by(
-                        **{self.attr: member}
-                    ).exists()
-                ).scalar()
-        return False
-
-    def _contents(self):
-        # Return all available members
-        for target_obj in self._target_collection_obj:
-            yield getattr(target_obj, self.attr)
-
     def __contains__(self, member):
-        return self._member_is_present(member)
+        rel = getattr(self.obj, self.rel)
+        return rel.session.query(rel.filter_by(**{self.attr: member}).exists()).scalar()
 
-    __iter__ = _contents
-
-    def _len(self):
-        self._length = self._target_collection_obj.count()
-        return self._length
+    def __iter__(self):
+        for obj in getattr(self.obj, self.rel):
+            yield getattr(obj, self.attr)
 
     def __len__(self):
-        # check cache first and then calculate if needed
-        return self._len() if self._length is None else self._length
+        return getattr(self.obj, self.rel).count()
 
     def __bool__(self):
-        # len() checks cache first
-        return len(self) > 0
+        rel = getattr(self.obj, self.rel)
+        return rel.session.query(rel.exists()).scalar()
 
     __nonzero__ = __bool__  # For Python 2.7 compatibility
 
     def __eq__(self, other):
-        if isinstance(other, LazyAssociationProxy):
-            return (
-                self.target_collection == other.target_collection
-                and self.attr == other.attr
-                and set(self._contents()) == set(other._contents())
-            )
-        else:
-            return self._contents() == other
+        return (
+            isinstance(other, DynamicAssociationProxyWrapper)
+            and self.obj == other.obj
+            and self.rel == other.rel
+            and self.attr == other.attr
+        )
 
     def __ne__(self, other):
+        # This method is required as collections.Set provides a less efficient version
         return not self.__eq__(other)
 
 
