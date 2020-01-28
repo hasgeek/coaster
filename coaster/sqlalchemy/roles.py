@@ -145,6 +145,7 @@ from ..utils import InspectableSet, is_collection, nary_op
 __all__ = [
     'LazyRoleSet',
     'RoleAccessProxy',
+    'DynamicAssociationProxy',
     'RoleMixin',
     'with_roles',
     'declared_attr_roles',
@@ -267,6 +268,91 @@ class LazyRoleSet(collections.MutableSet):
     intersection_update = nary_op(collections.MutableSet.__iand__)
     difference_update = nary_op(collections.MutableSet.__isub__)
     symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
+
+
+class DynamicAssociationProxy(object):
+    """
+    Association proxy for dynamic relationships. Use this instead of SQLAlchemy's
+    `association_proxy` when the underlying relationship uses `lazy='dynamic'`.
+
+    Usage::
+
+        # Assuming a relationship like this:
+        Document.child_relationship = db.relationship(ChildDocument, lazy='dynamic')
+
+        # Proxy to an attribute on the target of the relationship:
+        Document.child_attributes = DynamicAssociationProxy(
+            'child_relationship', 'attribute')
+
+    This proxy does not provide access to the query capabilities of dynamic
+    relationships. It merely optimises for containment queries. A query like this::
+
+        Document.child_relationship.filter_by(attribute=value).exists()
+
+    Can be reduced to this::
+
+        value in Document.child_attributes
+
+    :param str rel: Relationship name (must use ``lazy='dynamic'``)
+    :param str attr: Attribute on the target of the relationship
+    """
+
+    def __init__(self, rel, attr):
+        self.rel = rel
+        self.attr = attr
+
+    def __repr__(self):
+        return 'DynamicAssociationProxy(%s, %s)' % (repr(self.rel), repr(self.attr))
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
+
+
+class DynamicAssociationProxyWrapper(collections.Set):
+    """:class:`DynamicAssociationProxy` wrapped around an instance"""
+
+    def __init__(self, obj, rel, attr):
+        self.obj = obj
+        self.rel = rel
+        self.attr = attr
+
+    def __repr__(self):
+        return 'DynamicAssociationProxyWrapper(%s, %s, %s)' % (
+            repr(self.obj),
+            repr(self.rel),
+            repr(self.attr),
+        )
+
+    def __contains__(self, member):
+        rel = getattr(self.obj, self.rel)
+        return rel.session.query(rel.filter_by(**{self.attr: member}).exists()).scalar()
+
+    def __iter__(self):
+        for obj in getattr(self.obj, self.rel):
+            yield getattr(obj, self.attr)
+
+    def __len__(self):
+        return getattr(self.obj, self.rel).count()
+
+    def __bool__(self):
+        rel = getattr(self.obj, self.rel)
+        return rel.session.query(rel.exists()).scalar()
+
+    __nonzero__ = __bool__  # For Python 2.7 compatibility
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, DynamicAssociationProxyWrapper)
+            and self.obj == other.obj
+            and self.rel == other.rel
+            and self.attr == other.attr
+        )
+
+    def __ne__(self, other):
+        # This method is required as collections.Set provides a less efficient version
+        return not self.__eq__(other)
 
 
 class RoleAccessProxy(collections.Mapping):

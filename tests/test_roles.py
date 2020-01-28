@@ -17,6 +17,7 @@ from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
     BaseNameMixin,
+    DynamicAssociationProxy,
     LazyRoleSet,
     RoleAccessProxy,
     RoleMixin,
@@ -140,6 +141,7 @@ class RelationshipParent(BaseNameMixin, db.Model):
     __tablename__ = 'relationship_parent'
 
     children_list = db.relationship(RelationshipChild, backref='parent')
+    children_list_lazy = db.relationship(RelationshipChild, lazy='dynamic')
     children_set = db.relationship(RelationshipChild, collection_class=set)
     children_dict_attr = db.relationship(
         RelationshipChild, collection_class=attribute_mapped_collection('name')
@@ -179,6 +181,11 @@ granted_users = db.Table(
     db.Model.metadata,
     db.Column('role_grant_many_id', None, db.ForeignKey('role_grant_many.id')),
     db.Column('role_user_id', None, db.ForeignKey('role_user.id')),
+)
+
+
+RelationshipParent.children_names = DynamicAssociationProxy(
+    'children_list_lazy', 'name'
 )
 
 
@@ -651,6 +658,51 @@ class TestCoasterRoles(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Parameter can't be a string
             m1.actors_with('owner')
+
+    def test_dynamic_association_proxy(self):
+        parent1 = RelationshipParent(title="Proxy Parent 1")
+        parent2 = RelationshipParent(title="Proxy Parent 2")
+        parent3 = RelationshipParent(title="Proxy Parent 3")
+        child1 = RelationshipChild(name='child1', title="Proxy Child 1", parent=parent1)
+        child2 = RelationshipChild(name='child2', title="Proxy Child 2", parent=parent1)
+        child3 = RelationshipChild(name='child3', title="Proxy Child 3", parent=parent2)
+        self.session.add_all([parent1, parent2, parent3, child1, child2, child3])
+        self.session.commit()
+
+        assert isinstance(RelationshipParent.children_names, DynamicAssociationProxy)
+
+        assert child1.name in parent1.children_names
+        assert child2.name in parent1.children_names
+        assert child3.name not in parent1.children_names
+
+        assert child1.name not in parent2.children_names
+        assert child2.name not in parent2.children_names
+        assert child3.name in parent2.children_names
+
+        assert child1.name not in parent3.children_names
+        assert child2.name not in parent3.children_names
+        assert child3.name not in parent3.children_names
+
+        assert len(parent1.children_names) == 2
+        assert set(parent1.children_names) == {child1.name, child2.name}
+
+        assert len(parent2.children_names) == 1
+        assert set(parent2.children_names) == {child3.name}
+
+        assert len(parent3.children_names) == 0
+        assert set(parent3.children_names) == set()
+
+        assert bool(parent1.children_names) is True
+        assert bool(parent2.children_names) is True
+        assert bool(parent3.children_names) is False
+
+        # Each access constructs a separate wrapper. Assert they are equal
+        p1a = parent1.children_names
+        p1b = parent1.children_names
+        assert p1a is not p1b
+        assert p1a == p1b  # Test __eq__
+        assert not (p1a != p1b)  # Test __ne__
+        assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
 
 
 class TestLazyRoleSet(unittest.TestCase):
