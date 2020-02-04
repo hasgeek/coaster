@@ -38,7 +38,7 @@ requires = [
     'SQLAlchemy>=1.0.9',
     'psycopg2',
     'docflow>=0.3.2',
-    'html2text<=2019.8.11',  # FIXME: Remove pin after py3 migration
+    'html2text',
     'bcrypt',
     'unidecode',
     'tldextract',
