@@ -668,7 +668,6 @@ def get_email_domain(emailaddr):
     >>> get_email_domain('Example Address <test@example.com>')
     'example.com'
     >>> get_email_domain('foobar')
-    >>> get_email_domain('foo@bar@baz')
     >>> get_email_domain('foobar@')
     >>> get_email_domain('@foobar')
     """
