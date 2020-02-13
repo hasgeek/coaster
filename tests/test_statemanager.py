@@ -146,8 +146,7 @@ class MyPost(BaseMixin, db.Model):
         if not success:
             if empty_abort:
                 raise AbortTransition()
-            else:
-                raise AbortTransition((success, 'failed'))
+            raise AbortTransition((success, 'failed'))
         return success, 'passed'
 
     def roles_for(self, actor=None, anchors=()):

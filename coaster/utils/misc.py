@@ -366,9 +366,9 @@ def make_password(password, encoding='BCRYPT'):
         else:
             password = str(password)
         b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # nosec
+            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
                 password + salt
-            ).digest()  # skipcq: PTC-W1003
+            ).digest()
             + salt
         )
         b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
@@ -429,9 +429,9 @@ def check_password(reference, attempt):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
         b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # nosec
+            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
                 attempt + salt
-            ).digest()  # skipcq: PTC-W1003
+            ).digest()
             + salt
         )
         if six.PY3:  # pragma: no cover
@@ -517,9 +517,9 @@ def md5sum(data):
     32
     """
     if six.PY3:  # pragma: no cover
-        return hashlib.md5(  # NOQA: S303 # nosec
+        return hashlib.md5(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
             data.encode('utf-8')
-        ).hexdigest()  # skipcq: PTC-W1003
+        ).hexdigest()
     else:  # pragma: no cover
         return hashlib.md5(data).hexdigest()  # NOQA: S303 # skipcq: PTC-W1003 # nosec
 

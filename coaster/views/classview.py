@@ -112,8 +112,12 @@ class ViewHandler(object):
     """
 
     def __init__(
-        self, rule, rule_options=None, viewdata=None, requires_roles=None
-    ):  # skipcq: PYL-W0621
+        self,
+        rule,
+        rule_options=None,
+        viewdata=None,  # skipcq: PYL-W0621
+        requires_roles=None,  # skipcq: PYL-W0621
+    ):
         if rule is not None:
             self.routes = [(rule, rule_options or {})]
         else:

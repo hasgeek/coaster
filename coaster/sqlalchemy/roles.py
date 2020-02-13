@@ -205,9 +205,9 @@ class LazyRoleSet(abc.MutableSet):
     def _contents(self):
         """Return all available roles"""
         # Populate cache
-        [
+        [  # skipcq: PYL-W0106
             self._role_is_present(role) for role in self.obj.__roles__
-        ]  # skipcq: PYL-W0106
+        ]
         return self._present
 
     def __contains__(self, key):

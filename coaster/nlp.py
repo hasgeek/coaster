@@ -35,7 +35,7 @@ def extract_named_entities(text_blocks):
 
         if hasattr(t, 'label'):
             if t.label() == 'NE':
-                entity_names.append(' '.join([child[0] for child in t]))
+                entity_names.append(' '.join(child[0] for child in t))
             else:
                 for child in t:
                     entity_names.extend(extract_entity_names(child))

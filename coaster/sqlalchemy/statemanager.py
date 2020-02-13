@@ -846,7 +846,7 @@ class StateManager(object):
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
             raise TypeError("Not a managed state: %s" % repr(state))
-        elif state.statemanager != self:
+        if state.statemanager != self:
             raise ValueError(
                 "State %s is not associated with this state manager" % repr(state)
             )
