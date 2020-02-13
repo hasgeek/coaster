@@ -185,8 +185,16 @@ It has a newline break here.</p>
 if six.PY2:
     # Pygments >= 2.4 (latest Py3 releases only) inserts "<code>" alongside "<pre>"
     # We strip it out under the older release in Py2. This is a hack.
-    sample_output = sample_output.replace('<code>', '').replace('</code>', '')
-    sample_output_html = sample_output_html.replace('<code>', '').replace('</code>', '')
+    sample_output = (
+        sample_output.replace('<pre><code>', '<pre>')
+        .replace('</code></pre>', '</pre>')
+        .replace('<pre><span></span><code>', '<pre><span></span>')
+    )
+    sample_output_html = (
+        sample_output_html.replace('<pre><code>', '<pre>')
+        .replace('</code></pre>', '</pre>')
+        .replace('<pre><span></span><code>', '<pre><span></span>')
+    )
 
 
 class TestMarkdown(unittest.TestCase):
