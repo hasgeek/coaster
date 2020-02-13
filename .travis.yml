@@ -15,10 +15,12 @@ install:
   - pip install pre-commit
   - python setup.py install
   - pip install -r test_requirements.txt
-# command to run tests
+  - pip install six --upgrade --ignore-installed
+# command to prepare environment
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
   - python -c "import six; print('Six:', six.__version__)"
+# command to run tests
 script:
   - pre-commit run flake8 -a
   - ./runtests.sh
