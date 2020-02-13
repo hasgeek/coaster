@@ -1,7 +1,7 @@
 Coaster: common patterns for Flask apps
 =======================================
 
-|docs| |travis| |coveralls|
+|docs| |travis| |coveralls| |deepsource|
 
 Coaster contains functions and db models for recurring patterns in Flask
 apps. Documentation at http://coaster.readthedocs.org/
@@ -54,3 +54,7 @@ accessible by running all tests via ``runtests.sh``.
 .. |coveralls| image:: https://coveralls.io/repos/hasgeek/coaster/badge.svg
     :target: https://coveralls.io/r/hasgeek/coaster
     :alt: Coverage status
+
+.. |deepsource| image:: https://static.deepsource.io/deepsource-badge-light-mini.svg
+    :target: https://deepsource.io/gh/hasgeek/coaster
+    :alt: DeepSource Enabled
