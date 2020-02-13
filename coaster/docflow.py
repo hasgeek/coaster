@@ -8,7 +8,8 @@ Coaster provides versions of the main Docflow_ classes where workflow
 exceptions map to HTTP 403 Forbidden (via werkzeug.exceptions.Forbidden_).
 
 .. _Docflow: http://docflow.readthedocs.org/
-.. _werkzeug.exceptions.Forbidden: http://werkzeug.readthedocs.org/en/latest/exceptions/#werkzeug.exceptions.Forbidden
+.. _werkzeug.exceptions.Forbidden:
+    http://werkzeug.readthedocs.org/en/latest/exceptions/#werkzeug.exceptions.Forbidden
 """
 
 from __future__ import absolute_import

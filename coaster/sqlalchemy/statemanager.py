@@ -165,7 +165,7 @@ The label associated with the state value can be accessed from the ``label`` att
 
     post.state.label == "Draft"          # This is the string label from MY_STATE.DRAFT
     post.submit()                        # Change state from DRAFT to PENDING
-    post.state.label.name == 'pending'   # Ths is the NameTitle tuple from MY_STATE.PENDING
+    post.state.label.name == 'pending'   # Is the NameTitle tuple from MY_STATE.PENDING
     post.state.label.title == "Pending"  # The title part of NameTitle
 
 States can be tested by direct reference using the names they were originally
@@ -176,7 +176,7 @@ defined with in the :class:`~coaster.utils.classes.LabeledEnum`::
     post.state.PENDING      # False (since it's a draft)
     post.state.UNPUBLISHED  # True (grouped state values work as expected)
     post.publish()          # Change state from DRAFT to PUBLISHED
-    post.state.RECENT       # True (this one calls the validator if the base state matches)
+    post.state.RECENT       # True (calls the validator if the base state matches)
 
 States can also be used for database queries when accessed from the class::
 
@@ -186,7 +186,8 @@ States can also be used for database queries when accessed from the class::
     # Generates MyPost._state.in_(MY_STATE.UNPUBLISHED)
     MyPost.query.filter(MyPost.state.UNPUBLISHED)
 
-    # Generates and_(MyPost._state == MY_STATE.PUBLISHED, MyPost.datetime > datetime.utcnow() - timedelta(hours=1))
+    # Generates and_(MyPost._state == MY_STATE.PUBLISHED,
+    #     MyPost.datetime > datetime.utcnow() - timedelta(hours=1))
     MyPost.query.filter(MyPost.state.RECENT)
 
 This works because :class:`StateManager`, :class:`ManagedState`
@@ -333,7 +334,10 @@ class ManagedState(object):
 
     @property
     def is_scalar(self):
-        """This is a scalar state (not a group of states, and may or may not have a condition)"""
+        """
+        This is a scalar state (not a group of states, and may or may not have a
+        condition)
+        """
         return not is_collection(self.value)
 
     @property
@@ -355,7 +359,9 @@ class ManagedState(object):
                 return valuematch and self.validator(obj)
             else:
                 return valuematch
-        else:  # We have a class, so return a filter condition, for use as cls.query.filter(result)
+        else:
+            # We have a class, so return a filter condition, for use as
+            # cls.query.filter(result)
             if is_collection(self.value):
                 valuematch = self.statemanager._value(obj, cls).in_(self.value)
             else:
@@ -386,7 +392,8 @@ class ManagedStateGroup(object):
         self.statemanager = statemanager
         self.states = []
 
-        # First, ensure all provided states are StateManager instances and associated with the state manager
+        # First, ensure all provided states are StateManager instances and associated
+        # with the state manager
         for state in states:
             if (
                 not isinstance(state, ManagedState)
@@ -396,7 +403,8 @@ class ManagedStateGroup(object):
                     "Invalid state %s for state group %s" % (repr(state), repr(self))
                 )
 
-        # Second, separate conditional from regular states (regular states may still be grouped states)
+        # Second, separate conditional from regular states (regular states may still be
+        # grouped states)
         regular_states = [s for s in states if not s.is_conditional]
         conditional_states = [s for s in states if s.is_conditional]
 
@@ -409,8 +417,8 @@ class ManagedStateGroup(object):
             else:
                 values.add(state.value)
 
-        # Fourth, prevent adding a conditional state if the value is already present from a
-        # regular state. This is an error as the condition will never be tested
+        # Fourth, prevent adding a conditional state if the value is already present
+        # from a regular state. This is an error as the condition will never be tested
         for state in conditional_states:
             # Prevent grouping of conditional states with their original states
             state_values = set(
@@ -543,7 +551,8 @@ class StateTransition(object):
         if from_ is None:
             state_values = None
         else:
-            # Unroll grouped values so we can do a quick IN test when performing the transition
+            # Unroll grouped values so we can do a quick IN test when performing the
+            # transition
             state_values = {}  # Value: ManagedState
             # Step 1: Convert ManagedStateGroup into a list of ManagedState items
             if isinstance(from_, ManagedStateGroup):
@@ -680,7 +689,8 @@ class StateManager(object):
     This is the main export of this module.
 
     :param str propname: Name of the property that is to be wrapped
-    :param LabeledEnum lenum: The :class:`~coaster.utils.classes.LabeledEnum` containing valid values
+    :param LabeledEnum lenum: The :class:`~coaster.utils.classes.LabeledEnum` containing
+        valid values
     :param str doc: Optional docstring
     """
 
@@ -699,15 +709,17 @@ class StateManager(object):
         )  # Same, but as a list including conditional states
         self.transitions = []  # names of transitions linked to this state manager
 
-        # Make a copy of all states in the lenum within the state manager as a ManagedState.
-        # We do NOT convert grouped states into a ManagedStateGroup instance, as ManagedState
-        # is more efficient at testing whether a value is in a group: it uses the `in` operator
-        # while ManagedStateGroup does `any(s() for s in states)`.
+        # Make a copy of all states in the lenum within the state manager as a
+        # ManagedState. We do NOT convert grouped states into a ManagedStateGroup
+        # instance, as ManagedState is more efficient at testing whether a value is in
+        # a group: it uses the `in` operator while ManagedStateGroup does
+        # `any(s() for s in states)`.
         for state_name, value in lenum.__names__.items():
             self._add_state_internal(
                 state_name,
                 value,
-                # Grouped states are represented as sets and can't have labels, so be careful about those
+                # Grouped states are represented as sets and can't have labels, so be
+                # careful about those
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
@@ -770,20 +782,20 @@ class StateManager(object):
             class_validator=class_validator,
             cache_for=cache_for,
         )
-        # XXX: Since mstate.statemanager == self, the following assignments setup looping
-        # references and could cause a memory leak if the statemanager is ever deleted. We
-        # depend on it being permanent for the lifetime of the process in typical use (or
-        # for advanced memory management that can detect loops).
+        # XXX: Since mstate.statemanager == self, the following assignments setup
+        # looping references and could cause a memory leak if the statemanager is ever
+        # deleted. We depend on it being permanent for the lifetime of the process in
+        # typical use (or for advanced memory management that can detect loops).
         self.states[name] = mstate
         if mstate.is_direct:
             self.states_by_value[value] = mstate
         if mstate.is_scalar:
             self.all_states_by_value.setdefault(value, []).insert(0, mstate)
-        # Make the ManagedState available as `statemanager.STATE` (assuming original was uppercased)
+        # Make the ManagedState available as `statemanager.STATE` (assuming original was
+        # uppercased)
         setattr(self, name, mstate)
-        setattr(
-            self, 'is_' + name.lower(), mstate
-        )  # Also make available as `statemanager.is_state`
+        # Also make available as `statemanager.is_state`
+        setattr(self, 'is_' + name.lower(), mstate)
 
     def add_state_group(self, name, *states):
         """
@@ -798,8 +810,8 @@ class StateManager(object):
         # See `_add_state_internal` for explanation of the following
         if hasattr(self, name):
             raise AttributeError(
-                "State group name %s conflicts with existing attribute in the state manager"
-                % name
+                "State group name %s conflicts with existing "
+                "attribute in the state manager" % name
             )
         mstate = ManagedStateGroup(name, self, states)
         self.states[name] = mstate
@@ -816,23 +828,25 @@ class StateManager(object):
 
         :param str name: Name of the new state
         :param ManagedState state: Existing state that this is based on
-        :param validator: Function that will be called with the host object as a parameter
+        :param validator: Function that will be called with the host object as a
+            parameter
         :param class_validator: Function that will be called when the state is queried
-            on the class instead of the instance. Falls back to ``validator`` if not specified.
-            Receives the class as the parameter
+            on the class instead of the instance. Falls back to ``validator`` if not
+            specified. Receives the class as the parameter
         :param cache_for: Integer or function that indicates how long ``validator``'s
-            result can be cached (not applicable to ``class_validator``). ``None`` implies
-            no cache, ``0`` implies indefinite cache (until invalidated by a transition)
-            and any other integer is the number of seconds for which to cache the assertion
+            result can be cached (not applicable to ``class_validator``). ``None``
+            implies no cache, ``0`` implies indefinite cache (until invalidated by a
+            transition) and any other integer is the number of seconds for which to
+            cache the assertion
         :param label: Label for this state (string or 2-tuple)
 
-        TODO: `cache_for`'s implementation is currently pending a test case demonstrating
-        how it will be used.
+        TODO: `cache_for`'s implementation is currently pending a test case
+        demonstrating how it will be used.
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
             raise TypeError("Not a managed state: %s" % repr(state))
-        elif state.statemanager != self:
+        if state.statemanager != self:
             raise ValueError(
                 "State %s is not associated with this state manager" % repr(state)
             )
@@ -857,9 +871,12 @@ class StateManager(object):
         using :exc:`AbortTransition`.
 
         :param from_: Required state to allow this transition (can be a state group)
-        :param to: The state of the object after this transition (automatically set if no exception is raised)
-        :param if_: Validator(s) that, given the object, must all return True for the transition to proceed
-        :param data: Additional metadata, stored on the `StateTransition` object as a :attr:`data` attribute
+        :param to: The state of the object after this transition (automatically set if
+            no exception is raised)
+        :param if_: Validator(s) that, given the object, must all return True for the
+            transition to proceed
+        :param data: Additional metadata, stored on the `StateTransition` object as a
+            :attr:`data` attribute
         """
 
         def decorator(f):
@@ -879,8 +896,10 @@ class StateManager(object):
         Registers a transition internally, but does not change the state.
 
         :param from_: Required state to allow this call (can be a state group)
-        :param if_: Validator(s) that, given the object, must all return True for the call to proceed
-        :param data: Additional metadata, stored on the `StateTransition` object as a :attr:`data` attribute
+        :param if_: Validator(s) that, given the object, must all return True for the
+            call to proceed
+        :param data: Additional metadata, stored on the `StateTransition` object as a
+            :attr:`data` attribute
         """
         return self.transition(from_, None, if_, **data)
 
@@ -907,7 +926,8 @@ class StateManager(object):
             print str(StateManager.check_constraint('your_column', YOUR_ENUM).sqltext)
 
         :param str column: Column name
-        :param LabeledEnum lenum: :class:`~coaster.utils.classes.LabeledEnum` to retrieve valid values from
+        :param LabeledEnum lenum: :class:`~coaster.utils.classes.LabeledEnum` to
+            retrieve valid values from
         :param kwargs: Additional options passed to CheckConstraint
         """
         return CheckConstraint(
@@ -1008,9 +1028,9 @@ class StateManagerWrapper(object):
 
     def group(self, items, keep_empty=False):
         """
-        Given an iterable of instances, groups them by state using :class:`ManagedState` instances
-        as dictionary keys. Returns an `OrderedDict` that preserves the order of states from
-        the source :class:`~coaster.utils.classes.LabeledEnum`.
+        Given an iterable of instances, groups them by state using :class:`ManagedState`
+        instances as dictionary keys. Returns an `OrderedDict` that preserves the order
+        of states from the source :class:`~coaster.utils.classes.LabeledEnum`.
 
         :param bool keep_empty: If ``True``, empty states are included in the result
         """

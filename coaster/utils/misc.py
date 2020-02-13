@@ -61,7 +61,8 @@ _punctuation_re = re.compile(
 )
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
-    r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+    r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
+    r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
 )
 _tag_re = re.compile('<.*?>')
 
@@ -257,8 +258,8 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'billion-pageviews'
     >>> make_name(u'हिन्दी slug!')
     'hindii-slug'
-    >>> make_name(u'Your webapps should talk not just in English, but in español, Kiswahili, 廣州話 and অসমীয়া too.', maxlength=250)
-    u'your-webapps-should-talk-not-just-in-english-but-in-espanol-kiswahili-guang-zhou-hua-and-asmiiyaa-too'
+    >>> make_name(u'Talk in español, Kiswahili, 廣州話 and অসমীয়া too.', maxlength=250)
+    u'talk-in-espanol-kiswahili-guang-zhou-hua-and-asmiiyaa-too'
     >>> make_name(u'__name__', delim=u'_')
     'name'
     >>> make_name(u'how_about_this', delim=u'_')
@@ -271,13 +272,15 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'candidate2'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
     'candidate1'
-    >>> make_name('Candidate', checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'], counter=1)
+    >>> make_name('Candidate',
+    ...   checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'], counter=1)
     'candidate3'
     >>> make_name('Long title, but snipped', maxlength=20)
     'long-title-but-snipp'
     >>> len(make_name('Long title, but snipped', maxlength=20))
     20
-    >>> make_name('Long candidate', maxlength=10, checkused=lambda c: c in ['long-candi', 'long-cand1'])
+    >>> make_name('Long candidate', maxlength=10,
+    ...   checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
     >>> make_name(u'Lǝnkǝran')
     'lankaran'
@@ -343,8 +346,6 @@ def make_password(password, encoding='BCRYPT'):
     >>> make_password('foo') == make_password('foo')
     False
     """
-    if encoding not in ['PLAIN', 'SSHA', 'BCRYPT']:
-        raise ValueError("Unknown encoding %s" % encoding)
     if encoding == 'PLAIN':
         if isinstance(password, str) and six.PY2:
             password = six.text_type(password, 'utf-8')
@@ -365,7 +366,10 @@ def make_password(password, encoding='BCRYPT'):
         else:
             password = str(password)
         b64_encoded = b64encode(
-            hashlib.sha1(password + salt).digest() + salt  # NOQA: S303 # nosec
+            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+                password + salt
+            ).digest()
+            + salt
         )
         b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
         return '{SSHA}%s' % b64_encoded
@@ -380,6 +384,8 @@ def make_password(password, encoding='BCRYPT'):
         if six.PY3:  # pragma: no cover
             password_hashed = password_hashed.decode('utf-8')
         return '{BCRYPT}%s' % password_hashed
+
+    raise ValueError("Unknown encoding %s" % encoding)
 
 
 def check_password(reference, attempt):
@@ -396,15 +402,16 @@ def check_password(reference, attempt):
     False
     >>> check_password(u'{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', u're-foo')
     True
-    >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.chtMTcS1s01C', 'foo')
+    >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.'
+    ...   'chtMTcS1s01C', 'foo')
     True
     """
     if reference.startswith(u'{PLAIN}'):
         if reference[7:] == attempt:
             return True
     elif reference.startswith(u'{SSHA}'):
-        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2, and returns
-        # binascii.Error as opposed to TypeError
+        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2,
+        # and returns binascii.Error as opposed to TypeError
         if six.PY3:  # pragma: no cover
             try:
                 if isinstance(reference, six.text_type):
@@ -422,10 +429,14 @@ def check_password(reference, attempt):
             attempt = attempt.encode('utf-8')
         salt = ref[20:]
         b64_encoded = b64encode(
-            hashlib.sha1(attempt + salt).digest() + salt  # NOQA: S303 # nosec
+            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+                attempt + salt
+            ).digest()
+            + salt
         )
         if six.PY3:  # pragma: no cover
-            # type(b64_encoded) is bytes and can't be compared with type(reference) which is str
+            # type(b64_encoded) is bytes and can't be compared with type(reference)
+            # which is str
             compare = six.text_type(
                 '{SSHA}%s' % b64_encoded.decode('utf-8')
                 if type(b64_encoded) is bytes
@@ -435,7 +446,8 @@ def check_password(reference, attempt):
             compare = six.text_type('{SSHA}%s' % b64_encoded)
         return compare == reference
     elif reference.startswith(u'{BCRYPT}'):
-        # bcrypt.hashpw() accepts either a unicode encoded string or the basic string (python 2)
+        # bcrypt.hashpw() accepts either a unicode encoded string or the basic string
+        # (python 2)
         if isinstance(attempt, six.text_type) or isinstance(reference, six.text_type):
             attempt = attempt.encode('utf-8')
             reference = reference.encode('utf-8')
@@ -505,9 +517,11 @@ def md5sum(data):
     32
     """
     if six.PY3:  # pragma: no cover
-        return hashlib.md5(data.encode('utf-8')).hexdigest()  # NOQA: S303 # nosec
+        return hashlib.md5(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+            data.encode('utf-8')
+        ).hexdigest()
     else:  # pragma: no cover
-        return hashlib.md5(data).hexdigest()  # NOQA: S303 # nosec
+        return hashlib.md5(data).hexdigest()  # NOQA: S303 # skipcq: PTC-W1003 # nosec
 
 
 def getbool(value):
@@ -550,8 +564,7 @@ def nullint(value):
     >>> nullint('') is None
     True
     """
-    if value:
-        return int(value)
+    return int(value) if value else None
 
 
 def nullstr(value):
@@ -564,8 +577,7 @@ def nullstr(value):
     >>> nullstr('') is None
     True
     """
-    if value:
-        return six.text_type(value)
+    return six.text_type(value) if value else None
 
 
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
@@ -617,7 +629,7 @@ def require_one_of(_return=False, **kwargs):
         raise TypeError(
             "One of these parameters is required: " + ', '.join(kwargs.keys())
         )
-    elif count != 1:
+    if count != 1:
         raise TypeError(
             "Only one of these parameters is allowed: " + ', '.join(kwargs.keys())
         )
@@ -641,18 +653,14 @@ def unicode_http_header(value):
     True
     """
     if six.PY3:  # pragma: no cover
-        # email.header.decode_header expects strings, not bytes. Your input data may be in bytes.
-        # Since these bytes are almost always ASCII, calling `.decode()` on it without specifying
-        # a charset should work fine.
+        # email.header.decode_header expects strings, not bytes. Your input data may be
+        # in bytes. Since these bytes are almost always ASCII, calling `.decode()` on
+        # it without specifying a charset should work fine.
         if isinstance(value, six.binary_type):
             value = value.decode()
     return u''.join(
-        [
-            six.text_type(s, e or 'iso-8859-1')
-            if not isinstance(s, six.text_type)
-            else s
-            for s, e in decode_header(value)
-        ]
+        six.text_type(s, e or 'iso-8859-1') if not isinstance(s, six.text_type) else s
+        for s, e in decode_header(value)
     )
 
 
@@ -695,7 +703,8 @@ def valid_username(candidate):
     True
     >>> valid_username('a')
     True
-    >>> valid_username('a-') or valid_username('ab-') or valid_username('-a') or valid_username('-ab')
+    >>> (valid_username('a-') or valid_username('ab-') or valid_username('-a') or
+    ...   valid_username('-ab'))
     False
     """
     return not _username_valid_re.search(candidate) is None

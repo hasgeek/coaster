@@ -27,6 +27,7 @@ cached = annotation_wrapper(
 
 class ImmutableColumnError(AttributeError):
     def __init__(self, class_name, column_name, old_value, new_value, message=None):
+        super(ImmutableColumnError, self).__init__(message)
         self.class_name = class_name
         self.column_name = column_name
         self.old_value = old_value
@@ -34,8 +35,8 @@ class ImmutableColumnError(AttributeError):
 
         if message is None:
             self.message = (
-                u"Cannot update column {class_name}.{column_name} from {old_value} to {new_value}: "
-                u"column is immutable.".format(
+                u"Cannot update column {class_name}.{column_name} from {old_value} to "
+                u"{new_value}: column is immutable.".format(
                     column_name=column_name,
                     class_name=class_name,
                     old_value=old_value,
@@ -54,8 +55,9 @@ def _make_immutable(cls):
             def immutable_column_set_listener(target, value, old_value, initiator):
                 # Note:
                 # NEVER_SET is for columns getting a default value during a commit.
-                # NO_VALUE is for columns that have no value (either never set, or not loaded).
-                # Because of this ambiguity, we pair NO_VALUE with a has_identity test.
+                # NO_VALUE is for columns that have no value (either never set, or not
+                # loaded). Because of this ambiguity, we pair NO_VALUE with a
+                # has_identity test.
                 if old_value == value:
                     pass
                 elif old_value is NEVER_SET:

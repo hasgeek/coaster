@@ -49,11 +49,12 @@ def _clean_external_url(url):
 
 def get_current_url():
     """
-    Return the current URL including the query string as a relative path. If the app uses
-    subdomains, return an absolute path
+    Return the current URL including the query string as a relative path. If the app
+    uses subdomains, return an absolute path
     """
     if current_app.config.get('SERVER_NAME') and (
-        # Check current hostname against server name, ignoring port numbers, if any (split on ':')
+        # Check current hostname against server name, ignoring port numbers, if any
+        # (split on ':')
         request.environ['HTTP_HOST'].split(':', 1)[0]
         != current_app.config['SERVER_NAME'].split(':', 1)[0]
     ):
@@ -143,7 +144,8 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
     environ = dict(request.environ)
     # ...but replace the HTTP host with the URL's host...
     environ['HTTP_HOST'] = parsed_url.netloc
-    # ...and the path with the URL's path (after discounting the app path, if not hosted at root).
+    # ...and the path with the URL's path (after discounting the app path, if not
+    # hosted at root).
     environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')) :]
     # Create a new request with this environment...
     url_request = current_app.request_class(environ)
@@ -152,12 +154,14 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
 
     # Run three hostname tests, one of which must pass:
 
-    # 1. Does the URL map have host matching enabled? If so, the URL adapter will validate the hostname.
+    # 1. Does the URL map have host matching enabled? If so, the URL adapter will
+    # validate the hostname.
     if current_app.url_map.host_matching:
         pass
 
-    # 2. If not, does the domain match? url_adapter.server_name will prefer app.config['SERVER_NAME'],
-    # but if that is not specified, it will take it from the environment.
+    # 2. If not, does the domain match? url_adapter.server_name will prefer
+    # app.config['SERVER_NAME'], but if that is not specified, it will take it from the
+    # environment.
     elif parsed_url.netloc == url_adapter.server_name:
         pass
 
@@ -176,7 +180,8 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
         return url_adapter.match(parsed_url.path, method, return_rule=return_rule)
     except RequestRedirect as r:
         # A redirect typically implies `/folder` -> `/folder/`
-        # This will not be a redirect response from a view, since the view isn't being called
+        # This will not be a redirect response from a view, since the view isn't being
+        # called
         if follow_redirects:
             return endpoint_for(
                 r.new_url,

@@ -29,11 +29,12 @@ error_throttle_timestamp_slack = {}
 
 
 def pprint_with_indent(value, outfile, indent=4):
+    """Pretty print with a leading indent (to create a Markdown code block)"""
     out = six.StringIO()
     pprint(value, out)
     lines = out.getvalue().split('\n')
     out.close()
-    outfile.write('\n'.join([(' ' * indent) + l for l in lines]))
+    outfile.write('\n'.join((' ' * indent) + l for l in lines))
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -83,8 +84,8 @@ class LocalVarFormatter(logging.Formatter):
                 try:
                     print(repr(value), file=sio)
                 except:  # NOQA
-                    # We need a bare except clause because this is the exception handler.
-                    # It can't have exceptions of its own.
+                    # We need a bare except clause because this is the exception
+                    # handler. It can't have exceptions of its own.
                     print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if request:
@@ -179,7 +180,8 @@ class SMSHandler(logging.Handler):
             for phonenumber in self.phonenumbers:
                 self.sendsms(
                     phonenumber,
-                    u"Error in {name}. {msg}. Please check your email for details".format(
+                    u"Error in {name}. {msg}. "
+                    u"Please check your email for details".format(
                         name=self.app_name, msg=msg
                     ),
                 )
@@ -295,11 +297,14 @@ def init_app(app):
 
     * ``LOGFILE``: Name of the file to log to (default ``error.log``)
     * ``ADMINS``: List of email addresses of admins who will be mailed error reports
-    * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with name and address
+    * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with
+        name and address
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
-    * ``SLACK_LOGGING_WEBHOOKS``: If present, will send error logs to all specified Slack webhooks
-    * ``ADMIN_NUMBERS``: List of mobile numbers of admin to send SMS alerts. Requires the following values too
+    * ``SLACK_LOGGING_WEBHOOKS``: If present, will send error logs to all specified
+        Slack webhooks
+    * ``ADMIN_NUMBERS``: List of mobile numbers of admin to send SMS alerts. Requires
+        the following values too
     * ``SMS_EXOTEL_SID``: Exotel SID for Indian numbers (+91 prefix)
     * ``SMS_EXOTEL_TOKEN``: Exotel token
     * ``SMS_EXOTEL_FROM``: Exotel sender's number

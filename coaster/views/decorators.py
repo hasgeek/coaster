@@ -49,11 +49,15 @@ __all__ = [
 
 
 class RequestTypeError(BadRequest, TypeError):
-    """Exception that combines TypeError with BadRequest. Used by :func:`requestargs`."""
+    """
+    Exception that combines TypeError with BadRequest. Used by :func:`requestargs`.
+    """
 
 
 class RequestValueError(BadRequest, ValueError):
-    """Exception that combines ValueError with BadRequest. Used by :func:`requestargs`."""
+    """
+    Exception that combines ValueError with BadRequest. Used by :func:`requestargs`.
+    """
 
 
 def requestargs(*args, **config):
@@ -189,7 +193,8 @@ def load_model(
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profileob')
         def profile_view(profileob):
-            # 'profileob' is now a Profile model instance. The load_model decorator replaced this:
+            # 'profileob' is now a Profile model instance.
+            # The load_model decorator replaced this:
             # profileob = Profile.query.filter_by(name=profile).first_or_404()
             return "Hello, %s" % profileob.name
 
@@ -224,15 +229,16 @@ def load_model(
         a 403. The permission may be a string or a list of strings, in which
         case access is allowed if any of the listed permissions are available
 
-    :param addlperms: Iterable or callable that returns an iterable containing additional
-        permissions available to the user, apart from those granted by the models. In an app
-        that uses Lastuser for authentication, passing ``lastuser.permissions`` will pass
-        through permissions granted via Lastuser
+    :param addlperms: Iterable or callable that returns an iterable containing
+        additional permissions available to the user, apart from those granted by the
+        models. In an app that uses Lastuser for authentication, passing
+        ``lastuser.permissions`` will pass through permissions granted via Lastuser
 
-    :param list urlcheck: If an attribute in this list has been used to load an object, but
-        the value of the attribute in the loaded object does not match the request argument,
-        issue a redirect to the corrected URL. This is useful for attributes like
-        ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may change
+    :param list urlcheck: If an attribute in this list has been used to load an object,
+        but the value of the attribute in the loaded object does not match the request
+        argument, issue a redirect to the corrected URL. This is useful for attributes
+        like ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may
+        change
     """
     return load_models(
         (model, attributes, parameter),
@@ -248,23 +254,23 @@ def load_models(*chain, **kwargs):
     Decorator to load a chain of models from the given parameters. This works just like
     :func:`load_model` and accepts the same parameters, with some small differences.
 
-    :param chain: The chain is a list of tuples of (``model``, ``attributes``, ``parameter``).
-        Lists and tuples can be used interchangeably. All retrieved instances are passed as
-        parameters to the decorated function
+    :param chain: The chain is a list of tuples of (``model``, ``attributes``,
+        ``parameter``). Lists and tuples can be used interchangeably. All retrieved
+        instances are passed as parameters to the decorated function
 
     :param permission: Same as in :func:`load_model`, except
-        :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every instance
-        in the chain and the retrieved permissions are passed as the second parameter to the
-        next instance in the chain. This allows later instances to revoke permissions granted
-        by earlier instances. As an example, if a URL represents a hierarchy such as
-        ``/<page>/<comment>``, the ``page`` can assign ``edit`` and ``delete`` permissions,
-        while the ``comment`` can revoke ``edit`` and retain ``delete`` if the current user
-        owns the page but not the comment
+        :meth:`~coaster.sqlalchemy.PermissionMixin.permissions` is called on every
+        instance in the chain and the retrieved permissions are passed as the second
+        parameter to the next instance in the chain. This allows later instances to
+        revoke permissions granted by earlier instances. As an example, if a URL
+        represents a hierarchy such as ``/<page>/<comment>``, the ``page`` can assign
+        ``edit`` and ``delete`` permissions, while the ``comment`` can revoke ``edit``
+        and retain ``delete`` if the current user owns the page but not the comment
 
-    In the following example, load_models loads a Folder with a name matching the name in the
-    URL, then loads a Page with a matching name and with the just-loaded Folder as parent.
-    If the Page provides a 'view' permission to the current user, the decorated
-    function is called::
+    In the following example, load_models loads a Folder with a name matching the name
+    in the URL, then loads a Page with a matching name and with the just-loaded Folder
+    as parent. If the Page provides a 'view' permission to the current user, the
+    decorated function is called::
 
         @app.route('/<folder_name>/<page_name>')
         @load_models(
@@ -379,20 +385,26 @@ def _best_mimetype_match(available_list, accept_mimetypes, default=None):
 
 
 def dict_jsonify(param):
-    """Convert the parameter into a dictionary before calling jsonify, if it's not already one"""
+    """
+    Convert the parameter into a dictionary before calling jsonify, if it's not already
+    one
+    """
     if not isinstance(param, dict):
         param = dict(param)
     return jsonify(param)
 
 
 def dict_jsonp(param):
-    """Convert the parameter into a dictionary before calling jsonp, if it's not already one"""
+    """
+    Convert the parameter into a dictionary before calling jsonp, if it's not already
+    one
+    """
     if not isinstance(param, dict):
         param = dict(param)
     return jsonp(param)
 
 
-def render_with(template=None, json=False, jsonp=False):
+def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
     """
     Decorator to render the wrapped function with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -432,8 +444,9 @@ def render_with(template=None, json=False, jsonp=False):
     to ensure the correct mimetype is set.
 
     If a dictionary of templates is provided and does not include a handler for ``*/*``,
-    render_with will attempt to use the handler for (in order) ``text/html``, ``text/plain``
-    and the various JSON types, falling back to rendering the value into a unicode string.
+    render_with will attempt to use the handler for (in order) ``text/html``,
+    ``text/plain`` and the various JSON types, falling back to rendering the value into
+    a unicode string.
 
     If the method is called outside a request context, the wrapped method's original
     return value is returned. This is meant to facilitate testing and should not be
@@ -449,7 +462,8 @@ def render_with(template=None, json=False, jsonp=False):
     :param template: Single template, or dictionary of MIME type to templates. If the
         template is a callable, it is called with the output of the wrapped function
     :param json: Helper to add a JSON handler (default is False)
-    :param jsonp: Helper to add a JSONP handler (if True, also provides JSON, default is False)
+    :param jsonp: Helper to add a JSONP handler (if True, also provides JSON, default
+        is False)
     """
     if jsonp:
         templates = {
@@ -529,9 +543,11 @@ def render_with(template=None, json=False, jsonp=False):
             # Find a matching mimetype between Accept headers and available templates
             use_mimetype = None
             if render and request:
-                # We do not use request.accept_mimetypes.best_match because it turns out to
-                # be buggy: it returns the least match instead of the best match.
-                # use_mimetype = request.accept_mimetypes.best_match(template_mimetypes, '*/*')
+                # We do not use request.accept_mimetypes.best_match because it turns out
+                # to be buggy: it returns the least match instead of the best match.
+                # Previously:
+                # use_mimetype = request.accept_mimetypes.best_match(template_mimetypes,
+                #     '*/*')
                 use_mimetype = _best_mimetype_match(
                     template_mimetypes, request.accept_mimetypes, '*/*'
                 )
@@ -611,7 +627,10 @@ def cors(
             return Response()
 
         @app.route('/static', methods=['GET', 'POST'])
-        @cors(['https://hasgeek.com'], methods=['GET'], headers=['Content-Type', 'X-Requested-With'],
+        @cors(
+            ['https://hasgeek.com'],
+            methods=['GET'],
+            headers=['Content-Type', 'X-Requested-With'],
             max_age=3600)
         def static_list():
             return Response()

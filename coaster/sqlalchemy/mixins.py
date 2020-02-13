@@ -99,7 +99,8 @@ class IdMixin(object):
     @declared_attr  # NOQA: A003
     def id(cls):  # NOQA: A003
         """
-        Database identity for this model, used for foreign key references from other models
+        Database identity for this model, used for foreign key references from other
+        models
         """
         if cls.__uuid_primary_key__:
             return immutable(
@@ -280,9 +281,11 @@ class UrlForMixin(object):
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
 
-    #: Mapping of {app: {action: (endpoint, {param: attr}, _external)}}, where attr is a string or tuple of strings.
-    #: The same action can point to different endpoints in different apps. The app may also be None as fallback.
-    #: Each subclass will get its own dictionary. This particular dictionary is only used as an inherited fallback.
+    #: Mapping of {app: {action: (endpoint, {param: attr}, _external)}},
+    #: where attr is a string or tuple of strings. The same action can point to
+    #: different endpoints in different apps. The app may also be None as fallback.
+    #: Each subclass will get its own dictionary. This particular dictionary is only
+    #: used as an inherited fallback.
     url_for_endpoints = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints = {}
@@ -329,7 +332,7 @@ class UrlForMixin(object):
         try:
             return self.url_for(_external=True)
         except BuildError:
-            return
+            pass
 
     @classmethod
     def is_url_for(
@@ -428,7 +431,10 @@ class BaseNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check',
+                tablename,
+                "name <> ''")
     """
 
     #: Prevent use of these reserved names
@@ -492,9 +498,9 @@ class BaseNameMixin(BaseMixin):
 
     def make_name(self, reserved=()):
         """
-        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
-        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2
-        until an available name is found.
+        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name
+        is already in use in this model, :meth:`make_name` tries again by suffixing
+        numbers starting with 2 until an available name is found.
 
         :param reserved: List or set of reserved names unavailable for use
         """
@@ -555,7 +561,10 @@ class BaseScopedNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check',
+                tablename,
+                "name <> ''")
     """
 
     #: Prevent use of these reserved names
@@ -619,9 +628,9 @@ class BaseScopedNameMixin(BaseMixin):
 
     def make_name(self, reserved=()):
         """
-        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name is already
-        in use in this model, :meth:`make_name` tries again by suffixing numbers starting with 2
-        until an available name is found.
+        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name
+        is already in use in this model, :meth:`make_name` tries again by suffixing
+        numbers starting with 2 until an available name is found.
         """
         if self.title:
             if inspect(self).has_identity:
@@ -657,7 +666,8 @@ class BaseScopedNameMixin(BaseMixin):
 
     def short_title(self):
         """
-        Generates an abbreviated title by subtracting the parent's title from this instance's title.
+        Generates an abbreviated title by subtracting the parent's title from this
+        instance's title.
         """
         if (
             self.title
@@ -709,7 +719,10 @@ class BaseIdNameMixin(BaseMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check',
+                tablename,
+                "name <> ''")
     """
 
     #: Allow blank names after all?
@@ -781,8 +794,8 @@ class BaseIdNameMixin(BaseMixin):
     @hybrid_property
     def url_name_suuid(self):
         """
-        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
-        To use this, the class must derive from :class:`UuidMixin`.
+        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid
+        syntax. To use this, the class must derive from :class:`UuidMixin`.
         """
         return '%s-%s' % (self.name, self.suuid)
 
@@ -796,7 +809,8 @@ class BaseScopedIdMixin(BaseMixin):
     Base mixin class for objects with an id that is unique within a parent.
     Implementations must provide a 'parent' attribute that is either a relationship
     or a synonym to a relationship referring to the parent object, and must
-    declare a unique constraint between url_id and the parent. Sample use case in Flask::
+    declare a unique constraint between url_id and the parent. Sample use case in
+    Flask::
 
         class Issue(BaseScopedIdMixin, db.Model):
             __tablename__ = 'issue'
@@ -877,7 +891,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check',
+                tablename,
+                "name <> ''")
     """
 
     #: Allow blank names after all?
@@ -941,7 +958,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @with_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
-        """Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax"""
+        """
+        Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax
+        """
         return '%s-%s' % (self.url_id, self.name)
 
     @url_id_name.comparator
@@ -954,8 +973,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @hybrid_property
     def url_name_suuid(self):
         """
-        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid syntax.
-        To use this, the class must derive from :class:`UuidMixin`.
+        Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid
+        syntax. To use this, the class must derive from :class:`UuidMixin`.
         """
         return '%s-%s' % (self.name, self.suuid)
 
@@ -966,8 +985,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
 class CoordinatesMixin(object):
     """
-    Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand :attr:`coordinates`
-    property that returns both.
+    Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand
+    :attr:`coordinates` property that returns both.
     """
 
     latitude = Column(Numeric)

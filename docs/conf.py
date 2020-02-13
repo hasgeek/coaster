@@ -45,7 +45,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'coaster'
-copyright = u'2012-18, HasGeek'
+copyright = u'2012-18, HasGeek'  # skipcq: PYL-W0622
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
