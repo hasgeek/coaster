@@ -57,10 +57,12 @@ requires = [
     'Flask>=1.0',
     'furl',
     'iso8601',
+    'Jinja2',
 ]
 
 if PY2:
-    requires.extend(['PySqlite'])
+    requires.remove('Jinja2')
+    requires.extend(['PySqlite', 'Jinja2<3.0'])
 
 setup(
     name='coaster',
