@@ -23,7 +23,7 @@ else:
 PY2 = sys.version_info[0] == 2
 
 requires = [
-    'six',
+    'six>=1.13.0',
     'nltk>=3.0',
     'shortuuid',
     'isoweek',

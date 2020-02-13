@@ -36,8 +36,7 @@ reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
 """
 
 from __future__ import absolute_import
-
-import collections
+from six.moves.collections_abc import Hashable
 
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
@@ -81,7 +80,7 @@ def _configure_annotations(mapper, cls):
                 continue
 
             # 'data' is a list of string annotations
-            if isinstance(attr, collections.Hashable) and attr in __cache__:
+            if isinstance(attr, Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
             elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:

@@ -6,9 +6,10 @@ Utility classes
 """
 
 from __future__ import absolute_import
+from six.moves.collections_abc import Set
 import six
 
-from collections import OrderedDict, Set, namedtuple
+from collections import OrderedDict, namedtuple
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 

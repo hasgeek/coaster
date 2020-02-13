@@ -120,10 +120,10 @@ Example use::
 """
 
 from __future__ import absolute_import
+import six.moves.collections_abc as abc
 
 from copy import deepcopy
 from functools import wraps
-import collections
 import warnings
 
 from sqlalchemy import event
@@ -159,12 +159,12 @@ def _actor_in_relationship(actor, relationship):
     """Test whether the given actor is present in the given attribute"""
     if actor == relationship:
         return True
-    elif isinstance(relationship, (AppenderMixin, collections.Container)):
+    elif isinstance(relationship, (AppenderMixin, abc.Container)):
         return actor in relationship
     return False
 
 
-class LazyRoleSet(collections.MutableSet):
+class LazyRoleSet(abc.MutableSet):
     """
     Set that provides lazy evaluations for whether a role is present
     """
@@ -258,16 +258,16 @@ class LazyRoleSet(collections.MutableSet):
     # Set operators take a single `other` parameter while these methods
     # are required to take multiple `others` to be API-compatible with sets.
     # The `nary_op` decorator does that
-    issubset = nary_op(collections.MutableSet.__le__)
-    issuperset = nary_op(collections.MutableSet.__ge__)
-    union = nary_op(collections.MutableSet.__or__)
-    intersection = nary_op(collections.MutableSet.__and__)
-    difference = nary_op(collections.MutableSet.__sub__)
-    symmetric_difference = nary_op(collections.MutableSet.__xor__)
-    update = nary_op(collections.MutableSet.__ior__)
-    intersection_update = nary_op(collections.MutableSet.__iand__)
-    difference_update = nary_op(collections.MutableSet.__isub__)
-    symmetric_difference_update = nary_op(collections.MutableSet.__ixor__)
+    issubset = nary_op(abc.MutableSet.__le__)
+    issuperset = nary_op(abc.MutableSet.__ge__)
+    union = nary_op(abc.MutableSet.__or__)
+    intersection = nary_op(abc.MutableSet.__and__)
+    difference = nary_op(abc.MutableSet.__sub__)
+    symmetric_difference = nary_op(abc.MutableSet.__xor__)
+    update = nary_op(abc.MutableSet.__ior__)
+    intersection_update = nary_op(abc.MutableSet.__iand__)
+    difference_update = nary_op(abc.MutableSet.__isub__)
+    symmetric_difference_update = nary_op(abc.MutableSet.__ixor__)
 
 
 class DynamicAssociationProxy(object):
@@ -310,7 +310,7 @@ class DynamicAssociationProxy(object):
         return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
 
 
-class DynamicAssociationProxyWrapper(collections.Set):
+class DynamicAssociationProxyWrapper(abc.Set):
     """:class:`DynamicAssociationProxy` wrapped around an instance"""
 
     def __init__(self, obj, rel, attr):
@@ -351,11 +351,11 @@ class DynamicAssociationProxyWrapper(collections.Set):
         )
 
     def __ne__(self, other):
-        # This method is required as collections.Set provides a less efficient version
+        # This method is required as abc.Set provides a less efficient version
         return not self.__eq__(other)
 
 
-class RoleAccessProxy(collections.Mapping):
+class RoleAccessProxy(abc.Mapping):
     """
     A proxy interface that wraps an object and provides pass-through read and
     write access to attributes that the specified roles have access to.
@@ -442,7 +442,7 @@ class RoleAccessProxy(collections.Mapping):
         elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
-            # subclassing collections.Mapping: dicts are also not hashable.
+            # subclassing abc.Mapping: dicts are also not hashable.
             return tuple(
                 m.access_for(
                     actor=self._actor, anchors=self._anchors, datasets=self._datasets
@@ -713,7 +713,7 @@ class RoleMixin(object):
         for role in roles:
             for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 attr = getattr(self, relattr)
-                if isinstance(attr, (AppenderMixin, collections.Iterable)):
+                if isinstance(attr, (AppenderMixin, abc.Iterable)):
                     actors.update(attr)
                 elif isinstance(getattr(type(self), relattr), InstrumentedAttribute):
                     actors.add(attr)
@@ -805,7 +805,7 @@ def _configure_roles(mapper, cls):
             if name in processed or name.startswith('__'):
                 continue
 
-            if isinstance(attr, collections.Hashable) and attr in __cache__:
+            if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
             elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
