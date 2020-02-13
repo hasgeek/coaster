@@ -65,7 +65,7 @@ if PY2:
     requires.remove('Markdown>=3.1.0')
     requires.remove('pymdown-extensions>=6.0')
     requires.extend(
-        ['PySqlite', 'Jinja2<3.0', 'Markdown<=3.2.0', 'pymdown-extensions==6.2.0']
+        ['PySqlite', 'Jinja2<3.0', 'Markdown<3.2.0', 'pymdown-extensions==6.2.0']
     )
 
 setup(
