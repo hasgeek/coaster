@@ -177,7 +177,7 @@ class ViewHandler(object):
         self.name = self.func.__name__
         # self.endpoint will change once init_app calls __set_name__
         self.endpoint = self.name
-        self.__doc__ = self.func.__doc__
+        self.__doc__ = self.func.__doc__  # skipcq: PYL-W0201
         return self
 
     # Normally Python 3.6+, but called manually by :meth:`ClassView.init_app`

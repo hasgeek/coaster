@@ -119,6 +119,7 @@ def sync_resources():
 
 
 def shell_context():
+    """Supplies context variables for the shell"""
     context = {'app': manager.app, 'db': manager.db, 'flask': flask}
     context.update(manager.context)
     return context

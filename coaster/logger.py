@@ -229,7 +229,7 @@ class SlackHandler(logging.Handler):
         ):
 
             # Sanity check:
-            # If we're not going to be reporting this, don't bother to format the payload
+            # If we're not going to be reporting this, don't bother to format payload
             if record.levelname not in [
                 lname
                 for webhook in self.webhooks
@@ -242,8 +242,8 @@ class SlackHandler(logging.Handler):
                     s.split('----') for s in record.exc_text.split('----------')
                 ]
                 flat_list = [item for sublist in double_split for item in sublist]
-                # Separate out the first line of each section. It'll be used as the "pretext"
-                # while the rest will be used as a "text" attachment.
+                # Separate out the first line of each section. It'll be used as the
+                # "pretext" while the rest will be used as a "text" attachment.
                 sections = [s.strip().split('\n', 1) for s in flat_list]
             else:
                 sections = []
@@ -283,8 +283,8 @@ class SlackHandler(logging.Handler):
                         headers={'Content-Type': 'application/json'},
                     )
                 except:  # NOQA  # nosec
-                    # We need a bare except clause because this is the exception handler.
-                    # It can't have exceptions of its own.
+                    # We need a bare except clause because this is the exception
+                    # handler. It can't have exceptions of its own.
                     pass
                 error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
 
