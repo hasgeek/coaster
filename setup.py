@@ -23,7 +23,7 @@ else:
 PY2 = sys.version_info[0] == 2
 
 requires = [
-    'six',
+    'six>=1.13.0',
     'nltk>=3.0',
     'shortuuid',
     'isoweek',
@@ -46,7 +46,7 @@ requires = [
     'Pygments',
     'bleach',
     'html5lib>=0.999999999',
-    'markdown>=3.1.0',
+    'Markdown>=3.1.0',
     'pymdown-extensions>=6.0',
     'pytz',
     'semantic_version>=2.8.0',
@@ -57,10 +57,16 @@ requires = [
     'Flask>=1.0',
     'furl',
     'iso8601',
+    'Jinja2',
 ]
 
 if PY2:
-    requires.extend(['PySqlite'])
+    requires.remove('Jinja2')
+    requires.remove('Markdown>=3.1.0')
+    requires.remove('pymdown-extensions>=6.0')
+    requires.extend(
+        ['PySqlite', 'Jinja2<3.0', 'Markdown<3.2.0', 'pymdown-extensions==6.2.0']
+    )
 
 setup(
     name='coaster',

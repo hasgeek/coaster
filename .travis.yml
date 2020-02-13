@@ -1,28 +1,25 @@
-sudo: false
 language: python
 cache: pip
 python:
   - "2.7"
   - "3.6"
-# Enable 3.7 without globally enabling sudo and dist: xenial for other build jobs
-matrix:
-  include:
-    - python: 3.7
-      dist: xenial
-      sudo: true
+  - "3.7"
+  - "3.8"
 addons:
   postgresql: "9.4"
 services:
   - postgresql
 # command to install dependencies
 install:
-  - pip install --upgrade setuptools
-  - pip install -r test_requirements.txt
   - pip install pre-commit
   - python setup.py install
-# command to run tests
+  - pip install -r test_requirements.txt
+  - pip install six --upgrade --ignore-installed
+# command to prepare environment
 before_script:
   - psql -c 'create database coaster_test;' -U postgres
+  - python -c "import six; print('Six:', six.__version__)"
+# command to run tests
 script:
   - pre-commit run flake8 -a
   - ./runtests.sh

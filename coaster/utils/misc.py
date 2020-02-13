@@ -8,6 +8,7 @@ Miscellaneous utilities
 from __future__ import absolute_import
 from six.moves.urllib.parse import urlparse
 import six
+import six.moves.collections_abc as abc
 
 from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
@@ -15,7 +16,6 @@ from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
 import binascii
-import collections
 import email.utils
 import hashlib
 import re
@@ -97,7 +97,7 @@ def is_collection(item):
     True
     """
     return not isinstance(item, six.string_types) and isinstance(
-        item, (collections.Set, collections.Sequence)
+        item, (abc.Set, abc.Sequence)
     )
 
 
