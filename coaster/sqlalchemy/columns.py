@@ -89,7 +89,7 @@ class JsonDict(TypeDecorator):
 
 class MutableDict(Mutable, dict):
     @classmethod  # NOQA: A003
-    def coerce(cls, key, value):
+    def coerce(cls, key, value):  # NOQA: A003
         """Convert plain dictionaries to MutableDict."""
 
         if not isinstance(value, MutableDict):
@@ -188,7 +188,7 @@ class MarkdownComposite(MutableComposite):
 
     # Allow a composite column to be assigned a string value
     @classmethod  # NOQA: A003
-    def coerce(cls, key, value):
+    def coerce(cls, key, value):  # NOQA: A003
         return cls(value)
 
 

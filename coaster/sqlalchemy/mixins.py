@@ -97,7 +97,7 @@ class IdMixin(object):
     __uuid_primary_key__ = False
 
     @declared_attr  # NOQA: A003
-    def id(cls):
+    def id(cls):  # NOQA: A003
         """
         Database identity for this model, used for foreign key references from other models
         """
