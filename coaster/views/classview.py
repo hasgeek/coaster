@@ -46,9 +46,10 @@ __all__ = [
 ]
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
-#: for use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
-#: Note that the current view handler method within the class is named
-#: :attr:`~current_view.current_handler`, so to examine it, use :attr:`current_view.current_handler`.
+#: for use in templates as context. Exposed to templates by
+#: :func:`coaster.app.init_app`. Note that the current view handler method within the
+#: class is named :attr:`~current_view.current_handler`, so to examine it, use
+#: :attr:`current_view.current_handler`.
 current_view = LocalProxy(
     lambda: has_request_context()
     and getattr(_request_ctx_stack.top, 'current_view', None)
@@ -110,7 +111,9 @@ class ViewHandler(object):
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
 
-    def __init__(self, rule, rule_options=None, viewdata=None, requires_roles=None):
+    def __init__(
+        self, rule, rule_options=None, viewdata=None, requires_roles=None
+    ):  # skipcq: PYL-W0621
         if rule is not None:
             self.routes = [(rule, rule_options or {})]
         else:
@@ -119,8 +122,14 @@ class ViewHandler(object):
         self.requires_roles = requires_roles or {}
         self.endpoints = set()
 
+        # Stubs for the decorator to fill
+        self.name = None
+        self.endpoint = None
+        self.func = None
+
     def reroute(self, f):
-        # Use type(self) instead of ViewHandler so this works for (future) subclasses of ViewHandler
+        # Use type(self) instead of ViewHandler so this works for (future) subclasses
+        # of ViewHandler
         r = type(self)(None)
         r.routes = self.routes
         r.data = self.data
@@ -162,7 +171,8 @@ class ViewHandler(object):
             self.func = decorated
 
         self.name = self.func.__name__
-        self.endpoint = self.name  # This will change once init_app calls __set_name__
+        # self.endpoint will change once init_app calls __set_name__
+        self.endpoint = self.name
         self.__doc__ = self.func.__doc__
         return self
 
@@ -182,36 +192,40 @@ class ViewHandler(object):
         ensures this. :meth:`init_app` therefore takes the liberty of adding
         additional attributes to ``self``:
 
-        * :attr:`wrapped_func`: The function wrapped with all decorators added by the class
+        * :attr:`wrapped_func`: The function wrapped with all decorators added by the
+            class
         * :attr:`view_func`: The view function registered as a Flask view handler
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
 
         def view_func(**view_args):
-            # view_func does not make any reference to variables from init_app to avoid creating
-            # a closure. Instead, the code further below sticks all relevant variables into
-            # view_func's namespace.
+            # view_func does not make any reference to variables from init_app to avoid
+            # creating a closure. Instead, the code further below sticks all relevant
+            # variables into view_func's namespace.
 
-            # Instantiate the view class. We depend on its __init__ requiring no parameters
+            # Instantiate the view class. We depend on its __init__ requiring no
+            # parameters
             viewinst = view_func.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
             viewinst.current_handler = ViewHandlerWrapper(
                 view_func.view, viewinst, view_func.view_class
             )
-            # Place view arguments in the instance, in case they are needed outside the dispatch process
+            # Place view arguments in the instance, in case they are needed outside the
+            # dispatch process
             viewinst.view_args = view_args
-            # Place the view instance on the request stack for :obj:`current_view` to discover
+            # Place the view instance on the request stack for :obj:`current_view` to
+            # discover
             _request_ctx_stack.top.current_view = viewinst
-            # Call the view instance's dispatch method. View classes can customise this for
-            # desired behaviour.
+            # Call the view instance's dispatch method. View classes can customise this
+            # for desired behaviour.
             return viewinst.dispatch_request(view_func.wrapped_func, view_args)
 
         # Decorate the wrapped view function with the class's desired decorators.
-        # Mixin classes may provide their own decorators, and all of them will be applied.
-        # The oldest defined decorators (from mixins) will be applied first, and the
-        # class's own decorators last. Within the list of decorators, we reverse the list
-        # again, so that a list specified like this:
+        # Mixin classes may provide their own decorators, and all of them will be
+        # applied. The oldest defined decorators (from mixins) will be applied first,
+        # and the class's own decorators last. Within the list of decorators, we reverse
+        # the list again, so that a list specified like this:
         #
         #     __decorators__ = [first, second]
         #
@@ -242,8 +256,8 @@ class ViewHandler(object):
         view_func.view = self
 
         # Keep a copy of these functions (we already have self.func)
-        self.wrapped_func = wrapped_func
-        self.view_func = view_func
+        self.wrapped_func = wrapped_func  # skipcq: PYL-W0201
+        self.view_func = view_func  # skipcq: PYL-W0201
 
         for class_rule, class_options in cls.__routes__:
             for method_rule, method_options in self.routes:
@@ -597,7 +611,6 @@ class ModelView(ClassView):
             else:
                 perms = InspectableSet()
             add_auth_attribute('permissions', perms)
-        return None
 
 
 def requires_roles(roles):
@@ -652,10 +665,11 @@ class UrlForView(object):
             params = {
                 v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map
             }
-            # Hook up is_url_for with the view function's name, endpoint name and parameters.
-            # Register the view for a specific app, unless we're in a Blueprint,
-            # in which case it's not an app.
-            # FIXME: The behaviour of a Blueprint + multi-app combo is unknown and needs tests.
+            # Hook up is_url_for with the view function's name, endpoint name and
+            # parameters. Register the view for a specific app, unless we're in a
+            # Blueprint, in which case it's not an app.
+            # FIXME: The behaviour of a Blueprint + multi-app combo is unknown and needs
+            # tests.
             if isinstance(app, Blueprint):
                 prefix = app.name + '.'
                 reg_app = None

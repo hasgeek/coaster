@@ -46,7 +46,8 @@ from ..signals import coaster_signals
 
 __all__ = ['annotations_configured', 'annotation_wrapper']
 
-# Global dictionary for temporary storage of annotations until the mapper_configured events
+# Global dictionary for temporary storage of annotations until the
+# mapper_configured events
 __cache__ = {}
 
 # --- Signals -----------------------------------------------------------------
@@ -61,7 +62,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @event.listens_for(mapper, 'mapper_configured')
-def _configure_annotations(mapper, cls):
+def _configure_annotations(mapper_, cls):
     """
     Run through attributes of the class looking for annotations from
     :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
@@ -73,7 +74,8 @@ def _configure_annotations(mapper, cls):
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
-    # Loop through all attributes in the class and its base classes, looking for annotations
+    # Loop through all attributes in the class and its base classes,
+    # looking for annotations
     for base in cls.__mro__:
         for name, attr in base.__dict__.items():
             if name in processed or name.startswith('__'):
@@ -115,9 +117,7 @@ def _clear_cache():
 
 
 def annotation_wrapper(annotation, doc=None):
-    """
-    Defines an annotation, which can be applied to attributes in a database model.
-    """
+    """Defines an annotation, which can be applied to attributes in a database model."""
 
     def decorator(attr):
         __cache__.setdefault(attr, []).append(annotation)

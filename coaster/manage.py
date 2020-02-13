@@ -45,6 +45,7 @@ manager = Manager()
 
 
 def alembic_table_metadata():
+    """Returns SQLAlchemy metadata and Alembic version table"""
     db = manager.db
     metadata = db.MetaData(bind=db.engine)
     alembic_version = db.Table(

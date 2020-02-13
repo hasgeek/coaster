@@ -4,7 +4,8 @@
 View helpers
 ============
 
-Coaster provides classes, functions and decorators for common scenarios in view handlers.
+Coaster provides classes, functions and decorators for common scenarios in view
+handlers.
 """
 
 from __future__ import absolute_import

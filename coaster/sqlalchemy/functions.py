@@ -25,7 +25,8 @@ __all__ = [
 # --- SQL functions -----------------------------------------------------------
 
 # Provide sqlalchemy.func.utcnow()
-# Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.html#utc-timestamp-function
+# Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.htm
+# #utc-timestamp-function
 class utcnow(functions.GenericFunction):  # NOQA: N801
     type = TIMESTAMP()  # NOQA: A003
 
@@ -114,7 +115,7 @@ def failsafe_add(_session, _instance, **filters):
         if filters:
             try:
                 return _session.query(_instance.__class__).filter_by(**filters).one()
-            except NoResultFound:  # Do not trap the other exception, MultipleResultsFound
+            except NoResultFound:  # Do not trap the other, MultipleResultsFound
                 raise e
 
 
@@ -249,7 +250,8 @@ def auto_init_default(column):
 
     @event.listens_for(column, 'init_scalar', retval=True, propagate=True)
     def init_scalar(target, value, dict_):
-        # A subclass may override the column and not provide a default. Watch out for that.
+        # A subclass may override the column and not provide a default. Watch out for
+        # that.
         if default:
             if default.is_callable:
                 value = default.arg(None)

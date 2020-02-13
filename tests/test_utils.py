@@ -76,8 +76,7 @@ class TestCoasterUtils(unittest.TestCase):
             MY_ENUM[2] = "SECOND"
 
     def test_unlisted_make_password_encoding(self):
-        """Test for unsupported password encryption schemes.
-        """
+        """Test for unsupported password encryption schemes."""
         self.assertRaises(  # NOQA: S106
             ValueError, make_password, password='password', encoding=u'DES'
         )
@@ -214,9 +213,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert abs(now2 - now1.replace(tzinfo=None)) < datetime.timedelta(seconds=1)
 
     def test_suuid(self):
-        """
-        Test the ShortUUID functions
-        """
+        """Test the ShortUUID functions"""
         s1 = suuid()
         self.assertEqual(len(s1), 22)
         u1 = suuid2uuid(s1)

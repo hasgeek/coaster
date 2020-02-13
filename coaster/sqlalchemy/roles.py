@@ -205,7 +205,9 @@ class LazyRoleSet(abc.MutableSet):
     def _contents(self):
         """Return all available roles"""
         # Populate cache
-        [self._role_is_present(role) for role in self.obj.__roles__]
+        [
+            self._role_is_present(role) for role in self.obj.__roles__
+        ]  # skipcq: PYL-W0106
         return self._present
 
     def __contains__(self, key):
@@ -568,7 +570,7 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
     if is_collection(obj):
         # Protect against accidental specification of roles instead of an object
         raise TypeError('Roles must be specified as named parameters')
-    elif obj is not None:
+    if obj is not None:
         return inner(obj)
     else:
         return inner
@@ -780,7 +782,7 @@ class RoleMixin(object):
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(mapper, cls):
+def _configure_roles(mapper_, cls):
     """
     Run through attributes of the class looking for role decorations from
     :func:`with_roles` and add them to :attr:`cls.__roles__`

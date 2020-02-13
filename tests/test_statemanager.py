@@ -150,7 +150,7 @@ class MyPost(BaseMixin, db.Model):
                 raise AbortTransition((success, 'failed'))
         return success, 'passed'
 
-    def roles_for(self, actor, anchors=()):
+    def roles_for(self, actor=None, anchors=()):
         roles = super(MyPost, self).roles_for(actor, anchors)
         # Cheap hack for the sake of testing, using strings instead of objects
         if actor == 'author':

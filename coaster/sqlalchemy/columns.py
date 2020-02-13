@@ -46,7 +46,8 @@ class JsonbType(UserDefinedType):
         return 'JSONB'
 
 
-# Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
+# Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html
+# #establishing-mutability-on-scalar-column-values
 
 
 class JsonDict(TypeDecorator):
@@ -74,7 +75,7 @@ class JsonDict(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = simplejson.dumps(value, default=lambda o: six.text_type(o))
+            value = simplejson.dumps(value, default=six.text_type)  # Callable default
         return value
 
     def process_result_value(self, value, dialect):
@@ -218,9 +219,11 @@ class UrlType(UrlTypeBase):
 
     .. _URLType: https://sqlalchemy-utils.readthedocs.io/en/latest/data_types.html#module-sqlalchemy_utils.types.url
 
-    :param schemes: Valid URL schemes. Use `None` to allow any scheme, `()` for no scheme
+    :param schemes: Valid URL schemes. Use `None` to allow any scheme,
+        `()` for no scheme
     :param optional_scheme: Schemes are optional (allows URLs starting with ``//``)
-    :param optional_host: Allow URLs without a hostname (required for ``mailto`` and ``file`` schemes)
+    :param optional_host: Allow URLs without a hostname (required for ``mailto`` and
+        ``file`` schemes)
     """
 
     impl = UnicodeText
@@ -247,5 +250,5 @@ class UrlType(UrlTypeBase):
 
             # Host may be missing only if optional
             if not parsed.host and not self.optional_host:
-                raise ValueError(u"Missing URL host".format(value))
+                raise ValueError(u"Missing URL host")
         return value

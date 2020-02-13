@@ -42,9 +42,10 @@ __all__ = [
 ]
 
 
-#: Unicode's list of whitespace characters is missing some that were previously classified as
-#: whitespace but are now considered format characters. These are invisible and usually arrive
-#: via copy-paste, so we include them here as characters to be stripped from the ends of text.
+#: Unicode's list of whitespace characters is missing some that were previously
+#: classified as whitespace but are now considered format characters. These are
+#: invisible and usually arrive via copy-paste, so we include them here as characters to
+#: be stripped from the ends of text.
 unicode_extended_whitespace = (
     u'\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
     u'\x85'  # NEXT LINE (NEL)
@@ -171,9 +172,11 @@ blockish_tags = {
 
 
 def text_blocks(html_text, skip_pre=True):
-    # doc = html.fromstring(html_text)
+    """
+    Extracts a list of paragraphs from a given HTML string
+    """
     doc = html5lib.parseFragment(html_text)
-    text_blocks = []
+    blocks = []
 
     def subloop(parent_tag, element, lastchild=False):
         if callable(
@@ -199,23 +202,24 @@ def text_blocks(html_text, skip_pre=True):
                     text.rstrip()
                 )  # No children? Then trailing whitespace is insignificant
             # If there's text, add it.
-            # If there's no text but the next element is not a block tag, add a blank anyway
-            # (unless it's a pre tag and we want to skip_pre, in which case ignore it again).
+            # If there's no text but the next element is not a block tag, add a blank
+            # anyway (unless it's a pre tag and we want to skip_pre, in which case
+            # ignore it again).
             if text:
-                text_blocks.append(text)
+                blocks.append(text)
             elif (
                 len(element)
                 and isinstance(element[0].tag, six.string_types)
                 and element[0].tag.split('}')[-1] not in blockish_tags
                 and not (skip_pre and tag == 'pre')
             ):
-                text_blocks.append('')
+                blocks.append('')
         else:
-            if not text_blocks:
+            if not blocks:
                 if text:
-                    text_blocks.append(text)
+                    blocks.append(text)
             else:
-                text_blocks[-1] += text
+                blocks[-1] += text
 
         if len(element) > 0 and not (skip_pre and tag == 'pre'):
             for child in element[:-1]:
@@ -227,25 +231,25 @@ def text_blocks(html_text, skip_pre=True):
                 tail.lstrip()
             )  # Leading whitespace is insignificant after a block tag
             if tail:
-                text_blocks.append(tail)
+                blocks.append(tail)
         else:
             if parent_tag in blockish_tags and lastchild:
                 tail = (
                     tail.rstrip()
                 )  # Trailing whitespace is insignificant before a block tag end
-            if not text_blocks:
+            if not blocks:
                 if tail:
-                    text_blocks.append(tail)
+                    blocks.append(tail)
             else:
                 if tag == 'br' and tail:
-                    text_blocks[-1] += '\n' + tail
+                    blocks[-1] += '\n' + tail
                 else:
-                    text_blocks[-1] += tail
+                    blocks[-1] += tail
 
     subloop(None, doc)
     # Replace &nbsp; with ' '
-    text_blocks = [t.replace(u'\xa0', ' ') for t in text_blocks]
-    return text_blocks
+    blocks = [t.replace(u'\xa0', ' ') for t in blocks]
+    return blocks
 
 
 def word_count(text, html=True):
@@ -317,7 +321,8 @@ def simplify_text(text):
     'awesome coder wanted at awesome company'
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
     'awesome coder wanted at awesome company'
-    >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == 'awesome coder wanted at awesome company'
+    >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == (
+    ...   'awesome coder wanted at awesome company')
     True
     """
     if isinstance(text, six.text_type):

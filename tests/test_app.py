@@ -45,7 +45,7 @@ class TestCoasterUtils(unittest.TestCase):
         for handler in self.another_app.logger.handlers:
             try:
                 raise Exception
-            except Exception:
+            except Exception:  # skipcq: PYL-W0703
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())

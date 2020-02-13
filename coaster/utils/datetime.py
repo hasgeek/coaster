@@ -27,7 +27,7 @@ __all__ = [
 
 # Force import of strptime. This was previously used in :func:`parse_isoformat`,
 # but we have left this in because it could break elsewhere.
-# http://stackoverflow.com/questions/16309650/python-importerror-for-strptime-in-spyder-for-windows-7
+# https://stackoverflow.com/q/16309650/78903
 datetime.strptime('20160816', '%Y%m%d')
 
 
@@ -94,7 +94,8 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
     >>> midnight_to_utc(datetime(2017, 1, 1), naive=True)
     datetime.datetime(2017, 1, 1, 0, 0)
-    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), naive=True)
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)),
+    ...   naive=True)
     datetime.datetime(2016, 12, 31, 18, 30)
     >>> midnight_to_utc(date(2017, 1, 1))
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
@@ -104,7 +105,8 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
     >>> midnight_to_utc(datetime(2017, 1, 1), timezone='Asia/Kolkata')
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
-    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), timezone='UTC')
+    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)),
+    ...   timezone='UTC')
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
     if timezone:
@@ -143,8 +145,9 @@ def sorted_timezones():
         for timezone in pytz.country_timezones[countrycode]:
             timezone_country[timezone] = countrycode
 
-    # Make a list of timezones, discarding the US/* and Canada/* zones since they aren't reliable for
-    # DST, and discarding UTC and GMT since timezones in that zone have their own names
+    # Make a list of timezones, discarding the US/* and Canada/* zones since they aren't
+    # reliable for DST, and discarding UTC and GMT since timezones in that zone have
+    # their own names
     timezones = [
         (pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname)
         for tzname in pytz.common_timezones

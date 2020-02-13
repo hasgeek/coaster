@@ -61,7 +61,8 @@ class VersionedAssets(defaultdict):
     You can also specify one or more *requirements* for an asset by supplying
     a list or tuple of requirements followed by the actual asset::
 
-        assets['jquery.form.js'][Version('2.96.0')] = ('jquery.js', 'js/jquery.form-2.96.js')
+        assets['jquery.form.js'][Version('2.96.0')] = (
+            'jquery.js', 'js/jquery.form-2.96.js')
 
     You may have an asset that provides replacement functionality for another asset::
 
@@ -73,7 +74,8 @@ class VersionedAssets(defaultdict):
     Assets specified as a dictionary can have three keys:
 
     :parameter provides: Assets provided by this asset
-    :parameter requires: Assets required by this asset (with optional version specifications)
+    :parameter requires: Assets required by this asset (with optional version
+        specifications)
     :parameter bundle: The asset itself
     :type provides: string or list
     :type requires: string or list
@@ -85,8 +87,9 @@ class VersionedAssets(defaultdict):
 
     This returns a webassets Bundle of the requested assets and their dependencies.
 
-    You can also ask for certain assets to not be included even if required if, for example,
-    you are loading them from elsewhere such as a CDN. Prefix the asset name with '!'::
+    You can also ask for certain assets to not be included even if required if, for
+    example, you are loading them from elsewhere such as a CDN. Prefix the asset name
+    with '!'::
 
         assets.require('!jquery.js', 'jquery.form.js', ...)
 
@@ -147,10 +150,11 @@ class VersionedAssets(defaultdict):
                         req_name, req_spec = split_namespec(req)
                         if req_name in asset_versions:
                             if asset_versions[req_name] not in req_spec:
-                                # The version asked for conflicts with a version currently used.
+                                # The version asked for conflicts with a version
+                                # currently used.
                                 raise ValueError(
-                                    "%s is not compatible with already requested version %s"
-                                    % (req, asset_versions[req_name])
+                                    "%s is not compatible with already requested "
+                                    "version %s" % (req, asset_versions[req_name])
                                 )
                         else:
                             filtered_requires.append(req)
@@ -192,7 +196,7 @@ class UglipyJS(Filter):
     def setup(self):
         import uglipyjs
 
-        self.uglipyjs = uglipyjs
+        self.uglipyjs = uglipyjs  # skipcq: PYL-W0201
 
     def output(self, _in, out, **kw):
         out.write(six.text_type(self.uglipyjs.compile(_in.read()), 'utf-8'))

@@ -49,7 +49,8 @@ class EscapeHtml(Extension):
     """
     Extension to escape HTML tags to use with Markdown()
     This replaces `safe_mode='escape`
-    Ref: https://python-markdown.github.io/change_log/release-3.0/#safe_mode-and-html_replacement_text-keywords-deprecated
+    Ref: https://python-markdown.github.io/change_log/release-3.0/
+    #safe_mode-and-html_replacement_text-keywords-deprecated
     """
 
     def extendMarkdown(self, md):  # NOQA: N802

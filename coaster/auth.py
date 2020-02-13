@@ -62,7 +62,8 @@ def add_auth_attribute(attr, value, actor=False):
     # Invoking current_auth will also create it on the local stack. We can
     # then proceed to set attributes on it.
     ca = current_auth._get_current_object()
-    # Since :class:`CurrentAuth` overrides ``__setattr__``, we need to use :class:`object`'s.
+    # Since :class:`CurrentAuth` overrides ``__setattr__``, we need to use
+    # :class:`object`'s.
     object.__setattr__(ca, attr, value)
 
     if attr == 'user':
@@ -188,7 +189,8 @@ def _get_current_auth():
         if hasattr(_request_ctx_stack.top, 'current_auth'):
             return _request_ctx_stack.top.current_auth
 
-        # 3. If not, does it have a known user (Flask-Login protocol)? If so, construct current_auth
+        # 3. If not, does it have a known user (Flask-Login protocol)? If so, construct
+        # current_auth
         if hasattr(_request_ctx_stack.top, 'user'):
             _request_ctx_stack.top.current_auth = CurrentAuth(
                 _request_ctx_stack.top.user
@@ -206,8 +208,8 @@ def _get_current_auth():
                 current_app.login_manager, '_load_user'
             ):
                 current_app.login_manager._load_user()
-            # 4.2. In case the login manager did not call :func:`add_auth_attribute`, we'll
-            # need to do it
+            # 4.2. In case the login manager did not call :func:`add_auth_attribute`,
+            # we'll need to do it
             if ca.user is None:
                 add_auth_attribute(
                     'user', getattr(_request_ctx_stack.top, 'user', None)

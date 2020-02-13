@@ -19,7 +19,8 @@ import nltk
 
 def extract_named_entities(text_blocks):
     """
-    Return a list of named entities extracted from provided text blocks (list of text strings).
+    Return a list of named entities extracted from provided text blocks (list of text
+    strings).
     """
     sentences = []
     for text in text_blocks:

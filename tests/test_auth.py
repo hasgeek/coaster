@@ -228,5 +228,6 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
     def test_has_current_auth(self):
         """request_has_auth indicates if current_auth was invoked during a request"""
         self.assertFalse(request_has_auth())
-        current_auth.is_anonymous  # Invoke current_auth
+        # Invoke current_auth
+        current_auth.is_anonymous  # skipcq: PYL-W0104
         self.assertTrue(request_has_auth())
