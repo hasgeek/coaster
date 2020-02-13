@@ -69,9 +69,9 @@ It has a newline break here.</p>
 </ol>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
-<div class="codehilite"><pre><span></span><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
+<div class="codehilite"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
 </span>    <span class="k">return</span> <span class="s1">'https://www.example.com/'</span>
-</pre></div>
+</code></pre></div>
 
 <table>
 <thead>
@@ -134,9 +134,9 @@ It has a newline break here.</p>
 </ol>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
-<pre>def foo():
+<pre><code>def foo():
     return &#39;https://www.example.com/&#39;
-</pre>
+</code></pre>
 
 <table>
 <thead>
