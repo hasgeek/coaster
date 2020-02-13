@@ -46,7 +46,7 @@ requires = [
     'Pygments',
     'bleach',
     'html5lib>=0.999999999',
-    'Markdown>=3.2.0',
+    'Markdown>=3.1.0',
     'pymdown-extensions>=6.0',
     'pytz',
     'semantic_version>=2.8.0',
@@ -62,8 +62,11 @@ requires = [
 
 if PY2:
     requires.remove('Jinja2')
-    requires.remove('Markdown>=3.2.0')
-    requires.extend(['PySqlite', 'Jinja2<3.0', 'Markdown==3.2.0'])
+    requires.remove('Markdown>=3.1.0')
+    requires.remove('pymdown-extensions>=6.0')
+    requires.extend(
+        ['PySqlite', 'Jinja2<3.0', 'Markdown<=3.2.0', 'pymdown-extensions==6.2.0']
+    )
 
 setup(
     name='coaster',
