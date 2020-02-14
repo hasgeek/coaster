@@ -128,7 +128,7 @@ import warnings
 
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
-from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
     InstrumentedList,
@@ -810,6 +810,14 @@ def _configure_roles(mapper_, cls):
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
+            elif isinstance(attr, QueryableAttribute) and hasattr(
+                attr, 'original_property'
+            ):
+                if attr.original_property in __cache__:
+                    data = __cache__[attr.original_property]
+                    del __cache__[attr.original_property]
+                else:
+                    data = None
             elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
                 data = __cache__[attr.property]
                 del __cache__[attr.property]
