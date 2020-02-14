@@ -101,10 +101,25 @@ class PolymorphicChild(PolymorphicParent):
     )
     # Redefining a column will keep existing annotations, even if not specified here
     also_immutable = db.Column(db.Unicode(250))
+
     __mapper_args__ = {'polymorphic_identity': 'child'}
 
 
 warnings.resetwarnings()
+
+
+class SynonymAnnotation(BaseMixin, db.Model):
+    __tablename__ = 'synonym_annotation'
+    col_regular = db.Column(db.UnicodeText())
+    col_immutable = immutable(db.Column(db.UnicodeText()))
+
+    # The immutable annotation is ineffective on synonyms as SQLAlchemy does not
+    # honour the `set` event on synonyms
+    syn_to_regular = immutable(db.synonym('col_regular'))
+
+    # However, the immutable annotation on the target of a synonym will also apply
+    # on the synonym
+    syn_to_immutable = db.synonym('col_immutable')
 
 
 # --- Tests -------------------------------------------------------------------
@@ -354,3 +369,27 @@ class TestCoasterAnnotations(unittest.TestCase):
             child.is_immutable = 'xx'
         with self.assertRaises(ImmutableColumnError):
             child.also_immutable = 'yy'
+
+    def test_synonym_annotation(self):
+        """
+        The immutable annotation can be bypassed via synonyms
+        """
+        sa = SynonymAnnotation(col_regular='a', col_immutable='b')
+        # The columns behave as expected:
+        assert sa.col_regular == 'a'
+        assert sa.col_immutable == 'b'
+        sa.col_regular = 'x'
+        assert sa.col_regular == 'x'
+        with self.assertRaises(ImmutableColumnError):
+            sa.col_immutable = 'y'
+        assert sa.col_immutable == 'b'
+        # The synonyms can add immutability, but cannot remove it from the
+        # underlying column:
+        assert sa.syn_to_regular == 'x'
+        assert sa.syn_to_immutable == 'b'
+        sa.syn_to_regular = 'p'
+        assert sa.syn_to_regular == 'p'
+        with self.assertRaises(ImmutableColumnError):
+            sa.syn_to_immutable = 'y'
+        assert sa.syn_to_immutable == 'b'
+        assert sa.col_immutable == 'b'
