@@ -85,12 +85,13 @@ def _configure_annotations(mapper_, cls):
             if isinstance(attr, Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
-            elif (
-                isinstance(attr, QueryableAttribute)
-                and hasattr(attr, 'original_property')
-                and hasattr(attr.original_property, '_coaster_annotations')
+            elif isinstance(attr, QueryableAttribute) and hasattr(
+                attr, 'original_property'
             ):
-                data = attr.original_property._coaster_annotations
+                if hasattr(attr.original_property, '_coaster_annotations'):
+                    data = attr.original_property._coaster_annotations
+                else:
+                    data = None
             elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
                 data = __cache__[attr.property]
                 del __cache__[attr.property]

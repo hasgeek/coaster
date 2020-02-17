@@ -682,8 +682,8 @@ class TestCoasterRoles(unittest.TestCase):
         owner_proxy = rgs.access_for(roles={'owner'})
         # datacol is present as it has owner read access defined
         assert 'datacol' in owner_proxy
-        # altcol_unroled acquired roles from its target, datacol
-        assert 'altcol_unroled' in owner_proxy
+        # altcol_unroled is not present as no roles were defined for it
+        assert 'altcol_unroled' not in owner_proxy
         # altcol_roled had its own roles defined, and owner access was not in them
         assert 'altcol_roled' not in owner_proxy
 
@@ -694,15 +694,15 @@ class TestCoasterRoles(unittest.TestCase):
         owner_proxy.datacol = 'xyz'
         assert owner_proxy.datacol == 'xyz'
 
-        # Confirm this right access auto-extends to the altcol_unroled synonym
-        owner_proxy.altcol_unroled = 'uvw'
-        assert owner_proxy.datacol == 'uvw'
+        # Confirm the unroled synonym isn't available in the proxy
+        with self.assertRaises(AttributeError):
+            owner_proxy.altcol_unroled = 'uvw'
 
         all_proxy = rgs.access_for(roles={'all'})
         assert 'datacol' not in all_proxy
         assert 'altcol_unroled' not in all_proxy
         assert 'altcol_roled' in all_proxy
-        assert all_proxy.altcol_roled == 'uvw'
+        assert all_proxy.altcol_roled == 'xyz'
 
         # The altcol_roled synonym has only read access to the all role
         with self.assertRaises(AttributeError):

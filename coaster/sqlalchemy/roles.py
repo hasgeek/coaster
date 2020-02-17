@@ -810,12 +810,13 @@ def _configure_roles(mapper_, cls):
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
                 del __cache__[attr]
-            elif (
-                isinstance(attr, QueryableAttribute)
-                and hasattr(attr, 'original_property')
-                and hasattr(attr.original_property, '_coaster_roles')
+            elif isinstance(attr, QueryableAttribute) and hasattr(
+                attr, 'original_property'
             ):
-                data = attr.original_property._coaster_roles
+                if hasattr(attr.original_property, '_coaster_roles'):
+                    data = attr.original_property._coaster_roles
+                else:
+                    data = None
             elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
                 data = __cache__[attr.property]
                 del __cache__[attr.property]
