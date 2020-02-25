@@ -610,7 +610,11 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
 
         return attr
 
-    warnings.warn("declared_attr_roles is deprecated; use with_roles", stacklevel=2)
+    warnings.warn(
+        "declared_attr_roles is deprecated; use with_roles",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return inner
 
 
