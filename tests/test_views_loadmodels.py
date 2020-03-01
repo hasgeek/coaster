@@ -14,7 +14,7 @@ from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.views import load_model, load_models
 
-from .test_models import (
+from .test_sqlalchemy_models import (
     Container,
     IdNamedDocument,
     NamedDocument,

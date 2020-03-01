@@ -7,7 +7,7 @@ import unittest
 from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-from .test_models import app2
+from .test_sqlalchemy_models import app2
 
 
 class CoordinatesData(BaseMixin, CoordinatesMixin, db.Model):

@@ -669,7 +669,7 @@ class UrlForView(object):
             params = {
                 v: cls.route_model_map[v] for v in rulevars if v in cls.route_model_map
             }
-            # Hook up is_url_for with the view function's name, endpoint name and
+            # Register endpoint with the view function's name, endpoint name and
             # parameters. Register the view for a specific app, unless we're in a
             # Blueprint, in which case it's not an app.
             # FIXME: The behaviour of a Blueprint + multi-app combo is unknown and needs
@@ -680,9 +680,13 @@ class UrlForView(object):
             else:
                 prefix = ''
                 reg_app = app
-            cls.model.is_url_for(
-                view_func.__name__, prefix + endpoint, _app=reg_app, **params
-            )(view_func)
+            cls.model.register_endpoint(
+                action=view_func.__name__,
+                endpoint=prefix + endpoint,
+                app=reg_app,
+                roles=getattr(view_func, 'requires_roles', None),
+                paramattrs=params,
+            )
             cls.model.register_view_for(
                 app=reg_app,
                 action=view_func.__name__,

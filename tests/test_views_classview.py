@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import, unicode_literals
 
+import collections
 import unittest
 
 from flask import Flask, json
@@ -27,7 +28,16 @@ from coaster.views import (
     viewdata,
 )
 
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, collections.Mapping):
+            return dict(o)
+        return super(JsonEncoder, self).default(o)
+
+
 app = Flask(__name__)
+app.json_encoder = JsonEncoder
 app.testing = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -750,3 +760,23 @@ class TestClassView(unittest.TestCase):
         # safety checks, and will need amending then.
         assert ModelDocumentView(obj=doc1) != ScopedDocumentView(obj=doc1)
         assert ScopedDocumentView(obj=doc1) != ModelDocumentView(obj=doc1)
+
+    def test_url_dict_current_roles(self):
+        doc1 = ViewDocument(name='test1', title="Test 1")
+        assert set(doc1.urls) == {
+            'view',  # From ModelDocumentView
+            'edit',  # From ModelDocumentView
+            'by_perm',  # From GatedDocumentView (`urls` can't handle permission gating)
+        }
+        # Adding acess permissions changes the URLs available
+        add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
+        assert set(doc1.urls) == {
+            # From ModelDocumentView
+            'view',
+            'edit',
+            # From GatedDocumentView
+            'by_perm',
+            'by_role_perm',
+            'by_perm_role',
+            'by_role',
+        }

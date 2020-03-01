@@ -22,7 +22,9 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 
 from __future__ import absolute_import
 import six
+import six.moves.collections_abc as abc
 
+from collections import namedtuple
 import uuid as uuid_
 
 from sqlalchemy import (
@@ -71,6 +73,7 @@ __all__ = [
     'IdMixin',
     'TimestampMixin',
     'PermissionMixin',
+    'UrlDict',
     'UrlForMixin',
     'NoIdMixin',
     'BaseMixin',
@@ -276,19 +279,79 @@ class PermissionMixin(object):
         )
 
 
+UrlEndpointData = namedtuple(
+    'UrlEndpointData',
+    ['endpoint', 'paramattrs', 'external', 'roles', 'requires_kwargs'],
+)
+
+
+class UrlDictStub(object):
+    """
+    Dictionary-based access to URLs for a model instance, used by :class:`UrlForMixin`.
+    Proxies to :meth:`UrlForMixin.url_for` for keyword-based lookup. Uses
+    :attr:`UrlForMixin.url_for_endpoints` for enumeration, but with URLs limited to
+    those available under current roles.
+    """
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self  # pragma: no cover
+        return UrlDict(obj)
+
+
+class UrlDict(abc.Mapping):
+    """
+    Provides dictionary access to an object's URLs.
+    """
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __getitem__(self, key):
+        try:
+            return self.obj.url_for(key, _external=True)
+        except BuildError:
+            raise KeyError(key)
+
+    def __len__(self):
+        return len(self.obj.url_for_endpoints[None]) + (
+            len(self.obj.url_for_endpoints.get(current_app._get_current_object(), {}))
+            if current_app
+            else 0
+        )
+
+    def __iter__(self):
+        # 1. Iterate through all actions available to the None app and to current_app
+        # 2. If the action requires specific roles, confirm overlap with current_roles
+        # 3. Confirm the action does not require additional parameters
+        # 4. Yield whatever passes the tests
+        current_roles = self.obj.current_roles
+        for app, app_actions in self.obj.url_for_endpoints.items():
+            if app is None or (
+                current_app and app is current_app._get_current_object()
+            ):
+                for action, epdata in app_actions.items():
+                    if not epdata.requires_kwargs and (
+                        epdata.roles is None or epdata.roles.intersection(current_roles)
+                    ):
+                        yield action
+
+
 class UrlForMixin(object):
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
 
-    #: Mapping of {app: {action: (endpoint, {param: attr}, _external)}},
-    #: where attr is a string or tuple of strings. The same action can point to
-    #: different endpoints in different apps. The app may also be None as fallback.
-    #: Each subclass will get its own dictionary. This particular dictionary is only
-    #: used as an inherited fallback.
+    #: Mapping of {app: {action: UrlEndpointData}}, where attr is a string or tuple of
+    #: strings. The same action can point to different endpoints in different apps. The
+    #: app may also be None as fallback. Each subclass will get its own dictionary.
+    #: This particular dictionary is only used as an inherited fallback.
     url_for_endpoints = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints = {}
+
+    #: Dictionary of URLs available on this object
+    urls = UrlDictStub()
 
     def url_for(self, action='view', **kwargs):
         """
@@ -296,14 +359,14 @@ class UrlForMixin(object):
         """
         app = current_app._get_current_object() if current_app else None
         if app is not None and action in self.url_for_endpoints.get(app, {}):
-            endpoint, paramattrs, _external = self.url_for_endpoints[app][action]
+            epdata = self.url_for_endpoints[app][action]
         else:
             try:
-                endpoint, paramattrs, _external = self.url_for_endpoints[None][action]
+                epdata = self.url_for_endpoints[None][action]
             except KeyError:
                 raise BuildError(action, kwargs, 'GET')
         params = {}
-        for param, attr in list(paramattrs.items()):
+        for param, attr in list(epdata.paramattrs.items()):
             if isinstance(attr, tuple):
                 # attr is a tuple containing:
                 # 1. ('parent', 'name') --> self.parent.name
@@ -320,12 +383,12 @@ class UrlForMixin(object):
                 params[param] = attr(self)
             else:
                 params[param] = getattr(self, attr)
-        if _external is not None:
-            params['_external'] = _external
+        if epdata.external is not None:
+            params['_external'] = epdata.external
         params.update(kwargs)  # Let kwargs override params
 
         # url_for from flask
-        return url_for(endpoint, **params)
+        return url_for(epdata.endpoint, **params)
 
     @property
     def absolute_url(self):
@@ -340,29 +403,66 @@ class UrlForMixin(object):
     ):
         """
         View decorator that registers the view as a :meth:`url_for` target.
+
+        :param str _action: Action to register a URL under
+        :param str _endpoint: View endpoint name to pass to Flask's ``url_for``
+        :param _app: The app to register this action on (if your repo has multiple apps)
+        :param _external: If `True`, URLs are assumed to be external-facing by default
+        :param dict paramattrs: Mapping of URL parameter to attribute on the object
         """
 
         def decorator(f):
-            if 'url_for_endpoints' not in cls.__dict__:
-                cls.url_for_endpoints = {
-                    None: {}
-                }  # Stick it into the class with the first endpoint
-            cls.url_for_endpoints.setdefault(_app, {})
-
-            for keyword in paramattrs:
-                if (
-                    isinstance(paramattrs[keyword], six.string_types)
-                    and '.' in paramattrs[keyword]
-                ):
-                    paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
-            cls.url_for_endpoints[_app][_action] = (
-                _endpoint or f.__name__,
-                paramattrs,
-                _external,
+            cls.register_endpoint(
+                action=_action,
+                endpoint=_endpoint or f.__name__,
+                app=_app,
+                external=_external,
+                paramattrs=paramattrs,
             )
             return f
 
         return decorator
+
+    @classmethod
+    def register_endpoint(
+        cls, action, endpoint, app=None, external=None, roles=None, paramattrs=None
+    ):
+        """
+        Helper method for registering an endopint to a :meth:`url_for` action.
+
+        :param view_func: View handler to be registered
+        :param str action: Action to register a URL under
+        :param str endpoint: View endpoint name to pass to Flask's ``url_for``
+        :param app: Flask app (default: `None`)
+        :param external: If `True`, URLs are assumed to be external-facing by default
+        :param roles: Roles to which this URL is available, required by :class:`UrlDict`
+        :param dict paramattrs: Mapping of URL parameter to attribute on the object
+        """
+
+        if 'url_for_endpoints' not in cls.__dict__:
+            cls.url_for_endpoints = {
+                None: {}
+            }  # Stick it into the class with the first endpoint
+        cls.url_for_endpoints.setdefault(app, {})
+
+        for keyword in paramattrs:
+            if (
+                isinstance(paramattrs[keyword], six.string_types)
+                and '.' in paramattrs[keyword]
+            ):
+                paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
+        requires_kwargs = False
+        for attrs in paramattrs.values():
+            if isinstance(attrs, tuple) and attrs[0].startswith('**'):
+                requires_kwargs = True
+                break
+        cls.url_for_endpoints[app][action] = UrlEndpointData(
+            endpoint=endpoint,
+            paramattrs=paramattrs if paramattrs is not None else {},
+            external=external,
+            roles=roles,
+            requires_kwargs=requires_kwargs,
+        )
 
     @classmethod
     def register_view_for(cls, app, action, classview, attr):
