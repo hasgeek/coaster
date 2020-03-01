@@ -70,7 +70,7 @@ It has a newline break here.</p>
 </ol>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
-<div class="codehilite"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
+<div class="highlight"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
 </span>    <span class="k">return</span> <span class="s1">'https://www.example.com/'</span>
 </code></pre></div>
 
@@ -189,11 +189,13 @@ if six.PY2:
         sample_output.replace('<pre><code>', '<pre>')
         .replace('</code></pre>', '</pre>')
         .replace('<pre><span></span><code>', '<pre><span></span>')
+        .replace('<div class="highlight">', '<div class="codehilite">')
     )
     sample_output_html = (
         sample_output_html.replace('<pre><code>', '<pre>')
         .replace('</code></pre>', '</pre>')
         .replace('<pre><span></span><code>', '<pre><span></span>')
+        .replace('<div class="highlight">', '<div class="codehilite">')
     )
 
 
