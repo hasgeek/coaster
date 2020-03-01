@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, unicode_literals
+import six.moves.collections_abc as abc
 
-import collections
 import unittest
 
 from flask import Flask, json
@@ -31,7 +31,7 @@ from coaster.views import (
 
 class JsonEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, collections.Mapping):
+        if isinstance(o, abc.Mapping):
             return dict(o)
         return super(JsonEncoder, self).default(o)
 
