@@ -9,7 +9,7 @@ from werkzeug.routing import BuildError
 
 from coaster.db import db
 
-from .test_models import Container, NamedDocument, ScopedNamedDocument
+from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument
 
 # --- Test setup --------------------------------------------------------------
 
@@ -42,7 +42,7 @@ def doc_upper(doc):
     return u'{} {}'.format('upper', doc)
 
 
-# The unusual parameter `other='@other.name'` requires an explanation.
+# The unusual parameter `other='**other.name'` requires an explanation.
 # The first `other` refers to `<other>` in the URL. The second refers
 # to the parameter given to `NamedDocument.url_for` in the test below.
 @app1.route('/<doc>/with/<other>')
@@ -202,6 +202,29 @@ class TestUrlFor(TestUrlForBase):
         # url_for is given an object and extracts an attribute from it
         assert doc1.url_for('with', other=doc2) == '/document1/with/document2'
 
+    def test_url_dict(self):
+        """URLs to views are available from a .urls dictionary-like object."""
+        doc1 = NamedDocument(name=u'document1', title=u"Document")
+        self.session.add(doc1)
+        self.session.commit()
+
+        assert doc1.urls != {}
+        assert doc1.urls['view'] == 'http://localhost/document1'
+        with self.assertRaises(KeyError):
+            doc1.urls['random']
+
+        # The len() count includes the doc_with view, but it is excluded from actual
+        # enumeration because it requires additional keyword parameters, which cannot
+        # be passed in with dictionary access.
+        assert len(doc1.urls) == 6
+        assert dict(doc1.urls) == {
+            'app_only': 'http://localhost/document1/app_only',
+            'edit': 'http://localhost/document1/edit',
+            'per_app': 'http://localhost/document1/app1',
+            'upper': 'http://localhost/DOCUMENT1/upper',
+            'view': 'http://localhost/document1',
+        }
+
 
 class TestUrlFor2(TestUrlForBase):
     app = app2
@@ -224,3 +247,20 @@ class TestUrlFor2(TestUrlForBase):
         # This action is not available in this app
         with self.assertRaises(BuildError):
             doc1.url_for('app_only')
+
+    def test_url_dict_app_only(self):
+        """The urls dictionary only includes available URLs."""
+        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        self.session.add(doc1)
+        self.session.commit()
+
+        assert 'app_only' not in doc1.urls
+        assert 'per_app' in doc1.urls
+        assert doc1.urls['per_app'] == 'http://localhost/document1/app2'
+
+        # Note: attempting to cast `urls` into a dict will break as there are
+        # URLs registered with `is_url_for` with no app specified (meaning they are
+        # supposedly available to all apps) but with no @app.route registration. This
+        # will cause BuildError while attempting to retrieve the value. However, casting
+        # to a list/set of just the keys will work.
+        assert set(doc1.urls) == {'edit', 'upper', 'per_app', 'view'}

@@ -8,7 +8,7 @@ from coaster.db import db
 from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
 
-from .test_models import app1, app2
+from .test_sqlalchemy_models import app1, app2
 
 
 class MarkdownData(BaseMixin, db.Model):
