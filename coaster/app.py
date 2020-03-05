@@ -120,7 +120,7 @@ def init_app(app, env=None):
     if not env:
         env = environ.get(
             'FLASK_ENV', 'production'
-        )  # Uppercase for compatibility with Flask-Environments
+        )
     additional = _additional_config.get(
         env.lower()
     )  # Lowercase because that's how we define it
