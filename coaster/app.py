@@ -119,7 +119,7 @@ def init_app(app, env=None):
     # Load additional settings from the app's environment-specific config file
     if not env:
         env = environ.get(
-            'FLASK_ENV', 'production'
+            'FLASK_ENV', app.config.get('ENV', 'production')
         )
     additional = _additional_config.get(
         env.lower()
