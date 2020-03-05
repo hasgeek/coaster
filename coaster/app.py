@@ -105,7 +105,7 @@ def init_app(app, env=None):
     :param app: App to be configured
     :param env: Environment to configure for (``'development'``,
         ``'production'`` or ``'testing'``). If not specified, the ``FLASK_ENV``
-        environment variable is consulted. Defaults to ``'development'``.
+        environment variable is consulted. Defaults to ``'production'``.
     """
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
@@ -119,7 +119,7 @@ def init_app(app, env=None):
     # Load additional settings from the app's environment-specific config file
     if not env:
         env = environ.get(
-            'FLASK_ENV', 'DEVELOPMENT'
+            'FLASK_ENV', 'production'
         )  # Uppercase for compatibility with Flask-Environments
     additional = _additional_config.get(
         env.lower()
