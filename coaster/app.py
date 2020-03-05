@@ -118,9 +118,10 @@ def init_app(app, env=None):
     load_config_from_file(app, 'settings.py')
     # Load additional settings from the app's environment-specific config file
     if not env:
-        env = environ.get(
-            'FLASK_ENV', app.config.get('ENV', 'production')
-        )
+        # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
+        # variable. So we can directly get it from ``app.config['ENV']``.
+        # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
+        env = app.config.get('ENV', 'production')
     additional = _additional_config.get(
         env.lower()
     )  # Lowercase because that's how we define it
