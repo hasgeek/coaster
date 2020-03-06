@@ -7,7 +7,6 @@ App configuration
 
 from __future__ import absolute_import, print_function
 
-from os import environ
 import sys
 
 from flask import Flask, g, get_flashed_messages, request, session, url_for
