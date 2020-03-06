@@ -34,8 +34,8 @@ class TestCoasterUtils(unittest.TestCase):
             self.assertEqual(_additional_config.get(environ[env]), v)
 
     def test_init_app(self):
-        env = "testing"
-        init_app(self.app, env)
+        environ['FLASK_ENV'] = "testing"
+        init_app(self.app)
         self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
         self.assertEqual(self.app.config['TEST_KEY'], "test")
 
@@ -55,8 +55,8 @@ class TestCoasterUtils(unittest.TestCase):
         self.assertFalse(load_config_from_file(app, "notfound.py"))
 
     def test_current_auth(self):
-        env = "testing"
-        init_app(self.app, env)
+        environ['FLASK_ENV'] = "testing"
+        init_app(self.app)
         with self.app.test_request_context():
             self.assertEqual(
                 render_template_string(
