@@ -2,7 +2,6 @@
 
 import os
 import re
-import sys
 
 from setuptools import setup
 
@@ -20,55 +19,49 @@ if mo:
 else:
     raise RuntimeError("Unable to find version string in coaster/_version.py.")
 
-PY2 = sys.version_info[0] == 2
-
 requires = [
-    'six>=1.13.0',
-    'nltk<=3.4.5;python_version<="2.7"',
-    'nltk>=3.4.5;python_version>"2.7"',
-    'shortuuid==0.5.0',
-    'isoweek',
-    'UgliPyJS',
-    'PyExecJS',
+    'bcrypt',
+    'bleach',
+    'blinker',
+    'docflow>=0.3.2',
     'Flask-Assets',
-    'webassets',
     'Flask-Migrate',
     'Flask-Script',
     'Flask-SQLAlchemy',
-    'sqlalchemy-utils',
-    'SQLAlchemy>=1.0.9',
-    'psycopg2',
-    'docflow>=0.3.2',
-    'html2text==2019.8.11;python_version<"3"',
-    'html2text>2019.8.11;python_version>"2.7"',
-    'bcrypt',
-    'unidecode',
-    'tldextract',
-    'Pygments>=2.6.0;python_version>="3.5"',
-    'Pygments<=2.5.2;python_version<"3.5"',
-    'bleach',
-    'html5lib>=0.999999999',
-    'Markdown>=3.1.0',
-    'pymdown-extensions>=6.0',
-    'pytz',
-    'semantic_version>=2.8.0',
-    'simplejson',
-    'werkzeug',
-    'markupsafe',
-    'blinker',
     'Flask>=1.0',
     'furl',
+    'html2text==2019.8.11;python_version<"3"',
+    'html2text>2019.8.11;python_version>"2.7"',
+    'html5lib>=0.999999999',
     'iso8601',
-    'Jinja2',
+    'isoweek',
+    'Jinja2<=2.11.1;python_version<="2.7"',
+    'Jinja2>2.11.1;python_version>="3.6"',
+    'Markdown>=3.2.0;python_version>="3.5"',
+    'Markdown<3.2.0;python_version<="2.7"',
+    'markupsafe',
+    'nltk<=3.4.5;python_version<="2.7"',
+    'nltk>=3.4.5;python_version>"2.7"',
+    'psycopg2',
+    'PyExecJS',
+    'Pygments<=2.5.2;python_version<"3.5"',
+    'Pygments>=2.6.0;python_version>="3.5"',
+    'pymdown-extensions>=6.0;python_version<="3.5"',
+    'pymdown-extensions==6.2.0;python_version<="2.7"',
+    'PySqlite==2.8.3;python_version=="2.7"',
+    'pytz',
+    'semantic_version>=2.8.0',
+    'shortuuid==0.5.0',
+    'simplejson',
+    'six>=1.13.0',
+    'sqlalchemy-utils',
+    'SQLAlchemy>=1.0.9',
+    'tldextract',
+    'UgliPyJS',
+    'unidecode',
+    'webassets',
+    'werkzeug',
 ]
-
-if PY2:
-    requires.remove('Jinja2')
-    requires.remove('Markdown>=3.1.0')
-    requires.remove('pymdown-extensions>=6.0')
-    requires.extend(
-        ['PySqlite', 'Jinja2<3.0', 'Markdown<3.2.0', 'pymdown-extensions==6.2.0']
-    )
 
 setup(
     name='coaster',
