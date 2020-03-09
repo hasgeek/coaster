@@ -25,7 +25,7 @@ PY2 = sys.version_info[0] == 2
 requires = [
     'six>=1.13.0',
     'nltk>=3.0',
-    'shortuuid',
+    'shortuuid==0.5.0',
     'isoweek',
     'UgliPyJS',
     'PyExecJS',
@@ -43,7 +43,8 @@ requires = [
     'bcrypt',
     'unidecode',
     'tldextract',
-    'Pygments',
+    'Pygments>=2.6.0;python_version>="3.5"',
+    'Pygments<=2.5.2;python_version<"3.5"',
     'bleach',
     'html5lib>=0.999999999',
     'Markdown>=3.1.0',
