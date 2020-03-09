@@ -46,7 +46,7 @@ requires = [
     'PyExecJS',
     'Pygments<=2.5.2;python_version<"3.5"',
     'Pygments>=2.6.0;python_version>="3.5"',
-    'pymdown-extensions>=6.0;python_version<="3.5"',
+    'pymdown-extensions>=6.0;python_version>="3.5"',
     'pymdown-extensions==6.2.0;python_version<="2.7"',
     'PySqlite==2.8.3;python_version=="2.7"',
     'pytz',
