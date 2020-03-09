@@ -24,7 +24,8 @@ PY2 = sys.version_info[0] == 2
 
 requires = [
     'six>=1.13.0',
-    'nltk>=3.0',
+    'nltk<=3.4.5;python_version<="2.7"',
+    'nltk>=3.4.5;python_version>"2.7"',
     'shortuuid==0.5.0',
     'isoweek',
     'UgliPyJS',
