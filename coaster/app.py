@@ -7,7 +7,6 @@ App configuration
 
 from __future__ import absolute_import, print_function
 
-from os import environ
 import sys
 
 from flask import Flask, g, get_flashed_messages, request, session, url_for
@@ -86,7 +85,7 @@ class SandboxedFlask(Flask):
         return rv
 
 
-def init_app(app, env=None):
+def init_app(app):
     """
     Configure an app depending on the environment. Loads settings from a file
     named ``settings.py`` in the instance folder, followed by additional
@@ -103,9 +102,6 @@ def init_app(app, env=None):
     :func:`coaster.logger.init_app`.
 
     :param app: App to be configured
-    :param env: Environment to configure for (``'development'``,
-        ``'production'`` or ``'testing'``). If not specified, the ``FLASK_ENV``
-        environment variable is consulted. Defaults to ``'development'``.
     """
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
@@ -116,14 +112,13 @@ def init_app(app, env=None):
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
     # Load config from the app's settings.py
     load_config_from_file(app, 'settings.py')
-    # Load additional settings from the app's environment-specific config file
-    if not env:
-        env = environ.get(
-            'FLASK_ENV', 'DEVELOPMENT'
-        )  # Uppercase for compatibility with Flask-Environments
-    additional = _additional_config.get(
-        env.lower()
-    )  # Lowercase because that's how we define it
+
+    # Load additional settings from the app's environment-specific config file:
+    # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
+    # variable. So we can directly get it from ``app.config['ENV']``.
+    # Lowercase because that's how flask defines it.
+    # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
+    additional = _additional_config.get(app.config['ENV'].lower())
     if additional:
         load_config_from_file(app, additional)
 
