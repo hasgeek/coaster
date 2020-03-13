@@ -36,7 +36,7 @@ requires = [
     'iso8601',
     'isoweek',
     'Jinja2<=2.11.1;python_version=="2.7"',
-    'Jinja2>2.11.1;python_version>="3.6"',
+    'Jinja2>=2.11.1;python_version>="3.6"',
     'Markdown<3.2.0;python_version=="2.7"',
     'Markdown>=3.2.0;python_version>="3.6"',
     'markupsafe',
