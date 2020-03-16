@@ -51,6 +51,7 @@ requires = [
     'PySqlite==2.8.3;python_version=="2.7"',
     'pytz',
     'semantic_version>=2.8.0',
+    'sentry-sdk',
     'shortuuid==0.5.0',
     'simplejson',
     'six>=1.13.0',
