@@ -20,6 +20,7 @@ import traceback
 from flask import g, request, session
 
 import requests
+import sentry_sdk
 
 from .auth import current_auth
 
@@ -296,6 +297,7 @@ def init_app(app):
     All are optional:
 
     * ``LOGFILE``: Name of the file to log to (default ``error.log``)
+    * ``SENTRY_URL``: URL for logging errors to Sentry
     * ``ADMINS``: List of email addresses of admins who will be mailed error reports
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with
         name and address
@@ -328,6 +330,10 @@ def init_app(app):
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.WARNING)
         app.logger.addHandler(file_handler)
+
+    if app.config.get('SENTRY_URL'):
+        sentry_dsn = (app.config['SENTRY_URL'])
+        sentry_sdk.init(sentry_dsn)
 
     if app.config.get('ADMIN_NUMBERS'):
         if all(
