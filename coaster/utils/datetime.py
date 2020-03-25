@@ -10,13 +10,15 @@ import six
 
 from datetime import datetime
 
-from iso8601 import ParseError, parse_date
+from aniso8601 import parse_datetime, parse_duration
+from aniso8601.exceptions import ISOFormatError as ParseError
 import isoweek
 import pytz
 
 __all__ = [
     'utcnow',
     'parse_isoformat',
+    'parse_duration',
     'isoweek_datetime',
     'midnight_to_utc',
     'sorted_timezones',
@@ -48,12 +50,12 @@ def parse_isoformat(text, naive=True):
     """
     if naive:
         return (
-            parse_date(text, default_timezone=pytz.UTC)
+            parse_datetime(text)
             .astimezone(pytz.UTC)
             .replace(tzinfo=None)
         )
     else:
-        return parse_date(text, default_timezone=pytz.UTC)
+        return parse_datetime(text)
 
 
 def isoweek_datetime(year, week, timezone='UTC', naive=False):

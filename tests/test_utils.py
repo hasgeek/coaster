@@ -20,6 +20,7 @@ from coaster.utils import (
     midnight_to_utc,
     namespace_from_url,
     nary_op,
+    parse_duration,
     parse_isoformat,
     require_one_of,
     sanitize_html,
@@ -117,6 +118,16 @@ class TestCoasterUtils(unittest.TestCase):
 
         with self.assertRaises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'', naive=False)
+
+    def test_parse_duration(self):
+        assert parse_duration('P1Y2M3DT4H54M6S') == datetime.timedelta(
+            days=428, seconds=17646
+        )
+        assert parse_duration('PT10M1S') == datetime.timedelta(seconds=601)
+        assert parse_duration('PT1H1S') == datetime.timedelta(seconds=3601)
+        with self.assertRaises(ParseError):
+            # no time separator
+            assert parse_duration('P2M10M1S')
 
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
