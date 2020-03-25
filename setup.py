@@ -33,7 +33,7 @@ requires = [
     'html2text==2019.8.11;python_version=="2.7"',
     'html2text>2019.8.11;python_version>="3.6"',
     'html5lib>=0.999999999',
-    'iso8601',
+    'aniso8601',
     'isoweek',
     'Jinja2<=2.11.1;python_version=="2.7"',
     'Jinja2>=2.11.1;python_version>="3.6"',
