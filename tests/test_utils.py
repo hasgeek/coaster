@@ -125,7 +125,7 @@ class TestCoasterUtils(unittest.TestCase):
         ) == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400)
 
         assert parse_isoformat(
-            "2012-05-21 23:06:08", delimiter=' '
+            "2012-05-21 23:06:08", naive=False, delimiter=' '
         ) == datetime.datetime(2012, 5, 21, 23, 6, 8)
 
         with self.assertRaises(ParseError):
