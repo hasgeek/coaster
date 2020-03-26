@@ -113,6 +113,17 @@ class TestCoasterUtils(unittest.TestCase):
             '1882-12-11T00:00:00Z', naive=False
         ) == datetime.datetime(1882, 12, 11, 0, 0, tzinfo=UTC)
 
+        with self.assertRaises(ValueError):
+            # lacking the T delimiter
+            assert parse_isoformat('1882-12-11 00:00:00.1234Z') == datetime.datetime(
+                1882, 12, 11, 0, 0, 0, 123400
+            )
+
+        # will pass with delimiter
+        assert parse_isoformat(
+            '1882-12-11 00:00:00.1234Z', delimiter=' '
+        ) == datetime.datetime(1882, 12, 11, 0, 0, 0, 123400)
+
         with self.assertRaises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'')
 
