@@ -48,10 +48,10 @@ def parse_isoformat(text, naive=True, delimiter='T'):
 
     :param bool naive: If `True`, strips timezone and returns datetime at UTC.
     """
-    if naive:
-        return parse_datetime(text, delimiter).astimezone(pytz.UTC).replace(tzinfo=None)
-    else:
-        return parse_datetime(text, delimiter)
+    dt = parse_datetime(text, delimiter)
+    if dt.tzinfo is not None and naive:
+        dt = dt.astimezone(pytz.UTC).replace(tzinfo=None)
+    return dt
 
 
 def isoweek_datetime(year, week, timezone='UTC', naive=False):

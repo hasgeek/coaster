@@ -16,7 +16,7 @@ repos:
     rev: master
     hooks:
       - id: black
-        language_version: python3.6
+        language_version: python3.7
   - repo: https://github.com/PyCQA/bandit
     rev: 1.6.2
     hooks:
