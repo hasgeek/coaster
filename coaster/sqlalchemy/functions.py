@@ -144,7 +144,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
         that refers back to the parent model
     :param str parentcol: Name of the existing table column on the child model
         that refers back to the parent model
-    :return: None
+    :return: Secondary table that was created
     """
 
     parent_table_name = parent.__tablename__
@@ -236,6 +236,7 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             },
         ).execute_if(dialect='postgresql'),
     )
+    return primary_table
 
 
 def auto_init_default(column):
