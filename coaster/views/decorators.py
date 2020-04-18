@@ -237,7 +237,7 @@ def load_model(
     :param list urlcheck: If an attribute in this list has been used to load an object,
         but the value of the attribute in the loaded object does not match the request
         argument, issue a redirect to the corrected URL. This is useful for attributes
-        like ``url_id_name`` and ``url_name_suuid`` where the ``name`` component may
+        like ``url_id_name`` and ``url_name_uuid58`` where the ``name`` component may
         change
     """
     return load_models(

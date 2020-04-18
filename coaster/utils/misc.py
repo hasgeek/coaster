@@ -23,6 +23,7 @@ import time
 import uuid
 
 from unidecode import unidecode
+import base58
 import bcrypt
 import tldextract
 
@@ -33,6 +34,9 @@ __all__ = [
     'uuid1mc_from_datetime',
     'uuid2buid',
     'buid2uuid',
+    'uuid58',
+    'b58encode_uuid',
+    'b58decode_uuid',
     'newsecret',
     'newpin',
     'make_name',
@@ -115,15 +119,29 @@ def buid():
     >>> isinstance(buid(), six.text_type)
     True
     """
-    if six.PY3:  # pragma: no cover
-        return urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
-    else:  # pragma: no cover
-        return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
+    return urlsafe_b64encode(uuid.uuid4().bytes).decode().rstrip('=')
+
+
+def uuid58():
+    """
+    Return a UUID4 encoded in base58 and rendered as a string
+
+    >>> len(uuid58())
+    22
+    >>> uuid58() == uuid58()
+    False
+    >>> isinstance(uuid58(), six.text_type)
+    True
+    """
+    return base58.b58encode(uuid.uuid4().bytes).decode()
 
 
 def uuid1mc():
     """
-    Return a UUID1 with a random multicast MAC id
+    Return a UUID1 with a random multicast MAC id.
+
+    >>> isinstance(uuid1mc(), uuid.UUID)
+    True
     """
     return uuid.uuid1(node=uuid._random_getnode())
 
@@ -180,10 +198,7 @@ def uuid2buid(value):
     >>> uuid2buid(u)
     'MyA90vLvQi-usAWNb19wiQ'
     """
-    if six.PY3:  # pragma: no cover
-        return urlsafe_b64encode(value.bytes).decode('utf-8').rstrip('=')
-    else:
-        return six.text_type(urlsafe_b64encode(value.bytes).rstrip('='))
+    return urlsafe_b64encode(value.bytes).decode().rstrip('=')
 
 
 def buid2uuid(value):
@@ -197,6 +212,27 @@ def buid2uuid(value):
     return uuid.UUID(bytes=urlsafe_b64decode(str(value) + '=='))
 
 
+def b58encode_uuid(value):
+    """
+    Render a UUID in Base58 and return as a string
+
+    >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    >>> b58encode_uuid(u)
+    '7KAmj837MyuJWUYPwtqAfz'
+    """
+    return base58.b58encode(value.bytes).decode()
+
+
+def b58decode_uuid(value):
+    """
+    Convert a Base58-encoded UUID back into a UUID object
+
+    >>> b58decode_uuid('7KAmj837MyuJWUYPwtqAfz')
+    UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    """
+    return uuid.UUID(bytes=base58.b58decode(str(value)))
+
+
 def newsecret():
     """
     Make a secret key for email confirmation and all that stuff.
@@ -207,7 +243,7 @@ def newsecret():
     >>> newsecret() == newsecret()
     False
     """
-    return buid() + buid()
+    return uuid58() + uuid58()
 
 
 def newpin(digits=4):

@@ -44,6 +44,7 @@
   operator
 * Added datasets for limited enumeration in role access, as a stopgap until
   migration to GraphQL
+* Deprecated ShortUUID in favour of the more stable Base58
 
 
 0.6.0

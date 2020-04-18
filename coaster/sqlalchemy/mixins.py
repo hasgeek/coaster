@@ -50,6 +50,8 @@ from werkzeug.routing import BuildError
 from ..auth import current_auth
 from ..utils import (
     InspectableSet,
+    b58decode_uuid,
+    b58encode_uuid,
     buid2uuid,
     make_name,
     suuid2uuid,
@@ -63,6 +65,7 @@ from .comparators import (
     SqlHexUuidComparator,
     SqlSplitIdComparator,
     SqlSuuidComparator,
+    SqlUuid58Comparator,
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
@@ -156,8 +159,11 @@ class UuidMixin(object):
     """
     Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
     to the existing ``id`` column if the class uses UUID primary keys. Also
-    provides hybrid properties ``huuid``, ``buid`` and ``suuid`` that provide
-    hex, URL-safe Base64 and ShortUUID representations of the ``uuid`` column.
+    provides hybrid properties ``huuid``, ``buid`` and ``uuid58`` that provide
+    hex, URL-safe Base64 and Base58 representations of the ``uuid`` column.
+
+    A deprecated ShortUUID representation is also available in the ``suuid`` property,
+    but will be removed in a future release.
     """
 
     @with_roles(read={'all'})
@@ -206,6 +212,21 @@ class UuidMixin(object):
         return SqlBuidComparator(cls.uuid)
 
     buid = with_roles(buid, read={'all'})
+
+    @hybrid_property
+    def uuid58(self):
+        """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet"""
+        return b58encode_uuid(self.uuid)
+
+    @uuid58.setter
+    def uuid58(self, value):
+        self.uuid = b58decode_uuid(value)
+
+    @uuid58.comparator
+    def uuid58(cls):
+        return SqlUuid58Comparator(cls.uuid)
+
+    uuid58 = with_roles(uuid58, read={'all'})
 
     @hybrid_property
     def suuid(self):
@@ -889,6 +910,19 @@ class BaseIdNameMixin(BaseMixin):
             return SqlSplitIdComparator(cls.id, splitindex=0)
 
     url_name = url_id_name  # Legacy name
+
+    @with_roles(read={'all'})
+    @hybrid_property
+    def url_name_uuid58(self):
+        """
+        Returns a URL name combining :attr:`name` and :attr:`uuid58` in name-uuid58
+        syntax. To use this, the class must derive from :class:`UuidMixin`.
+        """
+        return '%s-%s' % (self.name, self.uuid58)
+
+    @url_name_uuid58.comparator
+    def url_name_uuid58(cls):
+        return SqlUuid58Comparator(cls.uuid, splitindex=-1)
 
     @with_roles(read={'all'})
     @hybrid_property
