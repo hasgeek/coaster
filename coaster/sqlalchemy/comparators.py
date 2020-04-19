@@ -15,7 +15,7 @@ from sqlalchemy.ext.hybrid import Comparator
 
 from flask import abort
 
-from ..utils import b58decode_uuid, buid2uuid, suuid2uuid
+from ..utils import suuid2uuid, uuid_from_base58, uuid_from_base64
 
 __all__ = [
     'Query',
@@ -144,7 +144,7 @@ class SqlBuidComparator(SplitIndexComparator):
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            other = buid2uuid(other)
+            other = uuid_from_base64(other)
         return other
 
 
@@ -157,7 +157,7 @@ class SqlUuid58Comparator(SplitIndexComparator):
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            other = b58decode_uuid(other)
+            other = uuid_from_base58(other)
         return other
 
 

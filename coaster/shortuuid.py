@@ -20,6 +20,14 @@ alphabet. This module may be used directly or via :mod:`coaster.utils`::
 
     # Or use the same functions via coaster.utils (recommended)
     from coaster.utils import suuid, suuid2uuid, uuid2suuid
+
+.. deprecated: 0.6.1
+    Use of ShortUUID is deprecated as the upstream library made an incompatible bugfix
+    release that invalidated all previously generated ids, and no option for backward
+    compatibility is available. Use Base58 instead. If your app has generated
+    ShortUUIDs, make a static list for setting up redirects. Coaster has a pinned
+    dependency on the previous version of the library that will be removed in a future
+    release.
 """
 
 from __future__ import absolute_import

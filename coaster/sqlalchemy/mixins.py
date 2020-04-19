@@ -50,13 +50,13 @@ from werkzeug.routing import BuildError
 from ..auth import current_auth
 from ..utils import (
     InspectableSet,
-    b58decode_uuid,
-    b58encode_uuid,
-    buid2uuid,
     make_name,
     suuid2uuid,
-    uuid2buid,
     uuid2suuid,
+    uuid_from_base58,
+    uuid_from_base64,
+    uuid_to_base58,
+    uuid_to_base64,
 )
 from ..utils.misc import _punctuation_re
 from .comparators import (
@@ -159,7 +159,7 @@ class UuidMixin(object):
     """
     Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
     to the existing ``id`` column if the class uses UUID primary keys. Also
-    provides hybrid properties ``huuid``, ``buid`` and ``uuid58`` that provide
+    provides hybrid properties ``huuid``, ``buid`` and ``uuid_b58`` that provide
     hex, URL-safe Base64 and Base58 representations of the ``uuid`` column.
 
     A deprecated ShortUUID representation is also available in the ``suuid`` property,
@@ -201,11 +201,11 @@ class UuidMixin(object):
     @hybrid_property
     def buid(self):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
-        return uuid2buid(self.uuid)
+        return uuid_to_base64(self.uuid)
 
     @buid.setter
     def buid(self, value):
-        self.uuid = buid2uuid(value)
+        self.uuid = uuid_from_base64(value)
 
     @buid.comparator
     def buid(cls):
@@ -214,19 +214,19 @@ class UuidMixin(object):
     buid = with_roles(buid, read={'all'})
 
     @hybrid_property
-    def uuid58(self):
+    def uuid_b58(self):
         """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet"""
-        return b58encode_uuid(self.uuid)
+        return uuid_to_base58(self.uuid)
 
-    @uuid58.setter
-    def uuid58(self, value):
-        self.uuid = b58decode_uuid(value)
+    @uuid_b58.setter
+    def uuid_b58(self, value):
+        self.uuid = uuid_from_base58(value)
 
-    @uuid58.comparator
-    def uuid58(cls):
+    @uuid_b58.comparator
+    def uuid_b58(cls):
         return SqlUuid58Comparator(cls.uuid)
 
-    uuid58 = with_roles(uuid58, read={'all'})
+    uuid_b58 = with_roles(uuid_b58, read={'all'})
 
     @hybrid_property
     def suuid(self):
@@ -913,15 +913,15 @@ class BaseIdNameMixin(BaseMixin):
 
     @with_roles(read={'all'})
     @hybrid_property
-    def url_name_uuid58(self):
+    def url_name_uuid_b58(self):
         """
-        Returns a URL name combining :attr:`name` and :attr:`uuid58` in name-uuid58
+        Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
         syntax. To use this, the class must derive from :class:`UuidMixin`.
         """
-        return '%s-%s' % (self.name, self.uuid58)
+        return '%s-%s' % (self.name, self.uuid_b58)
 
-    @url_name_uuid58.comparator
-    def url_name_uuid58(cls):
+    @url_name_uuid_b58.comparator
+    def url_name_uuid_b58(cls):
         return SqlUuid58Comparator(cls.uuid, splitindex=-1)
 
     @with_roles(read={'all'})

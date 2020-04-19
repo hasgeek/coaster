@@ -41,7 +41,7 @@ from coaster.sqlalchemy import (
     auto_init_default,
     failsafe_add,
 )
-from coaster.utils import b58encode_uuid, uuid2buid, uuid2suuid
+from coaster.utils import uuid2suuid, uuid_to_base58, uuid_to_base64
 
 from .test_auth import LoginManager
 
@@ -1107,7 +1107,7 @@ class TestCoasterModels(unittest.TestCase):
         qu4 = UuidMixinKey.query.filter_by(url_id=u4.url_id).first()
         self.assertEqual(u4, qu4)
 
-    def test_uuid_buid_uuid58_suuid(self):
+    def test_uuid_buid_uuid_b58_suuid(self):
         """
         UuidMixin provides buid and suuid
         """
@@ -1121,16 +1121,16 @@ class TestCoasterModels(unittest.TestCase):
         self.assertIsInstance(u2.uuid, uuid.UUID)
 
         # Test readbility of `buid` attribute
-        self.assertEqual(u1.buid, uuid2buid(u1.uuid))
-        self.assertEqual(len(u1.buid), 22)  # This is a 22-byte BUID representation
-        self.assertEqual(u2.buid, uuid2buid(u2.uuid))
-        self.assertEqual(len(u2.buid), 22)  # This is a 22-byte BUID representation
+        self.assertEqual(u1.buid, uuid_to_base64(u1.uuid))
+        self.assertEqual(len(u1.buid), 22)  # This is a 22-char B64 representation
+        self.assertEqual(u2.buid, uuid_to_base64(u2.uuid))
+        self.assertEqual(len(u2.buid), 22)  # This is a 22-char B64 representation
 
-        # Test readbility of `uuid58` attribute
-        self.assertEqual(u1.uuid58, b58encode_uuid(u1.uuid))
-        self.assertEqual(len(u1.uuid58), 22)  # This is a 22-byte BUID representation
-        self.assertEqual(u2.uuid58, b58encode_uuid(u2.uuid))
-        self.assertEqual(len(u2.uuid58), 22)  # This is a 22-byte BUID representation
+        # Test readbility of `uuid_b58` attribute
+        self.assertEqual(u1.uuid_b58, uuid_to_base58(u1.uuid))
+        self.assertIn(len(u1.uuid_b58), (21, 22))  # 21 or 22-char B58 representation
+        self.assertEqual(u2.uuid_b58, uuid_to_base58(u2.uuid))
+        self.assertIn(len(u2.uuid_b58), (21, 22))  # 21 or 22-char B58 representation
 
         # Test readability of `suuid` attribute
         self.assertEqual(u1.suuid, uuid2suuid(u1.uuid))
@@ -1142,7 +1142,7 @@ class TestCoasterModels(unittest.TestCase):
             len(u2.suuid), 22
         )  # This is a 22-byte ShortUUID representation
 
-        # SQL queries against `buid`, `uuid58` and `suuid` cast the value into a UUID
+        # SQL queries against `buid`, `uuid_b58` and `suuid` cast the value into a UUID
         # and then query against `id` or ``uuid``
 
         # Note that `literal_binds` here doesn't know how to render UUIDs if
@@ -1168,10 +1168,10 @@ class TestCoasterModels(unittest.TestCase):
             "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
         )
 
-        # Repeat for `uuid58`
+        # Repeat for `uuid_b58`
         self.assertEqual(
             six.text_type(
-                (NonUuidMixinKey.uuid58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
+                (NonUuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1181,7 +1181,7 @@ class TestCoasterModels(unittest.TestCase):
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
             six.text_type(
-                (UuidMixinKey.uuid58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
+                (UuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1225,7 +1225,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         self.assertEqual(
             six.text_type(
-                (NonUuidMixinKey.uuid58 == None).compile(  # NOQA
+                (NonUuidMixinKey.uuid_b58 == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1233,7 +1233,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         self.assertEqual(
             six.text_type(
-                (UuidMixinKey.uuid58 == None).compile(  # NOQA
+                (UuidMixinKey.uuid_b58 == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1259,14 +1259,14 @@ class TestCoasterModels(unittest.TestCase):
         # Query returns False (or True) if given an invalid value
         assert bool(NonUuidMixinKey.buid == 'garbage!') is False
         assert bool(NonUuidMixinKey.buid != 'garbage!') is True
-        assert bool(NonUuidMixinKey.uuid58 == 'garbage!') is False
-        assert bool(NonUuidMixinKey.uuid58 != 'garbage!') is True
+        assert bool(NonUuidMixinKey.uuid_b58 == 'garbage!') is False
+        assert bool(NonUuidMixinKey.uuid_b58 != 'garbage!') is True
         assert bool(NonUuidMixinKey.suuid == 'garbage!') is False
         assert bool(NonUuidMixinKey.suuid != 'garbage!') is True
         assert bool(UuidMixinKey.buid == 'garbage!') is False
         assert bool(UuidMixinKey.buid != 'garbage!') is True
-        assert bool(UuidMixinKey.uuid58 == 'garbage!') is False
-        assert bool(UuidMixinKey.uuid58 != 'garbage!') is True
+        assert bool(UuidMixinKey.uuid_b58 == 'garbage!') is False
+        assert bool(UuidMixinKey.uuid_b58 != 'garbage!') is True
         assert bool(UuidMixinKey.suuid == 'garbage!') is False
         assert bool(UuidMixinKey.suuid != 'garbage!') is True
 
@@ -1296,20 +1296,20 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        # No uuid58 without UuidMixin
+        # No uuid_b58 without UuidMixin
         with self.assertRaises(AttributeError):
-            self.assertEqual(u1.url_name_uuid58, 'test-FRn1p6EnzbhydnssMnHqFZ')
+            self.assertEqual(u1.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
         # No suuid without UuidMixin
         with self.assertRaises(AttributeError):
             self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
         self.assertEqual(u2.huuid, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        self.assertEqual(u2.url_name_uuid58, 'test-FRn1p6EnzbhydnssMnHqFZ')
+        self.assertEqual(u2.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
         self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
         self.assertEqual(u3.huuid, '74d588574a7611e78c27c38403d0935c')
         # url_id_name in BaseIdNameMixin uses the id column, not the uuid column
         self.assertEqual(u3.url_id_name, '1-test')
-        self.assertEqual(u3.url_name_uuid58, 'test-FRn1p6EnzbhydnssMnHqFZ')
+        self.assertEqual(u3.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
         self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
 
         # url_name is legacy
@@ -1325,11 +1325,11 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(qu3, u3)
 
         q58u2 = UuidIdNameMixin.query.filter_by(
-            url_name_uuid58=u2.url_name_uuid58
+            url_name_uuid_b58=u2.url_name_uuid_b58
         ).first()
         self.assertEqual(q58u2, u2)
         q58u3 = UuidIdNameSecondary.query.filter_by(
-            url_name_uuid58=u3.url_name_uuid58
+            url_name_uuid_b58=u3.url_name_uuid_b58
         ).first()
         self.assertEqual(q58u3, u3)
 
