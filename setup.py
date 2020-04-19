@@ -40,7 +40,7 @@ requires = [
     'Markdown<3.2.0;python_version=="2.7"',
     'Markdown>=3.2.0;python_version>="3.6"',
     'markupsafe;python_version>="3.6"',
-    'markupsafe<=2.0.0;python_version=="2.7"',
+    'markupsafe<=1.1.1;python_version=="2.7"',
     'nltk<=3.4.5;python_version=="2.7"',
     'nltk>=3.4.5;python_version>="3.6"',
     'psycopg2',
