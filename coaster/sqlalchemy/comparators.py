@@ -21,9 +21,9 @@ __all__ = [
     'Query',
     'SplitIndexComparator',
     'SqlSplitIdComparator',
-    'SqlHexUuidComparator',
-    'SqlBuidComparator',
-    'SqlUuid58Comparator',
+    'SqlUuidHexComparator',
+    'SqlUuidB64Comparator',
+    'SqlUuidB58Comparator',
     'SqlSuuidComparator',
 ]
 
@@ -117,7 +117,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
         return other
 
 
-class SqlHexUuidComparator(SplitIndexComparator):
+class SqlUuidHexComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with hex representations of the UUID
     """
@@ -132,7 +132,7 @@ class SqlHexUuidComparator(SplitIndexComparator):
         return other
 
 
-class SqlBuidComparator(SplitIndexComparator):
+class SqlUuidB64Comparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with URL-safe Base64 (BUID) representations
     of the UUID
@@ -148,7 +148,7 @@ class SqlBuidComparator(SplitIndexComparator):
         return other
 
 
-class SqlUuid58Comparator(SplitIndexComparator):
+class SqlUuidB58Comparator(SplitIndexComparator):
     """Allows comparing UUID fields with Base58 representations of the UUID"""
 
     def _decode(self, other):
@@ -164,6 +164,8 @@ class SqlUuid58Comparator(SplitIndexComparator):
 class SqlSuuidComparator(SplitIndexComparator):
     """
     Allows comparing UUID fields with ShortUUID representations of the UUID
+
+    .. deprecated:: 0.6.1
     """
 
     def _decode(self, other):

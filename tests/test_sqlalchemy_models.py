@@ -927,11 +927,11 @@ class TestCoasterModels(unittest.TestCase):
         """
         IdMixin provides a url_id that renders as a string of either the
         integer primary key or the UUID primary key. In addition, UuidMixin
-        provides a huuid that always renders a UUID against either the
+        provides a uuid_hex that always renders a UUID against either the
         id or uuid columns.
         """
         # TODO: This test is a little muddled because UuidMixin renamed
-        # its url_id property (which overrode IdMixin's url_id) to huuid.
+        # its url_id property (which overrode IdMixin's url_id) to uuid_hex.
         # This test needs to be broken down into separate tests for each of
         # these properties.
         u1 = NonUuidKey()
@@ -956,14 +956,14 @@ class TestCoasterModels(unittest.TestCase):
         assert '-' not in u2.url_id  # Without dashes
 
         self.assertIsInstance(i3, uuid.UUID)
-        self.assertEqual(u3.huuid, i3.hex)
-        self.assertEqual(len(u3.huuid), 32)  # This is a 32-byte hex representation
-        assert '-' not in u3.huuid  # Without dashes
+        self.assertEqual(u3.uuid_hex, i3.hex)
+        self.assertEqual(len(u3.uuid_hex), 32)  # This is a 32-byte hex representation
+        assert '-' not in u3.uuid_hex  # Without dashes
 
         self.assertIsInstance(i4, uuid.UUID)
-        self.assertEqual(u4.huuid, i4.hex)
-        self.assertEqual(len(u4.huuid), 32)  # This is a 32-byte hex representation
-        assert '-' not in u4.huuid  # Without dashes
+        self.assertEqual(u4.uuid_hex, i4.hex)
+        self.assertEqual(len(u4.uuid_hex), 32)  # This is a 32-byte hex representation
+        assert '-' not in u4.uuid_hex  # Without dashes
 
         # Querying against `url_id` redirects the query to
         # `id` (IdMixin) or `uuid` (UuidMixin).
@@ -1063,7 +1063,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         self.assertEqual(
             six.text_type(
-                (NonUuidMixinKey.huuid == None).compile(  # NOQA
+                (NonUuidMixinKey.uuid_hex == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1081,15 +1081,15 @@ class TestCoasterModels(unittest.TestCase):
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
             six.text_type(
-                (NonUuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c').compile(
-                    compile_kwargs={'literal_binds': True}
-                )
+                (
+                    NonUuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c'
+                ).compile(compile_kwargs={'literal_binds': True})
             ),
             "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
         )
         self.assertEqual(
             six.text_type(
-                (UuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c').compile(
+                (UuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
             ),
@@ -1302,11 +1302,11 @@ class TestCoasterModels(unittest.TestCase):
         # No suuid without UuidMixin
         with self.assertRaises(AttributeError):
             self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u2.huuid, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u2.uuid_hex, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u2.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
         self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u3.huuid, '74d588574a7611e78c27c38403d0935c')
+        self.assertEqual(u3.uuid_hex, '74d588574a7611e78c27c38403d0935c')
         # url_id_name in BaseIdNameMixin uses the id column, not the uuid column
         self.assertEqual(u3.url_id_name, '1-test')
         self.assertEqual(u3.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')

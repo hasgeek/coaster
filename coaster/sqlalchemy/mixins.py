@@ -61,11 +61,11 @@ from ..utils import (
 from ..utils.misc import _punctuation_re
 from .comparators import (
     Query,
-    SqlBuidComparator,
-    SqlHexUuidComparator,
     SqlSplitIdComparator,
     SqlSuuidComparator,
-    SqlUuid58Comparator,
+    SqlUuidB58Comparator,
+    SqlUuidB64Comparator,
+    SqlUuidHexComparator,
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
@@ -130,7 +130,7 @@ class IdMixin(object):
                 return self.id.hex
 
             def url_id_is(cls):
-                return SqlHexUuidComparator(cls.id)
+                return SqlUuidHexComparator(cls.id)
 
             url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
@@ -159,7 +159,7 @@ class UuidMixin(object):
     """
     Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
     to the existing ``id`` column if the class uses UUID primary keys. Also
-    provides hybrid properties ``huuid``, ``buid`` and ``uuid_b58`` that provide
+    provides hybrid properties ``uuid_hex``, ``buid`` and ``uuid_b58`` that provide
     hex, URL-safe Base64 and Base58 representations of the ``uuid`` column.
 
     A deprecated ShortUUID representation is also available in the ``suuid`` property,
@@ -183,35 +183,34 @@ class UuidMixin(object):
             )
 
     @hybrid_property
-    def huuid(self):
+    def uuid_hex(self):
         """URL-friendly UUID representation as a hex string"""
         return self.uuid.hex
 
-    @huuid.comparator
-    def huuid(cls):
+    @uuid_hex.comparator
+    def uuid_hex(cls):
         # For some reason the test fails if we use `cls.uuid` here
         # but works fine in the `buid` and `suuid` comparators below
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
-            return SqlHexUuidComparator(cls.id)
+            return SqlUuidHexComparator(cls.id)
         else:
-            return SqlHexUuidComparator(cls.uuid)
-
-    huuid = with_roles(huuid, read={'all'})
+            return SqlUuidHexComparator(cls.uuid)
 
     @hybrid_property
-    def buid(self):
+    def uuid_b64(self):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
         return uuid_to_base64(self.uuid)
 
-    @buid.setter
-    def buid(self, value):
+    @uuid_b64.setter
+    def uuid_b64(self, value):
         self.uuid = uuid_from_base64(value)
 
-    @buid.comparator
-    def buid(cls):
-        return SqlBuidComparator(cls.uuid)
+    @uuid_b64.comparator
+    def uuid_b64(cls):
+        return SqlUuidB64Comparator(cls.uuid)
 
-    buid = with_roles(buid, read={'all'})
+    #: Retain `buid` as a public attribute for backward compatibility
+    buid = with_roles(uuid_b64, read={'all'})
 
     @hybrid_property
     def uuid_b58(self):
@@ -224,13 +223,17 @@ class UuidMixin(object):
 
     @uuid_b58.comparator
     def uuid_b58(cls):
-        return SqlUuid58Comparator(cls.uuid)
+        return SqlUuidB58Comparator(cls.uuid)
 
     uuid_b58 = with_roles(uuid_b58, read={'all'})
 
     @hybrid_property
     def suuid(self):
-        """URL-friendly UUID representation, using ShortUUID"""
+        """
+        URL-friendly UUID representation, using ShortUUID
+
+        .. deprecated:: 0.6.1
+        """
         return uuid2suuid(self.uuid)
 
     @suuid.setter
@@ -905,7 +908,7 @@ class BaseIdNameMixin(BaseMixin):
     @url_id_name.comparator
     def url_id_name(cls):
         if cls.__uuid_primary_key__:
-            return SqlHexUuidComparator(cls.id, splitindex=0)
+            return SqlUuidHexComparator(cls.id, splitindex=0)
         else:
             return SqlSplitIdComparator(cls.id, splitindex=0)
 
@@ -922,7 +925,7 @@ class BaseIdNameMixin(BaseMixin):
 
     @url_name_uuid_b58.comparator
     def url_name_uuid_b58(cls):
-        return SqlUuid58Comparator(cls.uuid, splitindex=-1)
+        return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
     @with_roles(read={'all'})
     @hybrid_property
