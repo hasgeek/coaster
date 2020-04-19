@@ -202,8 +202,7 @@ def uuid_to_base64(value):
     """
     Convert a UUID object to a 22-char URL-safe Base64 string (BUID)
 
-    >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
-    >>> uuid_to_base64(u)
+    >>> uuid_to_base64(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
     'MyA90vLvQi-usAWNb19wiQ'
     """
     return urlsafe_b64encode(value.bytes).decode().rstrip('=')
@@ -217,8 +216,7 @@ def uuid_from_base64(value):
     """
     Convert a 22-char URL-safe Base64 string (BUID) to a UUID object
 
-    >>> b = u'MyA90vLvQi-usAWNb19wiQ'
-    >>> uuid_from_base64(b)
+    >>> uuid_from_base64('MyA90vLvQi-usAWNb19wiQ')
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
     """
     return uuid.UUID(bytes=urlsafe_b64decode(str(value) + '=='))
@@ -232,9 +230,11 @@ def uuid_to_base58(value):
     """
     Render a UUID in Base58 and return as a string
 
-    >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
-    >>> uuid_to_base58(u)
+    >>> uuid_to_base58(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
     '7KAmj837MyuJWUYPwtqAfz'
+    >>> # The following UUID to Base58 encoding is from NPM uuid-base58, for comparison
+    >>> uuid_to_base58(uuid.UUID('d7ce8475-e77c-43b0-9dde-56b428981999'))
+    'TedLUruK7MosG1Z88urTkk'
     """
     return base58.b58encode(value.bytes).decode()
 
@@ -245,6 +245,9 @@ def uuid_from_base58(value):
 
     >>> uuid_from_base58('7KAmj837MyuJWUYPwtqAfz')
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    >>> # The following UUID to Base58 encoding is from NPM uuid-base58, for comparison
+    >>> uuid_from_base58('TedLUruK7MosG1Z88urTkk')
+    UUID('d7ce8475-e77c-43b0-9dde-56b428981999')
     """
     return uuid.UUID(bytes=base58.b58decode(str(value)))
 
