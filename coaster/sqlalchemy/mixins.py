@@ -1108,6 +1108,19 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     @with_roles(read={'all'})
     @hybrid_property
+    def url_name_uuid_b58(self):
+        """
+        Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
+        syntax. To use this, the class must derive from :class:`UuidMixin`.
+        """
+        return '%s-%s' % (self.name, self.uuid_b58)
+
+    @url_name_uuid_b58.comparator
+    def url_name_uuid_b58(cls):
+        return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
+
+    @with_roles(read={'all'})
+    @hybrid_property
     def url_name_suuid(self):
         """
         Returns a URL name combining :attr:`name` and :attr:`suuid` in name-suuid
