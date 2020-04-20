@@ -23,34 +23,41 @@ import time
 import uuid
 
 from unidecode import unidecode
+import base58
 import bcrypt
 import tldextract
 
 __all__ = [
-    'is_collection',
+    'base_domain_matches',
     'buid',
-    'uuid1mc',
-    'uuid1mc_from_datetime',
-    'uuid2buid',
     'buid2uuid',
-    'newsecret',
-    'newpin',
+    'check_password',
+    'domain_namespace_match',
+    'format_currency',
+    'get_email_domain',
+    'getbool',
+    'is_collection',
     'make_name',
     'make_password',
-    'nary_op',
-    'check_password',
-    'format_currency',
     'md5sum',
-    'getbool',
+    'namespace_from_url',
+    'nary_op',
+    'newpin',
+    'newsecret',
     'nullint',
     'nullstr',
     'require_one_of',
     'unicode_http_header',
-    'get_email_domain',
+    'uuid1mc',
+    'uuid1mc_from_datetime',
+    'uuid2buid',
+    'uuid_b58',
+    'uuid_b64',
+    'uuid_from_base58',
+    'uuid_from_base64',
+    'uuid_to_base58',
+    'uuid_to_base64',
     'valid_username',
-    'namespace_from_url',
-    'base_domain_matches',
-    'domain_namespace_match',
 ]
 
 # --- Common delimiters and punctuation ---------------------------------------
@@ -102,7 +109,7 @@ def is_collection(item):
     )
 
 
-def buid():
+def uuid_b64():
     """
     Return a new random id that is exactly 22 characters long,
     by encoding a UUID4 in URL-safe Base64. See
@@ -115,15 +122,34 @@ def buid():
     >>> isinstance(buid(), six.text_type)
     True
     """
-    if six.PY3:  # pragma: no cover
-        return urlsafe_b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
-    else:  # pragma: no cover
-        return six.text_type(urlsafe_b64encode(uuid.uuid4().bytes).rstrip('='))
+    return urlsafe_b64encode(uuid.uuid4().bytes).decode().rstrip('=')
+
+
+#: Legacy name
+buid = uuid_b64
+
+
+def uuid_b58():
+    """
+    Return a UUID4 encoded in base58 and rendered as a string. Will be 21 or 22
+    characters long
+
+    >>> len(uuid_b58()) in (21, 22)
+    True
+    >>> uuid_b58() == uuid_b58()
+    False
+    >>> isinstance(uuid_b58(), six.text_type)
+    True
+    """
+    return base58.b58encode(uuid.uuid4().bytes).decode()
 
 
 def uuid1mc():
     """
-    Return a UUID1 with a random multicast MAC id
+    Return a UUID1 with a random multicast MAC id.
+
+    >>> isinstance(uuid1mc(), uuid.UUID)
+    True
     """
     return uuid.uuid1(node=uuid._random_getnode())
 
@@ -172,42 +198,73 @@ def uuid1mc_from_datetime(dt):
     return uuid.UUID(fields=tuple(fields))
 
 
-def uuid2buid(value):
+def uuid_to_base64(value):
     """
-    Convert a UUID object to a 22-char BUID string
+    Convert a UUID object to a 22-char URL-safe Base64 string (BUID)
 
-    >>> u = uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
-    >>> uuid2buid(u)
+    >>> uuid_to_base64(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
     'MyA90vLvQi-usAWNb19wiQ'
     """
-    if six.PY3:  # pragma: no cover
-        return urlsafe_b64encode(value.bytes).decode('utf-8').rstrip('=')
-    else:
-        return six.text_type(urlsafe_b64encode(value.bytes).rstrip('='))
+    return urlsafe_b64encode(value.bytes).decode().rstrip('=')
 
 
-def buid2uuid(value):
+#: Legacy name
+uuid2buid = uuid_to_base64
+
+
+def uuid_from_base64(value):
     """
-    Convert a 22-char BUID string to a UUID object
+    Convert a 22-char URL-safe Base64 string (BUID) to a UUID object
 
-    >>> b = u'MyA90vLvQi-usAWNb19wiQ'
-    >>> buid2uuid(b)
+    >>> uuid_from_base64('MyA90vLvQi-usAWNb19wiQ')
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
     """
     return uuid.UUID(bytes=urlsafe_b64decode(str(value) + '=='))
 
 
+#: Legacy name
+buid2uuid = uuid_from_base64
+
+
+def uuid_to_base58(value):
+    """
+    Render a UUID in Base58 and return as a string
+
+    >>> uuid_to_base58(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
+    '7KAmj837MyuJWUYPwtqAfz'
+    >>> # The following UUID to Base58 encoding is from NPM uuid-base58, for comparison
+    >>> uuid_to_base58(uuid.UUID('d7ce8475-e77c-43b0-9dde-56b428981999'))
+    'TedLUruK7MosG1Z88urTkk'
+    """
+    return base58.b58encode(value.bytes).decode()
+
+
+def uuid_from_base58(value):
+    """
+    Convert a Base58-encoded UUID back into a UUID object
+
+    >>> uuid_from_base58('7KAmj837MyuJWUYPwtqAfz')
+    UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
+    >>> # The following UUID to Base58 encoding is from NPM uuid-base58, for comparison
+    >>> uuid_from_base58('TedLUruK7MosG1Z88urTkk')
+    UUID('d7ce8475-e77c-43b0-9dde-56b428981999')
+    """
+    return uuid.UUID(bytes=base58.b58decode(str(value)))
+
+
 def newsecret():
     """
-    Make a secret key for email confirmation and all that stuff.
-    44 characters long.
+    Make a secret key for non-cryptographic use cases like email account verification.
+    Mashes two UUID4s into a Base58 rendering, between 42 and 44 characters long. The
+    resulting string consists of only ASCII strings and so will typically not be
+    word-wrapped by email clients.
 
-    >>> len(newsecret())
-    44
+    >>> len(newsecret()) in (42, 43, 44)
+    True
     >>> newsecret() == newsecret()
     False
     """
-    return buid() + buid()
+    return uuid_b58() + uuid_b58()
 
 
 def newpin(digits=4):
