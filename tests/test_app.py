@@ -23,7 +23,7 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_load_config_from_file(self):
         load_config_from_file(self.app, "settings.py")
-        self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
+        assert self.app.config['SETTINGS_KEY'] == "settings"
 
     def test_additional_settings_from_file(self):
         env = 'COASTER_ENV'
@@ -31,13 +31,13 @@ class TestCoasterUtils(unittest.TestCase):
         assert _additional_config.get(environ[env]) is None
         for k, v in _additional_config.items():
             environ[env] = k
-            self.assertEqual(_additional_config.get(environ[env]), v)
+            assert _additional_config.get(environ[env]) == v
 
     def test_init_app(self):
         environ['FLASK_ENV'] = "testing"
         init_app(self.app)
-        self.assertEqual(self.app.config['SETTINGS_KEY'], "settings")
-        self.assertEqual(self.app.config['TEST_KEY'], "test")
+        assert self.app.config['SETTINGS_KEY'] == "settings"
+        assert self.app.config['TEST_KEY'] == "test"
 
     def test_logging_handler(self):
         load_config_from_file(self.another_app, "testing.py")
@@ -52,18 +52,16 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_load_config_from_file_ioerror(self):
         app = Flask(__name__)
-        self.assertFalse(load_config_from_file(app, "notfound.py"))
+        assert not load_config_from_file(app, "notfound.py")
 
     def test_current_auth(self):
         environ['FLASK_ENV'] = "testing"
         init_app(self.app)
         with self.app.test_request_context():
-            self.assertEqual(
-                render_template_string(
+            assert render_template_string(
                     '{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'
-                ),
-                'No',
-            )
+                ) == \
+                'No'
 
 
 class TestSandBoxedFlask(unittest.TestCase):
@@ -79,4 +77,4 @@ class TestSandBoxedFlask(unittest.TestCase):
                 self._secret = _secret
 
         obj = Test("Name", "secret")
-        self.assertEqual(template.render(obj=obj), "%s, " % (obj.name))
+        assert template.render(obj=obj) == "%s, " % (obj.name)
