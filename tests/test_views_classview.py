@@ -27,6 +27,7 @@ from coaster.views import (
     route,
     viewdata,
 )
+import pytest
 
 
 class JsonEncoder(json.JSONEncoder):
@@ -471,7 +472,7 @@ class TestClassView(unittest.TestCase):
 
     def test_cant_route_missing_method(self):
         """Routes can't be added for missing attributes"""
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             SubView.add_route_for('this_method_does_not_exist', '/missing')
 
     def test_second_subview_reroute(self):
@@ -648,7 +649,7 @@ class TestClassView(unittest.TestCase):
 
         # Calling the 'edit' view will abort with a Forbidden as we have
         # not granted any access rights in the request context
-        with self.assertRaises(Forbidden):
+        with pytest.raises(Forbidden):
             doc.view_for('edit')()
 
     def test_requires_roles_layered(self):

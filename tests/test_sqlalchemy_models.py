@@ -41,9 +41,10 @@ from coaster.sqlalchemy import (
     auto_init_default,
     failsafe_add,
 )
-from coaster.utils import uuid2suuid, uuid_to_base58, uuid_to_base64
+from coaster.utils import uuid2buid, uuid2suuid
 
 from .test_auth import LoginManager
+import pytest
 
 app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -328,7 +329,7 @@ class TestCoasterModels(unittest.TestCase):
         c = self.make_container()
         assert c.id is None
         self.session.commit()
-        self.assertEqual(c.id, 1)
+        assert c.id == 1
 
     def test_timestamp(self):
         now1 = self.session.query(func.utcnow()).scalar()
@@ -346,15 +347,13 @@ class TestCoasterModels(unittest.TestCase):
         # Convert timestamps to naive before testing because they may be mismatched:
         # 1. utcnow will have timezone in PostgreSQL, but not in SQLite
         # 2. columns will have timezone iff PostgreSQL and the model has __with_timezone__ = True
-        self.assertNotEqual(
-            now1.replace(tzinfo=None), c.created_at.replace(tzinfo=None)
-        )
+        assert now1.replace(tzinfo=None) != c.created_at.replace(tzinfo=None)
         assert now1.replace(tzinfo=None) < c.created_at.replace(tzinfo=None)
         assert now2.replace(tzinfo=None) > c.created_at.replace(tzinfo=None)
         sleep(1)
         c.content = "updated"
         self.session.commit()
-        self.assertNotEqual(c.updated_at, u)
+        assert c.updated_at != u
         assert c.updated_at.replace(tzinfo=None) > now2.replace(tzinfo=None)
         assert c.updated_at > c.created_at
         assert c.updated_at > u
@@ -364,8 +363,8 @@ class TestCoasterModels(unittest.TestCase):
         d = UnnamedDocument(content="hello", container=c)
         self.session.add(d)
         self.session.commit()
-        self.assertEqual(c.id, 1)
-        self.assertEqual(d.id, 1)
+        assert c.id == 1
+        assert d.id == 1
 
     def test_named(self):
         """Named documents have globally unique names."""
@@ -373,44 +372,44 @@ class TestCoasterModels(unittest.TestCase):
         d1 = NamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.name, 'hello')
-        self.assertEqual(NamedDocument.get('hello'), d1)
+        assert d1.name == 'hello'
+        assert NamedDocument.get('hello') == d1
 
         c2 = self.make_container()
         d2 = NamedDocument(title="Hello", content="Again", container=c2)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, 'hello2')
+        assert d2.name == 'hello2'
 
         # test insert in BaseNameMixin's upsert
         d3 = NamedDocument.upsert('hello3', title='hello3', content='hello3')
         self.session.commit()
         d3_persisted = NamedDocument.get('hello3')
-        self.assertEqual(d3_persisted, d3)
-        self.assertEqual(d3_persisted.content, 'hello3')
+        assert d3_persisted == d3
+        assert d3_persisted.content == 'hello3'
 
         # test update in BaseNameMixin's upsert
         d4 = NamedDocument.upsert('hello3', title='hello4', content='hello4')
         d4.make_name()
         self.session.commit()
         d4_persisted = NamedDocument.get('hello4')
-        self.assertEqual(d4_persisted, d4)
-        self.assertEqual(d4_persisted.content, 'hello4')
+        assert d4_persisted == d4
+        assert d4_persisted.content == 'hello4'
 
-        with self.assertRaises(TypeError) as insert_error:
+        with pytest.raises(TypeError) as insert_error:
             NamedDocument.upsert(
                 'invalid1', title='Invalid1', non_existent_field="I don't belong here."
             )
-        self.assertEqual(TypeError, insert_error.expected)
+        assert TypeError == insert_error.expected
 
-        with self.assertRaises(TypeError) as update_error:
+        with pytest.raises(TypeError) as update_error:
             NamedDocument.upsert('valid1', title='Valid1')
             self.session.commit()
             NamedDocument.upsert(
                 'valid1', title='Invalid1', non_existent_field="I don't belong here."
             )
             self.session.commit()
-        self.assertEqual(TypeError, update_error.expected)
+        assert TypeError == update_error.expected
 
     # TODO: Versions of this test are required for BaseNameMixin,
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
@@ -423,7 +422,8 @@ class TestCoasterModels(unittest.TestCase):
             ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
         )
         self.session.add(d1)
-        self.assertRaises(IntegrityError, self.session.commit)
+        with pytest.raises(IntegrityError):
+            self.session.commit()
 
     def test_named_blank_allowed(self):
         c1 = self.make_container()
@@ -432,7 +432,7 @@ class TestCoasterModels(unittest.TestCase):
             ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
         )
         self.session.add(d1)
-        self.assertEqual(d1.name, "")
+        assert d1.name == ""
 
     def test_scoped_named(self):
         """Scoped named documents have names unique to their containers."""
@@ -442,22 +442,22 @@ class TestCoasterModels(unittest.TestCase):
         u = User(username='foo')
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(ScopedNamedDocument.get(c1, 'hello'), d1)
-        self.assertEqual(d1.name, 'hello')
-        self.assertEqual(d1.permissions(actor=u), set())
-        self.assertEqual(d1.permissions(actor=u, inherited={'view'}), {'view'})
+        assert ScopedNamedDocument.get(c1, 'hello') == d1
+        assert d1.name == 'hello'
+        assert d1.permissions(actor=u) == set()
+        assert d1.permissions(actor=u, inherited={'view'}) == {'view'}
 
         d2 = ScopedNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.name, 'hello2')
+        assert d2.name == 'hello2'
 
         c2 = self.make_container()
         self.session.commit()
         d3 = ScopedNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.name, 'hello')
+        assert d3.name == 'hello'
 
         # test insert in BaseScopedNameMixin's upsert
         d4 = ScopedNamedDocument.upsert(
@@ -465,8 +465,8 @@ class TestCoasterModels(unittest.TestCase):
         )
         self.session.commit()
         d4_persisted = ScopedNamedDocument.get(c1, 'hello4')
-        self.assertEqual(d4_persisted, d4)
-        self.assertEqual(d4_persisted.content, 'scoped named doc')
+        assert d4_persisted == d4
+        assert d4_persisted.content == 'scoped named doc'
 
         # test update in BaseScopedNameMixin's upsert
         d5 = ScopedNamedDocument.upsert(
@@ -475,21 +475,21 @@ class TestCoasterModels(unittest.TestCase):
         d5.make_name()
         self.session.commit()
         d5_persisted = ScopedNamedDocument.get(c2, 'hello5')
-        self.assertEqual(d5_persisted, d5)
-        self.assertEqual(d5_persisted.content, 'scoped named doc')
+        assert d5_persisted == d5
+        assert d5_persisted.content == 'scoped named doc'
 
-        with self.assertRaises(TypeError) as insert_error:
+        with pytest.raises(TypeError) as insert_error:
             ScopedNamedDocument.upsert(
                 c1,
                 'invalid1',
                 title='Invalid1',
                 non_existent_field="I don't belong here.",
             )
-        self.assertEqual(TypeError, insert_error.expected)
+        assert TypeError == insert_error.expected
 
         ScopedNamedDocument.upsert(c1, 'valid1', title='Valid1')
         self.session.commit()
-        with self.assertRaises(TypeError) as update_error:
+        with pytest.raises(TypeError) as update_error:
             ScopedNamedDocument.upsert(
                 c1,
                 'valid1',
@@ -497,24 +497,24 @@ class TestCoasterModels(unittest.TestCase):
                 non_existent_field="I don't belong here.",
             )
             self.session.commit()
-        self.assertEqual(TypeError, update_error.expected)
+        assert TypeError == update_error.expected
 
     def test_scoped_named_short_title(self):
         """Test the short_title method of BaseScopedNameMixin."""
         c1 = self.make_container()
         self.session.commit()
         d1 = ScopedNamedDocument(title="Hello", content="World", container=c1)
-        self.assertEqual(d1.short_title(), "Hello")
+        assert d1.short_title() == "Hello"
 
         c1.title = "Container"
         d1.title = "Container Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        assert d1.short_title() == "Contained"
 
         d1.title = "Container: Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        assert d1.short_title() == "Contained"
 
         d1.title = "Container - Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        assert d1.short_title() == "Contained"
 
     def test_id_named(self):
         """Documents with a global id in the URL"""
@@ -522,18 +522,18 @@ class TestCoasterModels(unittest.TestCase):
         d1 = IdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.url_name, '1-hello')
+        assert d1.url_name == '1-hello'
 
         d2 = IdNamedDocument(title="Hello", content="Again", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.url_name, '2-hello')
+        assert d2.url_name == '2-hello'
 
         c2 = self.make_container()
         d3 = IdNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.url_name, '3-hello')
+        assert d3.url_name == '3-hello'
 
     def test_scoped_id(self):
         """Documents with a container-specific id in the URL"""
@@ -542,26 +542,26 @@ class TestCoasterModels(unittest.TestCase):
         u = User(username="foo")
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(ScopedIdDocument.get(c1, d1.url_id), d1)
-        self.assertEqual(d1.permissions(actor=u, inherited={'view'}), {'view'})
-        self.assertEqual(d1.permissions(actor=u), set())
+        assert ScopedIdDocument.get(c1, d1.url_id) == d1
+        assert d1.permissions(actor=u, inherited={'view'}) == {'view'}
+        assert d1.permissions(actor=u) == set()
 
         d2 = ScopedIdDocument(content="New document", container=c1)
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d1.url_id, 1)
-        self.assertEqual(d2.url_id, 2)
+        assert d1.url_id == 1
+        assert d2.url_id == 2
 
         c2 = self.make_container()
         d3 = ScopedIdDocument(content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.url_id, 1)
+        assert d3.url_id == 1
 
         d4 = ScopedIdDocument(content="Third", container=c1)
         self.session.add(d4)
         self.session.commit()
-        self.assertEqual(d4.url_id, 3)
+        assert d4.url_id == 3
 
     def test_scoped_id_named(self):
         """Documents with a container-specific id and name in the URL"""
@@ -569,57 +569,59 @@ class TestCoasterModels(unittest.TestCase):
         d1 = ScopedIdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
         self.session.commit()
-        self.assertEqual(d1.url_name, '1-hello')
-        self.assertEqual(
-            d1.url_name, d1.url_id_name
-        )  # url_name is now an alias for url_id_name
-        self.assertEqual(ScopedIdNamedDocument.get(c1, d1.url_id), d1)
+        assert d1.url_name == '1-hello'
+        assert d1.url_name == d1.url_id_name  # url_name is now an alias for url_id_name
+        assert ScopedIdNamedDocument.get(c1, d1.url_id) == d1
 
         d2 = ScopedIdNamedDocument(
             title="Hello again", content="New name", container=c1
         )
         self.session.add(d2)
         self.session.commit()
-        self.assertEqual(d2.url_name, '2-hello-again')
+        assert d2.url_name == '2-hello-again'
 
         c2 = self.make_container()
         d3 = ScopedIdNamedDocument(title="Hello", content="Once More", container=c2)
         self.session.add(d3)
         self.session.commit()
-        self.assertEqual(d3.url_name, '1-hello')
+        assert d3.url_name == '1-hello'
 
         d4 = ScopedIdNamedDocument(title="Hello", content="Third", container=c1)
         self.session.add(d4)
         self.session.commit()
-        self.assertEqual(d4.url_name, '3-hello')
+        assert d4.url_name == '3-hello'
 
         # Queries work as well
         qd1 = ScopedIdNamedDocument.query.filter_by(
             container=c1, url_name=d1.url_name
         ).first()
-        self.assertEqual(qd1, d1)
+        assert qd1 == d1
         qd2 = ScopedIdNamedDocument.query.filter_by(
             container=c1, url_id_name=d2.url_id_name
         ).first()
-        self.assertEqual(qd2, d2)
+        assert qd2 == d2
 
     def test_scoped_id_without_parent(self):
         d1 = ScopedIdDocument(content="Hello")
         self.session.add(d1)
-        self.assertRaises(IntegrityError, self.session.commit)
+        with pytest.raises(IntegrityError):
+            self.session.commit()
         self.session.rollback()
         d2 = ScopedIdDocument(content="Hello again")
         self.session.add(d2)
-        self.assertRaises(IntegrityError, self.session.commit)
+        with pytest.raises(IntegrityError):
+            self.session.commit()
 
     def test_scoped_named_without_parent(self):
         d1 = ScopedNamedDocument(title="Hello", content="World")
         self.session.add(d1)
-        self.assertRaises(IntegrityError, self.session.commit)
+        with pytest.raises(IntegrityError):
+            self.session.commit()
         self.session.rollback()
         d2 = ScopedIdNamedDocument(title="Hello", content="World")
         self.session.add(d2)
-        self.assertRaises(IntegrityError, self.session.commit)
+        with pytest.raises(IntegrityError):
+            self.session.commit()
 
     def test_reserved_name(self):
         c = self.make_container()
@@ -628,12 +630,12 @@ class TestCoasterModels(unittest.TestCase):
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
         d1.make_name(reserved=['new2'])
-        self.assertEqual(d1.name, 'new3')
+        assert d1.name == 'new3'
         d2 = ScopedNamedDocument(container=c, title="New")
         # 'new' is reserved in the class definition. Also reserve new2 here and
         # confirm we get new3 for the name
         d2.make_name(reserved=['new2'])
-        self.assertEqual(d2.name, 'new3')
+        assert d2.name == 'new3'
 
         # Now test again after adding to session. Results should be identical
         self.session.add(d1)
@@ -641,9 +643,9 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
 
         d1.make_name(reserved=['new2'])
-        self.assertEqual(d1.name, 'new3')
+        assert d1.name == 'new3'
         d2.make_name(reserved=['new2'])
-        self.assertEqual(d2.name, 'new3')
+        assert d2.name == 'new3'
 
     def test_named_auto(self):
         """
@@ -753,7 +755,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_url_for_fail(self):
         d = UnnamedDocument(content="hello")
-        with self.assertRaises(BuildError):
+        with pytest.raises(BuildError):
             d.url_for()
 
     def test_jsondict(self):
@@ -762,10 +764,11 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         # Test for __setitem__
         m1.data['value'] = 'bar'
-        self.assertEqual(m1.data['value'], 'bar')
+        assert m1.data['value'] == 'bar'
         del m1.data['value']
-        self.assertEqual(m1.data, {})
-        self.assertRaises(ValueError, MyData, data='NonDict')
+        assert m1.data == {}
+        with pytest.raises(ValueError):
+            MyData(data='NonDict')
 
     def test_urltype(self):
         m1 = MyUrlModel(
@@ -780,19 +783,19 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_custom_scheme) == "ftp://example.com"
 
     def test_urltype_invalid(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url="example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_without_scheme(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url="//example.com")
             self.session.add(m2)
             self.session.commit()
 
     def test_urltype_invalid_without_host(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url="https:///test")
             self.session.add(m2)
             self.session.commit()
@@ -806,13 +809,13 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_custom_scheme) == ""
 
     def test_urltype_invalid_scheme_default(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url=u"magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url_custom_scheme=u"magnet://example.com")
             self.session.add(m1)
             self.session.commit()
@@ -822,7 +825,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(m1)
         self.session.commit()
 
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url_optional_scheme="example.com/test")
             self.session.add(m2)
             self.session.commit()
@@ -832,7 +835,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(m1)
         self.session.commit()
 
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url_optional_host="https:///test")
             self.session.add(m2)
             self.session.commit()
@@ -849,9 +852,10 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(c2)
         self.session.commit()
 
-        self.assertEqual(Container.query.filter_by(name='c1').one_or_none(), c1)
+        assert Container.query.filter_by(name='c1').one_or_none() == c1
         assert Container.query.filter_by(name='c3').one_or_none() is None
-        self.assertRaises(MultipleResultsFound, Container.query.one_or_none)
+        with pytest.raises(MultipleResultsFound):
+            Container.query.one_or_none()
 
     def test_failsafe_add(self):
         """
@@ -885,9 +889,8 @@ class TestCoasterModels(unittest.TestCase):
         failsafe_add passes through errors occuring from bad data
         """
         d1 = NamedDocument(name='missing_title')
-        self.assertRaises(
-            IntegrityError, failsafe_add, self.session, d1, name='missing_title'
-        )
+        with pytest.raises(IntegrityError):
+            failsafe_add(self.session, d1, name='missing_title')
 
     def test_failsafe_add_silent_fail(self):
         """
@@ -895,7 +898,7 @@ class TestCoasterModels(unittest.TestCase):
         when no filters are provided
         """
         d1 = NamedDocument(name='missing_title')
-        self.assertIsNone(failsafe_add(self.session, d1))
+        assert failsafe_add(self.session, d1) is None
 
     def test_uuid_key(self):
         """
@@ -908,7 +911,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         assert isinstance(u1.id, uuid.UUID)
         assert isinstance(u2.id, uuid.UUID)
-        self.assertNotEqual(u1.id, u2.id)
+        assert u1.id != u2.id
 
         fk1 = UuidForeignKey1(uuidkey=u1)
         fk2 = UuidForeignKey2(uuidkey=u2)
@@ -916,22 +919,22 @@ class TestCoasterModels(unittest.TestCase):
         db.session.add(fk2)
         db.session.commit()
 
-        self.assertIs(fk1.uuidkey, u1)
-        self.assertIs(fk2.uuidkey, u2)
+        assert fk1.uuidkey is u1
+        assert fk2.uuidkey is u2
         assert isinstance(fk1.uuidkey_id, uuid.UUID)
         assert isinstance(fk2.uuidkey_id, uuid.UUID)
-        self.assertEqual(fk1.uuidkey_id, u1.id)
-        self.assertEqual(fk2.uuidkey_id, u2.id)
+        assert fk1.uuidkey_id == u1.id
+        assert fk2.uuidkey_id == u2.id
 
     def test_uuid_url_id(self):
         """
         IdMixin provides a url_id that renders as a string of either the
         integer primary key or the UUID primary key. In addition, UuidMixin
-        provides a uuid_hex that always renders a UUID against either the
+        provides a huuid that always renders a UUID against either the
         id or uuid columns.
         """
         # TODO: This test is a little muddled because UuidMixin renamed
-        # its url_id property (which overrode IdMixin's url_id) to uuid_hex.
+        # its url_id property (which overrode IdMixin's url_id) to huuid.
         # This test needs to be broken down into separate tests for each of
         # these properties.
         u1 = NonUuidKey()
@@ -948,42 +951,38 @@ class TestCoasterModels(unittest.TestCase):
         i3 = u3.uuid
         i4 = u4.uuid
 
-        self.assertEqual(u1.url_id, six.text_type(i1))
+        assert u1.url_id == six.text_type(i1)
 
-        self.assertIsInstance(i2, uuid.UUID)
-        self.assertEqual(u2.url_id, i2.hex)
-        self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
+        assert isinstance(i2, uuid.UUID)
+        assert u2.url_id == i2.hex
+        assert len(u2.url_id) == 32  # This is a 32-byte hex representation
         assert '-' not in u2.url_id  # Without dashes
 
-        self.assertIsInstance(i3, uuid.UUID)
-        self.assertEqual(u3.uuid_hex, i3.hex)
-        self.assertEqual(len(u3.uuid_hex), 32)  # This is a 32-byte hex representation
-        assert '-' not in u3.uuid_hex  # Without dashes
+        assert isinstance(i3, uuid.UUID)
+        assert u3.huuid == i3.hex
+        assert len(u3.huuid) == 32  # This is a 32-byte hex representation
+        assert '-' not in u3.huuid  # Without dashes
 
-        self.assertIsInstance(i4, uuid.UUID)
-        self.assertEqual(u4.uuid_hex, i4.hex)
-        self.assertEqual(len(u4.uuid_hex), 32)  # This is a 32-byte hex representation
-        assert '-' not in u4.uuid_hex  # Without dashes
+        assert isinstance(i4, uuid.UUID)
+        assert u4.huuid == i4.hex
+        assert len(u4.huuid) == 32  # This is a 32-byte hex representation
+        assert '-' not in u4.huuid  # Without dashes
 
         # Querying against `url_id` redirects the query to
         # `id` (IdMixin) or `uuid` (UuidMixin).
 
         # With integer primary keys, `url_id` is simply a proxy for `id`
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (NonUuidKey.url_id == 1).compile(compile_kwargs={'literal_binds': True})
-            ),
-            "non_uuid_key.id = 1",
-        )
+            ) == \
+            "non_uuid_key.id = 1"
         # We don't check the data type here, leaving that to the engine
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (NonUuidKey.url_id == '1').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_key.id = '1'",
-        )
+            ) == \
+            "non_uuid_key.id = '1'"
 
         # With UUID primary keys, `url_id` casts the value into a UUID
         # and then queries against `id`
@@ -993,44 +992,35 @@ class TestCoasterModels(unittest.TestCase):
         # with multiple renderings.
 
         # Hex UUID
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (UuidKey.url_id == '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'"
         # Hex UUID with !=
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (UuidKey.url_id != '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_key.id != '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_key.id != '74d588574a7611e78c27c38403d0935c'"
         # Hex UUID with dashes
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'"
         # UUID object
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (
                     UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})
-            ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'"
         # IN clause with mixed inputs, including an invalid input
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (
                     UuidKey.url_id.in_(
                         [
@@ -1040,35 +1030,28 @@ class TestCoasterModels(unittest.TestCase):
                         ]
                     )
                 ).compile(compile_kwargs={'literal_binds': True})
-            ),
-            "uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')",
-        )
+            ) == \
+            "uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')"
 
         # None value
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (UuidKey.url_id == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_key.id IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
+            ) == \
+            "uuid_key.id IS NULL"
+        assert six.text_type(
                 (NonUuidKey.url_id == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_key.id IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
-                (NonUuidMixinKey.uuid_hex == None).compile(  # NOQA
+            ) == \
+            "non_uuid_key.id IS NULL"
+        assert six.text_type(
+                (NonUuidMixinKey.huuid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_mixin_key.uuid IS NULL",
-        )
+            ) == \
+            "non_uuid_mixin_key.uuid IS NULL"
 
         # Query returns False (or True) if given an invalid value
         assert bool(UuidKey.url_id == 'garbage!') is False
@@ -1079,35 +1062,31 @@ class TestCoasterModels(unittest.TestCase):
         assert bool(UuidMixinKey.url_id != 'garbage!') is True
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
-        self.assertEqual(
-            six.text_type(
-                (
-                    NonUuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c'
-                ).compile(compile_kwargs={'literal_binds': True})
-            ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
-        )
-        self.assertEqual(
-            six.text_type(
-                (UuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c').compile(
+        assert six.text_type(
+                (NonUuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'"
+        assert six.text_type(
+                (UuidMixinKey.huuid == '74d588574a7611e78c27c38403d0935c').compile(
+                    compile_kwargs={'literal_binds': True}
+                )
+            ) == \
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'"
 
         # Running a database query with url_id works as expected.
         # This test should pass on both SQLite and PostgreSQL
         qu1 = NonUuidKey.query.filter_by(url_id=u1.url_id).first()
-        self.assertEqual(u1, qu1)
+        assert u1 == qu1
         qu2 = UuidKey.query.filter_by(url_id=u2.url_id).first()
-        self.assertEqual(u2, qu2)
+        assert u2 == qu2
         qu3 = NonUuidMixinKey.query.filter_by(url_id=u3.url_id).first()
-        self.assertEqual(u3, qu3)
+        assert u3 == qu3
         qu4 = UuidMixinKey.query.filter_by(url_id=u4.url_id).first()
-        self.assertEqual(u4, qu4)
+        assert u4 == qu4
 
-    def test_uuid_buid_uuid_b58_suuid(self):
+    def test_uuid_buid_suuid(self):
         """
         UuidMixin provides buid and suuid
         """
@@ -1117,156 +1096,90 @@ class TestCoasterModels(unittest.TestCase):
         db.session.commit()
 
         # The `uuid` column contains a UUID
-        self.assertIsInstance(u1.uuid, uuid.UUID)
-        self.assertIsInstance(u2.uuid, uuid.UUID)
+        assert isinstance(u1.uuid, uuid.UUID)
+        assert isinstance(u2.uuid, uuid.UUID)
 
         # Test readbility of `buid` attribute
-        self.assertEqual(u1.buid, uuid_to_base64(u1.uuid))
-        self.assertEqual(len(u1.buid), 22)  # This is a 22-char B64 representation
-        self.assertEqual(u2.buid, uuid_to_base64(u2.uuid))
-        self.assertEqual(len(u2.buid), 22)  # This is a 22-char B64 representation
-
-        # Test readbility of `uuid_b58` attribute
-        self.assertEqual(u1.uuid_b58, uuid_to_base58(u1.uuid))
-        self.assertIn(len(u1.uuid_b58), (21, 22))  # 21 or 22-char B58 representation
-        self.assertEqual(u2.uuid_b58, uuid_to_base58(u2.uuid))
-        self.assertIn(len(u2.uuid_b58), (21, 22))  # 21 or 22-char B58 representation
+        assert u1.buid == uuid2buid(u1.uuid)
+        assert len(u1.buid) == 22  # This is a 22-byte BUID representation
+        assert u2.buid == uuid2buid(u2.uuid)
+        assert len(u2.buid) == 22  # This is a 22-byte BUID representation
 
         # Test readability of `suuid` attribute
-        self.assertEqual(u1.suuid, uuid2suuid(u1.uuid))
-        self.assertEqual(
-            len(u1.suuid), 22
-        )  # This is a 22-byte ShortUUID representation
-        self.assertEqual(u2.suuid, uuid2suuid(u2.uuid))
-        self.assertEqual(
-            len(u2.suuid), 22
-        )  # This is a 22-byte ShortUUID representation
+        assert u1.suuid == uuid2suuid(u1.uuid)
+        assert len(u1.suuid) == 22  # This is a 22-byte ShortUUID representation
+        assert u2.suuid == uuid2suuid(u2.uuid)
+        assert len(u2.suuid) == 22  # This is a 22-byte ShortUUID representation
 
-        # SQL queries against `buid`, `uuid_b58` and `suuid` cast the value into a UUID
+        # SQL queries against `buid` and `suuid` cast the value into a UUID
         # and then query against `id` or ``uuid``
 
         # Note that `literal_binds` here doesn't know how to render UUIDs if
         # no engine is specified, and so casts them into a string
 
         # UuidMixin with integer primary key queries against the `uuid` column
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'"
 
         # UuidMixin with UUID primary key queries against the `id` column
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
-
-        # Repeat for `uuid_b58`
-        self.assertEqual(
-            six.text_type(
-                (NonUuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
-        )
-
-        # UuidMixin with UUID primary key queries against the `id` column
-        self.assertEqual(
-            six.text_type(
-                (UuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'"
 
         # Repeat for `suuid`
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
-        )
-        self.assertEqual(
-            six.text_type(
+            ) == \
+            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'"
+        assert six.text_type(
                 (UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN').compile(
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
+            ) == \
+            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'"
 
         # All queries work for None values as well
-        self.assertEqual(
-            six.text_type(
+        assert six.text_type(
                 (NonUuidMixinKey.buid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_mixin_key.uuid IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
+            ) == \
+            "non_uuid_mixin_key.uuid IS NULL"
+        assert six.text_type(
                 (UuidMixinKey.buid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_mixin_key.id IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
-                (NonUuidMixinKey.uuid_b58 == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "non_uuid_mixin_key.uuid IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
-                (UuidMixinKey.uuid_b58 == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "uuid_mixin_key.id IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
+            ) == \
+            "uuid_mixin_key.id IS NULL"
+        assert six.text_type(
                 (NonUuidMixinKey.suuid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "non_uuid_mixin_key.uuid IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
+            ) == \
+            "non_uuid_mixin_key.uuid IS NULL"
+        assert six.text_type(
                 (UuidMixinKey.suuid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
-            ),
-            "uuid_mixin_key.id IS NULL",
-        )
+            ) == \
+            "uuid_mixin_key.id IS NULL"
 
         # Query returns False (or True) if given an invalid value
         assert bool(NonUuidMixinKey.buid == 'garbage!') is False
         assert bool(NonUuidMixinKey.buid != 'garbage!') is True
-        assert bool(NonUuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(NonUuidMixinKey.uuid_b58 != 'garbage!') is True
         assert bool(NonUuidMixinKey.suuid == 'garbage!') is False
         assert bool(NonUuidMixinKey.suuid != 'garbage!') is True
         assert bool(UuidMixinKey.buid == 'garbage!') is False
         assert bool(UuidMixinKey.buid != 'garbage!') is True
-        assert bool(UuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(UuidMixinKey.uuid_b58 != 'garbage!') is True
         assert bool(UuidMixinKey.suuid == 'garbage!') is False
         assert bool(UuidMixinKey.suuid != 'garbage!') is True
 
@@ -1294,51 +1207,37 @@ class TestCoasterModels(unittest.TestCase):
         db.session.add_all([u1, u2, u3])
         db.session.commit()
 
-        self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        # No uuid_b58 without UuidMixin
-        with self.assertRaises(AttributeError):
-            self.assertEqual(u1.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
+        assert u1.url_id == '74d588574a7611e78c27c38403d0935c'
+        assert u1.url_id_name == '74d588574a7611e78c27c38403d0935c-test'
         # No suuid without UuidMixin
-        with self.assertRaises(AttributeError):
-            self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u2.uuid_hex, '74d588574a7611e78c27c38403d0935c')
-        self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
-        self.assertEqual(u2.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
-        self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
-        self.assertEqual(u3.uuid_hex, '74d588574a7611e78c27c38403d0935c')
+        with pytest.raises(AttributeError):
+            assert u1.url_name_suuid == 'test-vVoaZTeXGiD4qrMtYNosnN'
+        assert u2.huuid == '74d588574a7611e78c27c38403d0935c'
+        assert u2.url_id_name == '74d588574a7611e78c27c38403d0935c-test'
+        assert u2.url_name_suuid == 'test-vVoaZTeXGiD4qrMtYNosnN'
+        assert u3.huuid == '74d588574a7611e78c27c38403d0935c'
         # url_id_name in BaseIdNameMixin uses the id column, not the uuid column
-        self.assertEqual(u3.url_id_name, '1-test')
-        self.assertEqual(u3.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
-        self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
+        assert u3.url_id_name == '1-test'
+        assert u3.url_name_suuid == 'test-vVoaZTeXGiD4qrMtYNosnN'
 
         # url_name is legacy
-        self.assertEqual(u1.url_id_name, u1.url_name)
-        self.assertEqual(u2.url_id_name, u2.url_name)
-        self.assertEqual(u3.url_id_name, u3.url_name)
+        assert u1.url_id_name == u1.url_name
+        assert u2.url_id_name == u2.url_name
+        assert u3.url_id_name == u3.url_name
 
         qu1 = UuidIdName.query.filter_by(url_id_name=u1.url_id_name).first()
-        self.assertEqual(qu1, u1)
+        assert qu1 == u1
         qu2 = UuidIdNameMixin.query.filter_by(url_id_name=u2.url_id_name).first()
-        self.assertEqual(qu2, u2)
+        assert qu2 == u2
         qu3 = UuidIdNameSecondary.query.filter_by(url_id_name=u3.url_id_name).first()
-        self.assertEqual(qu3, u3)
-
-        q58u2 = UuidIdNameMixin.query.filter_by(
-            url_name_uuid_b58=u2.url_name_uuid_b58
-        ).first()
-        self.assertEqual(q58u2, u2)
-        q58u3 = UuidIdNameSecondary.query.filter_by(
-            url_name_uuid_b58=u3.url_name_uuid_b58
-        ).first()
-        self.assertEqual(q58u3, u3)
+        assert qu3 == u3
 
         qsu2 = UuidIdNameMixin.query.filter_by(url_name_suuid=u2.url_name_suuid).first()
-        self.assertEqual(qsu2, u2)
+        assert qsu2 == u2
         qsu3 = UuidIdNameSecondary.query.filter_by(
             url_name_suuid=u3.url_name_suuid
         ).first()
-        self.assertEqual(qsu3, u3)
+        assert qsu3 == u3
 
     def test_uuid_default(self):
         """
@@ -1352,24 +1251,24 @@ class TestCoasterModels(unittest.TestCase):
         uuidm_yes = UuidMixinKey()
         # Non-UUID primary keys are not automatically generated
         u1 = uuid_no.id
-        self.assertIsNone(u1)
+        assert u1 is None
         # However, UUID keys are generated even before adding to session
         u2 = uuid_yes.id
-        self.assertIsInstance(u2, uuid.UUID)
+        assert isinstance(u2, uuid.UUID)
         # Once generated, the key remains stable
         u3 = uuid_yes.id
-        self.assertEqual(u2, u3)
+        assert u2 == u3
         # A UUID primary key with a custom column with no default doesn't break
         # the default generator
         u4 = uuid_no_default.id
-        self.assertIsNone(u4)
+        assert u4 is None
 
         # UuidMixin works likewise
         um1 = uuidm_no.uuid
-        self.assertIsInstance(um1, uuid.UUID)
+        assert isinstance(um1, uuid.UUID)
         um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
-        self.assertIsInstance(um2, uuid.UUID)
-        self.assertEqual(uuidm_yes.id, uuidm_yes.uuid)
+        assert isinstance(um2, uuid.UUID)
+        assert uuidm_yes.id == uuidm_yes.uuid
 
     def test_parent_child_primary(self):
         """
@@ -1385,13 +1284,11 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
         self.session.commit()
 
-        self.assertIsNone(parent1.primary_child)
-        self.assertIsNone(parent2.primary_child)
+        assert parent1.primary_child is None
+        assert parent2.primary_child is None
 
-        self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
-            0,
-        )
+        assert self.session.query(func.count()).select_from(parent_child_primary).scalar() == \
+            0
 
         parent1.primary_child = child1a
         parent2.primary_child = child2a
@@ -1399,42 +1296,36 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
 
         # The change has been committed to the database
-        self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
-            2,
-        )
+        assert self.session.query(func.count()).select_from(parent_child_primary).scalar() == \
+            2
         qparent1 = ParentForPrimary.query.get(parent1.id)
         qparent2 = ParentForPrimary.query.get(parent2.id)
 
-        self.assertEqual(qparent1.primary_child, child1a)
-        self.assertEqual(qparent2.primary_child, child2a)
+        assert qparent1.primary_child == child1a
+        assert qparent2.primary_child == child2a
 
         # # A parent can't have a default that is another's child
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             parent1.primary_child = child2b
 
         # The default hasn't changed despite the validation error
-        self.assertEqual(parent1.primary_child, child1a)
+        assert parent1.primary_child == child1a
 
         # Unsetting the default removes the relationship row,
         # but does not remove the child instance from the db
         parent1.primary_child = None
         self.session.commit()
-        self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
-            1,
-        )
-        self.assertIsNotNone(ChildForPrimary.query.get(child1a.id))
+        assert self.session.query(func.count()).select_from(parent_child_primary).scalar() == \
+            1
+        assert ChildForPrimary.query.get(child1a.id) is not None
 
         # Deleting a child also removes the corresponding relationship row
         # but not the parent
         self.session.delete(child2a)
         self.session.commit()
-        self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
-            0,
-        )
-        self.assertEqual(ParentForPrimary.query.count(), 2)
+        assert self.session.query(func.count()).select_from(parent_child_primary).scalar() == \
+            0
+        assert ParentForPrimary.query.count() == 2
 
     def test_auto_init_default(self):
         """
@@ -1445,28 +1336,28 @@ class TestCoasterModels(unittest.TestCase):
         d3 = DefaultValue()
         d4 = DefaultValue(value='not-default')
 
-        self.assertEqual(d1.value, 'default')
-        self.assertEqual(d1.value, 'default')  # Also works on second access
-        self.assertEqual(d2.value, 'not-default')
-        self.assertEqual(d3.value, 'default')
-        self.assertEqual(d4.value, 'not-default')
+        assert d1.value == 'default'
+        assert d1.value == 'default'  # Also works on second access
+        assert d2.value == 'not-default'
+        assert d3.value == 'default'
+        assert d4.value == 'not-default'
 
         d3.value = 'changed'
         d4.value = 'changed'
 
-        self.assertEqual(d3.value, 'changed')
-        self.assertEqual(d4.value, 'changed')
+        assert d3.value == 'changed'
+        assert d4.value == 'changed'
 
         db.session.add_all([d1, d2, d3, d4])
         db.session.commit()
 
         for d in DefaultValue.query.all():
             if d.id == d1.id:
-                self.assertEqual(d.value, 'default')
+                assert d.value == 'default'
             elif d.id == d2.id:
-                self.assertEqual(d.value, 'not-default')
+                assert d.value == 'not-default'
             elif d.id in (d3.id, d4.id):
-                self.assertEqual(d.value, 'changed')
+                assert d.value == 'changed'
 
 
 class TestCoasterModelsPG(TestCoasterModels):
@@ -1488,17 +1379,15 @@ class TestCoasterModelsPG(TestCoasterModels):
         self.session.commit()
 
         # The change has been committed to the database
-        self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
-            1,
-        )
+        assert self.session.query(func.count()).select_from(parent_child_primary).scalar() == \
+            1
         # Attempting a direct write to the db works for valid children and fails for invalid children
         self.session.execute(
             parent_child_primary.update()
             .where(parent_child_primary.c.parent_for_primary_id == parent1.id)
             .values({'child_for_primary_id': child1b.id})
         )
-        with self.assertRaises(IntegrityError):
+        with pytest.raises(IntegrityError):
             self.session.execute(
                 parent_child_primary.update()
                 .where(parent_child_primary.c.parent_for_primary_id == parent1.id)

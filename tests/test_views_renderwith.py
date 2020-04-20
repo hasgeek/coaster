@@ -89,7 +89,7 @@ class TestLoadModels(unittest.TestCase):
         try:
             self.app.get('/renderedview1')
         except TemplateNotFound as e:
-            self.assertEqual(str(e), 'renderedview1.html')
+            assert str(e) == 'renderedview1.html'
         else:
             raise Exception("Wrong template rendered")
 
@@ -104,7 +104,7 @@ class TestLoadModels(unittest.TestCase):
             try:
                 self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
             except TemplateNotFound as e:
-                self.assertEqual(str(e), template)
+                assert str(e) == template
             else:
                 raise Exception("Wrong template rendered")
 
@@ -115,16 +115,14 @@ class TestLoadModels(unittest.TestCase):
         )
         assert isinstance(response, Response)
         with app.test_request_context():  # jsonp requires a request context
-            self.assertEqual(response.data, jsonp({"data": "value"}).data)
+            assert response.data == jsonp({"data": "value"}).data
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
-        self.assertEqual(
-            response.data.decode('utf-8') if six.PY3 else response.data,
-            "{'data': 'value'}",
-        )
+        assert (response.data.decode('utf-8') if six.PY3 else response.data) == \
+            "{'data': 'value'}"
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
-        self.assertEqual(resp.headers['Referrer'], "http://example.com")
+        assert resp.headers['Referrer'] == "http://example.com"
         # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
         # self.assertEqual(resp.status_code, 201)

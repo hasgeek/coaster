@@ -5,6 +5,7 @@ import six
 import unittest
 
 from coaster.assets import AssetNotFound, UglipyJS, Version, VersionedAssets
+import pytest
 
 
 class TestAssets(unittest.TestCase):
@@ -32,50 +33,49 @@ class TestAssets(unittest.TestCase):
 
     def test_asset_unversioned(self):
         bundle = self.assets.require('jquery.js')
-        self.assertEqual(bundle.contents, ('jquery-1.8.3.js',))
+        assert bundle.contents == ('jquery-1.8.3.js',)
 
     def test_asset_versioned(self):
         bundle = self.assets.require('jquery.js==1.7.1')
-        self.assertEqual(bundle.contents, ('jquery-1.7.1.js',))
+        assert bundle.contents == ('jquery-1.7.1.js',)
         bundle = self.assets.require('jquery.js<1.8.0')
-        self.assertEqual(bundle.contents, ('jquery-1.7.1.js',))
+        assert bundle.contents == ('jquery-1.7.1.js',)
         bundle = self.assets.require('jquery.js>=1.8.0')
-        self.assertEqual(bundle.contents, ('jquery-1.8.3.js',))
+        assert bundle.contents == ('jquery-1.8.3.js',)
 
     def test_missing_asset(self):
-        self.assertRaises(AssetNotFound, self.assets.require, 'missing.js')
+        with pytest.raises(AssetNotFound):
+            self.assets.require('missing.js')
 
     def test_single_requires(self):
         bundle = self.assets.require('jquery.form.js')
-        self.assertEqual(bundle.contents, ('jquery-1.8.3.js', 'jquery.form-2.96.js'))
+        assert bundle.contents == ('jquery-1.8.3.js', 'jquery.form-2.96.js')
 
     def test_single_requires_which_is_dict(self):
         bundle = self.assets.require('jquery.form.1.js')
-        self.assertEqual(bundle.contents, ('jquery-1.8.3.js',))
+        assert bundle.contents == ('jquery-1.8.3.js',)
 
     def test_provides_requires(self):
         bundle = self.assets.require('jquery.some.js', 'jquery.form.js')
-        self.assertEqual(bundle.contents, ('jquery-1.8.3.js', 'jquery.form-2.96.js'))
+        assert bundle.contents == ('jquery-1.8.3.js', 'jquery.form-2.96.js')
 
     def test_version_copies(self):
         # First asset will load highest available version of the requirement, which conflicts
         # with the second requested version. The same asset can't be requested twice
-        self.assertRaises(
-            ValueError, self.assets.require, 'jquery.form.js', 'jquery.js==1.7.1'
-        )
+        with pytest.raises(ValueError):
+            self.assets.require('jquery.form.js', 'jquery.js==1.7.1')
 
     def test_version_conflict(self):
         # First asset will load highest available version of the requirement, which conflicts
         # with the second requested version. The same asset can't be requested twice
-        self.assertRaises(
-            ValueError, self.assets.require, 'jquery.form.js', 'old-lib.js'
-        )
+        with pytest.raises(ValueError):
+            self.assets.require('jquery.form.js', 'old-lib.js')
 
     def test_blacklist(self):
         bundle = self.assets.require('!jquery.js', 'jquery.form.js')
-        self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
+        assert bundle.contents == ('jquery.form-2.96.js',)
         bundle = self.assets.require('jquery.form.js', '!jquery.js')
-        self.assertEqual(bundle.contents, ('jquery.form-2.96.js',))
+        assert bundle.contents == ('jquery.form-2.96.js',)
 
     def test_uglipyjs(self):
         """Test the UglipyJS filter"""
@@ -90,4 +90,4 @@ class TestAssets(unittest.TestCase):
         afilter = UglipyJS()
         afilter.setup()
         afilter.output(infile, outfile)
-        self.assertEqual(outfile.getvalue(), 'function test(){alert("Hello, world!")};')
+        assert outfile.getvalue() == 'function test(){alert("Hello, world!")};'
