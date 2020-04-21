@@ -30,26 +30,27 @@ else:  # pragma: no cover
 
 __all__ = [
     'VALID_TAGS',
-    'unicode_extended_whitespace',
+    'deobfuscate_email',
+    'normalize_spaces',
+    'normalize_spaces_multiline',
     'sanitize_html',
+    'simplify_text',
     'text_blocks',
-    'word_count',
     'ulstrip',
+    'unicode_extended_whitespace',
     'urstrip',
     'ustrip',
-    'deobfuscate_email',
-    'simplify_text',
+    'word_count',
 ]
 
 
 #: Unicode's list of whitespace characters is missing some that were previously
 #: classified as whitespace but are now considered format characters. These are
 #: invisible and usually arrive via copy-paste, so we include them here as characters to
-#: be stripped from the ends of text.
-unicode_extended_whitespace = (
-    u'\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
+#: be replaced with spaces and stripped from the ends of text.
+unicode_format_whitespace = (
     u'\x85'  # NEXT LINE (NEL)
-    u'\xa0'  # NO-BREAK SPACE
+    u'\xa0'  # NO-BREAK SPACE (NBSP)
     u'\u1680'  # OGHAM SPACE MARK
     u'\u180e'  # MONGOLIAN VOWEL SEPARATOR
     u'\u2000'  # EN QUAD
@@ -73,6 +74,17 @@ unicode_extended_whitespace = (
     u'\u2060'  # WORD JOINER (format)
     u'\u3000'  # IDEOGRAPHIC SPACE
     u'\ufeff'  # ZERO WIDTH NO-BREAK SPACE (format)
+)
+
+unicode_extended_whitespace = (
+    u'\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
+) + unicode_format_whitespace
+
+re_singleline_spaces = re.compile(
+    '[' + unicode_extended_whitespace + ']', re.UNICODE | re.MULTILINE
+)
+re_multiline_spaces = re.compile(
+    '[' + unicode_format_whitespace + ']', re.UNICODE | re.MULTILINE
 )
 
 VALID_TAGS = {
@@ -264,6 +276,21 @@ def word_count(text, html=True):
     text = _strip_re.sub('', text)
     text = _punctuation_re.sub(' ', text)
     return len(text.split())
+
+
+def normalize_spaces(text):
+    """
+    Replace whitespace characters with regular spaces.
+    """
+    return re_singleline_spaces.sub(' ', text)
+
+
+def normalize_spaces_multiline(text):
+    """
+    Replace whitespace characters with regular spaces, but ignoring characters that are
+    relevant to multiline text, like tabs and newlines.
+    """
+    return re_multiline_spaces.sub(' ', text)
 
 
 def ulstrip(text):

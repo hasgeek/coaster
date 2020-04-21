@@ -218,6 +218,33 @@ class TestMarkdown(unittest.TestCase):
             == '<p>hello <del>there</del></p>'
         )
 
+    def test_markdown_javascript_link(self):
+        """Markdown rendering should strip `javascript:` protocol links"""
+        # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
+        # link3 entirely, mashing it into link2.
+        assert markdown(
+            '[link1](http://example.com) '
+            '[link2](javascript:alert(document.cookie) '
+            '[link3](javascript:alert("Hello"))'
+        ) == (
+            '<p><a href="http://example.com" rel="nofollow">link1</a> '
+            '<a title="Hello">link2</a>)</p>'
+        )
+
+    def test_markdown_javascript_link_html(self):
+        """Markdown rendering should strip `javascript:` protocol links"""
+        # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
+        # link3 entirely, mashing it into link2.
+        assert markdown(
+            '[link1](http://example.com) '
+            '[link2](javascript:alert(document.cookie) '
+            '[link3](javascript:alert("Hello"))',
+            html=True,
+        ) == (
+            '<p><a href="http://example.com" rel="nofollow">link1</a> '
+            '<a title="Hello">link2</a>)</p>'
+        )
+
     def test_empty_markdown(self):
         """Don't choke on None"""
         assert markdown(None) is None
