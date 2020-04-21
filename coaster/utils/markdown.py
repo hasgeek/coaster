@@ -19,10 +19,11 @@ from __future__ import absolute_import
 from bleach import linkify
 from markdown import Markdown
 from markdown.extensions import Extension
+from markdown.treeprocessors import Treeprocessor
 from markupsafe import Markup
 from pymdownx.emoji import to_alt as emoji_to_alt
 
-from .text import VALID_TAGS, sanitize_html
+from .text import VALID_TAGS, normalize_spaces_multiline, sanitize_html
 
 __all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
 
@@ -58,6 +59,27 @@ class EscapeHtml(Extension):
         md.inlinePatterns.deregister('html')
 
 
+class JavascriptProtocolProcessor(Treeprocessor):
+    def run(self, root):
+        for anchor in root.iter('a'):
+            href = anchor.attrib.get('href')
+            if href and href.lower().startswith('javascript:'):
+                del anchor.attrib['href']
+
+
+class JavascriptProtocolExtension(Extension):
+    """
+    Extension to include :class:`JavascriptProtocolProcessor` as a markdown processor.
+    """
+
+    def extendMarkdown(self, md):  # NOQA: N802
+        # Register with low priority so we run last
+        md.treeprocessors.register(
+            JavascriptProtocolProcessor(md), 'javascript_protocol', 1
+        )
+        md.registerExtension(self)
+
+
 extensions = [
     'markdown.extensions.abbr',
     'markdown.extensions.footnotes',
@@ -67,11 +89,12 @@ extensions = [
     'markdown.extensions.smarty',
     'pymdownx.superfences',
     'pymdownx.betterem',
-    'pymdownx.caret',
-    'pymdownx.tilde',
-    'pymdownx.emoji',
-    'pymdownx.mark',
+    'pymdownx.caret',  # Support ^^<ins>^^
+    'pymdownx.tilde',  # Support ~~<del>~~
+    'pymdownx.emoji',  # Support :emoji:
+    'pymdownx.mark',  # Support ==<mark>==
     'pymdownx.smartsymbols',
+    JavascriptProtocolExtension(),
 ]
 
 extensions_text = extensions + [
@@ -110,6 +133,10 @@ def markdown(text, html=False, valid_tags=None):
         return None
     if valid_tags is None:
         valid_tags = MARKDOWN_HTML_TAGS
+
+    # Replace invisible characters with spaces
+    text = normalize_spaces_multiline(text)
+
     if html:
         return Markup(
             sanitize_html(
