@@ -320,10 +320,11 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_uuidmixin_roles(self):
         """
-        A model with UuidMixin provides 'all' read access to uuid, uuid_hex, buid and suuid
+        A model with UuidMixin provides 'all' read access to uuid, uuid_b58 and uuid_b64
+        among others.
         """
         self.assertLessEqual(
-            {'uuid', 'uuid_hex', 'buid', 'suuid'}, UuidModel.__roles__['all']['read']
+            {'uuid', 'buid', 'uuid_b58', 'uuid_b64'}, UuidModel.__roles__['all']['read']
         )
 
     def test_roles_for_anon(self):

@@ -210,6 +210,8 @@ class UuidMixin(object):
         return SqlUuidB64Comparator(cls.uuid)
 
     #: Retain `buid` as a public attribute for backward compatibility
+    #: Since `with_roles` annotates the attribute, both aliases (uuid_b64 and buid)
+    #: will become public to the `all` role as a result of this annotation.
     buid = with_roles(uuid_b64, read={'all'})
 
     @hybrid_property
