@@ -88,7 +88,7 @@ class TestCoasterUtils(unittest.TestCase):
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes."""
         with pytest.raises(ValueError):
-            make_password(password='password', encoding=u'DES')
+            make_password(password='password', encoding=u'DES')  # noqa: S106
 
     def test_check_password(self):
         assert not check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword')
