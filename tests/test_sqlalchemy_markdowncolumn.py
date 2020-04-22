@@ -38,10 +38,10 @@ class TestMarkdownColumn(unittest.TestCase):
         data = MarkdownData(value=text)
         self.session.add(data)
         self.session.commit()
-        self.assertEqual(data.value.html, markdown(text))
-        self.assertEqual(data.value.text, text)
-        self.assertEqual(data.value.__str__(), text)
-        self.assertEqual(data.value.__html__(), markdown(text))
+        assert data.value.html == markdown(text)
+        assert data.value.text == text
+        assert data.value.__str__() == text
+        assert data.value.__html__() == markdown(text)
 
     def test_does_not_render_on_load(self):
         text = u"This is the text"
@@ -58,10 +58,10 @@ class TestMarkdownColumn(unittest.TestCase):
 
         # Reload from db and confirm HTML is exactly as committed
         data = MarkdownData.query.first()
-        self.assertEqual(data.value.text, text)
-        self.assertEqual(data.value.html, fake_html)
-        self.assertEqual(data.value.__str__(), text)
-        self.assertEqual(data.value.__html__(), fake_html)
+        assert data.value.text == text
+        assert data.value.html == fake_html
+        assert data.value.__str__() == text
+        assert data.value.__html__() == fake_html
 
         # Edit text and confirm HTML was regenerated, saved and reloaded
         data.value.text = text
@@ -69,10 +69,10 @@ class TestMarkdownColumn(unittest.TestCase):
         del data
 
         data = MarkdownData.query.first()
-        self.assertEqual(data.value.text, text)
-        self.assertEqual(data.value.html, real_html)
-        self.assertEqual(data.value.__str__(), text)
-        self.assertEqual(data.value.__html__(), real_html)
+        assert data.value.text == text
+        assert data.value.html == real_html
+        assert data.value.__str__() == text
+        assert data.value.__html__() == real_html
 
     def test_raw_value(self):
         text = u"This is the text"

@@ -21,9 +21,7 @@ class TestManagePy(unittest.TestCase):
 
     def test_sqlalchemy_database_uri(self):
         """Check settings file loaded properly"""
-        self.assertEqual(
-            'postgresql:///coaster_test', self.app.config.get('SQLALCHEMY_DATABASE_URI')
-        )
+        assert 'postgresql:///coaster_test' == self.app.config.get('SQLALCHEMY_DATABASE_URI')
 
     def test_set_alembic_revision(self):
         set_alembic_revision(path='tests/alembic')
