@@ -7,6 +7,8 @@ import unittest
 from flask import Flask
 from werkzeug.routing import BuildError
 
+import pytest
+
 from coaster.db import db
 
 from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument
@@ -210,7 +212,7 @@ class TestUrlFor(TestUrlForBase):
 
         assert doc1.urls != {}
         assert doc1.urls['view'] == 'http://localhost/document1'
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             doc1.urls['random']
 
         # The len() count includes the doc_with view, but it is excluded from actual
@@ -245,7 +247,7 @@ class TestUrlFor2(TestUrlForBase):
         self.session.commit()
 
         # This action is not available in this app
-        with self.assertRaises(BuildError):
+        with pytest.raises(BuildError):
             doc1.url_for('app_only')
 
     def test_url_dict_app_only(self):

@@ -47,4 +47,4 @@ sample_text_blocks = [
 class TestExtractText(unittest.TestCase):
     def test_extract_text(self):
         tb = text_blocks(sample_html, skip_pre=True)
-        self.assertEqual(tb, sample_text_blocks)
+        assert tb == sample_text_blocks

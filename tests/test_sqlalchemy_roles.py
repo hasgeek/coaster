@@ -13,6 +13,8 @@ from sqlalchemy.orm.collections import (
 
 from flask import Flask
 
+import pytest
+
 from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
@@ -270,126 +272,117 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_base_is_clean(self):
         """Specifying roles never mutates RoleMixin.__roles__"""
-        self.assertEqual(RoleMixin.__roles__, {})
+        assert RoleMixin.__roles__ == {}
 
     def test_role_dict(self):
         """Roles may be declared multiple ways and they all work"""
-        self.assertEqual(
-            RoleModel.__roles__,
-            {
-                'all': {
-                    'call': {'hello'},
-                    'read': {'id', 'name', 'title', 'mixed_in2'},
+        assert RoleModel.__roles__ == {
+            'all': {'call': {'hello'}, 'read': {'id', 'name', 'title', 'mixed_in2'}, },
+            'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
+            'owner': {
+                'read': {
+                    'name',
+                    'defval',
+                    'mixed_in1',
+                    'mixed_in2',
+                    'mixed_in3',
+                    'mixed_in4',
                 },
-                'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
-                'owner': {
-                    'read': {
-                        'name',
-                        'defval',
-                        'mixed_in1',
-                        'mixed_in2',
-                        'mixed_in3',
-                        'mixed_in4',
-                    },
-                    'write': {
-                        'name',
-                        'title',
-                        'defval',
-                        'mixed_in1',
-                        'mixed_in2',
-                        'mixed_in3',
-                        'mixed_in4',
-                    },
+                'write': {
+                    'name',
+                    'title',
+                    'defval',
+                    'mixed_in1',
+                    'mixed_in2',
+                    'mixed_in3',
+                    'mixed_in4',
                 },
             },
-        )
+        }
 
     def test_autorole_dict(self):
         """A model without __roles__, using only with_roles, also works as expected"""
-        self.assertEqual(
-            AutoRoleModel.__roles__,
-            {
-                'all': {'read': {'id', 'name'}},
-                'owner': {'read': {'name'}, 'write': {'name'}},
-            },
-        )
+        assert AutoRoleModel.__roles__ == {
+            'all': {'read': {'id', 'name'}},
+            'owner': {'read': {'name'}, 'write': {'name'}},
+        }
 
     def test_basemixin_roles(self):
         """A model with BaseMixin by default exposes nothing to the 'all' role"""
-        self.assertEqual(BaseModel.__roles__.get('all', {}).get('read', set()), set())
+        assert BaseModel.__roles__.get('all', {}).get('read', set()) == set()
 
     def test_uuidmixin_roles(self):
         """
         A model with UuidMixin provides 'all' read access to uuid, uuid_b58 and uuid_b64
         among others.
         """
-        self.assertLessEqual(
-            {'uuid', 'buid', 'uuid_b58', 'uuid_b64'}, UuidModel.__roles__['all']['read']
-        )
+        assert {'uuid', 'buid', 'uuid_b58', 'uuid_b64'} <= UuidModel.__roles__['all'][
+            'read'
+        ]
 
     def test_roles_for_anon(self):
         """An anonymous actor should have 'all' and 'anon' roles"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=None)
-        self.assertEqual(roles, {'all', 'anon'})
+        assert roles == {'all', 'anon'}
 
     def test_roles_for_actor(self):
         """An actor (but anchors) must have 'all' and 'auth' roles"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=1)
-        self.assertEqual(roles, {'all', 'auth'})
+        assert roles == {'all', 'auth'}
         roles = rm.roles_for(anchors=(1,))
-        self.assertEqual(roles, {'all', 'anon'})
+        assert roles == {'all', 'anon'}
 
     def test_roles_for_owner(self):
         """Presenting the correct anchor grants 'owner' role"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(anchors=('owner-secret',))
-        self.assertEqual(roles, {'all', 'anon', 'owner'})
+        assert roles == {'all', 'anon', 'owner'}
 
     def test_current_roles(self):
         """Current roles are available"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.current_roles
-        self.assertEqual(roles, {'all', 'anon'})
-        self.assertTrue(roles.all)
-        self.assertTrue(roles.anon)
-        self.assertFalse(roles.owner)
+        assert roles == {'all', 'anon'}
+        assert roles.all
+        assert roles.anon
+        assert not roles.owner
 
     def test_access_for_syntax(self):
         """access_for can be called with either roles or actor for identical outcomes"""
         rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles=rm.roles_for(actor=None))
         proxy2 = rm.access_for(actor=None)
-        self.assertEqual(proxy1, proxy2)
+        assert proxy1 == proxy2
 
     def test_access_for_all(self):
         """All actors should be able to read some fields"""
         arm = AutoRoleModel(name='test')
         proxy = arm.access_for(actor=None)
-        self.assertEqual(len(proxy), 2)
-        self.assertEqual(set(proxy.keys()), {'id', 'name'})
+        assert len(proxy) == 2
+        assert set(proxy.keys()) == {'id', 'name'}
 
     def test_current_access(self):
         """Current access is available"""
         arm = AutoRoleModel(name='test')
         proxy = arm.current_access()
-        self.assertEqual(len(proxy), 2)
-        self.assertEqual(set(proxy.keys()), {'id', 'name'})
+        assert len(proxy) == 2
+        assert set(proxy.keys()) == {'id', 'name'}
 
         roles = proxy.current_roles
-        self.assertEqual(roles, {'all', 'anon'})
-        self.assertTrue(roles.all)
-        self.assertTrue(roles.anon)
-        self.assertFalse(roles.owner)
+        assert roles == {'all', 'anon'}
+        assert roles.all
+        assert roles.anon
+        assert not roles.owner
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(actor=None)
-        self.assertIn('name', proxy)
-        self.assertEqual(proxy.name, 'test')
-        self.assertEqual(proxy['name'], 'test')
+        assert 'name' in proxy
+        assert proxy.name == 'test'
+        assert proxy['name'] == 'test'
 
     def test_diff_roles(self):
         """Different roles get different access"""
@@ -397,24 +390,25 @@ class TestCoasterRoles(unittest.TestCase):
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
-        self.assertEqual(set(proxy1), {'id', 'name', 'title', 'mixed_in2'})
-        self.assertEqual(
-            set(proxy2),
-            {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'},
-        )
-        self.assertEqual(
-            set(proxy3),
-            {
-                'id',
-                'name',
-                'title',
-                'defval',
-                'mixed_in1',
-                'mixed_in2',
-                'mixed_in3',
-                'mixed_in4',
-            },
-        )
+        assert set(proxy1) == {'id', 'name', 'title', 'mixed_in2'}
+        assert set(proxy2) == {
+            'name',
+            'defval',
+            'mixed_in1',
+            'mixed_in2',
+            'mixed_in3',
+            'mixed_in4',
+        }
+        assert set(proxy3) == {
+            'id',
+            'name',
+            'title',
+            'defval',
+            'mixed_in1',
+            'mixed_in2',
+            'mixed_in3',
+            'mixed_in4',
+        }
 
     def test_diff_roles_single_model_dataset(self):
         """Data profiles constrain the attributes available via enumeration"""
@@ -443,54 +437,52 @@ class TestCoasterRoles(unittest.TestCase):
         """A proxy may allow writes without allowing reads"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'owner'})
-        self.assertEqual(rm.title, 'Test')
+        assert rm.title == 'Test'
         proxy.title = 'Changed'
-        self.assertEqual(rm.title, 'Changed')
+        assert rm.title == 'Changed'
         proxy['title'] = 'Changed again'
-        self.assertEqual(rm.title, 'Changed again')
-        with self.assertRaises(AttributeError):
+        assert rm.title == 'Changed again'
+        with pytest.raises(AttributeError):
             proxy.title
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             proxy['title']
 
     def test_no_write(self):
         """A proxy will disallow writes if the role doesn't permit it"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'editor'})
-        self.assertEqual(rm.title, 'Test')
+        assert rm.title == 'Test'
         # 'editor' has permission to write to 'title'
         proxy.title = 'Changed'
-        self.assertEqual(rm.title, 'Changed')
+        assert rm.title == 'Changed'
         # 'editor' does not have permission to write to 'name'
-        self.assertEqual(rm.name, 'test')
-        with self.assertRaises(AttributeError):
+        assert rm.name == 'test'
+        with pytest.raises(AttributeError):
             proxy.name = 'changed'
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             proxy['name'] = 'changed'
-        self.assertEqual(rm.name, 'test')
+        assert rm.name == 'test'
 
     def test_method_call(self):
         """Method calls are allowed as calling is just an alias for reading"""
         rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles={'all'})
         proxy2 = rm.access_for(roles={'owner'})
-        self.assertEqual(proxy1.hello(), "Hello!")
-        with self.assertRaises(AttributeError):
+        assert proxy1.hello() == "Hello!"
+        with pytest.raises(AttributeError):
             proxy2.hello()
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             proxy2['hello']()
 
     def test_dictionary_comparison(self):
         """A proxy can be compared with a dictionary"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'all'})
-        self.assertEqual(
-            proxy, {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
-        )
+        assert proxy == {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
 
     def test_bad_decorator(self):
         """Prevent with_roles from being used with a positional parameter"""
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
 
             @with_roles({'all'})
             def f():
@@ -499,11 +491,11 @@ class TestCoasterRoles(unittest.TestCase):
     def test_access_for_roles_and_actor_or_anchors(self):
         """access_for accepts roles or actor/anchors, not both/all"""
         rm = RoleModel(name='test', title='Test')
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             rm.access_for(roles={'all'}, actor=1)
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             rm.access_for(roles={'all'}, anchors=('owner-secret',))
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             rm.access_for(roles={'all'}, actor=1, anchors=('owner-secret',))
 
     def test_scalar_relationship(self):
@@ -669,7 +661,7 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_actors_with_invalid(self):
         m1 = RoleGrantMany()
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             # Parameter can't be a string
             m1.actors_with('owner')
 
@@ -696,7 +688,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert owner_proxy.datacol == 'xyz'
 
         # Confirm the unroled synonym isn't available in the proxy
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             owner_proxy.altcol_unroled = 'uvw'
 
         all_proxy = rgs.access_for(roles={'all'})
@@ -706,7 +698,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert all_proxy.altcol_roled == 'xyz'
 
         # The altcol_roled synonym has only read access to the all role
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             all_proxy.altcol_roled = 'pqr'
 
     def test_dynamic_association_proxy(self):

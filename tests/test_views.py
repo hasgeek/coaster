@@ -5,6 +5,8 @@ import unittest
 from flask import Flask, json, session
 from werkzeug.exceptions import BadRequest, Forbidden
 
+import pytest
+
 from coaster.app import load_config_from_file
 from coaster.auth import add_auth_attribute, current_auth
 from coaster.views import (
@@ -79,32 +81,32 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_get_current_url(self):
         with self.app.test_request_context('/'):
-            self.assertEqual(get_current_url(), '/')
+            assert get_current_url() == '/'
 
         with self.app.test_request_context('/?q=hasgeek'):
-            self.assertEqual(get_current_url(), '/?q=hasgeek')
+            assert get_current_url() == '/?q=hasgeek'
 
         self.app.config['SERVER_NAME'] = 'example.com'
 
         with self.app.test_request_context(
             '/somewhere', environ_overrides={'HTTP_HOST': 'example.com'}
         ):
-            self.assertEqual(get_current_url(), '/somewhere')
+            assert get_current_url() == '/somewhere'
 
         with self.app.test_request_context(
             '/somewhere', environ_overrides={'HTTP_HOST': 'sub.example.com'}
         ):
-            self.assertEqual(get_current_url(), 'http://sub.example.com/somewhere')
+            assert get_current_url() == 'http://sub.example.com/somewhere'
 
     def test_get_next_url(self):
         with self.app.test_request_context('/?next=http://example.com'):
-            self.assertEqual(get_next_url(external=True), 'http://example.com')
-            self.assertEqual(get_next_url(), '/')
-            self.assertEqual(get_next_url(default=()), ())
+            assert get_next_url(external=True) == 'http://example.com'
+            assert get_next_url() == '/'
+            assert get_next_url(default=()) == ()
 
         with self.app.test_request_context('/'):
             session['next'] = '/external'
-            self.assertEqual(get_next_url(session=True), '/external')
+            assert get_next_url(session=True) == '/external'
 
     def test_jsonp(self):
         with self.app.test_request_context('/?callback=callback'):
@@ -115,57 +117,57 @@ class TestCoasterViews(unittest.TestCase):
                 % ('lang', kwargs['lang'], 'query', kwargs['query'])
             ).encode('utf-8')
 
-            self.assertEqual(response, r.get_data())
+            assert response == r.get_data()
 
         with self.app.test_request_context('/'):
             param1, param2 = 1, 2
             r = jsonp(param1=param1, param2=param2)
             resp = json.loads(r.response[0])
-            self.assertEqual(resp['param1'], param1)
-            self.assertEqual(resp['param2'], param2)
+            assert resp['param1'] == param1
+            assert resp['param2'] == param2
             r = jsonp({'param1': param1, 'param2': param2})
             resp = json.loads(r.response[0])
-            self.assertEqual(resp['param1'], param1)
-            self.assertEqual(resp['param2'], param2)
+            assert resp['param1'] == param1
+            assert resp['param2'] == param2
             r = jsonp([('param1', param1), ('param2', param2)])
             resp = json.loads(r.response[0])
-            self.assertEqual(resp['param1'], param1)
-            self.assertEqual(resp['param2'], param2)
+            assert resp['param1'] == param1
+            assert resp['param2'] == param2
 
     def test_requestargs(self):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            self.assertEqual(requestargs_test1(), (u'1', 3, [1, 2]))
+            assert requestargs_test1() == (u'1', 3, [1, 2])
 
         with self.app.test_request_context('/?p2=2'):
-            self.assertEqual(requestargs_test1(p1='1'), (u'1', 2, None))
+            assert requestargs_test1(p1='1') == (u'1', 2, None)
 
         with self.app.test_request_context('/?p2=2'):
-            self.assertEqual(requestargs_test1(p1='1', p2=3), (u'1', 3, None))
+            assert requestargs_test1(p1='1', p2=3) == (u'1', 3, None)
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            self.assertEqual(requestargs_test2(), (u'1', 3, [u'1', u'2']))
+            assert requestargs_test2() == (u'1', 3, [u'1', u'2'])
 
         with self.app.test_request_context('/?p2=2&p4=4'):
-            with self.assertRaises(TypeError):
+            with pytest.raises(TypeError):
                 requestargs_test1(p4='4')
-            with self.assertRaises(BadRequest):
+            with pytest.raises(BadRequest):
                 requestargs_test1(p4='4')
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            self.assertEqual(requestquery_test(), (u'1', 3, [1, 2]))
+            assert requestquery_test() == (u'1', 3, [1, 2])
 
         with self.app.test_request_context(
             '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
         ):
-            self.assertEqual(requestform_test(), (u'1', 3, [1, 2]))
+            assert requestform_test() == (u'1', 3, [1, 2])
 
         with self.app.test_request_context(
             '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
         ):
-            self.assertEqual(requestcombo_test(), ('foo', 'bar'))
+            assert requestcombo_test() == ('foo', 'bar')
 
         # Calling without a request context works as well
-        self.assertEqual(requestargs_test1(p1='1', p2=3, p3=[1, 2]), ('1', 3, [1, 2]))
+        assert requestargs_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])
 
     def test_requires_permission(self):
         with self.app.test_request_context():
@@ -173,9 +175,9 @@ class TestCoasterViews(unittest.TestCase):
             assert permission1.is_available() is False
             assert permission2.is_available() is False
 
-            with self.assertRaises(Forbidden):
+            with pytest.raises(Forbidden):
                 permission1()
-            with self.assertRaises(Forbidden):
+            with pytest.raises(Forbidden):
                 permission2()
 
             add_auth_attribute('permissions', set())
@@ -183,9 +185,9 @@ class TestCoasterViews(unittest.TestCase):
             assert permission1.is_available() is False
             assert permission2.is_available() is False
 
-            with self.assertRaises(Forbidden):
+            with pytest.raises(Forbidden):
                 permission1()
-            with self.assertRaises(Forbidden):
+            with pytest.raises(Forbidden):
                 permission2()
 
             current_auth.permissions.add(
@@ -195,7 +197,7 @@ class TestCoasterViews(unittest.TestCase):
             assert permission1.is_available() is False
             assert permission2.is_available() is True
 
-            with self.assertRaises(Forbidden):
+            with pytest.raises(Forbidden):
                 permission1()
             assert permission2() == 'allowed2'
 

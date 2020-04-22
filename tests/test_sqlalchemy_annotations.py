@@ -11,6 +11,8 @@ import sqlalchemy.exc
 
 from flask import Flask
 
+import pytest
+
 from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
@@ -143,24 +145,24 @@ class TestCoasterAnnotations(unittest.TestCase):
 
     def test_has_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
-            self.assertTrue(hasattr(model, '__annotations__'))
-            self.assertTrue(hasattr(model, '__annotations_by_attr__'))
+            assert hasattr(model, '__annotations__')
+            assert hasattr(model, '__annotations_by_attr__')
 
     def test_annotation_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
             for annotation in (immutable, cached):
-                self.assertIn(annotation.name, model.__annotations__)
+                assert annotation.name in model.__annotations__
 
     def test_attr_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
-            self.assertIn('is_immutable', model.__annotations__['immutable'])
-            self.assertIn('is_cached', model.__annotations__['cached'])
+            assert 'is_immutable' in model.__annotations__['immutable']
+            assert 'is_cached' in model.__annotations__['cached']
 
     def test_base_attrs_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
             for attr in ('created_at', 'id'):
-                self.assertIn(attr, model.__annotations__['immutable'])
-        self.assertIn('uuid', IdUuid.__annotations__['immutable'])
+                assert attr in model.__annotations__['immutable']
+        assert 'uuid' in IdUuid.__annotations__['immutable']
 
     def test_init_immutability(self):
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
@@ -168,25 +170,25 @@ class TestCoasterAnnotations(unittest.TestCase):
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
 
         # Regular columns work as usual
-        self.assertEqual(i1.is_regular, 1)
-        self.assertEqual(i2.is_regular, 'a')
-        self.assertEqual(i3.is_regular, 'x')
+        assert i1.is_regular == 1
+        assert i2.is_regular == 'a'
+        assert i3.is_regular == 'x'
         # Immutable columns gets an initial value
-        self.assertEqual(i1.is_immutable, 2)
-        self.assertEqual(i2.is_immutable, 'b')
-        self.assertEqual(i3.is_immutable, 'y')
+        assert i1.is_immutable == 2
+        assert i2.is_immutable == 'b'
+        assert i3.is_immutable == 'y'
         # No special behaviour for cached columns, despite the annotation
-        self.assertEqual(i1.is_cached, 3)
-        self.assertEqual(i2.is_cached, 'c')
-        self.assertEqual(i3.is_cached, 'z')
+        assert i1.is_cached == 3
+        assert i2.is_cached == 'c'
+        assert i3.is_cached == 'z'
 
         # Regular columns are mutable
         i1.is_regular = 10
         i2.is_regular = 'aa'
         i3.is_regular = 'xx'
-        self.assertEqual(i1.is_regular, 10)
-        self.assertEqual(i2.is_regular, 'aa')
-        self.assertEqual(i3.is_regular, 'xx')
+        assert i1.is_regular == 10
+        assert i2.is_regular == 'aa'
+        assert i3.is_regular == 'xx'
 
         # Immutable columns won't complain if they're updated with the same value
         i1.is_immutable = 2
@@ -194,20 +196,20 @@ class TestCoasterAnnotations(unittest.TestCase):
         i3.is_immutable = 'y'
 
         # Immutable columns are immutable if the value changes
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i1.is_immutable = 20
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i2.is_immutable = 'bb'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i3.is_immutable = 'yy'
 
         # No special behaviour for cached columns, despite the annotation
         i1.is_cached = 30
         i2.is_cached = 'cc'
         i3.is_cached = 'zz'
-        self.assertEqual(i1.is_cached, 30)
-        self.assertEqual(i2.is_cached, 'cc')
-        self.assertEqual(i3.is_cached, 'zz')
+        assert i1.is_cached == 30
+        assert i2.is_cached == 'cc'
+        assert i3.is_cached == 'zz'
 
     def test_postinit_immutability(self):
         # Make instances with no initial value
@@ -231,41 +233,41 @@ class TestCoasterAnnotations(unittest.TestCase):
         i3.is_cached = 'z'
 
         # Regular columns work as usual
-        self.assertEqual(i1.is_regular, 1)
-        self.assertEqual(i2.is_regular, 'a')
-        self.assertEqual(i3.is_regular, 'x')
+        assert i1.is_regular == 1
+        assert i2.is_regular == 'a'
+        assert i3.is_regular == 'x'
         # Immutable columns accept the initial value
-        self.assertEqual(i1.is_immutable, 2)
-        self.assertEqual(i2.is_immutable, 'b')
-        self.assertEqual(i3.is_immutable, 'y')
+        assert i1.is_immutable == 2
+        assert i2.is_immutable == 'b'
+        assert i3.is_immutable == 'y'
         # No special behaviour for cached columns, despite the annotation
-        self.assertEqual(i1.is_cached, 3)
-        self.assertEqual(i2.is_cached, 'c')
-        self.assertEqual(i3.is_cached, 'z')
+        assert i1.is_cached == 3
+        assert i2.is_cached == 'c'
+        assert i3.is_cached == 'z'
 
         # Regular columns are mutable
         i1.is_regular = 10
         i2.is_regular = 'aa'
         i3.is_regular = 'xx'
-        self.assertEqual(i1.is_regular, 10)
-        self.assertEqual(i2.is_regular, 'aa')
-        self.assertEqual(i3.is_regular, 'xx')
+        assert i1.is_regular == 10
+        assert i2.is_regular == 'aa'
+        assert i3.is_regular == 'xx'
 
         # Immutable columns are immutable
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i1.is_immutable = 20
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i2.is_immutable = 'bb'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i3.is_immutable = 'yy'
 
         # No special behaviour for cached columns, despite the annotation
         i1.is_cached = 30
         i2.is_cached = 'cc'
         i3.is_cached = 'zz'
-        self.assertEqual(i1.is_cached, 30)
-        self.assertEqual(i2.is_cached, 'cc')
-        self.assertEqual(i3.is_cached, 'zz')
+        assert i1.is_cached == 30
+        assert i2.is_cached == 'cc'
+        assert i3.is_cached == 'zz'
 
     def test_postload_immutability(self):
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
@@ -288,16 +290,16 @@ class TestCoasterAnnotations(unittest.TestCase):
         pi3 = UuidOnly.query.options(db.load_only('id')).filter_by(id=id3).one()
 
         # Confirm there is no value for is_immutable
-        self.assertIs(inspect(pi1).attrs.is_immutable.loaded_value, NO_VALUE)
-        self.assertIs(inspect(pi2).attrs.is_immutable.loaded_value, NO_VALUE)
-        self.assertIs(inspect(pi3).attrs.is_immutable.loaded_value, NO_VALUE)
+        assert inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
+        assert inspect(pi2).attrs.is_immutable.loaded_value is NO_VALUE
+        assert inspect(pi3).attrs.is_immutable.loaded_value is NO_VALUE
 
         # Immutable columns are immutable even if not loaded
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             pi1.is_immutable = 20
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             pi2.is_immutable = 'bb'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             pi3.is_immutable = 'yy'
 
     def test_immutable_foreignkey(self):
@@ -318,10 +320,10 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.session.commit()
 
         # Now try changing the value. i1 and i3 should block, i2 should allow
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i1.referral_target_id = rt2.id
         i2.referral_target_id = rt2.id
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i3.referral_target_id = rt2.id
 
     def test_immutable_relationship(self):
@@ -347,27 +349,27 @@ class TestCoasterAnnotations(unittest.TestCase):
         # immutable validator only listens for direct changes, not
         # via relationships
         i1.referral_target = rt2
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i2.referral_target = rt2
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             i3.referral_target = rt2
 
     def test_polymorphic_annotations(self):
-        self.assertIn('is_immutable', PolymorphicParent.__annotations__['immutable'])
-        self.assertIn('also_immutable', PolymorphicParent.__annotations__['immutable'])
-        self.assertIn('is_immutable', PolymorphicChild.__annotations__['immutable'])
-        self.assertIn('also_immutable', PolymorphicChild.__annotations__['immutable'])
+        assert 'is_immutable' in PolymorphicParent.__annotations__['immutable']
+        assert 'also_immutable' in PolymorphicParent.__annotations__['immutable']
+        assert 'is_immutable' in PolymorphicChild.__annotations__['immutable']
+        assert 'also_immutable' in PolymorphicChild.__annotations__['immutable']
 
     def test_polymorphic_immutable(self):
         parent = PolymorphicParent(is_immutable='a', also_immutable='b')
         child = PolymorphicChild(is_immutable='x', also_immutable='y')
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             parent.is_immutable = 'aa'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             parent.also_immutable = 'bb'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             child.is_immutable = 'xx'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             child.also_immutable = 'yy'
 
     def test_synonym_annotation(self):
@@ -380,7 +382,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         assert sa.col_immutable == 'b'
         sa.col_regular = 'x'
         assert sa.col_regular == 'x'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             sa.col_immutable = 'y'
         assert sa.col_immutable == 'b'
         # The synonyms can add immutability, but cannot remove it from the
@@ -389,7 +391,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         assert sa.syn_to_immutable == 'b'
         sa.syn_to_regular = 'p'
         assert sa.syn_to_regular == 'p'
-        with self.assertRaises(ImmutableColumnError):
+        with pytest.raises(ImmutableColumnError):
             sa.syn_to_immutable = 'y'
         assert sa.syn_to_immutable == 'b'
         assert sa.col_immutable == 'b'

@@ -8,6 +8,7 @@ import unittest
 import uuid
 
 from pytz import UTC, common_timezones
+import pytest
 
 from coaster.utils import (
     InspectableSet,
@@ -57,53 +58,45 @@ class TestTZ(datetime.tzinfo):
 
 class TestCoasterUtils(unittest.TestCase):
     def test_labeled_enum(self):
-        self.assertEqual(MY_ENUM.FIRST, 1)
-        self.assertEqual(MY_ENUM.SECOND, 2)
-        self.assertEqual(MY_ENUM.THIRD, 3)
+        assert MY_ENUM.FIRST == 1
+        assert MY_ENUM.SECOND == 2
+        assert MY_ENUM.THIRD == 3
 
-        self.assertEqual(MY_ENUM[MY_ENUM.FIRST], "First")
-        self.assertEqual(MY_ENUM[MY_ENUM.SECOND], "Second")
-        self.assertEqual(MY_ENUM[MY_ENUM.THIRD], "Third")
+        assert MY_ENUM[MY_ENUM.FIRST] == "First"
+        assert MY_ENUM[MY_ENUM.SECOND] == "Second"
+        assert MY_ENUM[MY_ENUM.THIRD] == "Third"
 
         if six.PY2:
-            self.assertEqual(
-                sorted(MY_ENUM.items()), [(1, "First"), (2, "Second"), (3, "Third")]
-            )
+            assert sorted(MY_ENUM.items()) == [
+                (1, "First"),
+                (2, "Second"),
+                (3, "Third"),
+            ]
         else:
-            self.assertEqual(
-                MY_ENUM.items(), [(1, "First"), (2, "Second"), (3, "Third")]
-            )
+            assert MY_ENUM.items() == [(1, "First"), (2, "Second"), (3, "Third")]
 
-        self.assertEqual(
-            MY_ENUM_TWO.nametitles(),
-            [('first', "First"), ('second', "Second"), ('third', "Third")],
-        )
-        self.assertEqual(MY_ENUM_TWO.value_for('second'), 2)
+        assert MY_ENUM_TWO.nametitles() == [
+            ('first', "First"),
+            ('second', "Second"),
+            ('third', "Third"),
+        ]
+        assert MY_ENUM_TWO.value_for('second') == 2
 
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             MY_ENUM[2] = "SECOND"
 
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes."""
-        self.assertRaises(  # NOQA: S106
-            ValueError, make_password, password='password', encoding=u'DES'
-        )
+        with pytest.raises(ValueError):
+            make_password(password='password', encoding=u'DES')  # noqa: S106
 
     def test_check_password(self):
-        self.assertFalse(
-            check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword')
-        )
-        self.assertTrue(
-            check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword')
-        )
-        self.assertTrue(
-            check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test')
-        )
-        self.assertTrue(
-            check_password(
-                u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
-                u'test',
-            )
+        assert not check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword')
+        assert check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword')
+        assert check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test')
+        assert check_password(
+            u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
+            u'test',
         )
 
     def test_parse_isoformat(self):
@@ -132,7 +125,7 @@ class TestCoasterUtils(unittest.TestCase):
             1882, 12, 11, 0, 0, 0
         )
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             # lacking the T delimiter
             assert parse_isoformat('1882-12-11 00:00:00.1234Z') == datetime.datetime(
                 1882, 12, 11, 0, 0, 0, 123400
@@ -147,10 +140,10 @@ class TestCoasterUtils(unittest.TestCase):
             "2012-05-21 23:06:08", naive=False, delimiter=' '
         ) == datetime.datetime(2012, 5, 21, 23, 6, 8)
 
-        with self.assertRaises(ParseError):
+        with pytest.raises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'')
 
-        with self.assertRaises(ParseError):
+        with pytest.raises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'', naive=False)
 
     def test_parse_duration(self):
@@ -159,34 +152,34 @@ class TestCoasterUtils(unittest.TestCase):
         )
         assert parse_duration('PT10M1S') == datetime.timedelta(seconds=601)
         assert parse_duration('PT1H1S') == datetime.timedelta(seconds=3601)
-        with self.assertRaises(ParseError):
+        with pytest.raises(ParseError):
             # no time separator
             assert parse_duration('P2M10M1S')
 
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
-        self.assertEqual(sanitize_html(html), u'Test sanitize_htmlBodyalert("foo");')
-        self.assertEqual(
+        assert sanitize_html(html) == u'Test sanitize_htmlBodyalert("foo");'
+        assert (
             sanitize_html(
                 "<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"
-            ),
-            u'Test sanitize_html<p>P</p>',
+            )
+            == u'Test sanitize_html<p>P</p>'
         )
 
     def test_sorted_timezones(self):
         assert isinstance(sorted_timezones(), list)
 
     def test_namespace_from_url(self):
-        self.assertEqual(
-            namespace_from_url(u'https://github.com/hasgeek/coaster'), u'com.github'
+        assert (
+            namespace_from_url(u'https://github.com/hasgeek/coaster') == u'com.github'
         )
-        self.assertEqual(
+        assert (
             namespace_from_url(
                 u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'
-            ),
-            u'com.hasgeek.funnel',
+            )
+            == u'com.hasgeek.funnel'
         )
-        self.assertEqual(namespace_from_url(u'http://www.hasgeek.com'), u'com.hasgeek')
+        assert namespace_from_url(u'http://www.hasgeek.com') == u'com.hasgeek'
         assert namespace_from_url(u'www.hasgeek.com') is None
         assert namespace_from_url(u'This is an invalid url') is None
         # IP addresses are rejected
@@ -226,7 +219,7 @@ class TestCoasterUtils(unittest.TestCase):
             <a href="mailto:test@example.com">this</a>
             <test@example.com>
             """
-        self.assertEqual(deobfuscate_email(in_text), out_text)
+        assert deobfuscate_email(in_text) == out_text
 
     def test_isoweek_datetime_all_timezones(self):
         """Test that isoweek_datetime works for all timezones"""
@@ -260,57 +253,57 @@ class TestCoasterUtils(unittest.TestCase):
     def test_suuid(self):
         """Test the ShortUUID functions"""
         s1 = suuid()
-        self.assertEqual(len(s1), 22)
+        assert len(s1) == 22
         u1 = suuid2uuid(s1)
-        self.assertIsInstance(u1, uuid.UUID)
-        self.assertEqual(u1.version, 4)  # ShortUUID uses v4 UUIDs by default
+        assert isinstance(u1, uuid.UUID)
+        assert u1.version == 4  # ShortUUID uses v4 UUIDs by default
         s2 = uuid2suuid(u1)
-        self.assertEqual(s1, s2)
+        assert s1 == s2
 
     def test_require_one_of(self):
         # Valid scenarios
         require_one_of(solo='solo')
         require_one_of(first='first', second=None)
         # Invalid scenarios
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of()
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of(solo=None)
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of(first=None, second=None)
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of(first='first', second='second')
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of(first='first', second='second', third=None)
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             require_one_of(first='first', second='second', third='third')
         # Ask for which was passed in
-        self.assertEqual(require_one_of(True, first='a', second=None), ('first', 'a'))
-        self.assertEqual(require_one_of(True, first=None, second='b'), ('second', 'b'))
+        assert require_one_of(True, first='a', second=None) == ('first', 'a')
+        assert require_one_of(True, first=None, second='b') == ('second', 'b')
 
     def test_inspectable_set(self):
         s1 = InspectableSet(['all', 'anon'])
         assert 'all' in s1
         assert 'auth' not in s1
-        self.assertTrue(s1['all'])
-        self.assertFalse(s1['auth'])
-        self.assertTrue(s1.all)
-        self.assertFalse(s1.auth)
+        assert s1['all']
+        assert not s1['auth']
+        assert s1.all
+        assert not s1.auth
 
         s2 = InspectableSet({'all', 'anon', 'other'})
         assert 'all' in s2
         assert 'auth' not in s2
-        self.assertTrue(s2['all'])
-        self.assertFalse(s2['auth'])
-        self.assertTrue(s2.all)
-        self.assertFalse(s2.auth)
+        assert s2['all']
+        assert not s2['auth']
+        assert s2.all
+        assert not s2.auth
 
-        self.assertEqual(len(s1), 2)
-        self.assertEqual(len(s2), 3)
-        self.assertEqual(s1, {'all', 'anon'})
-        self.assertEqual(s2, {'all', 'anon', 'other'})
+        assert len(s1) == 2
+        assert len(s2) == 3
+        assert s1 == {'all', 'anon'}
+        assert s2 == {'all', 'anon', 'other'}
 
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             s1.auth = True
 
     def test_ulstrip(self):
