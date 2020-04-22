@@ -9,6 +9,8 @@ from flask_sqlalchemy import SQLAlchemy
 
 from flask import Flask
 
+import pytest
+
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (
     AbortTransition,
@@ -19,7 +21,6 @@ from coaster.sqlalchemy import (
 )
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
 from coaster.utils import LabeledEnum
-import pytest
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -627,8 +628,10 @@ class TestStateManager(unittest.TestCase):
         """State managers maintain the order of transitions from the class definition"""
         assert self.post.state.DRAFT
         # `submit` must come before `publish`
-        assert list(self.post.state.transitions(current=False).keys())[:2] == \
-            ['submit', 'publish']
+        assert list(self.post.state.transitions(current=False).keys())[:2] == [
+            'submit',
+            'publish',
+        ]
 
     def test_currently_available_transitions(self):
         """State managers indicate the currently available transitions (using current_auth)"""
@@ -673,7 +676,9 @@ class TestStateManager(unittest.TestCase):
         assert not wdraft()
         assert not wdraft
         assert self.post.state.DRAFT() == wdraft()  # False == False
-        assert self.post.state.DRAFT == wdraft  # Object remains the same even if not active
+        assert (
+            self.post.state.DRAFT == wdraft
+        )  # Object remains the same even if not active
         assert self.post.state.PENDING != wdraft  # These objects don't match
         assert self.post.state.PENDING() != wdraft()  # True != False
 
@@ -720,16 +725,17 @@ class TestStateManager(unittest.TestCase):
         self.session.commit()
         groups1 = MyPost.state.group(MyPost.query.all())
         # Order is preserved. Draft before Published. No Pending.
-        assert [g.label for g in groups1.keys()] == \
-            [MY_STATE[MY_STATE.DRAFT], MY_STATE[MY_STATE.PUBLISHED]]
+        assert [g.label for g in groups1.keys()] == [
+            MY_STATE[MY_STATE.DRAFT],
+            MY_STATE[MY_STATE.PUBLISHED],
+        ]
         # Order is preserved. Draft before Pending before Published.
         groups2 = MyPost.state.group(MyPost.query.all(), keep_empty=True)
-        assert [g.label for g in groups2.keys()] == \
-            [
-                MY_STATE[MY_STATE.DRAFT],
-                MY_STATE[MY_STATE.PENDING],
-                MY_STATE[MY_STATE.PUBLISHED],
-            ]
+        assert [g.label for g in groups2.keys()] == [
+            MY_STATE[MY_STATE.DRAFT],
+            MY_STATE[MY_STATE.PENDING],
+            MY_STATE[MY_STATE.PUBLISHED],
+        ]
         assert list(groups1.values()) == [[self.post], [post2, post3]]
         assert list(groups2.values()) == [[self.post], [], [post2, post3]]
 

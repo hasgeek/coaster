@@ -8,6 +8,8 @@ import unittest
 from flask import Flask, json
 from werkzeug.exceptions import Forbidden
 
+import pytest
+
 from coaster.auth import add_auth_attribute
 from coaster.db import SQLAlchemy
 from coaster.sqlalchemy import BaseIdNameMixin, BaseNameMixin, BaseScopedNameMixin
@@ -27,7 +29,6 @@ from coaster.views import (
     route,
     viewdata,
 )
-import pytest
 
 
 class JsonEncoder(json.JSONEncoder):

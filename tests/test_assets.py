@@ -4,8 +4,9 @@ import six
 
 import unittest
 
-from coaster.assets import AssetNotFound, UglipyJS, Version, VersionedAssets
 import pytest
+
+from coaster.assets import AssetNotFound, UglipyJS, Version, VersionedAssets
 
 
 class TestAssets(unittest.TestCase):

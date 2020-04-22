@@ -8,6 +8,8 @@ from flask_sqlalchemy import SQLAlchemy
 
 from flask import Flask, _request_ctx_stack, has_request_context
 
+import pytest
+
 from coaster.auth import (
     add_auth_anchor,
     add_auth_attribute,
@@ -15,7 +17,6 @@ from coaster.auth import (
     request_has_auth,
 )
 from coaster.sqlalchemy import BaseMixin
-import pytest
 
 # --- App context -------------------------------------------------------------
 

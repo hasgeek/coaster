@@ -58,10 +58,12 @@ class TestCoasterUtils(unittest.TestCase):
         environ['FLASK_ENV'] = "testing"
         init_app(self.app)
         with self.app.test_request_context():
-            assert render_template_string(
+            assert (
+                render_template_string(
                     '{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'
-                ) == \
-                'No'
+                )
+                == 'No'
+            )
 
 
 class TestSandBoxedFlask(unittest.TestCase):

@@ -7,10 +7,11 @@ import unittest
 from flask import Flask
 from werkzeug.routing import BuildError
 
+import pytest
+
 from coaster.db import db
 
 from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument
-import pytest
 
 # --- Test setup --------------------------------------------------------------
 

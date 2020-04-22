@@ -10,6 +10,8 @@ from sqlalchemy.orm import relationship
 from flask import Flask, g
 from werkzeug.exceptions import Forbidden, NotFound
 
+import pytest
+
 from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.views import load_model, load_models
@@ -26,7 +28,6 @@ from .test_sqlalchemy_models import (
     app2,
     login_manager,
 )
-import pytest
 
 # --- Models ------------------------------------------------------------------
 
@@ -297,16 +298,22 @@ class TestLoadModels(unittest.TestCase):
 
     def test_named_document(self):
         assert t_named_document(container=u'c', document=u'named-document') == self.nd1
-        assert t_named_document(container=u'c', document=u'another-named-document') == \
-            self.nd2
+        assert (
+            t_named_document(container=u'c', document=u'another-named-document')
+            == self.nd2
+        )
 
     def test_redirect_document(self):
         with self.app.test_request_context('/c/named-document'):
-            assert t_redirect_document(container=u'c', document=u'named-document') == \
-                self.nd1
+            assert (
+                t_redirect_document(container=u'c', document=u'named-document')
+                == self.nd1
+            )
         with self.app.test_request_context('/c/another-named-document'):
-            assert t_redirect_document(container=u'c', document=u'another-named-document') == \
-                self.nd2
+            assert (
+                t_redirect_document(container=u'c', document=u'another-named-document')
+                == self.nd2
+            )
         with self.app.test_request_context('/c/redirect-document'):
             response = t_redirect_document(
                 container=u'c', document=u'redirect-document'
@@ -321,20 +328,26 @@ class TestLoadModels(unittest.TestCase):
             assert response.headers['Location'] == '/c/named-document?preserve=this'
 
     def test_scoped_named_document(self):
-        assert t_scoped_named_document(container=u'c', document=u'scoped-named-document') == \
-            self.snd1
-        assert t_scoped_named_document(
+        assert (
+            t_scoped_named_document(container=u'c', document=u'scoped-named-document')
+            == self.snd1
+        )
+        assert (
+            t_scoped_named_document(
                 container=u'c', document=u'another-scoped-named-document'
-            ) == \
-            self.snd2
+            )
+            == self.snd2
+        )
 
     def test_id_named_document(self):
-        assert t_id_named_document(container=u'c', document=u'1-id-named-document') == \
-            self.ind1
-        assert t_id_named_document(
-                container=u'c', document=u'2-another-id-named-document'
-            ) == \
-            self.ind2
+        assert (
+            t_id_named_document(container=u'c', document=u'1-id-named-document')
+            == self.ind1
+        )
+        assert (
+            t_id_named_document(container=u'c', document=u'2-another-id-named-document')
+            == self.ind2
+        )
         with self.app.test_request_context('/c/1-wrong-name'):
             r = t_id_named_document(container=u'c', document=u'1-wrong-name')
             assert r.status_code == 302
@@ -344,8 +357,9 @@ class TestLoadModels(unittest.TestCase):
             assert r.status_code == 302
             assert r.location == '/c/1-id-named-document?preserve=this'
         with pytest.raises(NotFound):
-            t_id_named_document(container=u'c',
-            document=u'random-non-integer',)
+            t_id_named_document(
+                container=u'c', document=u'random-non-integer',
+            )
 
     def test_scoped_id_document(self):
         assert t_scoped_id_document(container=u'c', document=u'1') == self.sid1
@@ -354,21 +368,26 @@ class TestLoadModels(unittest.TestCase):
         assert t_scoped_id_document(container=u'c', document=2) == self.sid2
 
     def test_scoped_id_named_document(self):
-        assert t_scoped_id_named_document(
+        assert (
+            t_scoped_id_named_document(
                 container=u'c', document=u'1-scoped-id-named-document'
-            ) == \
-            self.sind1
-        assert t_scoped_id_named_document(
+            )
+            == self.sind1
+        )
+        assert (
+            t_scoped_id_named_document(
                 container=u'c', document=u'2-another-scoped-id-named-document'
-            ) == \
-            self.sind2
+            )
+            == self.sind2
+        )
         with self.app.test_request_context('/c/1-wrong-name'):
             r = t_scoped_id_named_document(container=u'c', document=u'1-wrong-name')
             assert r.status_code == 302
             assert r.location == '/c/1-scoped-id-named-document'
         with pytest.raises(NotFound):
-            t_scoped_id_named_document(container=u'c',
-            document=u'random-non-integer',)
+            t_scoped_id_named_document(
+                container=u'c', document=u'random-non-integer',
+            )
 
     def test_callable_document(self):
         assert t_callable_document(document=u'parent', child=1) == self.child1
@@ -383,14 +402,20 @@ class TestLoadModels(unittest.TestCase):
         user2 = User(username='bar')
         assert self.pc.permissions(user1) == {'view', 'edit', 'delete'}
         assert self.pc.permissions(user2) == {'view'}
-        assert self.child1.permissions(user1, inherited=self.pc.permissions(user1)) == \
-            {'view', 'edit'}
-        assert self.child1.permissions(user2, inherited=self.pc.permissions(user2)) == \
-            {'view'}
+        assert self.child1.permissions(user1, inherited=self.pc.permissions(user1)) == {
+            'view',
+            'edit',
+        }
+        assert self.child1.permissions(user2, inherited=self.pc.permissions(user2)) == {
+            'view'
+        }
 
     def test_inherited_permissions(self):
         user = User(username='admin')
-        assert self.pc.permissions(user, inherited={'add-video'}) == {'add-video', 'view'}
+        assert self.pc.permissions(user, inherited={'add-video'}) == {
+            'add-video',
+            'view',
+        }
 
     def test_unmutated_inherited_permissions(self):
         """The inherited permission set should not be mutated by a permission check"""

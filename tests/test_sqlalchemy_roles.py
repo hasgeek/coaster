@@ -13,6 +13,8 @@ from sqlalchemy.orm.collections import (
 
 from flask import Flask
 
+import pytest
+
 from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
@@ -26,7 +28,6 @@ from coaster.sqlalchemy import (
     with_roles,
 )
 from coaster.utils import InspectableSet
-import pytest
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -275,41 +276,36 @@ class TestCoasterRoles(unittest.TestCase):
 
     def test_role_dict(self):
         """Roles may be declared multiple ways and they all work"""
-        assert RoleModel.__roles__ == \
-            {
-                'all': {
-                    'call': {'hello'},
-                    'read': {'id', 'name', 'title', 'mixed_in2'},
+        assert RoleModel.__roles__ == {
+            'all': {'call': {'hello'}, 'read': {'id', 'name', 'title', 'mixed_in2'}, },
+            'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
+            'owner': {
+                'read': {
+                    'name',
+                    'defval',
+                    'mixed_in1',
+                    'mixed_in2',
+                    'mixed_in3',
+                    'mixed_in4',
                 },
-                'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
-                'owner': {
-                    'read': {
-                        'name',
-                        'defval',
-                        'mixed_in1',
-                        'mixed_in2',
-                        'mixed_in3',
-                        'mixed_in4',
-                    },
-                    'write': {
-                        'name',
-                        'title',
-                        'defval',
-                        'mixed_in1',
-                        'mixed_in2',
-                        'mixed_in3',
-                        'mixed_in4',
-                    },
+                'write': {
+                    'name',
+                    'title',
+                    'defval',
+                    'mixed_in1',
+                    'mixed_in2',
+                    'mixed_in3',
+                    'mixed_in4',
                 },
-            }
+            },
+        }
 
     def test_autorole_dict(self):
         """A model without __roles__, using only with_roles, also works as expected"""
-        assert AutoRoleModel.__roles__ == \
-            {
-                'all': {'read': {'id', 'name'}},
-                'owner': {'read': {'name'}, 'write': {'name'}},
-            }
+        assert AutoRoleModel.__roles__ == {
+            'all': {'read': {'id', 'name'}},
+            'owner': {'read': {'name'}, 'write': {'name'}},
+        }
 
     def test_basemixin_roles(self):
         """A model with BaseMixin by default exposes nothing to the 'all' role"""
@@ -320,7 +316,9 @@ class TestCoasterRoles(unittest.TestCase):
         A model with UuidMixin provides 'all' read access to uuid, uuid_b58 and uuid_b64
         among others.
         """
-        assert {'uuid', 'buid', 'uuid_b58', 'uuid_b64'} <= UuidModel.__roles__['all']['read']
+        assert {'uuid', 'buid', 'uuid_b58', 'uuid_b64'} <= UuidModel.__roles__['all'][
+            'read'
+        ]
 
     def test_roles_for_anon(self):
         """An anonymous actor should have 'all' and 'anon' roles"""
@@ -393,19 +391,24 @@ class TestCoasterRoles(unittest.TestCase):
         proxy2 = rm.access_for(roles={'owner'})
         proxy3 = rm.access_for(roles={'all', 'owner'})
         assert set(proxy1) == {'id', 'name', 'title', 'mixed_in2'}
-        assert set(proxy2) == \
-            {'name', 'defval', 'mixed_in1', 'mixed_in2', 'mixed_in3', 'mixed_in4'}
-        assert set(proxy3) == \
-            {
-                'id',
-                'name',
-                'title',
-                'defval',
-                'mixed_in1',
-                'mixed_in2',
-                'mixed_in3',
-                'mixed_in4',
-            }
+        assert set(proxy2) == {
+            'name',
+            'defval',
+            'mixed_in1',
+            'mixed_in2',
+            'mixed_in3',
+            'mixed_in4',
+        }
+        assert set(proxy3) == {
+            'id',
+            'name',
+            'title',
+            'defval',
+            'mixed_in1',
+            'mixed_in2',
+            'mixed_in3',
+            'mixed_in4',
+        }
 
     def test_diff_roles_single_model_dataset(self):
         """Data profiles constrain the attributes available via enumeration"""

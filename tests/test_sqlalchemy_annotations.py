@@ -11,6 +11,8 @@ import sqlalchemy.exc
 
 from flask import Flask
 
+import pytest
+
 from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
@@ -19,7 +21,6 @@ from coaster.sqlalchemy import (
     cached,
     immutable,
 )
-import pytest
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'

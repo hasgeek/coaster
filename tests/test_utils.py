@@ -8,6 +8,7 @@ import unittest
 import uuid
 
 from pytz import UTC, common_timezones
+import pytest
 
 from coaster.utils import (
     InspectableSet,
@@ -33,7 +34,6 @@ from coaster.utils import (
     utcnow,
     uuid2suuid,
 )
-import pytest
 
 
 class MY_ENUM(LabeledEnum):  # NOQA: N801
@@ -67,12 +67,19 @@ class TestCoasterUtils(unittest.TestCase):
         assert MY_ENUM[MY_ENUM.THIRD] == "Third"
 
         if six.PY2:
-            assert sorted(MY_ENUM.items()) == [(1, "First"), (2, "Second"), (3, "Third")]
+            assert sorted(MY_ENUM.items()) == [
+                (1, "First"),
+                (2, "Second"),
+                (3, "Third"),
+            ]
         else:
             assert MY_ENUM.items() == [(1, "First"), (2, "Second"), (3, "Third")]
 
-        assert MY_ENUM_TWO.nametitles() == \
-            [('first', "First"), ('second', "Second"), ('third', "Third")]
+        assert MY_ENUM_TWO.nametitles() == [
+            ('first', "First"),
+            ('second', "Second"),
+            ('third', "Third"),
+        ]
         assert MY_ENUM_TWO.value_for('second') == 2
 
         with pytest.raises(TypeError):
@@ -88,9 +95,9 @@ class TestCoasterUtils(unittest.TestCase):
         assert check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword')
         assert check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test')
         assert check_password(
-                u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
-                u'test',
-            )
+            u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
+            u'test',
+        )
 
     def test_parse_isoformat(self):
         assert parse_isoformat('1882-12-11T00:00:00.1234Z') == datetime.datetime(
@@ -152,20 +159,26 @@ class TestCoasterUtils(unittest.TestCase):
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
         assert sanitize_html(html) == u'Test sanitize_htmlBodyalert("foo");'
-        assert sanitize_html(
+        assert (
+            sanitize_html(
                 "<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"
-            ) == \
-            u'Test sanitize_html<p>P</p>'
+            )
+            == u'Test sanitize_html<p>P</p>'
+        )
 
     def test_sorted_timezones(self):
         assert isinstance(sorted_timezones(), list)
 
     def test_namespace_from_url(self):
-        assert namespace_from_url(u'https://github.com/hasgeek/coaster') == u'com.github'
-        assert namespace_from_url(
+        assert (
+            namespace_from_url(u'https://github.com/hasgeek/coaster') == u'com.github'
+        )
+        assert (
+            namespace_from_url(
                 u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'
-            ) == \
-            u'com.hasgeek.funnel'
+            )
+            == u'com.hasgeek.funnel'
+        )
         assert namespace_from_url(u'http://www.hasgeek.com') == u'com.hasgeek'
         assert namespace_from_url(u'www.hasgeek.com') is None
         assert namespace_from_url(u'This is an invalid url') is None
