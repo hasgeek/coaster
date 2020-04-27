@@ -300,8 +300,13 @@ class PermissionMixin(object):
         available permissions from this object, using
         :obj:`~coaster.auth.current_auth`.
         """
+        # current_auth.permissions will be an InspectableSet.
+        # Cast it back into a regular set so that the permissions method can call the
+        # .add() and .update() methods on it. If the set is empty, pass None instead.
+        # This will signal to BaseScoped* base classes to consult their parents for
+        # additional permissions.
         return InspectableSet(
-            self.permissions(current_auth.actor, current_auth.permissions or None)
+            self.permissions(current_auth.actor, set(current_auth.permissions) or None)
         )
 
 
