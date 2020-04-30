@@ -51,6 +51,18 @@ class Registry(object):
         else:
             return InstanceRegistry(self, obj)
 
+    def __call__(self, name=None):
+        """Decorator to aid class or function registration"""
+
+        def decorator(f):
+            use_name = name or f.__name__
+            if hasattr(self, use_name):
+                raise ValueError("%s is already registered" % use_name)
+            setattr(self, name or f.__name__, f)
+            return f
+
+        return decorator
+
 
 class InstanceRegistry(object):
     """
@@ -80,4 +92,8 @@ class RegistryMixin(object):
 
     @declared_attr
     def views(self):
+        return Registry()
+
+    @declared_attr
+    def features(self):
         return Registry()

@@ -27,13 +27,20 @@ class RegisteredItem1(object):
 
 
 # Sample registered item 2
+@RegistryTest2.views('test')
 class RegisteredItem2(object):
     def __init__(self, obj=None):
         self.obj = obj
 
 
+# Sample registered item 3
+@RegistryTest1.features('is1')
+@RegistryTest2.features()
+def is1(obj):
+    return isinstance(obj, RegistryTest1)
+
+
 RegistryTest1.views.test = RegisteredItem1
-RegistryTest2.views.test = RegisteredItem2
 
 
 class TestRegistry(unittest.TestCase):
@@ -43,6 +50,8 @@ class TestRegistry(unittest.TestCase):
         assert RegistryTest2.views.test is RegisteredItem2
         assert RegistryTest1.views.test is not RegisteredItem2
         assert RegistryTest2.views.test is not RegisteredItem1
+        assert RegistryTest1.features.is1 is is1
+        assert RegistryTest2.features.is1 is is1
 
     def test_access_item_class_from_instance(self):
         """Registered items are available from the model instance"""
@@ -54,6 +63,10 @@ class TestRegistry(unittest.TestCase):
         assert r1.views.test.func is RegisteredItem1
         assert r2.views.test is not RegisteredItem2
         assert r2.views.test.func is RegisteredItem2
+        assert r1.features.is1 is not is1
+        assert r1.features.is1.func is is1
+        assert r2.features.is1 is not is1
+        assert r2.features.is1.func is is1
 
     def test_access_item_instance_from_instance(self):
         """Registered items can be instantiated from the model instance"""
@@ -70,3 +83,11 @@ class TestRegistry(unittest.TestCase):
         assert i2.obj is r2
         assert i1.obj is not r2
         assert i2.obj is not r1
+
+    def test_features(self):
+        """The features registry can be used for feature tests"""
+        r1 = RegistryTest1()
+        r2 = RegistryTest2()
+
+        assert r1.features.is1() is True
+        assert r2.features.is1() is False
