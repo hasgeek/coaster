@@ -15,7 +15,7 @@ from sqlalchemy.ext.hybrid import Comparator
 
 from flask import abort
 
-from ..utils import suuid2uuid, uuid_from_base58, uuid_from_base64
+from ..utils import uuid_from_base58, uuid_from_base64
 
 __all__ = [
     'Query',
@@ -24,7 +24,6 @@ __all__ = [
     'SqlUuidHexComparator',
     'SqlUuidB64Comparator',
     'SqlUuidB58Comparator',
-    'SqlSuuidComparator',
 ]
 
 
@@ -158,21 +157,4 @@ class SqlUuidB58Comparator(SplitIndexComparator):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
             other = uuid_from_base58(other)
-        return other
-
-
-class SqlSuuidComparator(SplitIndexComparator):
-    """
-    Allows comparing UUID fields with ShortUUID representations of the UUID
-
-    .. deprecated:: 0.6.1
-    """
-
-    def _decode(self, other):
-        if other is None:
-            return
-        if not isinstance(other, uuid_.UUID):
-            if self.splitindex is not None:
-                other = other.split('-')[self.splitindex]
-            other = suuid2uuid(other)
         return other

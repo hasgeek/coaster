@@ -12,9 +12,6 @@ in Flask-based applications.
 
 from __future__ import absolute_import
 
-from ..shortuuid import decode as suuid2uuid
-from ..shortuuid import encode as uuid2suuid
-from ..shortuuid import suuid
 from .classes import *
 from .datetime import *
 from .markdown import *
