@@ -41,7 +41,7 @@ from coaster.sqlalchemy import (
     auto_init_default,
     failsafe_add,
 )
-from coaster.utils import uuid2suuid, uuid_to_base58, uuid_to_base64
+from coaster.utils import uuid_to_base58, uuid_to_base64
 
 from .test_auth import LoginManager
 
@@ -1107,9 +1107,9 @@ class TestCoasterModels(unittest.TestCase):
         qu4 = UuidMixinKey.query.filter_by(url_id=u4.url_id).first()
         self.assertEqual(u4, qu4)
 
-    def test_uuid_buid_uuid_b58_suuid(self):
+    def test_uuid_buid_uuid_b58(self):
         """
-        UuidMixin provides buid and suuid
+        UuidMixin provides uuid_b64 (also as buid) and uuid_b58
         """
         u1 = NonUuidMixinKey()
         u2 = UuidMixinKey()
@@ -1132,17 +1132,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(u2.uuid_b58, uuid_to_base58(u2.uuid))
         self.assertIn(len(u2.uuid_b58), (21, 22))  # 21 or 22-char B58 representation
 
-        # Test readability of `suuid` attribute
-        self.assertEqual(u1.suuid, uuid2suuid(u1.uuid))
-        self.assertEqual(
-            len(u1.suuid), 22
-        )  # This is a 22-byte ShortUUID representation
-        self.assertEqual(u2.suuid, uuid2suuid(u2.uuid))
-        self.assertEqual(
-            len(u2.suuid), 22
-        )  # This is a 22-byte ShortUUID representation
-
-        # SQL queries against `buid`, `uuid_b58` and `suuid` cast the value into a UUID
+        # SQL queries against `buid` and `uuid_b58` cast the value into a UUID
         # and then query against `id` or ``uuid``
 
         # Note that `literal_binds` here doesn't know how to render UUIDs if
@@ -1188,24 +1178,6 @@ class TestCoasterModels(unittest.TestCase):
             "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
         )
 
-        # Repeat for `suuid`
-        self.assertEqual(
-            six.text_type(
-                (NonUuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN').compile(
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
-        )
-        self.assertEqual(
-            six.text_type(
-                (UuidMixinKey.suuid == 'vVoaZTeXGiD4qrMtYNosnN').compile(
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
-        )
-
         # All queries work for None values as well
         self.assertEqual(
             six.text_type(
@@ -1239,42 +1211,22 @@ class TestCoasterModels(unittest.TestCase):
             ),
             "uuid_mixin_key.id IS NULL",
         )
-        self.assertEqual(
-            six.text_type(
-                (NonUuidMixinKey.suuid == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "non_uuid_mixin_key.uuid IS NULL",
-        )
-        self.assertEqual(
-            six.text_type(
-                (UuidMixinKey.suuid == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
-                )
-            ),
-            "uuid_mixin_key.id IS NULL",
-        )
 
         # Query returns False (or True) if given an invalid value
         assert bool(NonUuidMixinKey.buid == 'garbage!') is False
         assert bool(NonUuidMixinKey.buid != 'garbage!') is True
         assert bool(NonUuidMixinKey.uuid_b58 == 'garbage!') is False
         assert bool(NonUuidMixinKey.uuid_b58 != 'garbage!') is True
-        assert bool(NonUuidMixinKey.suuid == 'garbage!') is False
-        assert bool(NonUuidMixinKey.suuid != 'garbage!') is True
         assert bool(UuidMixinKey.buid == 'garbage!') is False
         assert bool(UuidMixinKey.buid != 'garbage!') is True
         assert bool(UuidMixinKey.uuid_b58 == 'garbage!') is False
         assert bool(UuidMixinKey.uuid_b58 != 'garbage!') is True
-        assert bool(UuidMixinKey.suuid == 'garbage!') is False
-        assert bool(UuidMixinKey.suuid != 'garbage!') is True
 
-    def test_uuid_url_id_name_suuid(self):
+    def test_uuid_url_id_name(self):
         """
         BaseIdNameMixin models with UUID primary or secondary keys should
-        generate properly formatted url_id, url_id_name and url_name_suuid.
-        The url_id_name and url_name_suuid fields should be queryable as well.
+        generate properly formatted url_id, url_id_name and url_name_uuid_b58.
+        The url_id_name and url_name_uuid_b58 fields should be queryable as well.
         """
         u1 = UuidIdName(
             id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
@@ -1299,18 +1251,13 @@ class TestCoasterModels(unittest.TestCase):
         # No uuid_b58 without UuidMixin
         with self.assertRaises(AttributeError):
             self.assertEqual(u1.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
-        # No suuid without UuidMixin
-        with self.assertRaises(AttributeError):
-            self.assertEqual(u1.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
         self.assertEqual(u2.uuid_hex, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         self.assertEqual(u2.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
-        self.assertEqual(u2.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
         self.assertEqual(u3.uuid_hex, '74d588574a7611e78c27c38403d0935c')
         # url_id_name in BaseIdNameMixin uses the id column, not the uuid column
         self.assertEqual(u3.url_id_name, '1-test')
         self.assertEqual(u3.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
-        self.assertEqual(u3.url_name_suuid, 'test-vVoaZTeXGiD4qrMtYNosnN')
 
         # url_name is legacy
         self.assertEqual(u1.url_id_name, u1.url_name)
@@ -1332,13 +1279,6 @@ class TestCoasterModels(unittest.TestCase):
             url_name_uuid_b58=u3.url_name_uuid_b58
         ).first()
         self.assertEqual(q58u3, u3)
-
-        qsu2 = UuidIdNameMixin.query.filter_by(url_name_suuid=u2.url_name_suuid).first()
-        self.assertEqual(qsu2, u2)
-        qsu3 = UuidIdNameSecondary.query.filter_by(
-            url_name_suuid=u3.url_name_suuid
-        ).first()
-        self.assertEqual(qsu3, u3)
 
     def test_uuid_default(self):
         """

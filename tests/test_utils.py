@@ -5,7 +5,6 @@ import six
 
 import datetime
 import unittest
-import uuid
 
 from pytz import UTC, common_timezones
 import pytest
@@ -26,13 +25,10 @@ from coaster.utils import (
     require_one_of,
     sanitize_html,
     sorted_timezones,
-    suuid,
-    suuid2uuid,
     ulstrip,
     urstrip,
     ustrip,
     utcnow,
-    uuid2suuid,
 )
 
 
@@ -249,16 +245,6 @@ class TestCoasterUtils(unittest.TestCase):
         # 3. And it's within a second of the comparison date (the runtime environment
         # cannot possibly have taken over a second between two consecutive statements)
         assert abs(now2 - now1.replace(tzinfo=None)) < datetime.timedelta(seconds=1)
-
-    def test_suuid(self):
-        """Test the ShortUUID functions"""
-        s1 = suuid()
-        assert len(s1) == 22
-        u1 = suuid2uuid(s1)
-        assert isinstance(u1, uuid.UUID)
-        assert u1.version == 4  # ShortUUID uses v4 UUIDs by default
-        s2 = uuid2suuid(u1)
-        assert s1 == s2
 
     def test_require_one_of(self):
         # Valid scenarios

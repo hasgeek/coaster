@@ -52,7 +52,6 @@ requires = [
     'PySqlite==2.8.3;python_version=="2.7"',
     'pytz',
     'semantic_version>=2.8.0',
-    'shortuuid==0.5.0',
     'base58>=2.0.0;python_version>="3.6"',
     'base58<2.0.0;python_version=="2.7"',
     'simplejson',
