@@ -22,6 +22,7 @@ from coaster.sqlalchemy import (
     DynamicAssociationProxy,
     LazyRoleSet,
     RoleAccessProxy,
+    RoleGrantABC,
     RoleMixin,
     UuidMixin,
     declared_attr_roles,
@@ -203,7 +204,7 @@ class RoleGrantMany(BaseMixin, db.Model):
 
 
 class RoleUser(BaseMixin, db.Model):
-    """Test model represent a user who has roles"""
+    """Test model to represent a user who has roles"""
 
     __tablename__ = 'role_user'
 
@@ -238,6 +239,70 @@ class RoleGrantSynonym(BaseMixin, db.Model):
     altcol_unroled = db.synonym('datacol')
     # However, when the synonym has roles defined, these override the target's
     altcol_roled = with_roles(db.synonym('datacol'), read={'all'})
+
+
+class RoleMembership(BaseMixin, db.Model):
+    """Test model that grants multiple roles"""
+
+    __tablename__ = 'role_membership'
+
+    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user = db.relationship(RoleUser)
+
+    doc_id = db.Column(None, db.ForeignKey('multirole_document.id'))
+    doc = db.relationship('MultiroleDocument')
+
+    role1 = db.Column(db.Boolean, default=False)
+    role2 = db.Column(db.Boolean, default=False)
+    role3 = db.Column(db.Boolean, default=False)
+
+    def offered_roles(self):
+        roles = set()
+        if self.role1:
+            roles.add('role1')
+        if self.role2:
+            roles.add('role2')
+        if self.role3:
+            roles.add('role3')
+        return roles
+
+
+class MultiroleParent(BaseMixin, db.Model):
+    """Test model to serve as a role granter to the child model"""
+
+    __tablename__ = 'multirole_parent'
+    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user = db.relationship(RoleUser)
+
+
+class MultiroleDocument(BaseMixin, db.Model):
+    """Test model that grants multiple roles via RoleMembership"""
+
+    __tablename__ = 'multirole_document'
+
+    parent_id = db.Column(None, db.ForeignKey('multirole_parent.id'))
+    parent = db.relationship(MultiroleParent)
+
+    # Acquire parent_role through parent.user (a scalar relationship)
+    # Acquire role1 through both relationships (query and list relationships)
+    # Acquire role2 and role3 via only one relationship each
+    # This contrived setup is only to test that it works via all relationship types
+    __roles__ = {
+        'parent_role': {'granted_via': {'parent': 'user'}},
+        'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
+        'role2': {'granted_via': {'rel_lazy': 'user'}},
+    }
+
+    # Grant via a query relationship
+    rel_lazy = db.relationship(RoleMembership, lazy='dynamic')
+    # Grant via a list-like relationship
+    rel_list = with_roles(
+        db.relationship(RoleMembership), grants_via={'user': {'role3'}}
+    )
+
+    # Role grants can be specified via:
+    # 1. __roles__[role]['granted_via'] = {'rel_name': 'actor_attr_name'}
+    # 2. with_roles(grants_via={actor_attr_name: role_set})
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -277,7 +342,7 @@ class TestCoasterRoles(unittest.TestCase):
     def test_role_dict(self):
         """Roles may be declared multiple ways and they all work"""
         assert RoleModel.__roles__ == {
-            'all': {'call': {'hello'}, 'read': {'id', 'name', 'title', 'mixed_in2'}, },
+            'all': {'call': {'hello'}, 'read': {'id', 'name', 'title', 'mixed_in2'}},
             'editor': {'read': {'mixed_in2'}, 'write': {'title', 'mixed_in2'}},
             'owner': {
                 'read': {
@@ -746,6 +811,95 @@ class TestCoasterRoles(unittest.TestCase):
         assert not (p1a != p1b)  # Test __ne__
         assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
 
+    def test_granted_via(self):
+        """
+        Roles can be granted via related objects
+        """
+        u1 = RoleUser()
+        u2 = RoleUser()
+        u3 = RoleUser()
+        u4 = RoleUser()
+        parent = MultiroleParent(user=u1)
+        document = MultiroleDocument(parent=parent)
+        m1 = RoleMembership(doc=document, user=u1, role1=True, role2=False, role3=False)
+        m2 = RoleMembership(doc=document, user=u2, role1=True, role2=True, role3=False)
+        m3 = RoleMembership(doc=document, user=u3, role1=True, role2=False, role3=True)
+        m4 = RoleMembership(doc=document, user=u4, role1=False, role2=True, role3=True)
+        self.session.add_all([u1, u2, u3, u4, parent, document, m1, m2, m3, m4])
+        self.session.commit()
+
+        # All three memberships appear in both relationships
+        assert m1 in document.rel_lazy
+        assert m1 in document.rel_list
+        assert m2 in document.rel_lazy
+        assert m2 in document.rel_list
+        assert m3 in document.rel_lazy
+        assert m3 in document.rel_list
+
+        # u1 gets 'parent_role' via parent, but u2 and u3 don't
+        assert 'parent_role' in document.roles_for(u1)
+        assert 'parent_role' not in document.roles_for(u2)
+        assert 'parent_role' not in document.roles_for(u3)
+
+        # Start over
+        roles1 = document.roles_for(u1)
+        roles2 = document.roles_for(u2)
+        roles3 = document.roles_for(u3)
+
+        # Confirm these lazyrolesets are not already populated with the test roles
+        # by looking at their internal data structure
+        assert 'role1' not in roles1._present
+        assert 'role2' not in roles1._present
+        assert 'role3' not in roles1._present
+        assert 'role1' not in roles2._present
+        assert 'role2' not in roles2._present
+        assert 'role3' not in roles2._present
+        assert 'role1' not in roles3._present
+        assert 'role2' not in roles3._present
+        assert 'role3' not in roles3._present
+
+        # Now test for roles and observe the other roles are also discovered
+        # From m1, roles1 has role1 but not role2, role3
+        assert 'role1' in roles1  # Granted in m1
+        assert 'role2' not in roles1._present  # Not granted in m1, not discovered
+        assert 'role2' not in roles1._not_present  # Not rejected either
+        assert 'role3' not in roles1._present  # Not granted in m1, not discovered
+        assert 'role3' not in roles1._not_present  # Not rejected either
+        assert 'role2' not in roles1  # Not granted in m1
+        assert 'role2' not in roles1._present  # Still not granted
+        assert 'role2' in roles1._not_present  # But now known not present
+        assert 'role2' not in roles1  # Confirm via public API
+
+        # From m2, roles2 has role1, role2 but not role3
+        assert 'role2' in roles2  # Granted in m2 via rel_lazy (only)
+        assert 'role1' in roles2._present  # Granted in m2, auto discovered
+        assert 'role3' not in roles2._present  # Not granted in m2, not discovered
+        assert 'role3' not in roles2._not_present  # Not rejected either
+
+        # From m3, roles3 has role1, role3 but not role2
+        assert 'role3' in roles3  # Granted in m3 via rel_list (only)
+        assert 'role1' in roles3._present  # Granted in m3, auto discovered
+        assert 'role2' not in roles3._present  # Not granted in m3, not discovered
+        assert 'role2' not in roles3._not_present  # Not rejected either
+
+        # Can a relationship grant roles that were supposed to be available via
+        # another relationship? Yes
+        roles4a = document.roles_for(u4)
+        # No roles cached yet
+        assert 'role2' not in roles4a._present
+        assert 'role3' not in roles4a._present
+        # role1 = False, role2 = True, role3 = True
+        assert 'role2' in roles4a  # Discovered via rel_lazy
+        assert 'role3' in roles4a._present  # This got cached despite not being rel_lazy
+
+        roles4b = document.roles_for(u4)
+        # No roles cached yet
+        assert 'role2' not in roles4b._present
+        assert 'role3' not in roles4b._present
+        # role1 = False, role2 = True, role3 = True
+        assert 'role3' in roles4b  # Discovered via rel_list
+        assert 'role2' in roles4b._present  # This got cached despite not being rel_list
+
 
 class TestLazyRoleSet(unittest.TestCase):
     """Tests for LazyRoleSet, isolated from RoleMixin"""
@@ -942,3 +1096,11 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r2.owner is True
         assert d.accessed_user is True
         assert d.accessed_userlist is True
+
+    def test_offered_roles(self):
+        """
+        Test that an object with an `offered_roles` method is a RoleGrantABC type
+        """
+        role_membership = RoleMembership()
+        assert issubclass(RoleMembership, RoleGrantABC)
+        assert isinstance(role_membership, RoleGrantABC)
