@@ -272,7 +272,7 @@ class MultiroleParent(BaseMixin, db.Model):
 
     __tablename__ = 'multirole_parent'
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
-    user = db.relationship(RoleUser)
+    user = with_roles(db.relationship(RoleUser), grants={'prole1', 'prole2'})
 
 
 class MultiroleDocument(BaseMixin, db.Model):
@@ -284,11 +284,13 @@ class MultiroleDocument(BaseMixin, db.Model):
     parent = db.relationship(MultiroleParent)
 
     # Acquire parent_role through parent.user (a scalar relationship)
+    # Acquire parent_other_role too (will be cached alongside parent_role)
     # Acquire role1 through both relationships (query and list relationships)
     # Acquire role2 and role3 via only one relationship each
     # This contrived setup is only to test that it works via all relationship types
     __roles__ = {
         'parent_role': {'granted_via': {'parent': 'user'}},
+        'parent_other_role': {'granted_via': {'parent': 'user'}},
         'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
         'role2': {'granted_via': {'rel_lazy': 'user'}},
     }
@@ -301,8 +303,28 @@ class MultiroleDocument(BaseMixin, db.Model):
     )
 
     # Role grants can be specified via:
-    # 1. __roles__[role]['granted_via'] = {'rel_name': 'actor_attr_name'}
-    # 2. with_roles(grants_via={actor_attr_name: role_set})
+    # 1. with_roles(grants_via={actor_attr_name: {role,} or {offered_role: role}})
+    # 2. __roles__[role]['granted_via'] = {'rel_name': 'actor_attr_name'}
+    # Offered role maps are specified in an internal __relationship_role_offer_map__.
+    # The only way to make an entry there is via with_roles.
+
+
+class MultiroleChild(BaseMixin, db.Model):
+    """Model that inherits roles from its parent"""
+
+    __tablename__ = 'multirole_child'
+    parent_id = db.Column(None, db.ForeignKey('multirole_document.id'))
+    parent = with_roles(
+        db.relationship(MultiroleDocument),
+        grants_via={
+            'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
+            'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
+                # Map role2 and role3, but explicitly ignore role1
+                'role2': 'parent_role2',
+                'role3': 'parent_role3',
+            },
+        },
+    )
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -821,11 +843,12 @@ class TestCoasterRoles(unittest.TestCase):
         u4 = RoleUser()
         parent = MultiroleParent(user=u1)
         document = MultiroleDocument(parent=parent)
+        child = MultiroleChild(parent=document)
         m1 = RoleMembership(doc=document, user=u1, role1=True, role2=False, role3=False)
         m2 = RoleMembership(doc=document, user=u2, role1=True, role2=True, role3=False)
         m3 = RoleMembership(doc=document, user=u3, role1=True, role2=False, role3=True)
         m4 = RoleMembership(doc=document, user=u4, role1=False, role2=True, role3=True)
-        self.session.add_all([u1, u2, u3, u4, parent, document, m1, m2, m3, m4])
+        self.session.add_all([u1, u2, u3, u4, parent, document, child, m1, m2, m3, m4])
         self.session.commit()
 
         # All three memberships appear in both relationships
@@ -841,10 +864,26 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'parent_role' not in document.roles_for(u2)
         assert 'parent_role' not in document.roles_for(u3)
 
-        # Start over
+        # parent grants prole1 and prole2. Testing for one auto-loads the other
+        proles = parent.roles_for(u1)
+        assert 'prole1' not in proles._present
+        assert 'prole2' not in proles._present
+        assert 'prole1' in proles
+        assert 'prole2' in proles._present
+        assert 'prole2' in proles
+
+        # Start over for document roles
         roles1 = document.roles_for(u1)
         roles2 = document.roles_for(u2)
         roles3 = document.roles_for(u3)
+
+        # Check for parent_role again. parent_other_role is auto-discovered
+        assert 'parent_role' not in roles1._present
+        assert 'parent_other_role' not in roles1._present
+        assert 'parent_role' in roles1
+        # parent_other_role was automatically discovered and cached
+        assert 'parent_other_role' in roles1._present
+        assert 'parent_other_role' in roles1
 
         # Confirm these lazyrolesets are not already populated with the test roles
         # by looking at their internal data structure
@@ -899,6 +938,28 @@ class TestCoasterRoles(unittest.TestCase):
         # role1 = False, role2 = True, role3 = True
         assert 'role3' in roles4b  # Discovered via rel_list
         assert 'role2' in roles4b._present  # This got cached despite not being rel_list
+
+        # The child model inherits remapped roles from document
+        # role1 is skipped even if present, while role2 and role3 are remapped
+        croles1 = child.roles_for(u1)
+        croles2 = child.roles_for(u2)
+        croles3 = child.roles_for(u3)
+        for roleset in (croles1, croles2, croles3):
+            assert 'role1' not in roleset
+            assert 'role2' not in roleset
+            assert 'role3' not in roleset
+            assert 'parent_role1' not in roleset
+        # u1 gets super_parent_role via parent.parent
+        assert 'super_parent_role' in croles1
+        # u1 has neither role2 nor role3 in m1
+        assert 'parent_role2' not in croles1
+        assert 'parent_role3' not in croles1
+        # u2 has role2 but not role3 in m2
+        assert 'parent_role2' in croles2
+        assert 'parent_role3' not in croles2
+        # u2 has role3 but not role2 in m3
+        assert 'parent_role2' not in croles3
+        assert 'parent_role3' in croles3
 
 
 class TestLazyRoleSet(unittest.TestCase):

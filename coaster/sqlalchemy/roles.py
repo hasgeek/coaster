@@ -167,7 +167,7 @@ def _actor_in_relationship(actor, relationship):
     return False
 
 
-def _roles_via_relationship(actor, relationship, actor_attr, roles):
+def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     """Find roles granted via a relationship"""
     relobj = None
     # We have a relationship. If it's a collection, find the item in it that relates
@@ -194,8 +194,15 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles):
     # We have a related object. Get roles from it
     if isinstance(relobj, RoleGrantABC):
         # If this object grants roles, get them. It may not grant the one we're looking
-        # for and that's okay. Grab the others.
-        return relobj.offered_roles()
+        # for and that's okay. Grab the others
+        offered_roles = relobj.offered_roles()
+        # But if we have an offer_map, remap the roles and only keep the ones
+        # specified in the map
+        if offer_map:
+            offered_roles = {
+                offer_map[role] for role in offered_roles if role in offer_map
+            }
+        return offered_roles
     else:
         # Not a role granting object. Implies that the default roles are granted
         # by its very existence.
@@ -227,13 +234,13 @@ class LazyRoleSet(abc.MutableSet):
     def __init__(self, obj, actor, initial=()):
         self.obj = obj
         self.actor = actor
-        #: Roles that the actor has (make a copy as it will be mutated)
+        #: Roles that the actor has (make a copy of initial set as it will be mutated)
         self._present = set(initial)
         #: Roles the actor does not have
         self._not_present = set()
         # Relationships that have been scanned already
-        self._scanned_granted_via = set()
-        self._scanned_granted_by = set()
+        self._scanned_granted_via = set()  # Contains (relattr, actor_attr)
+        self._scanned_granted_by = set()  # Contains relattr
 
     def __repr__(self):  # pragma: no cover
         return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
@@ -242,7 +249,7 @@ class LazyRoleSet(abc.MutableSet):
     def _from_iterable(self, iterable):
         return LazyRoleSet(self.obj, self.actor, iterable)
 
-    def _get_relationshp(self, relattr):
+    def _get_relationship(self, relattr):
         if '.' in relattr:
             # Did we get a 'relationship.attr'? Find the referred item
             relationship = self.obj
@@ -265,18 +272,40 @@ class LazyRoleSet(abc.MutableSet):
             # granted_via says a role may be granted by a secondary object that sits
             # in a relationship between the current object and the actor. The secondary
             # could be a direct attribute of the current object, or could be inside a
-            # list or dict-like relationship. _roles_via_relationship will check.
+            # list or query relationship. _roles_via_relationship will check.
             if 'granted_via' in self.obj.__roles__[role]:
                 for relattr, actor_attr in self.obj.__roles__[role][
                     'granted_via'
                 ].items():
-                    if relattr not in self._scanned_granted_via:
-                        relationship = self._get_relationshp(relattr)
+                    offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
+                    if (relattr, actor_attr) not in self._scanned_granted_via:
+                        relationship = self._get_relationship(relattr)
+                        # Optimization: does the same relationship grant other roles
+                        # via the same actor_attr? Gather those roles and check all of
+                        # them together. However, we will use a single role offer map
+                        # and not consult the one specified on the other roles. They are
+                        # expected to be identical. This is guaranteed if the offer map
+                        # was specified using `with_roles(grants_via=)` but not if
+                        # specified directly in `__roles__[role]['granted_via']`.
+                        possible_roles = {role}
+                        for arole, actions in self.obj.__roles__.items():
+                            if (
+                                arole != role
+                                and 'granted_via' in actions
+                                and relattr in actions['granted_via']
+                                and actions['granted_via'][relattr] == actor_attr
+                            ):
+                                possible_roles.add(arole)
+
                         granted_roles = _roles_via_relationship(
-                            self.actor, relationship, actor_attr, {role}
+                            self.actor,
+                            relationship,
+                            actor_attr,
+                            possible_roles,
+                            offer_map,
                         )
                         self._present.update(granted_roles)
-                        self._scanned_granted_via.add(relattr)
+                        self._scanned_granted_via.add((relattr, actor_attr))
                         if role in granted_roles:
                             return True
             # granted_by says a role is granted by the actor being present in a
@@ -284,7 +313,7 @@ class LazyRoleSet(abc.MutableSet):
             if 'granted_by' in self.obj.__roles__[role]:
                 for relattr in self.obj.__roles__[role]['granted_by']:
                     if relattr not in self._scanned_granted_by:
-                        relationship = self._get_relationshp(relattr)
+                        relationship = self._get_relationship(relattr)
                         is_present = _actor_in_relationship(self.actor, relationship)
                         if is_present:
                             self._present.add(role)
@@ -298,8 +327,7 @@ class LazyRoleSet(abc.MutableSet):
                                 ):
                                     self._present.add(arole)
                             return True
-                        else:
-                            self._scanned_granted_by.add(relattr)
+                        self._scanned_granted_by.add(relattr)
         self._not_present.add(role)
         return False
 
@@ -778,6 +806,8 @@ class RoleMixin(object):
     __roles__ = {}
     # Datasets for limited access to attributes
     __datasets__ = {}
+    # Relationship role offer map (used by LazyRoleSet)
+    __relationship_role_offer_map__ = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
@@ -934,6 +964,11 @@ def _configure_roles(mapper_, cls):
         # to the current object.
         cls.__roles__ = deepcopy(cls.__roles__)
 
+    if '__relationship_role_offer_map__' not in cls.__dict__:
+        cls.__relationship_role_offer_map__ = deepcopy(
+            cls.__relationship_role_offer_map__
+        )
+
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
@@ -980,12 +1015,24 @@ def _configure_roles(mapper_, cls):
                     if name not in granted_by:
                         granted_by.append(name)
                 for actor_attr, roles in data.get('grants_via', {}).items():
+                    if isinstance(roles, dict):
+                        offer_map = roles
+                        roles = set(roles.values())
+                    else:
+                        offer_map = None
+                    if '.' in actor_attr:
+                        parts = actor_attr.split('.')
+                        dotted_name = '.'.join([name] + parts[:-1])
+                        actor_attr = parts[-1]
+                    else:
+                        dotted_name = name
+                    cls.__relationship_role_offer_map__[dotted_name] = offer_map
                     for role in roles:
                         granted_via = cls.__roles__.setdefault(role, {}).setdefault(
                             'granted_via', {}
                         )
-                        if name not in granted_via:
-                            granted_via[name] = actor_attr
+                        if dotted_name not in granted_via:
+                            granted_via[dotted_name] = actor_attr
                 processed.add(name)
 
 
