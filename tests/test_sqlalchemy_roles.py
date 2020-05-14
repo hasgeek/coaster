@@ -281,7 +281,14 @@ class MultiroleDocument(BaseMixin, db.Model):
     __tablename__ = 'multirole_document'
 
     parent_id = db.Column(None, db.ForeignKey('multirole_parent.id'))
-    parent = db.relationship(MultiroleParent)
+    parent = with_roles(
+        db.relationship(MultiroleParent),
+        # grants_via[None] implies that these roles are granted by parent.roles_for(),
+        # and not via parent.`actor_attr`. While other roles may also be granted by
+        # parent.roles_for(), we only want one, and we want to give it a different name
+        # here. The dict maps source role to destination role.
+        grants_via={None: {'prole1': 'parent_prole1'}},
+    )
 
     # Acquire parent_role through parent.user (a scalar relationship)
     # Acquire parent_other_role too (will be cached alongside parent_role)
@@ -871,6 +878,15 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'prole1' in proles
         assert 'prole2' in proles._present
         assert 'prole2' in proles
+
+        # u1 also gets 'parent_prole1' remapped from 'prole1' in parent.roles_for(),
+        # but not 'prole1' itself or 'prole2'
+        assert 'parent_prole1' in document.roles_for(u1)
+        assert 'parent_prole2' not in document.roles_for(u1)
+        assert 'prole1' not in document.roles_for(u1)
+        assert 'prole2' not in document.roles_for(u2)
+        assert 'parent_prole1' not in document.roles_for(u2)
+        assert 'parent_prole2' not in document.roles_for(u2)
 
         # Start over for document roles
         roles1 = document.roles_for(u1)

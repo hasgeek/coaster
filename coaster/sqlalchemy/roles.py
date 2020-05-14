@@ -169,7 +169,21 @@ def _actor_in_relationship(actor, relationship):
 
 def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     """Find roles granted via a relationship"""
-    relobj = None
+    relobj = None  # Role-granting object found via the relationship
+
+    # There is no actor_attr. Check if the relationship is a RoleMixin and call
+    # roles_for to get offered roles, then remap using the offer map.
+    if actor_attr is None:
+        if isinstance(relationship, RoleMixin):
+            offered_roles = relationship.roles_for(actor)
+            if offer_map:
+                offered_roles = {
+                    offer_map[role] for role in offered_roles if role in offer_map
+                }
+            return offered_roles
+        else:
+            return ()
+
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
     if isinstance(relationship, AppenderMixin):
@@ -184,12 +198,13 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
             if getattr(relitem, actor_attr) == actor:
                 relobj = relitem
                 break
+
     # Not any sort of collection. May be a scalar relationship
     elif getattr(relationship, actor_attr) == actor:
         relobj = relationship
     if not relobj:
         # Didn't find a relationship object. Actor gets no roles
-        return set()
+        return ()
 
     # We have a related object. Get roles from it
     if isinstance(relobj, RoleGrantABC):
@@ -215,7 +230,7 @@ class RoleGrantABC(object):
 
     def offered_roles(self):  # pragma: no cover
         """Roles offered by this object"""
-        return set()
+        return ()
 
     @classmethod
     def __subclasshook__(cls, c):
@@ -273,6 +288,10 @@ class LazyRoleSet(abc.MutableSet):
             # in a relationship between the current object and the actor. The secondary
             # could be a direct attribute of the current object, or could be inside a
             # list or query relationship. _roles_via_relationship will check.
+            # The related object may grant roles in one of three ways:
+            # 1. By its mere existence (default).
+            # 2. By offering roles via an `offered_roles` method (see RoleGrantABC).
+            # 3. By being a RoleMixin instance that has a roles_for method.
             if 'granted_via' in self.obj.__roles__[role]:
                 for relattr, actor_attr in self.obj.__roles__[role][
                     'granted_via'
@@ -674,7 +693,7 @@ def with_roles(
     :param set write: Roles which get write access to the decorated attribute
     :param set grants: The decorated attribute contains actors with the given roles
     :param dict grants_via: The decorated attribute is a relationship to another
-        object type which contains one or more actors who are granted roles
+        object type which contains one or more actors who are granted roles here
 
     ``grants_via`` is typically used like this::
 
@@ -1020,7 +1039,7 @@ def _configure_roles(mapper_, cls):
                         roles = set(roles.values())
                     else:
                         offer_map = None
-                    if '.' in actor_attr:
+                    if actor_attr and '.' in actor_attr:
                         parts = actor_attr.split('.')
                         dotted_name = '.'.join([name] + parts[:-1])
                         actor_attr = parts[-1]
