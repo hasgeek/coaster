@@ -120,8 +120,10 @@ Example use::
 """
 
 from __future__ import absolute_import
+import six
 import six.moves.collections_abc as abc
 
+from abc import ABCMeta
 from copy import deepcopy
 from functools import wraps
 import warnings
@@ -143,6 +145,7 @@ from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
 
 __all__ = [
+    'RoleGrantABC',
     'LazyRoleSet',
     'RoleAccessProxy',
     'DynamicAssociationProxy',
@@ -164,6 +167,80 @@ def _actor_in_relationship(actor, relationship):
     return False
 
 
+def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
+    """Find roles granted via a relationship"""
+    relobj = None  # Role-granting object found via the relationship
+
+    # There is no actor_attr. Check if the relationship is a RoleMixin and call
+    # roles_for to get offered roles, then remap using the offer map.
+    if actor_attr is None:
+        if isinstance(relationship, RoleMixin):
+            offered_roles = relationship.roles_for(actor)
+            if offer_map:
+                offered_roles = {
+                    offer_map[role] for role in offered_roles if role in offer_map
+                }
+            return offered_roles
+        else:
+            return ()
+
+    # We have a relationship. If it's a collection, find the item in it that relates
+    # to the actor.
+    if isinstance(relationship, AppenderMixin):
+        # Query-like relationship. Run a query.
+        relobj = relationship.filter_by(**{actor_attr: actor}).one_or_none()
+    elif isinstance(relationship, (abc.Sequence, abc.Set)):  # 'abc.Collection' in Py3
+        # List-like object. Scan through it looking for item related to actor.
+        # Note: strings are also collections. Checking for abc.Collection is only safe
+        # here because of the unlikeliness of a string relationship. If that becomes
+        # necessary in future, add `and not isinstance(relationship, six.string_types)`
+        for relitem in relationship:
+            if getattr(relitem, actor_attr) == actor:
+                relobj = relitem
+                break
+
+    # Not any sort of collection. May be a scalar relationship
+    elif getattr(relationship, actor_attr) == actor:
+        relobj = relationship
+    if not relobj:
+        # Didn't find a relationship object. Actor gets no roles
+        return ()
+
+    # We have a related object. Get roles from it
+    if isinstance(relobj, RoleGrantABC):
+        # If this object grants roles, get them. It may not grant the one we're looking
+        # for and that's okay. Grab the others
+        offered_roles = relobj.offered_roles()
+        # But if we have an offer_map, remap the roles and only keep the ones
+        # specified in the map
+        if offer_map:
+            offered_roles = {
+                offer_map[role] for role in offered_roles if role in offer_map
+            }
+        return offered_roles
+    else:
+        # Not a role granting object. Implies that the default roles are granted
+        # by its very existence.
+        return roles
+
+
+@six.add_metaclass(ABCMeta)
+class RoleGrantABC(object):
+    """Base class for an object that grants roles to an actor"""
+
+    def offered_roles(self):  # pragma: no cover
+        """Roles offered by this object"""
+        return ()
+
+    @classmethod
+    def __subclasshook__(cls, c):
+        if cls is RoleGrantABC:
+            if any('offered_roles' in b.__dict__ for b in c.__mro__):
+                return True
+            return False
+        return NotImplemented  # pragma: no cover
+
+
 class LazyRoleSet(abc.MutableSet):
     """
     Set that provides lazy evaluations for whether a role is present
@@ -172,8 +249,13 @@ class LazyRoleSet(abc.MutableSet):
     def __init__(self, obj, actor, initial=()):
         self.obj = obj
         self.actor = actor
-        self._present = set(initial)  # Make a copy if it's already a set
+        #: Roles that the actor has (make a copy of initial set as it will be mutated)
+        self._present = set(initial)
+        #: Roles the actor does not have
         self._not_present = set()
+        # Relationships that have been scanned already
+        self._scanned_granted_via = set()  # Contains (relattr, actor_attr)
+        self._scanned_granted_by = set()  # Contains relattr
 
     def __repr__(self):  # pragma: no cover
         return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
@@ -181,6 +263,16 @@ class LazyRoleSet(abc.MutableSet):
     # This is required by the `MutableSet` base class
     def _from_iterable(self, iterable):
         return LazyRoleSet(self.obj, self.actor, iterable)
+
+    def _get_relationship(self, relattr):
+        if '.' in relattr:
+            # Did we get a 'relationship.attr'? Find the referred item
+            relationship = self.obj
+            for part in relattr.split('.'):
+                relationship = getattr(relationship, part)
+        else:
+            relationship = getattr(self.obj, relattr)
+        return relationship
 
     def _role_is_present(self, role):
         """Test whether a role has been granted to the bound actor"""
@@ -192,13 +284,69 @@ class LazyRoleSet(abc.MutableSet):
             if role not in self.obj.__roles__:
                 self._not_present.add(role)
                 return False
-            for relattr in self.obj.__roles__[role].get('granted_by', ()):
-                is_present = _actor_in_relationship(
-                    self.actor, getattr(self.obj, relattr)
-                )
-                if is_present:
-                    self._present.add(role)
-                    return True
+            # granted_via says a role may be granted by a secondary object that sits
+            # in a relationship between the current object and the actor. The secondary
+            # could be a direct attribute of the current object, or could be inside a
+            # list or query relationship. _roles_via_relationship will check.
+            # The related object may grant roles in one of three ways:
+            # 1. By its mere existence (default).
+            # 2. By offering roles via an `offered_roles` method (see RoleGrantABC).
+            # 3. By being a RoleMixin instance that has a roles_for method.
+            if 'granted_via' in self.obj.__roles__[role]:
+                for relattr, actor_attr in self.obj.__roles__[role][
+                    'granted_via'
+                ].items():
+                    offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
+                    if (relattr, actor_attr) not in self._scanned_granted_via:
+                        relationship = self._get_relationship(relattr)
+                        # Optimization: does the same relationship grant other roles
+                        # via the same actor_attr? Gather those roles and check all of
+                        # them together. However, we will use a single role offer map
+                        # and not consult the one specified on the other roles. They are
+                        # expected to be identical. This is guaranteed if the offer map
+                        # was specified using `with_roles(grants_via=)` but not if
+                        # specified directly in `__roles__[role]['granted_via']`.
+                        possible_roles = {role}
+                        for arole, actions in self.obj.__roles__.items():
+                            if (
+                                arole != role
+                                and 'granted_via' in actions
+                                and relattr in actions['granted_via']
+                                and actions['granted_via'][relattr] == actor_attr
+                            ):
+                                possible_roles.add(arole)
+
+                        granted_roles = _roles_via_relationship(
+                            self.actor,
+                            relationship,
+                            actor_attr,
+                            possible_roles,
+                            offer_map,
+                        )
+                        self._present.update(granted_roles)
+                        self._scanned_granted_via.add((relattr, actor_attr))
+                        if role in granted_roles:
+                            return True
+            # granted_by says a role is granted by the actor being present in a
+            # relationship
+            if 'granted_by' in self.obj.__roles__[role]:
+                for relattr in self.obj.__roles__[role]['granted_by']:
+                    if relattr not in self._scanned_granted_by:
+                        relationship = self._get_relationship(relattr)
+                        is_present = _actor_in_relationship(self.actor, relationship)
+                        if is_present:
+                            self._present.add(role)
+                            # Optimization: does this relationship grant other roles?
+                            # Get them rightaway. Don't query again later.
+                            for arole, actions in self.obj.__roles__.items():
+                                if (
+                                    arole != role
+                                    and 'granted_by' in actions
+                                    and relattr in actions['granted_by']
+                                ):
+                                    self._present.add(arole)
+                            return True
+                        self._scanned_granted_by.add(relattr)
         self._not_present.add(role)
         return False
 
@@ -500,7 +648,9 @@ class RoleAccessProxy(abc.Mapping):
             yield key
 
 
-def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None):
+def with_roles(
+    obj=None, rw=None, call=None, read=None, write=None, grants=None, grants_via=None
+):
     """
     Convenience function and decorator to define roles on an attribute. Only
     works with :class:`RoleMixin`, which reads the annotations made by this
@@ -510,6 +660,8 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
 
         id = db.Column(Integer, primary_key=True)
         with_roles(id, read={'all'})
+
+        title = with_roles(db.Column(db.UnicodeText), read={'all'})
 
         @with_roles(read={'all'})
         @hybrid_property
@@ -531,8 +683,8 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
         # instead of wrapping them. The return value can be discarded if it's
         # already present on the host object:
 
-        with_roles(title, read={'all'}, write={'owner', 'editor'})
         title = with_roles(title, read={'all'}, write={'owner', 'editor'})
+        with_roles(title, read={'all'}, write={'owner', 'editor'})
 
     :param set rw: Roles which get read and write access to the decorated
         attribute
@@ -540,6 +692,24 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
     :param set read: Roles which get read access to the decorated attribute
     :param set write: Roles which get write access to the decorated attribute
     :param set grants: The decorated attribute contains actors with the given roles
+    :param dict grants_via: The decorated attribute is a relationship to another
+        object type which contains one or more actors who are granted roles here
+
+    ``grants_via`` is typically used like this::
+
+        class RoleModel(db.Model):
+            user_id = db.Column(None, db.ForeignKey('user.id'))
+            user = db.relationship(UserModel)
+
+            document_id = db.Column(None, db.ForeignKey('document.id'))
+            document = db.relationship(DocumentModel)
+
+        DocumentModel.rolemodels = with_roles(db.relationship(RoleModel),
+            grants_via={'user': {'role1', 'role2'}})
+
+    In this example, a user gets roles 'role1' and 'role2' on DocumentModel via the
+    secondary RoleModel. Grants are recorded in ``__roles__['role1']['granted_via']``
+    and are honoured by the :class:`LazyRoleSet` used in :meth:`~RoleMixin.roles_for`.
     """
     # Convert lists and None values to sets
     rw = set(rw) if rw else set()
@@ -547,18 +717,27 @@ def with_roles(obj=None, rw=None, call=None, read=None, write=None, grants=None)
     read = set(read) if read else set()
     write = set(write) if write else set()
     grants = set(grants) if grants else set()
+    if not grants_via:
+        grants_via = {}
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
 
     def inner(attr):
-        __cache__[attr] = {'call': call, 'read': read, 'write': write, 'grants': grants}
+        __cache__[attr] = {
+            'call': call,
+            'read': read,
+            'write': write,
+            'grants': grants,
+            'grants_via': grants_via,
+        }
         try:
             attr._coaster_roles = {
                 'call': call,
                 'read': read,
                 'write': write,
                 'grants': grants,
+                'grants_via': grants_via,
             }
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
@@ -646,6 +825,8 @@ class RoleMixin(object):
     __roles__ = {}
     # Datasets for limited access to attributes
     __datasets__ = {}
+    # Relationship role offer map (used by LazyRoleSet)
+    __relationship_role_offer_map__ = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
@@ -802,6 +983,11 @@ def _configure_roles(mapper_, cls):
         # to the current object.
         cls.__roles__ = deepcopy(cls.__roles__)
 
+    if '__relationship_role_offer_map__' not in cls.__dict__:
+        cls.__relationship_role_offer_map__ = deepcopy(
+            cls.__relationship_role_offer_map__
+        )
+
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
@@ -829,15 +1015,15 @@ def _configure_roles(mapper_, cls):
             else:
                 data = None
             if data is not None:
-                for role in data.get('call', []):
+                for role in data.get('call', ()):
                     cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(
                         name
                     )
-                for role in data.get('read', []):
+                for role in data.get('read', ()):
                     cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(
                         name
                     )
-                for role in data.get('write', []):
+                for role in data.get('write', ()):
                     cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(
                         name
                     )
@@ -847,6 +1033,25 @@ def _configure_roles(mapper_, cls):
                     )
                     if name not in granted_by:
                         granted_by.append(name)
+                for actor_attr, roles in data.get('grants_via', {}).items():
+                    if isinstance(roles, dict):
+                        offer_map = roles
+                        roles = set(roles.values())
+                    else:
+                        offer_map = None
+                    if actor_attr and '.' in actor_attr:
+                        parts = actor_attr.split('.')
+                        dotted_name = '.'.join([name] + parts[:-1])
+                        actor_attr = parts[-1]
+                    else:
+                        dotted_name = name
+                    cls.__relationship_role_offer_map__[dotted_name] = offer_map
+                    for role in roles:
+                        granted_via = cls.__roles__.setdefault(role, {}).setdefault(
+                            'granted_via', {}
+                        )
+                        if dotted_name not in granted_via:
+                            granted_via[dotted_name] = actor_attr
                 processed.add(name)
 
 
