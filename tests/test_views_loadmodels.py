@@ -357,9 +357,7 @@ class TestLoadModels(unittest.TestCase):
             assert r.status_code == 302
             assert r.location == '/c/1-id-named-document?preserve=this'
         with pytest.raises(NotFound):
-            t_id_named_document(
-                container=u'c', document=u'random-non-integer',
-            )
+            t_id_named_document(container=u'c', document=u'random-non-integer')
 
     def test_scoped_id_document(self):
         assert t_scoped_id_document(container=u'c', document=u'1') == self.sid1
@@ -385,9 +383,7 @@ class TestLoadModels(unittest.TestCase):
             assert r.status_code == 302
             assert r.location == '/c/1-scoped-id-named-document'
         with pytest.raises(NotFound):
-            t_scoped_id_named_document(
-                container=u'c', document=u'random-non-integer',
-            )
+            t_scoped_id_named_document(container=u'c', document=u'random-non-integer')
 
     def test_callable_document(self):
         assert t_callable_document(document=u'parent', child=1) == self.child1

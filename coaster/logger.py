@@ -34,7 +34,7 @@ def pprint_with_indent(value, outfile, indent=4):
     pprint(value, out)
     lines = out.getvalue().split('\n')
     out.close()
-    outfile.write('\n'.join((' ' * indent) + l for l in lines))
+    outfile.write('\n'.join((' ' * indent) + line for line in lines))
 
 
 class LocalVarFormatter(logging.Formatter):
