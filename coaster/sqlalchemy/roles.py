@@ -210,7 +210,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     if isinstance(relobj, RoleGrantABC):
         # If this object grants roles, get them. It may not grant the one we're looking
         # for and that's okay. Grab the others
-        offered_roles = relobj.offered_roles()
+        offered_roles = relobj.offered_roles
         # But if we have an offer_map, remap the roles and only keep the ones
         # specified in the map
         if offer_map:
@@ -228,6 +228,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
 class RoleGrantABC(object):
     """Base class for an object that grants roles to an actor"""
 
+    @property
     def offered_roles(self):  # pragma: no cover
         """Roles offered by this object"""
         return ()
@@ -290,7 +291,7 @@ class LazyRoleSet(abc.MutableSet):
             # list or query relationship. _roles_via_relationship will check.
             # The related object may grant roles in one of three ways:
             # 1. By its mere existence (default).
-            # 2. By offering roles via an `offered_roles` method (see RoleGrantABC).
+            # 2. By offering roles via an `offered_roles` property (see RoleGrantABC).
             # 3. By being a RoleMixin instance that has a roles_for method.
             if 'granted_via' in self.obj.__roles__[role]:
                 for relattr, actor_attr in self.obj.__roles__[role][

@@ -256,6 +256,7 @@ class RoleMembership(BaseMixin, db.Model):
     role2 = db.Column(db.Boolean, default=False)
     role3 = db.Column(db.Boolean, default=False)
 
+    @property
     def offered_roles(self):
         roles = set()
         if self.role1:
