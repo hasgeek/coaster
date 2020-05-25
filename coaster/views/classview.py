@@ -625,7 +625,7 @@ def requires_roles(roles):
 
     def inner(f):
         def is_available_here(context):
-            return not roles.isdisjoint(context.obj.current_roles)
+            return context.obj.roles_for(current_auth.actor).has_any(roles)
 
         def is_available(context):
             result = is_available_here(context)
