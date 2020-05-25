@@ -1117,11 +1117,11 @@ class TestLazyRoleSet(unittest.TestCase):
 
         # While `owner` is present, it's not yet in the cache. The cache is scanned
         # first, before lazy sources are evaluated
-        assert r.has_any(('owner', 'all')) is True
+        assert r.has_any(['owner', 'all']) is True
         assert 'owner' not in r._present
 
         # When non-cached roles are asked for, lazy sources are evaluated
-        assert r.has_any(('owner', 'also-bogus')) is True
+        assert r.has_any(frozenset(('owner', 'also-bogus'))) is True
         assert 'owner' in r._present
         # After a match none of the other options are evaluated (needs ordered sequence)
         assert 'also-bogus' not in r._not_present
