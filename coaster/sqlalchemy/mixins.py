@@ -338,7 +338,8 @@ class UrlDict(abc.Mapping):
             ):
                 for action, epdata in app_actions.items():
                     if not epdata.requires_kwargs and (
-                        epdata.roles is None or epdata.roles.intersection(current_roles)
+                        epdata.roles is None
+                        or not epdata.roles.isdisjoint(current_roles)
                     ):
                         yield action
 

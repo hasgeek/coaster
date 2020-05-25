@@ -625,7 +625,7 @@ def requires_roles(roles):
 
     def inner(f):
         def is_available_here(context):
-            return bool(roles.intersection(context.obj.current_roles))
+            return not roles.isdisjoint(context.obj.current_roles)
 
         def is_available(context):
             result = is_available_here(context)

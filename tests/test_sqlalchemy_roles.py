@@ -1060,7 +1060,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r
 
     def test_set_operations(self):
-        # Confirm we support common set operations
+        """Confirm we support common set operations."""
         doc = self.Document()
         user = self.User()
         r = LazyRoleSet(doc, user, {'all', 'auth'})
@@ -1094,6 +1094,40 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r2 is not r
         assert r == r2
         assert r2 == r
+
+    def test_has_any(self):
+        """Test the has_any method"""
+        doc = self.Document()
+        user = self.User()
+        doc.user = user
+        r = LazyRoleSet(doc, user, {'all', 'auth'})
+
+        # At the start, the access flag is false and the cache sets are not populated
+        assert r._present == {'all', 'auth'}
+        assert not r._not_present
+
+        # has_any accepts any iterable. We'll be using different sorts in each call
+
+        # has_any works with pre-cached roles
+        assert r.has_any({'all'}) is True
+
+        # Bogus roles are not present and get populated into the internal cache
+        assert r.has_any(('bogus1', 'bogus2')) is False
+        assert r._not_present == {'bogus1', 'bogus2'}
+
+        # While `owner` is present, it's not yet in the cache. The cache is scanned
+        # first, before lazy sources are evaluated
+        assert r.has_any(('owner', 'all')) is True
+        assert 'owner' not in r._present
+
+        # When non-cached roles are asked for, lazy sources are evaluated
+        assert r.has_any(('owner', 'also-bogus')) is True
+        assert 'owner' in r._present
+        # After a match none of the other options are evaluated (needs ordered sequence)
+        assert 'also-bogus' not in r._not_present
+        # Until it comes up for an actual scan
+        assert r.has_any({'also-bogus'}) is False
+        assert 'also-bogus' in r._not_present
 
     def test_lazyroleset(self):
         d = self.Document()
