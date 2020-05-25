@@ -1106,22 +1106,24 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r._present == {'all', 'auth'}
         assert not r._not_present
 
-        # has_any accepts any iterable. We'll be using different sorts in each call
+        # has_any accepts any iterable. We'll be using a different type in each call
 
         # has_any works with pre-cached roles
         assert r.has_any({'all'}) is True
 
         # Bogus roles are not present and get populated into the internal cache
-        assert r.has_any(('bogus1', 'bogus2')) is False
+        assert r.has_any(['bogus1', 'bogus2']) is False
         assert r._not_present == {'bogus1', 'bogus2'}
 
         # While `owner` is present, it's not yet in the cache. The cache is scanned
-        # first, before lazy sources are evaluated
-        assert r.has_any(['owner', 'all']) is True
+        # first, before lazy sources are evaluated. Use frozenset just to demonstrate
+        # that it's accepted; it has no impact on the test.
+        assert r.has_any(frozenset(('owner', 'all'))) is True
         assert 'owner' not in r._present
 
         # When non-cached roles are asked for, lazy sources are evaluated
-        assert r.has_any(frozenset(('owner', 'also-bogus'))) is True
+        # This test requires an ordered iterable ('owner' must be first)
+        assert r.has_any(('owner', 'also-bogus')) is True
         assert 'owner' in r._present
         # After a match none of the other options are evaluated (needs ordered sequence)
         assert 'also-bogus' not in r._not_present
