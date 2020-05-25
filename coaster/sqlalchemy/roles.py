@@ -397,6 +397,22 @@ class LazyRoleSet(abc.MutableSet):
         self._present.discard(elem)
         self._not_present.add(elem)
 
+    def has_any(self, roles):
+        """
+        Convenience method for checking if any of the given roles is present in the set.
+
+        Equivalent of evaluating using either of these approaches:
+
+        1. ``not roles.isdisjoint(lazy_role_set)``
+        2. ``any(role in lazy_role_set for role in roles)``
+
+        This implementation optimizes for cached roles before evaluating role granting
+        sources that may cause a database hit.
+        """
+        if not self._present.isdisjoint(roles):
+            return True
+        return any(role in self for role in roles)
+
     # The following are for transparent compatibility with sets,
     # with the most commonly used methods
 

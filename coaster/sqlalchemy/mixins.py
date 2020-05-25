@@ -331,14 +331,14 @@ class UrlDict(abc.Mapping):
         # 2. If the action requires specific roles, confirm overlap with current_roles
         # 3. Confirm the action does not require additional parameters
         # 4. Yield whatever passes the tests
-        current_roles = self.obj.current_roles
+        current_roles = self.obj.roles_for(current_auth.actor)
         for app, app_actions in self.obj.url_for_endpoints.items():
             if app is None or (
                 current_app and app is current_app._get_current_object()
             ):
                 for action, epdata in app_actions.items():
                     if not epdata.requires_kwargs and (
-                        epdata.roles is None or epdata.roles.intersection(current_roles)
+                        epdata.roles is None or current_roles.has_any(epdata.roles)
                     ):
                         yield action
 
