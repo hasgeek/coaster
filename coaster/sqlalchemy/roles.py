@@ -129,6 +129,7 @@ from functools import wraps
 import warnings
 
 from sqlalchemy import event
+from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 from sqlalchemy.orm.collections import (
@@ -606,7 +607,9 @@ class RoleAccessProxy(abc.Mapping):
                 )
                 for k, v in attr.items()
             }
-        elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
+        elif isinstance(
+            attr, (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList)
+        ):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
             # subclassing abc.Mapping: dicts are also not hashable.
