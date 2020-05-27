@@ -71,10 +71,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 
     __roles__ = {'all': {'read': {'id', 'name', 'title'}}}
 
-    __datasets__ = {
-        'minimal': {'id', 'name', 'title'},
-        'extra': {'id', 'name', 'title', 'mixed_in1'},
-    }
+    __datasets__ = {'minimal': {'id', 'name'}, 'extra': {'id', 'name', 'mixed_in1'}}
+    # Additional dataset members are defined using with_roles
 
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
@@ -85,7 +83,9 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     )  # Specify read+write access
 
     title = with_roles(
-        db.Column(db.Unicode(250)), write={'owner', 'editor'}
+        db.Column(db.Unicode(250)),
+        write={'owner', 'editor'},
+        datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
     )  # Grant 'owner' and 'editor' write but not read access
 
     defval = with_roles(db.deferred(db.Column(db.Unicode(250))), rw={'owner'})
@@ -527,6 +527,9 @@ class TestCoasterRoles(unittest.TestCase):
         assert len(proxy2b) == 2
         assert set(proxy3b) == {'id', 'name', 'title', 'mixed_in1'}
         assert len(proxy3b) == 4
+
+        # Dataset was created from with_roles
+        assert RoleModel.__datasets__['third'] == {'title'}
 
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""

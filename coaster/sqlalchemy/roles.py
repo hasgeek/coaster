@@ -675,7 +675,14 @@ class RoleAccessProxy(abc.Mapping):
 
 
 def with_roles(
-    obj=None, rw=None, call=None, read=None, write=None, grants=None, grants_via=None
+    obj=None,
+    rw=None,
+    call=None,
+    read=None,
+    write=None,
+    grants=None,
+    grants_via=None,
+    datasets=None,
 ):
     """
     Convenience function and decorator to define roles on an attribute. Only
@@ -720,6 +727,7 @@ def with_roles(
     :param set grants: The decorated attribute contains actors with the given roles
     :param dict grants_via: The decorated attribute is a relationship to another
         object type which contains one or more actors who are granted roles here
+    :param set datasets: Datasets to include the attribute in
 
     ``grants_via`` is typically used like this::
 
@@ -745,6 +753,8 @@ def with_roles(
     grants = set(grants) if grants else set()
     if not grants_via:
         grants_via = {}
+    if not datasets:
+        datasets = {}
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
@@ -756,6 +766,7 @@ def with_roles(
             'write': write,
             'grants': grants,
             'grants_via': grants_via,
+            'datasets': datasets,
         }
         try:
             attr._coaster_roles = {
@@ -764,6 +775,7 @@ def with_roles(
                 'write': write,
                 'grants': grants,
                 'grants_via': grants_via,
+                'datasets': datasets,
             }
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
@@ -1014,6 +1026,9 @@ def _configure_roles(mapper_, cls):
             cls.__relationship_role_offer_map__
         )
 
+    if '__datasets__' not in cls.__dict__:
+        cls.__datasets__ = deepcopy(cls.__datasets__)
+
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
@@ -1055,7 +1070,7 @@ def _configure_roles(mapper_, cls):
                     )
                 for role in data.get('grants', ()):
                     granted_by = cls.__roles__.setdefault(role, {}).setdefault(
-                        'granted_by', []
+                        'granted_by', []  # List as it needs to be ordered
                     )
                     if name not in granted_by:
                         granted_by.append(name)
@@ -1078,6 +1093,8 @@ def _configure_roles(mapper_, cls):
                         )
                         if dotted_name not in granted_via:
                             granted_via[dotted_name] = actor_attr
+                for dataset in data.get('datasets', ()):
+                    cls.__datasets__.setdefault(dataset, set()).add(name)
                 processed.add(name)
 
 
