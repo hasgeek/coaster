@@ -565,7 +565,13 @@ class RoleAccessProxy(abc.Mapping):
             object.__setattr__(self, '_datasets', None)
         else:
             if datasets:
-                dataset_attrs = set(obj.__datasets__[datasets[0]])
+                try:
+                    dataset_attrs = set(obj.__datasets__[datasets[0]])
+                except KeyError:
+                    raise KeyError(
+                        "Object of type %r is missing dataset %s"
+                        % (type(obj), datasets[0])
+                    )
             else:
                 # Got an empty list, so turn off enumeration
                 dataset_attrs = set()
@@ -962,7 +968,7 @@ class RoleMixin(object):
 
         If a dataset includes an attribute the role doesn't have access to, it will be
         skipped. If it includes a relationship for which no dataset is specified, it
-        will be rendered as an empty object.
+        will be rendered as an empty dict.
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
