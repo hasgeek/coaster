@@ -71,10 +71,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 
     __roles__ = {'all': {'read': {'id', 'name', 'title'}}}
 
-    __datasets__ = {
-        'minimal': {'id', 'name', 'title'},
-        'extra': {'id', 'name', 'title', 'mixed_in1'},
-    }
+    __datasets__ = {'minimal': {'id', 'name'}, 'extra': {'id', 'name', 'mixed_in1'}}
+    # Additional dataset members are defined using with_roles
 
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
@@ -85,7 +83,9 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     )  # Specify read+write access
 
     title = with_roles(
-        db.Column(db.Unicode(250)), write={'owner', 'editor'}
+        db.Column(db.Unicode(250)),
+        write={'owner', 'editor'},
+        datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
     )  # Grant 'owner' and 'editor' write but not read access
 
     defval = with_roles(db.deferred(db.Column(db.Unicode(250))), rw={'owner'})
@@ -301,6 +301,7 @@ class MultiroleDocument(BaseMixin, db.Model):
         'parent_other_role': {'granted_via': {'parent': 'user'}},
         'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
         'role2': {'granted_via': {'rel_lazy': 'user'}},
+        'incorrectly_specified_role': {'granted_via': {'rel_list': None}},
     }
 
     # Grant via a query relationship
@@ -528,6 +529,9 @@ class TestCoasterRoles(unittest.TestCase):
         assert set(proxy3b) == {'id', 'name', 'title', 'mixed_in1'}
         assert len(proxy3b) == 4
 
+        # Dataset was created from with_roles
+        assert RoleModel.__datasets__['third'] == {'title'}
+
     def test_write_without_read(self):
         """A proxy may allow writes without allowing reads"""
         rm = RoleModel(name='test', title='Test')
@@ -696,6 +700,19 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'parent' in pchild  # Test for containment directly
         assert pchild['parent'] is not None
         assert pchild.parent is not None
+
+    def test_missing_dataset(self):
+        """A missing dataset will raise a KeyError indicating what is missing where"""
+        parent = RelationshipParent(title="Parent")
+        self.session.add(parent)
+        self.session.commit()
+        with self.assertRaises(KeyError) as cm:
+            json.dumps(
+                parent.access_for(roles={'all'}, datasets=('bogus',)), cls=JsonEncoder
+            )
+        exc = str(cm.exception)
+        assert 'bogus' in exc
+        assert 'RelationshipParent' in exc
 
     def test_role_grant(self):
         m1 = RoleGrantMany()
@@ -977,6 +994,16 @@ class TestCoasterRoles(unittest.TestCase):
         # u2 has role3 but not role2 in m3
         assert 'parent_role2' not in croles3
         assert 'parent_role3' in croles3
+
+    def test_granted_via_error(self):
+        """A misconfigured granted_via declaration will raise an error"""
+        user = RoleUser()
+        document = MultiroleDocument()
+        membership = RoleMembership(doc=document, user=user)
+        self.session.add_all([user, document, membership])
+        roles = document.roles_for(user)
+        with self.assertRaises(TypeError):
+            'incorrectly_specified_role' in roles
 
 
 class TestLazyRoleSet(unittest.TestCase):

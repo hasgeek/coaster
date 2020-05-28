@@ -129,6 +129,7 @@ from functools import wraps
 import warnings
 
 from sqlalchemy import event
+from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 from sqlalchemy.orm.collections import (
@@ -182,7 +183,11 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 }
             return offered_roles
         else:
-            return ()
+            raise TypeError(
+                "{0!r} is not a RoleMixin and no actor attribute was specified".format(
+                    relationship
+                )
+            )
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
@@ -564,7 +569,13 @@ class RoleAccessProxy(abc.Mapping):
             object.__setattr__(self, '_datasets', None)
         else:
             if datasets:
-                dataset_attrs = set(obj.__datasets__[datasets[0]])
+                try:
+                    dataset_attrs = set(obj.__datasets__[datasets[0]])
+                except KeyError:
+                    raise KeyError(
+                        "Object of type %r is missing dataset %s"
+                        % (type(obj), datasets[0])
+                    )
             else:
                 # Got an empty list, so turn off enumeration
                 dataset_attrs = set()
@@ -606,7 +617,9 @@ class RoleAccessProxy(abc.Mapping):
                 )
                 for k, v in attr.items()
             }
-        elif isinstance(attr, (InstrumentedList, InstrumentedSet, AppenderMixin)):
+        elif isinstance(
+            attr, (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList)
+        ):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
             # subclassing abc.Mapping: dicts are also not hashable.
@@ -666,7 +679,14 @@ class RoleAccessProxy(abc.Mapping):
 
 
 def with_roles(
-    obj=None, rw=None, call=None, read=None, write=None, grants=None, grants_via=None
+    obj=None,
+    rw=None,
+    call=None,
+    read=None,
+    write=None,
+    grants=None,
+    grants_via=None,
+    datasets=None,
 ):
     """
     Convenience function and decorator to define roles on an attribute. Only
@@ -711,6 +731,7 @@ def with_roles(
     :param set grants: The decorated attribute contains actors with the given roles
     :param dict grants_via: The decorated attribute is a relationship to another
         object type which contains one or more actors who are granted roles here
+    :param set datasets: Datasets to include the attribute in
 
     ``grants_via`` is typically used like this::
 
@@ -736,6 +757,8 @@ def with_roles(
     grants = set(grants) if grants else set()
     if not grants_via:
         grants_via = {}
+    if not datasets:
+        datasets = {}
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
@@ -747,6 +770,7 @@ def with_roles(
             'write': write,
             'grants': grants,
             'grants_via': grants_via,
+            'datasets': datasets,
         }
         try:
             attr._coaster_roles = {
@@ -755,6 +779,7 @@ def with_roles(
                 'write': write,
                 'grants': grants,
                 'grants_via': grants_via,
+                'datasets': datasets,
             }
             # If the attr has a restrictive __slots__, we'll get an attribute error.
             # Unfortunately, because of the way SQLAlchemy works, by copying objects
@@ -959,7 +984,7 @@ class RoleMixin(object):
 
         If a dataset includes an attribute the role doesn't have access to, it will be
         skipped. If it includes a relationship for which no dataset is specified, it
-        will be rendered as an empty object.
+        will be rendered as an empty dict.
         """
         if roles is None:
             roles = self.roles_for(actor=actor, anchors=anchors)
@@ -1005,6 +1030,9 @@ def _configure_roles(mapper_, cls):
             cls.__relationship_role_offer_map__
         )
 
+    if '__datasets__' not in cls.__dict__:
+        cls.__datasets__ = deepcopy(cls.__datasets__)
+
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
 
@@ -1046,7 +1074,7 @@ def _configure_roles(mapper_, cls):
                     )
                 for role in data.get('grants', ()):
                     granted_by = cls.__roles__.setdefault(role, {}).setdefault(
-                        'granted_by', []
+                        'granted_by', []  # List as it needs to be ordered
                     )
                     if name not in granted_by:
                         granted_by.append(name)
@@ -1069,6 +1097,8 @@ def _configure_roles(mapper_, cls):
                         )
                         if dotted_name not in granted_via:
                             granted_via[dotted_name] = actor_attr
+                for dataset in data.get('datasets', ()):
+                    cls.__datasets__.setdefault(dataset, set()).add(name)
                 processed.add(name)
 
 
