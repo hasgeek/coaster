@@ -301,6 +301,7 @@ class MultiroleDocument(BaseMixin, db.Model):
         'parent_other_role': {'granted_via': {'parent': 'user'}},
         'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
         'role2': {'granted_via': {'rel_lazy': 'user'}},
+        'incorrectly_specified_role': {'granted_via': {'rel_list': None}},
     }
 
     # Grant via a query relationship
@@ -700,6 +701,19 @@ class TestCoasterRoles(unittest.TestCase):
         assert pchild['parent'] is not None
         assert pchild.parent is not None
 
+    def test_missing_dataset(self):
+        """A missing dataset will raise a KeyError indicating what is missing where"""
+        parent = RelationshipParent(title="Parent")
+        self.session.add(parent)
+        self.session.commit()
+        with self.assertRaises(KeyError) as cm:
+            json.dumps(
+                parent.access_for(roles={'all'}, datasets=('bogus',)), cls=JsonEncoder
+            )
+        exc = str(cm.exception)
+        assert 'bogus' in exc
+        assert 'RelationshipParent' in exc
+
     def test_role_grant(self):
         m1 = RoleGrantMany()
         m2 = RoleGrantMany()
@@ -980,6 +994,16 @@ class TestCoasterRoles(unittest.TestCase):
         # u2 has role3 but not role2 in m3
         assert 'parent_role2' not in croles3
         assert 'parent_role3' in croles3
+
+    def test_granted_via_error(self):
+        """A misconfigured granted_via declaration will raise an error"""
+        user = RoleUser()
+        document = MultiroleDocument()
+        membership = RoleMembership(doc=document, user=user)
+        self.session.add_all([user, document, membership])
+        roles = document.roles_for(user)
+        with self.assertRaises(TypeError):
+            'incorrectly_specified_role' in roles
 
 
 class TestLazyRoleSet(unittest.TestCase):

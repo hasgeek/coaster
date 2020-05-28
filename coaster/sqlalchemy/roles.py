@@ -183,7 +183,11 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 }
             return offered_roles
         else:
-            return ()
+            raise TypeError(
+                "{0!r} is not a RoleMixin and no actor attribute was specified".format(
+                    relationship
+                )
+            )
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
