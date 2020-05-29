@@ -504,17 +504,17 @@ class TestCoasterModels(unittest.TestCase):
         c1 = self.make_container()
         self.session.commit()
         d1 = ScopedNamedDocument(title="Hello", content="World", container=c1)
-        self.assertEqual(d1.short_title(), "Hello")
+        self.assertEqual(d1.short_title, "Hello")
 
         c1.title = "Container"
         d1.title = "Container Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        self.assertEqual(d1.short_title, "Contained")
 
         d1.title = "Container: Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        self.assertEqual(d1.short_title, "Contained")
 
         d1.title = "Container - Contained"
-        self.assertEqual(d1.short_title(), "Contained")
+        self.assertEqual(d1.short_title, "Contained")
 
     def test_id_named(self):
         """Documents with a global id in the URL"""
