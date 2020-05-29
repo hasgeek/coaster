@@ -770,6 +770,7 @@ class BaseScopedNameMixin(BaseMixin):
                     )
                 )
 
+    @property
     def short_title(self):
         """
         Generates an abbreviated title by subtracting the parent's title from this
@@ -793,7 +794,7 @@ class BaseScopedNameMixin(BaseMixin):
     @property
     def title_for_name(self):
         """The version of the title used for :meth:`make_name`"""
-        return self.short_title()
+        return self.short_title
 
     def permissions(self, actor, inherited=None):
         """
