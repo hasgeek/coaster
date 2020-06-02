@@ -145,24 +145,24 @@ class TestCoasterAnnotations(unittest.TestCase):
 
     def test_has_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
-            assert hasattr(model, '__annotations__')
-            assert hasattr(model, '__annotations_by_attr__')
+            assert hasattr(model, '__column_annotations__')
+            assert hasattr(model, '__column_annotations_by_attr__')
 
     def test_annotation_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
             for annotation in (immutable, cached):
-                assert annotation.name in model.__annotations__
+                assert annotation.name in model.__column_annotations__
 
     def test_attr_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
-            assert 'is_immutable' in model.__annotations__['immutable']
-            assert 'is_cached' in model.__annotations__['cached']
+            assert 'is_immutable' in model.__column_annotations__['immutable']
+            assert 'is_cached' in model.__column_annotations__['cached']
 
     def test_base_attrs_in_annotations(self):
         for model in (IdOnly, IdUuid, UuidOnly):
             for attr in ('created_at', 'id'):
-                assert attr in model.__annotations__['immutable']
-        assert 'uuid' in IdUuid.__annotations__['immutable']
+                assert attr in model.__column_annotations__['immutable']
+        assert 'uuid' in IdUuid.__column_annotations__['immutable']
 
     def test_init_immutability(self):
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
@@ -355,10 +355,10 @@ class TestCoasterAnnotations(unittest.TestCase):
             i3.referral_target = rt2
 
     def test_polymorphic_annotations(self):
-        assert 'is_immutable' in PolymorphicParent.__annotations__['immutable']
-        assert 'also_immutable' in PolymorphicParent.__annotations__['immutable']
-        assert 'is_immutable' in PolymorphicChild.__annotations__['immutable']
-        assert 'also_immutable' in PolymorphicChild.__annotations__['immutable']
+        assert 'is_immutable' in PolymorphicParent.__column_annotations__['immutable']
+        assert 'also_immutable' in PolymorphicParent.__column_annotations__['immutable']
+        assert 'is_immutable' in PolymorphicChild.__column_annotations__['immutable']
+        assert 'also_immutable' in PolymorphicChild.__column_annotations__['immutable']
 
     def test_polymorphic_immutable(self):
         parent = PolymorphicParent(is_immutable='a', also_immutable='b')
