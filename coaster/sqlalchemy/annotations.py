@@ -27,12 +27,12 @@ Sample usage::
         @classmethod
         def get(cls, **kwargs):
             for key in kwargs:
-                if key in cls.__annotations__[natural_key.name]:
+                if key in cls.__column_annotations__[natural_key.name]:
                     return cls.query.filter_by(**{key: kwargs[key]}).one_or_none()
 
-Annotations are saved to the model's class as an ``__annotations__``
+Annotations are saved to the model's class as a ``__column_annotations__``
 dictionary, mapping annotation names to a list of attribute names, and to a
-reverse lookup ``__annotations_by_attr__`` of attribute names to annotations.
+reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
 """
 
 from __future__ import absolute_import
@@ -65,8 +65,8 @@ annotations_configured = coaster_signals.signal(
 def _configure_annotations(mapper_, cls):
     """
     Run through attributes of the class looking for annotations from
-    :func:`annotation_wrapper` and add them to :attr:`cls.__annotations__`
-    and :attr:`cls.__annotations_by_attr__`
+    :func:`annotation_wrapper` and add them to :attr:`cls.__column_annotations__`
+    and :attr:`cls.__column_annotations_by_attr__`
     """
     annotations = {}
     annotations_by_attr = {}
@@ -105,12 +105,12 @@ def _configure_annotations(mapper_, cls):
                     annotations.setdefault(a, []).append(name)
                 processed.add(name)
 
-    # Classes specifying ``__annotations__`` directly isn't supported,
+    # Classes specifying ``__column_annotations__`` directly isn't supported,
     # so we don't bother preserving existing content, if any.
     if annotations:
-        cls.__annotations__ = annotations
+        cls.__column_annotations__ = annotations
     if annotations_by_attr:
-        cls.__annotations_by_attr__ = annotations_by_attr
+        cls.__column_annotations_by_attr__ = annotations_by_attr
     annotations_configured.send(cls)
 
 
