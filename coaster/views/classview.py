@@ -8,6 +8,7 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
+from six.moves.urllib.parse import urlparse, urlunparse
 
 from functools import update_wrapper, wraps
 
@@ -727,11 +728,37 @@ def url_change_check(f):
         if request.method == 'GET' and self.obj is not None:
             correct_url = self.obj.url_for(f.__name__, _external=True)
             if correct_url != request.base_url:
-                if request.query_string:
-                    correct_url = correct_url + '?' + request.query_string.decode()
-                return redirect(
-                    correct_url
-                )  # TODO: Decide if this should be 302 (default) or 301
+                # What's different? If it's a case difference in hostname, or different
+                # port number, username, password or fragment, ignore. For any other
+                # difference, do a redirect.
+                correct_url_parts = urlparse(correct_url)
+                request_url_parts = urlparse(request.base_url)
+                reconstructed_url = urlunparse(
+                    (
+                        correct_url_parts.scheme,
+                        correct_url_parts.hostname.lower(),  # Replace netloc
+                        correct_url_parts.path,
+                        correct_url_parts.params,
+                        '',  # Drop query
+                        '',  # Drop fragment
+                    )
+                )
+                reconstructed_ref = urlunparse(
+                    (
+                        request_url_parts.scheme,
+                        request_url_parts.hostname.lower(),  # Replace netloc
+                        request_url_parts.path,
+                        request_url_parts.params,
+                        '',  # Drop query
+                        '',  # Drop fragment
+                    )
+                )
+                if reconstructed_url != reconstructed_ref:
+                    if request.query_string:
+                        correct_url = correct_url + '?' + request.query_string.decode()
+                    return redirect(
+                        correct_url
+                    )  # TODO: Decide if this should be 302 (default) or 301
         return f(self, *args, **kwargs)
 
     return wrapper
