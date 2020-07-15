@@ -66,7 +66,7 @@ _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
     u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
-_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
+_username_valid_re = re.compile('^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$')
 _ipv4_re = re.compile(
     r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
     r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
