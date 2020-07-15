@@ -66,7 +66,9 @@ _strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
     u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
-_username_valid_re = re.compile('^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$')
+# re.IGNORECASE needs re.ASCII because of a quirk in the characters it matches.
+# https://docs.python.org/3/library/re.html#re.I
+_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$', re.I | re.A)
 _ipv4_re = re.compile(
     r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
     r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
@@ -762,6 +764,22 @@ def valid_username(candidate):
     True
     >>> (valid_username('a-') or valid_username('ab-') or valid_username('-a') or
     ...   valid_username('-ab'))
+    False
+
+    Usernames are case insensitive.
+
+    >>> valid_username('Example Person')
+    False
+    >>> valid_username('Example_Person')
+    False
+    >>> valid_username('ExamplePerson')
+    True
+    >>> valid_username('Example-Person')
+    True
+    >>> valid_username('A')
+    True
+    >>> (valid_username('A-') or valid_username('Ab-') or valid_username('-A') or
+    ...   valid_username('-Ab'))
     False
     """
     return not _username_valid_re.search(candidate) is None
