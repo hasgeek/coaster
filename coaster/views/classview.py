@@ -8,7 +8,7 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from six.moves.urllib.parse import urlparse, urlunparse
+from six.moves.urllib.parse import urlsplit, urlunsplit
 
 from functools import update_wrapper, wraps
 
@@ -731,33 +731,31 @@ def url_change_check(f):
                 # What's different? If it's a case difference in hostname, or different
                 # port number, username, password or fragment, ignore. For any other
                 # difference, do a redirect.
-                correct_url_parts = urlparse(correct_url)
-                request_url_parts = urlparse(request.base_url)
-                reconstructed_url = urlunparse(
+                correct_url_parts = urlsplit(correct_url)
+                request_url_parts = urlsplit(request.base_url)
+                reconstructed_url = urlunsplit(
                     (
                         correct_url_parts.scheme,
                         correct_url_parts.hostname.lower(),  # Replace netloc
                         correct_url_parts.path,
-                        correct_url_parts.params,
                         '',  # Drop query
                         '',  # Drop fragment
                     )
                 )
-                reconstructed_ref = urlunparse(
+                reconstructed_ref = urlunsplit(
                     (
                         request_url_parts.scheme,
                         request_url_parts.hostname.lower(),  # Replace netloc
                         request_url_parts.path,
-                        request_url_parts.params,
                         '',  # Drop query
                         '',  # Drop fragment
                     )
                 )
                 if reconstructed_url != reconstructed_ref:
                     if request.query_string:
-                        correct_url = urlunparse(
+                        correct_url = urlunsplit(
                             correct_url_parts._replace(
-                                query=request.query_string.decode()
+                                query=request.query_string.decode('utf-8')
                             )
                         )
                     return redirect(
