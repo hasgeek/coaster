@@ -755,7 +755,11 @@ def url_change_check(f):
                 )
                 if reconstructed_url != reconstructed_ref:
                     if request.query_string:
-                        correct_url = correct_url + '?' + request.query_string.decode()
+                        correct_url = urlunparse(
+                            correct_url_parts._replace(
+                                query=request.query_string.decode()
+                            )
+                        )
                     return redirect(
                         correct_url
                     )  # TODO: Decide if this should be 302 (default) or 301

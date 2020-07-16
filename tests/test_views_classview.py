@@ -594,6 +594,10 @@ class TestClassView(unittest.TestCase):
         doc.name = 'renamed'
         self.session.commit()
 
+        rv = self.client.get('/rename/1-test1')
+        assert rv.status_code == 302
+        assert rv.location == 'http://localhost/rename/1-renamed'
+
         rv = self.client.get('/rename/1-test1?preserve=this')
         assert rv.status_code == 302
         assert rv.location == 'http://localhost/rename/1-renamed?preserve=this'
