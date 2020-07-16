@@ -721,6 +721,15 @@ def url_change_check(f):
 
     If the decorator is required for all view handlers in the class, use
     :class:`UrlChangeCheck`.
+
+    This decorator will only consider the URLs to be different if:
+
+    * Schemes differ (``http`` vs ``https`` etc)
+    * Hostnames differ (apart from a case difference, as user agents use lowercase)
+    * Paths differ
+
+    The current URL's query will be copied to the redirect URL. The URL fragment
+    (``#target_id``) is not available to the server and will be lost.
     """
 
     @wraps(f)
@@ -729,8 +738,8 @@ def url_change_check(f):
             correct_url = self.obj.url_for(f.__name__, _external=True)
             if correct_url != request.base_url:
                 # What's different? If it's a case difference in hostname, or different
-                # port number, username, password or fragment, ignore. For any other
-                # difference, do a redirect.
+                # port number, username, password, query or fragment, ignore. For any
+                # other difference (scheme, hostname or path), do a redirect.
                 correct_url_parts = urlsplit(correct_url)
                 request_url_parts = urlsplit(request.base_url)
                 reconstructed_url = urlunsplit(
