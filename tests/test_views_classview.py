@@ -594,9 +594,19 @@ class TestClassView(unittest.TestCase):
         doc.name = 'renamed'
         self.session.commit()
 
+        rv = self.client.get('/rename/1-test1')
+        assert rv.status_code == 302
+        assert rv.location == 'http://localhost/rename/1-renamed'
+
         rv = self.client.get('/rename/1-test1?preserve=this')
         assert rv.status_code == 302
         assert rv.location == 'http://localhost/rename/1-renamed?preserve=this'
+
+        rv = self.client.get('/rename/1-test1?utf-8=✓')
+        assert rv.status_code == 302
+        # UTF-8 query parameters will be encoded by urlunsplit. There does not appear
+        # to be a way to disable this.
+        assert rv.location == 'http://localhost/rename/1-renamed?utf-8=%E2%9C%93'
 
         rv = self.client.get('/rename/1-renamed')
         assert rv.status_code == 200

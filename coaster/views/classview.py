@@ -8,6 +8,7 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
+from six.moves.urllib.parse import urlsplit, urlunsplit
 
 from functools import update_wrapper, wraps
 
@@ -720,6 +721,15 @@ def url_change_check(f):
 
     If the decorator is required for all view handlers in the class, use
     :class:`UrlChangeCheck`.
+
+    This decorator will only consider the URLs to be different if:
+
+    * Schemes differ (``http`` vs ``https`` etc)
+    * Hostnames differ (apart from a case difference, as user agents use lowercase)
+    * Paths differ
+
+    The current URL's query will be copied to the redirect URL. The URL fragment
+    (``#target_id``) is not available to the server and will be lost.
     """
 
     @wraps(f)
@@ -727,11 +737,39 @@ def url_change_check(f):
         if request.method == 'GET' and self.obj is not None:
             correct_url = self.obj.url_for(f.__name__, _external=True)
             if correct_url != request.base_url:
-                if request.query_string:
-                    correct_url = correct_url + '?' + request.query_string.decode()
-                return redirect(
-                    correct_url
-                )  # TODO: Decide if this should be 302 (default) or 301
+                # What's different? If it's a case difference in hostname, or different
+                # port number, username, password, query or fragment, ignore. For any
+                # other difference (scheme, hostname or path), do a redirect.
+                correct_url_parts = urlsplit(correct_url)
+                request_url_parts = urlsplit(request.base_url)
+                reconstructed_url = urlunsplit(
+                    (
+                        correct_url_parts.scheme,
+                        correct_url_parts.hostname.lower(),  # Replace netloc
+                        correct_url_parts.path,
+                        '',  # Drop query
+                        '',  # Drop fragment
+                    )
+                )
+                reconstructed_ref = urlunsplit(
+                    (
+                        request_url_parts.scheme,
+                        request_url_parts.hostname.lower(),  # Replace netloc
+                        request_url_parts.path,
+                        '',  # Drop query
+                        '',  # Drop fragment
+                    )
+                )
+                if reconstructed_url != reconstructed_ref:
+                    if request.query_string:
+                        correct_url = urlunsplit(
+                            correct_url_parts._replace(
+                                query=request.query_string.decode('utf-8')
+                            )
+                        )
+                    return redirect(
+                        correct_url
+                    )  # TODO: Decide if this should be 302 (default) or 301
         return f(self, *args, **kwargs)
 
     return wrapper
