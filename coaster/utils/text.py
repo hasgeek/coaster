@@ -30,6 +30,8 @@ else:  # pragma: no cover
 
 __all__ = [
     'VALID_TAGS',
+    'LINKIFY_SKIP_TAGS',
+    'LINKIFY_CALLBACKS',
     'deobfuscate_email',
     'normalize_spaces',
     'normalize_spaces_multiline',
@@ -119,6 +121,26 @@ VALID_TAGS = {
     'ul': [],
 }
 
+LINKIFY_SKIP_TAGS = ['pre', 'code', 'kbd', 'samp', 'var']
+
+
+# Adapted from https://bleach.readthedocs.io/en/latest/linkify.html#preventing-links
+def dont_linkify_filenames(attrs, new=False):
+    # This is an existing link, so leave it be
+    if not new:
+        return attrs
+    # If the TLD is '.py', make sure it starts with http: or https:.
+    # Use _text because that's the original text
+    link_text = attrs['_text']
+    if link_text.endswith('.py') and not link_text.startswith(('http:', 'https:')):
+        # This looks like a Python file, not a URL. Don't make a link.
+        return None
+    # Everything checks out, keep going to the next callback.
+    return attrs
+
+
+LINKIFY_CALLBACKS = list(DEFAULT_CALLBACKS) + [dont_linkify_filenames]
+
 
 def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
     """
@@ -128,7 +150,9 @@ def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
         valid_tags = VALID_TAGS
     if linkify:
         filters = [
-            partial(LinkifyFilter, skip_tags=['pre'], callbacks=DEFAULT_CALLBACKS)
+            partial(
+                LinkifyFilter, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS
+            )
         ]
     else:
         filters = []
