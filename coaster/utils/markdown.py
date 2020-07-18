@@ -23,7 +23,13 @@ from markdown.treeprocessors import Treeprocessor
 from markupsafe import Markup
 from pymdownx.emoji import to_alt as emoji_to_alt
 
-from .text import VALID_TAGS, normalize_spaces_multiline, sanitize_html
+from .text import (
+    LINKIFY_CALLBACKS,
+    LINKIFY_SKIP_TAGS,
+    VALID_TAGS,
+    normalize_spaces_multiline,
+    sanitize_html,
+)
 
 __all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
 
@@ -157,6 +163,7 @@ def markdown(text, html=False, valid_tags=None):
                     extensions=extensions_text,
                     extension_configs=extension_configs,
                 ).convert(text),
-                skip_tags=['pre'],
+                callbacks=LINKIFY_CALLBACKS,
+                skip_tags=LINKIFY_SKIP_TAGS,
             )
         )

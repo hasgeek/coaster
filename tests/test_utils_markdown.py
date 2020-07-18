@@ -30,9 +30,13 @@ A list:
 6. Symbols (ignored): (tm) (c) (r) c/o
 7. Symbols (converted): +/- --> <-- <--> =/= 1/2 1/4 1st 2nd 3rd 4th 42nd
 
+An [inline link](https://www.example.com/)
+
 A naked link: https://www.example.com/
 
-An [inline link](https://www.example.com/)
+Un-prefixed naked links: hasgeek.in python.py
+
+Python/Paraguay link, prefixed: http://python.py
 
 ```python hl_lines="1"
 def foo():
@@ -68,8 +72,10 @@ It has a newline break here.</p>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): ± → ← ↔ ≠ ½ ¼ 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
-<p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
+<p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
+<p>Un-prefixed naked links: <a href="http://hasgeek.in" rel="nofollow">hasgeek.in</a> python.py</p>
+<p>Python/Paraguay link, prefixed: <a href="http://python.py" rel="nofollow">http://python.py</a></p>
 <div class="highlight"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
 </span>    <span class="k">return</span> <span class="s1">'https://www.example.com/'</span>
 </code></pre></div>
@@ -133,8 +139,10 @@ It has a newline break here.</p>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): &plusmn; &rarr; &larr; &harr; &ne; &frac12; &frac14; 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
-<p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
+<p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
+<p>Un-prefixed naked links: <a href="http://hasgeek.in" rel="nofollow">hasgeek.in</a> python.py</p>
+<p>Python/Paraguay link, prefixed: <a href="http://python.py" rel="nofollow">http://python.py</a></p>
 <pre><code>def foo():
     return &#39;https://www.example.com/&#39;
 </code></pre>
