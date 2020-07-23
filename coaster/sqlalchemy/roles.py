@@ -305,34 +305,35 @@ class LazyRoleSet(abc.MutableSet):
                     offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
                     if (relattr, actor_attr) not in self._scanned_granted_via:
                         relationship = self._get_relationship(relattr)
-                        # Optimization: does the same relationship grant other roles
-                        # via the same actor_attr? Gather those roles and check all of
-                        # them together. However, we will use a single role offer map
-                        # and not consult the one specified on the other roles. They are
-                        # expected to be identical. This is guaranteed if the offer map
-                        # was specified using `with_roles(grants_via=)` but not if
-                        # specified directly in `__roles__[role]['granted_via']`.
-                        possible_roles = {role}
-                        for arole, actions in self.obj.__roles__.items():
-                            if (
-                                arole != role
-                                and 'granted_via' in actions
-                                and relattr in actions['granted_via']
-                                and actions['granted_via'][relattr] == actor_attr
-                            ):
-                                possible_roles.add(arole)
+                        if relationship is not None:
+                            # Optimization: does the same relationship grant other roles
+                            # via the same actor_attr? Gather those roles and check all of
+                            # them together. However, we will use a single role offer map
+                            # and not consult the one specified on the other roles. They are
+                            # expected to be identical. This is guaranteed if the offer map
+                            # was specified using `with_roles(grants_via=)` but not if
+                            # specified directly in `__roles__[role]['granted_via']`.
+                            possible_roles = {role}
+                            for arole, actions in self.obj.__roles__.items():
+                                if (
+                                    arole != role
+                                    and 'granted_via' in actions
+                                    and relattr in actions['granted_via']
+                                    and actions['granted_via'][relattr] == actor_attr
+                                ):
+                                    possible_roles.add(arole)
 
-                        granted_roles = _roles_via_relationship(
-                            self.actor,
-                            relationship,
-                            actor_attr,
-                            possible_roles,
-                            offer_map,
-                        )
-                        self._present.update(granted_roles)
-                        self._scanned_granted_via.add((relattr, actor_attr))
-                        if role in granted_roles:
-                            return True
+                            granted_roles = _roles_via_relationship(
+                                self.actor,
+                                relationship,
+                                actor_attr,
+                                possible_roles,
+                                offer_map,
+                            )
+                            self._present.update(granted_roles)
+                            self._scanned_granted_via.add((relattr, actor_attr))
+                            if role in granted_roles:
+                                return True
             # granted_by says a role is granted by the actor being present in a
             # relationship
             if 'granted_by' in self.obj.__roles__[role]:
