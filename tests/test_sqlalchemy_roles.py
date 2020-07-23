@@ -868,6 +868,7 @@ class TestCoasterRoles(unittest.TestCase):
         u4 = RoleUser()
         parent = MultiroleParent(user=u1)
         document = MultiroleDocument(parent=parent)
+        document_no_parent = MultiroleDocument(parent=None)
         child = MultiroleChild(parent=document)
         m1 = RoleMembership(doc=document, user=u1, role1=True, role2=False, role3=False)
         m2 = RoleMembership(doc=document, user=u2, role1=True, role2=True, role3=False)
@@ -888,6 +889,8 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'parent_role' in document.roles_for(u1)
         assert 'parent_role' not in document.roles_for(u2)
         assert 'parent_role' not in document.roles_for(u3)
+
+        assert 'parent_role' not in document_no_parent.roles_for(u1)
 
         # parent grants prole1 and prole2. Testing for one auto-loads the other
         proles = parent.roles_for(u1)
