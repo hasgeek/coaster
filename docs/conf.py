@@ -45,7 +45,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'coaster'
-copyright = u'2012-18, HasGeek'  # skipcq: PYL-W0622
+copyright = u'2012-20, Hasgeek'  # skipcq: PYL-W0622
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -193,7 +193,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'coaster.tex', u'Coaster Documentation', u'HasGeek', 'manual')
+    ('index', 'coaster.tex', u'Coaster Documentation', u'Hasgeek', 'manual')
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -221,7 +221,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [('index', 'coaster', u'coaster Documentation', [u'HasGeek'], 1)]
+man_pages = [('index', 'coaster', u'coaster Documentation', [u'Hasgeek'], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -237,7 +237,7 @@ texinfo_documents = [
         'index',
         'coaster',
         u'coaster Documentation',
-        u'HasGeek',
+        u'Hasgeek',
         'coaster',
         'Coaster contains functions and db models for recurring patterns in Flask apps.',
         'Miscellaneous',
