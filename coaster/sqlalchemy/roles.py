@@ -128,10 +128,9 @@ from copy import deepcopy
 from functools import wraps
 import warnings
 
-from flask_sqlalchemy import BaseQuery
 from sqlalchemy import event
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import mapper
+from sqlalchemy.orm import Query, mapper
 from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
@@ -164,7 +163,7 @@ def _actor_in_relationship(actor, relationship):
     """Test whether the given actor is present in the given attribute"""
     if actor == relationship:
         return True
-    elif isinstance(relationship, (AppenderMixin, BaseQuery, abc.Container)):
+    elif isinstance(relationship, (AppenderMixin, Query, abc.Container)):
         return actor in relationship
     return False
 
@@ -192,7 +191,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
-    if isinstance(relationship, (AppenderMixin, BaseQuery)):
+    if isinstance(relationship, (AppenderMixin, Query)):
         # Query-like relationship. Run a query.
         relobj = relationship.filter_by(**{actor_attr: actor}).one_or_none()
     elif isinstance(relationship, (abc.Sequence, abc.Set)):  # 'abc.Collection' in Py3
@@ -621,7 +620,7 @@ class RoleAccessProxy(abc.Mapping):
             }
         elif isinstance(
             attr,
-            (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList, BaseQuery),
+            (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList, Query),
         ):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
@@ -945,7 +944,7 @@ class RoleMixin(object):
         for role in roles:
             for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 attr = getattr(self, relattr)
-                if isinstance(attr, (AppenderMixin, BaseQuery, abc.Iterable)):
+                if isinstance(attr, (AppenderMixin, Query, abc.Iterable)):
                     actors.update(attr)
                 elif isinstance(getattr(type(self), relattr), InstrumentedAttribute):
                     actors.add(attr)
