@@ -134,15 +134,8 @@ class MarkdownComposite(MutableComposite):
         if html is None:
             self.text = text  # This will regenerate HTML
         else:
-            object.__setattr__(self, 'text', text)
-            object.__setattr__(self, '_html', html)
-
-    # If the text value is set, regenerate HTML, then notify parents of the change
-    def __setattr__(self, key, value):
-        if key == 'text':
-            object.__setattr__(self, '_html', markdown(value))
-        object.__setattr__(self, key, value)
-        self.changed()
+            self._text = text
+            self._html = html
 
     # Return column values for SQLAlchemy to insert into the database
     def __composite_values__(self):
@@ -161,6 +154,16 @@ class MarkdownComposite(MutableComposite):
     def html(self):
         return Markup(self._html or u'')
 
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        self._text = value
+        self._html = markdown(value)
+        self.changed()
+
     # Compare text value
     def __eq__(self, other):
         return (
@@ -174,12 +177,12 @@ class MarkdownComposite(MutableComposite):
 
     # Return state for pickling
     def __getstate__(self):
-        return (self.text, self._html)
+        return (self._text, self._html)
 
     # Set state from pickle
     def __setstate__(self, state):
-        object.__setattr__(self, 'text', state[0])
-        object.__setattr__(self, '_html', state[1])
+        self._text = state[0]
+        self._html = state[1]
         self.changed()
 
     def __bool__(self):
