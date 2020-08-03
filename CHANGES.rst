@@ -45,6 +45,7 @@
 * Added datasets for limited enumeration in role access, as a stopgap until
   migration to GraphQL
 * Removed ShortUUID in favour of the more stable Base58
+* MarkdownColumn now supports a custom markdown processor and options
 
 0.6.0
 -----

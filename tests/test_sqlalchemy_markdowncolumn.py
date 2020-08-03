@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
 
 import unittest
 
@@ -14,6 +14,20 @@ from .test_sqlalchemy_models import app1, app2
 class MarkdownData(BaseMixin, db.Model):
     __tablename__ = 'md_data'
     value = MarkdownColumn('value', nullable=False)
+
+
+class MarkdownHtmlData(BaseMixin, db.Model):
+    __tablename__ = 'md_html_data'
+    value = MarkdownColumn('value', nullable=False, options={'html': True})
+
+
+def fake_markdown(text):
+    return 'fake-markdown'
+
+
+class FakeMarkdownData(BaseMixin, db.Model):
+    __tablename__ = 'fake_md_data'
+    value = MarkdownColumn('value', nullable=False, markdown=fake_markdown)
 
 
 # -- Tests --------------------------------------------------------------------
@@ -34,7 +48,7 @@ class TestMarkdownColumn(unittest.TestCase):
         self.ctx.pop()
 
     def test_markdown_column(self):
-        text = u"""# this is going to be h1.\n- Now a list. \n- 1\n- 2\n- 3"""
+        text = """# this is going to be h1.\n- Now a list. \n- 1\n- 2\n- 3"""
         data = MarkdownData(value=text)
         self.session.add(data)
         self.session.commit()
@@ -44,9 +58,9 @@ class TestMarkdownColumn(unittest.TestCase):
         assert data.value.__html__() == markdown(text)
 
     def test_does_not_render_on_load(self):
-        text = u"This is the text"
+        text = "This is the text"
         real_html = markdown(text)
-        fake_html = u"This is not the text"
+        fake_html = "This is not the text"
         data = MarkdownData(value=text)
         self.session.add(data)
 
@@ -75,11 +89,34 @@ class TestMarkdownColumn(unittest.TestCase):
         assert data.value.__html__() == real_html
 
     def test_raw_value(self):
-        text = u"This is the text"
+        text = "This is the text"
         data = MarkdownData()
         self.session.add(data)
         data.value = text
         self.session.commit()
+
+    def test_empty_value(self):
+        doc = MarkdownData(value=None)
+        assert not doc.value
+        assert doc.value.text is None
+        assert doc.value.html == ''
+
+    def test_html_customization(self):
+        """Markdown columns may specify custom Markdown processor options."""
+        text = "Allow <b>some</b> HTML"
+        d1 = MarkdownData(value=text)
+        d2 = MarkdownHtmlData(value=text)
+
+        assert d1.value.text == d2.value.text
+        assert d1.value != d2.value
+        assert d1.value.html == '<p>Allow &lt;b&gt;some&lt;/b&gt; HTML</p>'
+        assert d2.value.html == '<p>Allow <b>some</b> HTML</p>'
+
+    def test_custom_markdown_processor(self):
+        """Markdown columns may specify their own markdown processor."""
+        doc = FakeMarkdownData(value="This is some text")
+        assert doc.value.text == "This is some text"
+        assert doc.value.html == 'fake-markdown'
 
 
 class TestMarkdownColumn2(TestMarkdownColumn):

@@ -8,28 +8,16 @@ SQLAlchemy column types
 from __future__ import absolute_import
 import six
 
-from sqlalchemy import Column, UnicodeText
-from sqlalchemy.ext.mutable import Mutable, MutableComposite
-from sqlalchemy.orm import composite
+from sqlalchemy import UnicodeText
+from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
 from sqlalchemy_utils.types import URLType as UrlTypeBase
 from sqlalchemy_utils.types import UUIDType
 
-from flask import Markup
-
 from furl import furl
 import simplejson
 
-from ..utils import markdown
-
-__all__ = [
-    'JsonDict',
-    'MarkdownComposite',
-    'MarkdownColumn',
-    'UUIDType',
-    'UrlType',
-    'markdown_column',
-]
+__all__ = ['JsonDict', 'UUIDType', 'UrlType']
 
 
 class JsonType(UserDefinedType):
@@ -122,96 +110,6 @@ class MutableDict(Mutable, dict):
 
 
 MutableDict.associate_with(JsonDict)
-
-
-@six.python_2_unicode_compatible
-class MarkdownComposite(MutableComposite):
-    """
-    Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
-    """
-
-    def __init__(self, text, html=None):
-        if html is None:
-            self.text = text  # This will regenerate HTML
-        else:
-            self._text = text
-            self._html = html
-
-    # Return column values for SQLAlchemy to insert into the database
-    def __composite_values__(self):
-        return (self.text, self._html)
-
-    # Return a string representation of the text (see class decorator)
-    def __str__(self):
-        return six.text_type(self.text)
-
-    # Return a HTML representation of the text
-    def __html__(self):
-        return self._html or u''
-
-    # Return a Markup string of the HTML
-    @property
-    def html(self):
-        return Markup(self._html or u'')
-
-    @property
-    def text(self):
-        return self._text
-
-    @text.setter
-    def text(self, value):
-        self._text = value
-        self._html = markdown(value)
-        self.changed()
-
-    # Compare text value
-    def __eq__(self, other):
-        return (
-            (self.text == other.text)
-            if isinstance(other, MarkdownComposite)
-            else (self.text == other)
-        )
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    # Return state for pickling
-    def __getstate__(self):
-        return (self._text, self._html)
-
-    # Set state from pickle
-    def __setstate__(self, state):
-        self._text = state[0]
-        self._html = state[1]
-        self.changed()
-
-    def __bool__(self):
-        return bool(self.text)
-
-    __nonzero__ = __bool__
-
-    # Allow a composite column to be assigned a string value
-    @classmethod  # NOQA: A003
-    def coerce(cls, key, value):  # NOQA: A003
-        return cls(value)
-
-
-def markdown_column(name, deferred=False, group=None, **kwargs):
-    """
-    Create a composite column that autogenerates HTML from Markdown text,
-    storing data in db columns named with ``_html`` and ``_text`` prefixes.
-    """
-    return composite(
-        MarkdownComposite,
-        Column(name + '_text', UnicodeText, **kwargs),
-        Column(name + '_html', UnicodeText, **kwargs),
-        deferred=deferred,
-        group=group or name,
-    )
-
-
-# Compatibility name
-MarkdownColumn = markdown_column
 
 
 class UrlType(UrlTypeBase):
