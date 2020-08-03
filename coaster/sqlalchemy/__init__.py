@@ -18,6 +18,7 @@ from .columns import *  # NOQA
 from .comparators import *  # NOQA
 from .functions import *  # NOQA
 from .immutable_annotation import *  # NOQA
+from .markdown import *  # NOQA
 from .mixins import *  # NOQA
 from .registry import *  # NOQA
 from .roles import *  # NOQA
