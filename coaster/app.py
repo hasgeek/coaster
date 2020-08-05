@@ -6,10 +6,14 @@ App configuration
 """
 
 from __future__ import absolute_import, print_function
+import six
 
 import sys
 
 from flask import Flask, g, get_flashed_messages, request, session, url_for
+from flask.json import tojson_filter as _tojson_filter
+from flask.sessions import SecureCookieSessionInterface
+import itsdangerous
 
 from jinja2.sandbox import SandboxedEnvironment as BaseSandboxedEnvironment
 
@@ -17,12 +21,13 @@ from . import logger
 from .auth import current_auth
 from .views import current_view
 
-try:
-    from flask.helpers import _tojson_filter
-except ImportError:
-    from flask.json import tojson_filter as _tojson_filter
-
-__all__ = ['SandboxedFlask', 'init_app']
+__all__ = [
+    'KeyRotationWrapper',
+    'RotatingKeySecureCookieSessionInterface',
+    'Flask',
+    'SandboxedFlask',
+    'init_app',
+]
 
 _additional_config = {
     'dev': 'development.py',
@@ -32,6 +37,61 @@ _additional_config = {
     'prod': 'production.py',
     'production': 'production.py',
 }
+
+
+class KeyRotationWrapper(object):
+    """
+    Wrapper to support multiple secret keys in itsdangerous.
+
+    The first secret key is used for all operations, but if it causes a BadSignature
+    exception, the other secret keys are tried in order.
+
+    :param cls: Signing class from itsdangerous (eg: URLSafeTimedSerializer)
+    :param secret_keys: List of secret keys
+    :param kwargs: Arguments to pass to each signer/serializer
+    """
+
+    def __init__(self, cls, secret_keys, **kwargs):
+        if isinstance(secret_keys, six.string_types):
+            raise ValueError("Secret keys must be a list")
+        self._engines = [cls(key, **kwargs) for key in secret_keys]
+
+    def __getattr__(self, attr):
+        item = getattr(self._engines[0], attr)
+        return self._make_wrapper(attr) if callable(item) else item
+
+    def _make_wrapper(self, attr):
+        def wrapper(*args, **kwargs):
+            last = len(self._engines) - 1
+            for counter, engine in enumerate(self._engines):
+                try:
+                    return getattr(engine, attr)(*args, **kwargs)
+                except itsdangerous.exc.BadSignature:
+                    if counter == last:
+                        # We've run out of engines. Raise error to caller
+                        raise
+
+        return wrapper
+
+
+class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
+    """Replaces the serializer with key rotation support"""
+
+    def get_signing_serializer(self, app):
+        if not app.config.get('SECRET_KEYS'):
+            return None
+        signer_kwargs = {
+            'key_derivation': self.key_derivation,
+            'digest_method': self.digest_method,
+        }
+
+        return KeyRotationWrapper(
+            itsdangerous.URLSafeTimedSerializer,
+            app.config['SECRET_KEYS'],
+            salt=self.salt,
+            serializer=self.serializer,
+            signer_kwargs=signer_kwargs,
+        )
 
 
 class SandboxedEnvironment(BaseSandboxedEnvironment):
