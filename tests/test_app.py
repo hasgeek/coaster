@@ -96,16 +96,12 @@ def test_key_rotation_wrapper():
     secret_keys2 = list(reversed(secret_keys1))
 
     # These serializers share the same secret keys in different orders of priority
-    serializer1a = KeyRotationWrapper(itsdangerous.URLSafeTimedSerializer, secret_keys1)
-    serializer2a = KeyRotationWrapper(itsdangerous.URLSafeTimedSerializer, secret_keys2)
+    serializer1a = KeyRotationWrapper(itsdangerous.URLSafeSerializer, secret_keys1)
+    serializer2a = KeyRotationWrapper(itsdangerous.URLSafeSerializer, secret_keys2)
 
     # These are truncated to drop the last secret key (which is the first of the other)
-    serializer1b = KeyRotationWrapper(
-        itsdangerous.URLSafeTimedSerializer, secret_keys1[:-1]
-    )
-    serializer2b = KeyRotationWrapper(
-        itsdangerous.URLSafeTimedSerializer, secret_keys2[:-1]
-    )
+    serializer1b = KeyRotationWrapper(itsdangerous.URLSafeSerializer, secret_keys1[:-1])
+    serializer2b = KeyRotationWrapper(itsdangerous.URLSafeSerializer, secret_keys2[:-1])
 
     out1 = serializer1a.dumps(payload)
     out1b = serializer1b.dumps(payload)
@@ -135,7 +131,7 @@ def test_key_rotation_wrapper():
 
     # The KeyRotationWrapper has a safety catch for when a string secret is provided
     with pytest.raises(ValueError):
-        KeyRotationWrapper(itsdangerous.URLSafeTimedSerializer, 'secret_key')
+        KeyRotationWrapper(itsdangerous.URLSafeSerializer, 'secret_key')
 
 
 def test_app_key_rotation():

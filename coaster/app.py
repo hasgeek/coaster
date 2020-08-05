@@ -48,7 +48,7 @@ class KeyRotationWrapper(object):
 
     :param cls: Signing class from itsdangerous (eg: URLSafeTimedSerializer)
     :param secret_keys: List of secret keys
-    :param kwargs: Arguments to pass to each engine
+    :param kwargs: Arguments to pass to each signer/serializer
     """
 
     def __init__(self, cls, secret_keys, **kwargs):
