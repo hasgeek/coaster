@@ -291,6 +291,8 @@ class MultiroleDocument(BaseMixin, db.Model):
         grants_via={None: {'prole1': 'parent_prole1'}},
     )
 
+    not_a_relationship = "This is not a relationship"
+
     # Acquire parent_role through parent.user (a scalar relationship)
     # Acquire parent_other_role too (will be cached alongside parent_role)
     # Acquire role1 through both relationships (query and list relationships)
@@ -302,6 +304,7 @@ class MultiroleDocument(BaseMixin, db.Model):
         'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
         'role2': {'granted_via': {'rel_lazy': 'user'}},
         'incorrectly_specified_role': {'granted_via': {'rel_list': None}},
+        'also_incorrect_role': {'granted_via': {'not_a_relationship': None}},
     }
 
     # Grant via a query relationship
@@ -328,9 +331,10 @@ class MultiroleChild(BaseMixin, db.Model):
         grants_via={
             'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
-                # Map role2 and role3, but explicitly ignore role1
-                'role2': 'parent_role2',
-                'role3': 'parent_role3',
+                # Map role2 and role3, but explicitly ignore role1.
+                # Demonstrate mapping to multiple roles
+                'role2': ('parent_role2', 'parent_role2b', 'parent_role_shared'),
+                'role3': {'parent_role3', 'parent_role3b', 'parent_role_shared'},
             },
         },
     )
@@ -761,21 +765,22 @@ class TestCoasterRoles(unittest.TestCase):
         o2 = RoleGrantOne(user=u2)
         m1.secondary_users.extend([u1, u2])
 
-        assert o1.actors_with({'creator'}) == {u1}
-        assert o2.actors_with({'creator'}) == {u2}
+        assert set(o1.actors_with({'creator'})) == {u1}
+        assert set(o2.actors_with({'creator'})) == {u2}
 
-        assert m1.actors_with({'primary_role'}) == {u1}
-        assert m2.actors_with({'primary_role'}) == {u2}
-        assert m1.actors_with({'secondary_role'}) == {u1, u2}
-        assert m2.actors_with({'secondary_role'}) == set()
-        assert m1.actors_with({'primary_role', 'secondary_role'}) == {u1, u2}
-        assert m2.actors_with({'primary_role', 'secondary_role'}) == {u2}
+        assert set(m1.actors_with({'primary_role'})) == {u1}
+        assert set(m2.actors_with({'primary_role'})) == {u2}
+        assert set(m1.actors_with({'secondary_role'})) == {u1, u2}
+        assert set(m2.actors_with({'secondary_role'})) == set()
+        assert set(m1.actors_with({'primary_role', 'secondary_role'})) == {u1, u2}
+        assert set(m2.actors_with({'primary_role', 'secondary_role'})) == {u2}
 
     def test_actors_with_invalid(self):
         m1 = RoleGrantMany()
         with pytest.raises(ValueError):
-            # Parameter can't be a string
-            m1.actors_with('owner')
+            # Parameter can't be a string. Because actors_with is a generator,
+            # we have to extract a value from it to trigger the exception
+            next(m1.actors_with('owner'))
 
     def test_role_grant_synonyms(self):
         """Test that synonyms get independent access control"""
@@ -991,12 +996,21 @@ class TestCoasterRoles(unittest.TestCase):
         # u1 has neither role2 nor role3 in m1
         assert 'parent_role2' not in croles1
         assert 'parent_role3' not in croles1
+        assert 'parent_role2b' not in croles1
+        assert 'parent_role3b' not in croles1
+        assert 'parent_role_shared' not in croles1
         # u2 has role2 but not role3 in m2
         assert 'parent_role2' in croles2
         assert 'parent_role3' not in croles2
+        assert 'parent_role2b' in croles2
+        assert 'parent_role3b' not in croles2
+        assert 'parent_role_shared' in croles2
         # u2 has role3 but not role2 in m3
         assert 'parent_role2' not in croles3
         assert 'parent_role3' in croles3
+        assert 'parent_role2b' not in croles3
+        assert 'parent_role3b' in croles3
+        assert 'parent_role_shared' in croles3
 
     def test_granted_via_error(self):
         """A misconfigured granted_via declaration will raise an error"""
@@ -1007,6 +1021,74 @@ class TestCoasterRoles(unittest.TestCase):
         roles = document.roles_for(user)
         with self.assertRaises(TypeError):
             'incorrectly_specified_role' in roles
+
+    def test_actors_from_granted_via(self):
+        """
+        actors_with will find actors whose roles are declared in granted_via
+        """
+        u1 = RoleUser()
+        u2 = RoleUser()
+        u3 = RoleUser()
+        u4 = RoleUser()
+        parent = MultiroleParent(user=u1)
+        document = MultiroleDocument(parent=parent)
+        document_no_parent = MultiroleDocument(parent=None)
+        child = MultiroleChild(parent=document)
+        child2 = MultiroleChild()
+        m1 = RoleMembership(doc=document, user=u1, role1=True, role2=False, role3=False)
+        m2 = RoleMembership(doc=document, user=u2, role1=True, role2=True, role3=False)
+        m3 = RoleMembership(doc=document, user=u3, role1=True, role2=False, role3=True)
+        m4 = RoleMembership(doc=document, user=u4, role1=False, role2=True, role3=True)
+        m5 = RoleMembership(doc=document, role1=True, role2=True, role3=True)  # No user
+        self.session.add_all(
+            [u1, u2, u3, u4, parent, document, child, m1, m2, m3, m4, m5]
+        )
+        self.session.commit()
+
+        assert list(parent.actors_with({'prole1'})) == [u1]
+        assert list(parent.actors_with({'prole2'})) == [u1]
+        assert list(parent.actors_with({'prole1', 'prole2'})) == [u1]
+        assert list(parent.actors_with({'random'})) == []
+
+        assert list(document.actors_with({'prole1'})) == []
+        assert list(document.actors_with({'parent_prole1'})) == [u1]
+        assert list(document.actors_with({'parent_role'})) == [u1]
+        assert list(document.actors_with({'parent_other_role'})) == [u1]
+        assert list(document.actors_with({'parent_role', 'parent_other_role'})) == [u1]
+        assert list(document.actors_with({'role1'})) == [u1, u2, u3]
+        assert list(document.actors_with({'role2'})) == [u2, u4]
+        assert list(document.actors_with({'role3'})) == [u3, u4]
+        assert list(document.actors_with({'incorrectly_specified_role'})) == []
+        with pytest.raises(TypeError):
+            list(document.actors_with({'also_incorrect_role'}))
+
+        assert list(document_no_parent.actors_with({'prole1'})) == []
+        assert list(document_no_parent.actors_with({'parent_prole1'})) == []
+        assert list(document_no_parent.actors_with({'parent_role'})) == []
+        assert list(document_no_parent.actors_with({'parent_other_role'})) == []
+        assert (
+            list(document_no_parent.actors_with({'parent_role', 'parent_other_role'}))
+            == []
+        )
+        assert list(document_no_parent.actors_with({'role1'})) == []
+        assert list(document_no_parent.actors_with({'role2'})) == []
+        assert list(document_no_parent.actors_with({'role3'})) == []
+
+        assert list(child.actors_with({'super_parent_role'})) == [u1]
+        assert list(child.actors_with({'parent_role1'})) == []
+        assert list(child.actors_with({'parent_role2'})) == [u2, u4]
+        assert list(child.actors_with({'parent_role2b'})) == [u2, u4]
+        assert list(child.actors_with({'parent_role3'})) == [u3, u4]
+        assert list(child.actors_with({'parent_role3b'})) == [u3, u4]
+        assert list(child.actors_with({'parent_role_shared'})) == [u2, u3, u4]
+
+        assert list(child2.actors_with({'super_parent_role'})) == []
+        assert list(child2.actors_with({'parent_role1'})) == []
+        assert list(child2.actors_with({'parent_role2'})) == []
+        assert list(child2.actors_with({'parent_role2b'})) == []
+        assert list(child2.actors_with({'parent_role3'})) == []
+        assert list(child2.actors_with({'parent_role3b'})) == []
+        assert list(child2.actors_with({'parent_role_shared'})) == []
 
 
 class TestLazyRoleSet(unittest.TestCase):
