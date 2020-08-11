@@ -17,6 +17,10 @@ def test_filtered_value():
     assert repr(filtered_value('confirm_password', '123pass')) == '[Filtered]'
     # The filter uses a verbose regex. Words in the middle of the regex also work
     assert repr(filtered_value('access_token', 'secret-here')) == '[Filtered]'
+    # Filters are case insensitive
+    assert repr(filtered_value('TELEGRAM_ERROR_APIKEY', 'api:key')) == '[Filtered]'
+    # Keys with 'token' as a word are also filtered
+    assert repr(filtered_value('SMS_TWILIO_TOKEN', 'api:key')) == '[Filtered]'
 
     # Numbers that look like card numbers are filtered
     assert (

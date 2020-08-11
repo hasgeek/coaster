@@ -35,6 +35,8 @@ _filter_re = re.compile(
     |apikey
     |access_token
     |auth_token
+    |_token
+    |token_
     |credentials
     |mysql_pwd
     |stripetoken
