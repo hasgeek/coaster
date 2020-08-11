@@ -69,4 +69,5 @@ repos:
           - flake8-isort
           - flake8-logging-format
           - flake8-mutable
+          - flake8-print
           - pep8-naming
