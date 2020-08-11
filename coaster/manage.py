@@ -27,7 +27,6 @@ To see all available commands::
 """
 
 from __future__ import absolute_import, print_function
-import six
 
 from sys import stdout
 
@@ -97,25 +96,6 @@ def createdb():
     manager.db.engine.echo = True
     manager.db.create_all()
     set_alembic_revision()
-
-
-@manager.command
-def sync_resources():
-    """Sync the client's resources with the Lastuser server"""
-    print("Syncing resources with Lastuser...")
-    resources = manager.app.lastuser.sync_resources()['results']
-
-    for rname, resource in six.iteritems(resources):
-        if resource['status'] == 'error':
-            print("Error for %s: %s" % (rname, resource['error']))
-        else:
-            print("Resource %s %s..." % (rname, resource['status']))
-            for aname, action in six.iteritems(resource['actions']):
-                if action['status'] == 'error':
-                    print("\tError for %s/%s: %s" % (rname, aname, action['error']))
-                else:
-                    print("\tAction %s/%s %s..." % (rname, aname, resource['status']))
-    print("Resources synced...")
 
 
 def shell_context():
