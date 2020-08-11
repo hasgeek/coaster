@@ -355,7 +355,7 @@ class TelegramHandler(logging.Handler):
             (datetime.utcnow() - error_throttle_timestamp_telegram[throttle_key])
             > timedelta(minutes=5)
         ):
-            text = '<b>{levelname}</b> in {name}: {message}'.format(
+            text = '<b>{levelname}</b> in <b>{name}</b>: {message}'.format(
                 levelname=escape(record.levelname),
                 name=escape(self.app_name),
                 message=escape(record.message),
