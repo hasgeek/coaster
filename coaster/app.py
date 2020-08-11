@@ -8,8 +8,6 @@ App configuration
 from __future__ import absolute_import, print_function
 import six
 
-import sys
-
 from flask import Flask, g, get_flashed_messages, request, session, url_for
 from flask.json import tojson_filter as _tojson_filter
 from flask.sessions import SecureCookieSessionInterface
@@ -191,12 +189,8 @@ def load_config_from_file(app, filepath):
         app.config.from_pyfile(filepath)
         return True
     except IOError:
-        # TODO: Can we print to sys.stderr in production? Should this go to
-        # logs instead?
-        print(
-            "Did not find settings file {filepath} for additional settings, skipping it".format(
-                filepath=filepath
-            ),
-            file=sys.stderr,
+        app.logger.warning(
+            "Did not find settings file %s for additional settings, skipping it",
+            filepath,
         )
         return False
