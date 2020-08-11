@@ -9,32 +9,80 @@ Coaster can help your application log errors at run-time. Initialize with
 this is done automatically for you.
 """
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, unicode_literals
 import six
 
 from datetime import datetime, timedelta
 from pprint import pprint
 import logging.handlers
+import re
 import traceback
 
-from flask import g, request, session
+from flask import escape, g, request, session
 
 import requests
 
 from .auth import current_auth
 
+_card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
+# These keywords are borrowed from Sentry's documentation and expanded for PII
+_filter_re = re.compile(
+    '''
+    (password
+    |secret
+    |passwd
+    |api_key
+    |apikey
+    |access_token
+    |auth_token
+    |credentials
+    |mysql_pwd
+    |stripetoken
+    |cardnumber
+    |email
+    |phone)
+    ''',
+    re.I | re.X,
+)
+
 # global var as lazy in-memory cache
 error_throttle_timestamp_sms = {}
 error_throttle_timestamp_slack = {}
+error_throttle_timestamp_telegram = {}
 
 
-def pprint_with_indent(value, outfile, indent=4):
-    """Pretty print with a leading indent (to create a Markdown code block)"""
+@six.python_2_unicode_compatible
+class FilteredValueIndicator(object):
+    def __str__(self):
+        return '[Filtered]'
+
+    def __repr__(self):
+        return '[Filtered]'
+
+
+# Construct a singleton
+filtered_value_indicator = FilteredValueIndicator()
+
+
+def filtered_value(key, value):
+    if isinstance(key, six.string_types) and _filter_re.search(key):
+        return filtered_value_indicator
+    elif isinstance(value, six.string_types):
+        return _card_re.sub('[Filtered]', value)
+    return value
+
+
+def pprint_with_indent(dictlike, outfile, indent=4):
+    """Filter values and pprint with indent to create a Markdown code block."""
     out = six.StringIO()
-    pprint(value, out)
-    lines = out.getvalue().split('\n')
+    pprint(  # NOQA: T003
+        {key: filtered_value(key, value) for key, value in dictlike.items()}, out
+    )
+    # textwrap.indent would have been simpler but is not present in Python 2.7
+    outfile.write(
+        '\n'.join((' ' * indent) + line for line in out.getvalue().split('\n'))
+    )
     out.close()
-    outfile.write('\n'.join((' ' * indent) + line for line in lines))
 
 
 class LocalVarFormatter(logging.Formatter):
@@ -69,28 +117,28 @@ class LocalVarFormatter(logging.Formatter):
         sio = six.StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
-        print('\n----------\n', file=sio)
+        print('\n----------\n', file=sio)  # NOQA: T001
         # XXX: The following text is used as a signature in :meth:`format` above
-        print("Stack frames (most recent call first):", file=sio)
+        print("Stack frames (most recent call first):", file=sio)  # NOQA: T001
         for frame in stack:
-            print('\n----\n', file=sio)
-            print(
+            print('\n----\n', file=sio)  # NOQA: T001
+            print(  # NOQA: T001
                 "Frame %s in %s at line %s"
                 % (frame.f_code.co_name, frame.f_code.co_filename, frame.f_lineno),
                 file=sio,
             )
             for key, value in list(frame.f_locals.items()):
-                print("\t%20s = " % key, end=' ', file=sio)
+                print("\t%20s = " % key, end=' ', file=sio)  # NOQA: T001
                 try:
-                    print(repr(value), file=sio)
+                    print(repr(filtered_value(key, value)), file=sio)  # NOQA: T001
                 except:  # NOQA
                     # We need a bare except clause because this is the exception
                     # handler. It can't have exceptions of its own.
-                    print("<ERROR WHILE PRINTING VALUE>", file=sio)
+                    print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
 
         if request:
-            print('\n----------\n', file=sio)
-            print("Request context:", file=sio)
+            print('\n----------\n', file=sio)  # NOQA: T001
+            print("Request context:", file=sio)  # NOQA: T001
             request_data = {
                 'form': request.form,
                 'args': request.args,
@@ -108,31 +156,31 @@ class LocalVarFormatter(logging.Formatter):
             try:
                 pprint_with_indent(request_data, sio)
             except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
 
         if session:
-            print('\n----------\n', file=sio)
-            print("Session cookie contents:", file=sio)
+            print('\n----------\n', file=sio)  # NOQA: T001
+            print("Session cookie contents:", file=sio)  # NOQA: T001
             try:
                 pprint_with_indent(session, sio)
             except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
 
         if g:
-            print('\n----------\n', file=sio)
-            print("App context:", file=sio)
+            print('\n----------\n', file=sio)  # NOQA: T001
+            print("App context:", file=sio)  # NOQA: T001
             try:
                 pprint_with_indent(vars(g), sio)
             except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
 
         if current_auth:
-            print('\n----------\n', file=sio)
-            print("Current auth:", file=sio)
+            print('\n----------\n', file=sio)  # NOQA: T001
+            print("Current auth:", file=sio)  # NOQA: T001
             try:
                 pprint_with_indent(vars(current_auth), sio)
             except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
 
         s = sio.getvalue()
         sio.close()
@@ -173,15 +221,15 @@ class SMSHandler(logging.Handler):
             (datetime.utcnow() - error_throttle_timestamp_sms[throttle_key])
             > timedelta(minutes=5)
         ):
-            msg = u"{message}: {info}".format(
+            msg = "{message}: {info}".format(
                 message=record.message,
                 info=repr(record.exc_info[1]) if record.exc_info else '',
             )
             for phonenumber in self.phonenumbers:
                 self.sendsms(
                     phonenumber,
-                    u"Error in {name}. {msg}. "
-                    u"Please check your email for details".format(
+                    "Error in {name}. {msg}. "
+                    "Please check your email for details".format(
                         name=self.app_name, msg=msg
                     ),
                 )
@@ -236,7 +284,6 @@ class SlackHandler(logging.Handler):
                 for lname in webhook.get('levelnames', [])
             ]:
                 return
-
             if record.exc_text:
                 double_split = [
                     s.split('----') for s in record.exc_text.split('----------')
@@ -249,7 +296,7 @@ class SlackHandler(logging.Handler):
                 sections = []
 
             data = {
-                'text': u"*{levelname}* in {name}: {message}: `{info}`".format(
+                'text': "*{levelname}* in {name}: {message}: `{info}`".format(
                     levelname=record.levelname,
                     name=self.app_name,
                     message=record.message,
@@ -287,6 +334,50 @@ class SlackHandler(logging.Handler):
                     # handler. It can't have exceptions of its own.
                     pass
                 error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
+
+
+class TelegramHandler(logging.Handler):
+    """
+    Custom logging handler to report errors to a Telegram chat
+    """
+
+    def __init__(self, app_name, chatid, apikey):
+        super(TelegramHandler, self).__init__()
+        self.app_name = app_name
+        self.chatid = chatid
+        self.apikey = apikey
+
+    def emit(self, record):
+        throttle_key = (record.module, record.lineno)
+        if throttle_key not in error_throttle_timestamp_telegram or (
+            (datetime.utcnow() - error_throttle_timestamp_telegram[throttle_key])
+            > timedelta(minutes=5)
+        ):
+            text = '<b>{levelname}</b> in {name}: {message}'.format(
+                levelname=escape(record.levelname),
+                name=escape(self.app_name),
+                message=escape(record.message),
+            )
+            if record.exc_info:
+                text += '\n\n<pre>{traceback}</pre>'.format(
+                    traceback=escape(
+                        ''.join(traceback.format_exception(*record.exc_info))
+                    )
+                )
+            if len(text) > 4096:
+                text = text[: (4096 - 7)] + '…</pre>'
+            requests.post(
+                'https://api.telegram.org/bot{apikey}/sendMessage'.format(
+                    apikey=self.apikey
+                ),
+                data={
+                    'chat_id': self.chatid,
+                    'parse_mode': 'html',
+                    'text': text,
+                    'disable_preview': True,
+                },
+            )
+            error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
 
 
 def init_app(app):
@@ -347,7 +438,7 @@ def init_app(app):
             logging.handlers.SMSHandler = SMSHandler
 
             sms_handler = logging.handlers.SMSHandler(
-                app_name=app.name,
+                app_name=app.config.get('SITE_ID') or app.name,
                 exotel_sid=app.config['SMS_EXOTEL_SID'],
                 exotel_token=app.config['SMS_EXOTEL_TOKEN'],
                 exotel_from=app.config['SMS_EXOTEL_FROM'],
@@ -362,11 +453,24 @@ def init_app(app):
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler
         slack_handler = logging.handlers.SlackHandler(
-            app_name=app.name, webhooks=app.config['SLACK_LOGGING_WEBHOOKS']
+            app_name=app.config.get('SITE_ID') or app.name,
+            webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
         )
         slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
         app.logger.addHandler(slack_handler)
+
+    if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
+        'TELEGRAM_ERROR_APIKEY'
+    ):
+        logging.handlers.TelegramHandler = TelegramHandler
+        telegram_handler = logging.handlers.TelegramHandler(
+            app_name=app.config.get('SITE_ID') or app.name,
+            chatid=app.config['TELEGRAM_ERROR_CHATID'],
+            apikey=app.config['TELEGRAM_ERROR_APIKEY'],
+        )
+        telegram_handler.setLevel(logging.ERROR)
+        app.logger.addHandler(telegram_handler)
 
     if app.config.get('ADMINS'):
         # MAIL_DEFAULT_SENDER is the new setting for default mail sender in Flask-Mail
@@ -384,7 +488,7 @@ def init_app(app):
             app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
-            '%s failure' % app.name,
+            '%s failure' % (app.config.get('SITE_ID') or app.name),
             credentials=credentials,
         )
         mail_handler.setFormatter(formatter)
