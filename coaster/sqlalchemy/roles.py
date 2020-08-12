@@ -118,9 +118,6 @@ Example use::
                 roles.add('owner')
             return roles
 """
-# TODO: After moving to Py3 only, replace abc.Iterable with abc.Collection. Iterable
-# also applies to strings, which we do not want in the use case here. This will also
-# obsolete the `is_collection` function.
 
 from __future__ import absolute_import
 import six
@@ -130,6 +127,7 @@ from abc import ABCMeta
 from copy import deepcopy
 from functools import wraps
 from itertools import chain
+import operator
 import warnings
 
 from sqlalchemy import event, inspect
@@ -161,6 +159,18 @@ __all__ = [
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
 __cache__ = {}
+
+
+def _attrs_equal(lhs, rhs):
+    """
+    Helper function to compare two strings or two QueryableAttributes.
+    QueryableAttributes can't be compared with `==` to confirm both are same object.
+    But strings can't be compared with `is` to confirm they are the same string.
+    We have to change the operator based on types being compared.
+    """
+    if isinstance(lhs, six.string_types) and isinstance(rhs, six.string_types):
+        return lhs == rhs
+    return lhs is rhs
 
 
 def _actor_in_relationship(actor, relationship):
@@ -199,10 +209,13 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     # to the actor.
     if isinstance(relationship, (AppenderMixin, Query)):
         # Query-like relationship. Run a query.
-        relobj = relationship.filter_by(**{actor_attr: actor}).one_or_none()
-    elif isinstance(relationship, (abc.Sequence, abc.Set)):  # 'abc.Collection' in Py3
+        if isinstance(actor_attr, QueryableAttribute):
+            relobj = relationship.filter(operator.eq(actor_attr, actor)).one_or_none()
+        else:
+            relobj = relationship.filter_by(**{actor_attr: actor}).one_or_none()
+    elif isinstance(relationship, abc.Iterable):
         # List-like object. Scan through it looking for item related to actor.
-        # Note: strings are also collections. Checking for abc.Collection is only safe
+        # Note: strings are also collections. Checking for abc.Iterable is only safe
         # here because of the unlikeliness of a string relationship. If that becomes
         # necessary in future, add `and not isinstance(relationship, six.string_types)`
         for relitem in relationship:
@@ -294,8 +307,8 @@ class LazyRoleSet(abc.MutableSet):
             # list or query relationship. _roles_via_relationship will check.
             # The related object may grant roles in one of three ways:
             # 1. By its mere existence (default).
-            # 2. By offering roles via an `offered_roles` property (see RoleGrantABC).
-            # 3. By being a RoleMixin instance that has a roles_for method.
+            # 2. By offering roles via an `offered_roles` property (see `RoleGrantABC`).
+            # 3. By being a `RoleMixin` instance that has a `roles_for` method.
             if 'granted_via' in self.obj.__roles__[role]:
                 for relattr, actor_attr in self.obj.__roles__[role][
                     'granted_via'
@@ -318,7 +331,9 @@ class LazyRoleSet(abc.MutableSet):
                                     arole != role
                                     and 'granted_via' in actions
                                     and relattr in actions['granted_via']
-                                    and actions['granted_via'][relattr] == actor_attr
+                                    and _attrs_equal(
+                                        actions['granted_via'][relattr], actor_attr
+                                    )
                                 ):
                                     possible_roles.add(arole)
 
@@ -1052,12 +1067,22 @@ class RoleMixin(object):
                                         obj.offered_roles
                                     )
                                 ):
-                                    actor = getattr(obj, actor_attr)
+                                    actor = getattr(
+                                        obj,
+                                        actor_attr.key
+                                        if isinstance(actor_attr, QueryableAttribute)
+                                        else actor_attr,
+                                    )
                                     if is_new(actor):
                                         yield actor
                             # 1b. Doesn't have offered_roles? Accept it as is
                             else:
-                                actor = getattr(obj, actor_attr)
+                                actor = getattr(
+                                    obj,
+                                    actor_attr.key
+                                    if isinstance(actor_attr, QueryableAttribute)
+                                    else actor_attr,
+                                )
                                 if is_new(actor):
                                     yield actor
                         # 2. No actor attribute? If it's a RoleMixin, we can call its
@@ -1224,10 +1249,25 @@ def _configure_roles(mapper_, cls):
                             for role in rhs:
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
                         roles = set(reverse_offer_map.keys())
+                    elif isinstance(roles, six.string_types):
+                        raise TypeError(
+                            "grants_via declaration {{{actor_attr!r}: {roles!r}}} on"
+                            " {cls}.{name} is using a string but needs to be a set or"
+                            " dict".format(
+                                actor_attr=actor_attr,
+                                roles=roles,
+                                cls=cls.__name__,
+                                name=name,
+                            )
+                        )
                     else:
                         offer_map = None
                         reverse_offer_map = None
-                    if actor_attr and '.' in actor_attr:
+                    if (
+                        actor_attr
+                        and isinstance(actor_attr, six.string_types)
+                        and '.' in actor_attr
+                    ):
                         parts = actor_attr.split('.')
                         dotted_name = '.'.join([name] + parts[:-1])
                         actor_attr = parts[-1]

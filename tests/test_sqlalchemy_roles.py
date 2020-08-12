@@ -302,20 +302,22 @@ class MultiroleDocument(BaseMixin, db.Model):
         'parent_role': {'granted_via': {'parent': 'user'}},
         'parent_other_role': {'granted_via': {'parent': 'user'}},
         'role1': {'granted_via': {'rel_lazy': 'user', 'rel_list': 'user'}},
-        'role2': {'granted_via': {'rel_lazy': 'user'}},
         'incorrectly_specified_role': {'granted_via': {'rel_list': None}},
         'also_incorrect_role': {'granted_via': {'not_a_relationship': None}},
     }
 
     # Grant via a query relationship
-    rel_lazy = db.relationship(RoleMembership, lazy='dynamic')
+    rel_lazy = with_roles(
+        db.relationship(RoleMembership, lazy='dynamic'),
+        grants_via={RoleMembership.user: {'role2'}},
+    )
     # Grant via a list-like relationship
     rel_list = with_roles(
         db.relationship(RoleMembership), grants_via={'user': {'role3'}}
     )
 
     # Role grants can be specified via:
-    # 1. with_roles(grants_via={actor_attr_name: {role,} or {offered_role: role}})
+    # 1. with_roles(grants_via={actor_attr_or_name: {role} or {offered_role: role}})
     # 2. __roles__[role]['granted_via'] = {'rel_name': 'actor_attr_name'}
     # Offered role maps are specified in an internal __relationship_role_offer_map__.
     # The only way to make an entry there is via with_roles.
