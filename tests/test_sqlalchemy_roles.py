@@ -777,6 +777,28 @@ class TestCoasterRoles(unittest.TestCase):
         assert set(m1.actors_with({'primary_role', 'secondary_role'})) == {u1, u2}
         assert set(m2.actors_with({'primary_role', 'secondary_role'})) == {u2}
 
+        # Ask for role when returning a user
+        assert set(o1.actors_with(['creator'], with_role=True)) == {(u1, 'creator')}
+        assert set(o2.actors_with(['creator'], with_role=True)) == {(u2, 'creator')}
+
+        assert set(m1.actors_with(['primary_role'], with_role=True)) == {
+            (u1, 'primary_role')
+        }
+        assert set(m2.actors_with(['primary_role'], with_role=True)) == {
+            (u2, 'primary_role')
+        }
+        assert set(m1.actors_with(['secondary_role'], with_role=True)) == {
+            (u1, 'secondary_role'),
+            (u2, 'secondary_role'),
+        }
+        assert set(m2.actors_with(['secondary_role'], with_role=True)) == set()
+        assert set(
+            m1.actors_with(['primary_role', 'secondary_role'], with_role=True)
+        ) == {(u1, 'primary_role'), (u2, 'secondary_role')}
+        assert set(
+            m2.actors_with(['primary_role', 'secondary_role'], with_role=True)
+        ) == {(u2, 'primary_role')}
+
     def test_actors_with_invalid(self):
         m1 = RoleGrantMany()
         with pytest.raises(ValueError):

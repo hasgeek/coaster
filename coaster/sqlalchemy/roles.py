@@ -989,7 +989,7 @@ class RoleMixin(object):
             relationship = getattr(self, relattr)
         return relationship
 
-    def actors_with(self, roles):
+    def actors_with(self, roles, with_role=False):
         """
         Return actors who have the specified roles on this object, as an iterator.
 
@@ -999,6 +999,12 @@ class RoleMixin(object):
 
         Subclasses of :class:`RoleMixin` that have custom role granting logic in
         :meth:`roles_for` must provide a matching :meth:`actors_with` implementation.
+
+        :param set roles: Iterable specifying roles to find actors with. May be an
+            ordered type if ordering is important
+        :param bool with_role: If True, yields a tuple of the actor and the role they
+            were found with. The actor may have more roles, but only the first match
+            is returned
         """
         if not is_collection(roles):
             raise ValueError("`roles` parameter must be a set")
@@ -1029,9 +1035,9 @@ class RoleMixin(object):
                 if isinstance(relationship, (AppenderMixin, Query, abc.Iterable)):
                     for actor in relationship:
                         if is_new(actor):
-                            yield actor
+                            yield (actor, role) if with_role else actor
                 elif is_new(relationship):
-                    yield relationship
+                    yield (relationship, role) if with_role else relationship
             # Scan granted_via declarations
             for relattr, actor_attr in (
                 self.__roles__.get(role, {}).get('granted_via', {}).items()
@@ -1074,7 +1080,7 @@ class RoleMixin(object):
                                         else actor_attr,
                                     )
                                     if is_new(actor):
-                                        yield actor
+                                        yield (actor, role) if with_role else actor
                             # 1b. Doesn't have offered_roles? Accept it as is
                             else:
                                 actor = getattr(
@@ -1084,7 +1090,7 @@ class RoleMixin(object):
                                     else actor_attr,
                                 )
                                 if is_new(actor):
-                                    yield actor
+                                    yield (actor, role) if with_role else actor
                         # 2. No actor attribute? If it's a RoleMixin, we can call its
                         #    actors_with method and pass on whatever we get
                         elif isinstance(obj, RoleMixin):
@@ -1098,7 +1104,7 @@ class RoleMixin(object):
                             if rel_roles:
                                 for actor in obj.actors_with(rel_roles):
                                     if is_new(actor):
-                                        yield actor
+                                        yield (actor, role) if with_role else actor
                         # 3. No actor attribute and it's not a RoleMixin. This must be
                         #    an error
                         else:
