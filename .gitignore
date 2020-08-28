@@ -11,6 +11,7 @@ docs/_build
 build/
 dist/
 error.log
+error.log.*
 __pycache__
 .pytest_cache
 .cache

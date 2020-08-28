@@ -143,7 +143,7 @@ class SandboxedFlask(Flask):
         return rv
 
 
-def init_app(app):
+def init_app(app, init_logging=True):
     """
     Configure an app depending on the environment. Loads settings from a file
     named ``settings.py`` in the instance folder, followed by additional
@@ -160,6 +160,7 @@ def init_app(app):
     :func:`coaster.logger.init_app`.
 
     :param app: App to be configured
+    :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
     """
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
@@ -180,7 +181,8 @@ def init_app(app):
     if additional:
         load_config_from_file(app, additional)
 
-    logger.init_app(app)
+    if init_logging:
+        logger.init_app(app)
 
 
 def load_config_from_file(app, filepath):
