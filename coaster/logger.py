@@ -19,7 +19,6 @@ import re
 import traceback
 
 from flask import escape, g, request, session
-from flask.logging import default_handler
 
 import requests
 
