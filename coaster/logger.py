@@ -389,6 +389,7 @@ def init_app(app):
     All are optional:
 
     * ``LOGFILE``: Name of the file to log to (default ``error.log``)
+    * ``LOGFILE_LEVEL``: Logging level to use for file logger (default `WARNING`)
     * ``ADMINS``: List of email addresses of admins who will be mailed error reports
     * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with
         name and address
@@ -413,13 +414,19 @@ def init_app(app):
             }]
 
     """
-    formatter = LocalVarFormatter()
+    formatter = LocalVarFormatter(
+        '%(asctime)s - %(module)s.%(funcName)s:%(lineno)s - %(levelname)s - %(message)s'
+    )
 
     error_log_file = app.config.get('LOGFILE', 'error.log')
     if error_log_file:  # Specify a falsy value in config to disable the log file
-        file_handler = logging.FileHandler(error_log_file)
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            error_log_file,
+            when=app.config.get('LOGFILE_WHEN', 'midnight'),
+            backupCount=app.config.get('LOGFILE_BACKUPCOUNT', 0),
+        )
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(logging.WARNING)
+        file_handler.setLevel(app.config.get('LOGFILE_LEVEL', logging.WARNING))
         app.logger.addHandler(file_handler)
 
     if app.config.get('ADMIN_NUMBERS'):
