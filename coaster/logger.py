@@ -19,6 +19,7 @@ import re
 import traceback
 
 from flask import escape, g, request, session
+from flask.logging import default_handler
 
 import requests
 
@@ -414,6 +415,10 @@ def init_app(app):
             }]
 
     """
+    if not app.debug:
+        # Downgrade from default WARNING level to INFO
+        app.logger.setLevel(logging.INFO)
+
     formatter = LocalVarFormatter(
         '%(asctime)s - %(module)s.%(funcName)s:%(lineno)s - %(levelname)s - %(message)s'
     )
