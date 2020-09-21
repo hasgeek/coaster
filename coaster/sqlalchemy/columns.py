@@ -128,6 +128,7 @@ class UrlType(UrlTypeBase):
     """
 
     impl = UnicodeText
+    url_parser = furl
 
     def __init__(
         self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
@@ -140,7 +141,7 @@ class UrlType(UrlTypeBase):
     def process_bind_param(self, value, dialect):
         value = super(UrlType, self).process_bind_param(value, dialect)
         if value:
-            parsed = furl(value)
+            parsed = self.url_parser(value)
             # If scheme is present, it must be valid
             # If not present, the optional flag must be True
             if parsed.scheme:
@@ -152,4 +153,13 @@ class UrlType(UrlTypeBase):
             # Host may be missing only if optional
             if not parsed.host and not self.optional_host:
                 raise ValueError(u"Missing URL host")
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return self.url_parser(value)
+
+    def _coerce(self, value):
+        if value is not None and not isinstance(value, self.url_parser):
+            return self.url_parser(value)
         return value
