@@ -208,11 +208,15 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
     if isinstance(relationship, (AppenderMixin, Query)):
-        # Query-like relationship. Run a query.
+        # Query-like relationship. Run a query. It is possible to have multiple matches
+        # for the actor, so use .first()
+        # TODO: Consider retrieving all and consolidating roles from across them in case
+        # the objects are RoleGrantABC. This is not a current requirement and so is not
+        # currently supported; using the .first() object is sufficient
         if isinstance(actor_attr, QueryableAttribute):
-            relobj = relationship.filter(operator.eq(actor_attr, actor)).one_or_none()
+            relobj = relationship.filter(operator.eq(actor_attr, actor)).first()
         else:
-            relobj = relationship.filter_by(**{actor_attr: actor}).one_or_none()
+            relobj = relationship.filter_by(**{actor_attr: actor}).first()
     elif isinstance(relationship, abc.Iterable):
         # List-like object. Scan through it looking for item related to actor.
         # Note: strings are also collections. Checking for abc.Iterable is only safe
