@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Role-based access control
 -------------------------

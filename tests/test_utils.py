@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from six.moves.collections_abc import MutableSet
 import six
 

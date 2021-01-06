@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Test Migration
 
 Revision ID: 132231d12fcd

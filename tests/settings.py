@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Note: This is a test config file used by test_app.py.
 """

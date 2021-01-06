@@ -14,22 +14,22 @@ repos:
             '--remove-duplicate-keys',
           ]
   - repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.4.2
+    rev: v5.7.0
     hooks:
       - id: isort
         additional_dependencies:
           - toml
   - repo: https://github.com/ambv/black
-    rev: 19.10b0
+    rev: 20.8b1
     hooks:
       - id: black
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.6.2
+    rev: 1.7.0
     hooks:
       - id: bandit
         args: ["--ini", "setup.cfg", "-l", "-x", "tests, build/lib"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v3.4.0
     hooks:
       - id: check-added-large-files
       - id: check-ast
@@ -49,13 +49,14 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: fix-encoding-pragma
+        args: ['--remove']
       - id: forbid-new-submodules
       - id: mixed-line-ending
       - id: no-commit-to-branch
       - id: requirements-txt-fixer
       - id: trailing-whitespace
   - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.8.3
+    rev: 3.8.4
     hooks:
       - id: flake8
         additional_dependencies:
@@ -64,7 +65,6 @@ repos:
           - flake8-bandit
           - flake8-blind-except
           - flake8-builtins
-          - flake8-coding
           - flake8-comprehensions
           - flake8-isort
           - flake8-logging-format

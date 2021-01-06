@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Enhanced query and custom comparators
 -------------------------------------

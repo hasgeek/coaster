@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 States and transitions
 ----------------------
@@ -936,7 +934,7 @@ class StateManager(object):
                 .in_(lenum.keys())
                 .compile(compile_kwargs={'literal_binds': True})
             ),
-            **kwargs
+            **kwargs,
         )
 
 

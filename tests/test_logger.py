@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import six
 
 from coaster.logger import filtered_value, pprint_with_indent
