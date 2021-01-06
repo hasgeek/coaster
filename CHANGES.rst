@@ -47,6 +47,7 @@
 * Removed ShortUUID in favour of the more stable Base58
 * MarkdownColumn now supports a custom markdown processor and options
 * New: Support for secret key rotation in Flask apps
+* Last version to support Python 2.7; Coaster 0.7 will be Py 3.6+ only
 
 0.6.0
 -----
