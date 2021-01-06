@@ -1,10 +1,10 @@
-0.7.0
------
+0.7.0 - 2021-01-XX
+------------------
 
 * Dropped Python 2.7 support
 
-0.6.1
------
+0.6.1 - 2021-01-06
+------------------
 
 * Renamed ``coaster.roles.set_roles`` to ``with_roles`` and added support for
   wrapping ``declared_attr`` and column properties
@@ -54,8 +54,8 @@
 * New: Support for secret key rotation in Flask apps
 * Last version to support Python 2.7; Coaster 0.7 will be Py 3.6+ only
 
-0.6.0
------
+0.6.0 - 2017-08-29
+------------------
 
 * Removed deprecated ``coaster.app.configure``
 * ``coaster.app.init_app`` now takes an optional environment, reading from the
@@ -90,8 +90,8 @@
 * New: ``require_one_of`` util for functions that require any one of many
   parameters
 
-0.5.2
------
+0.5.2 - 2017-05-04
+------------------
 
 * Removed ``add_and_commit`` and associated tests
 * ``failsafe_add`` now takes filters optionally, failing silently in case of
@@ -100,8 +100,8 @@
 * New util: ``isoweek_datetime`` for week-based datetimes in reports
 * New util: ``midnight_to_utc`` for midnight in any timezone converted to UTC
 
-0.5.1
------
+0.5.1 - 2016-04-01
+------------------
 
 * New util: ``uuid1mc`` generates a UUID1 with a random multicast MAC id
 * New util: ``uuid1mc_from_datetime`` generates a UUID1 with a specific
@@ -120,8 +120,8 @@
 * TimestampMixin now uses ``func.utcnow`` to move datetime generation
   server-side
 
-0.5.0
------
+0.5.0 - 2015-12-12
+------------------
 
 * ``Base(Scoped)?(Id)?NameMixin`` now disallows blank names by default. Bumped
   version number since this is a non-breaking incompatible change
@@ -146,8 +146,8 @@
   in 1.0.9
 * New ``is_url_for`` decorator in UrlForMixin
 
-0.4.3
------
+0.4.3 - 2014-11-27
+------------------
 
 * Initial work on Fluentd logging
 * New util: ``base_domain_matches`` compares if two domains have the same base
@@ -163,16 +163,16 @@
 * New util: ``deobfuscate_email`` deobfuscates common email obfuscation
   patterns
 
-0.4.2
------
+0.4.2 - 2014-06-10
+------------------
 
 * ``NameTitle`` namedtuple and support in ``LabeledEnum`` for
   ``(value, name, title)``
 * Provide UglifyJS minifier to webassets via the UglipyJS wrapper
 * ``BaseScopedNameMixin``'s ``make_title`` now uses ``short_title`` as source
 
-0.4.1
------
+0.4.1 - 2014-03-08
+------------------
 
 * ``views.get_next_url`` now considers subdomains as non-external
 * ``sqlalchemy.BaseMixin`` now provides a new query class with ``one_or_none``
@@ -180,8 +180,8 @@
   optional
 * LabeledEnums now have a ``get()`` method to emulate dictionaries
 
-0.4.0
------
+0.4.0 - 2013-12-30
+------------------
 
 * Moved utility functions into ``coaster.utils``
 * Bugfix: make ``get_email_domain`` somewhat more reliable
@@ -203,15 +203,15 @@
 * New: ``utils.nullint``, ``nullstr`` and ``nullunicode`` for returning
   ``int(v)``, ``str(v)`` and ``unicode(v)`` if ``v`` isn't false
 
-0.3.13
-------
+0.3.13 - 2013-07-27
+-------------------
 
 * ``short_title`` method in ``BaseScopedNameMixin``
 * ``assets.require`` now raises ``AssetNotFound`` on missing assets
 * New: ``coaster.db.db`` is an instance of Flask-SQLAlchemy
 
-0.3.12
-------
+0.3.12 - 2013-06-14
+-------------------
 
 * Bugfix: Support single-char usernames
 * New feature: Labeled enumerations
@@ -224,31 +224,31 @@
 * Logging now looks for ``MAIL_DEFAULT_SENDER`` before ``DEFAULT_MAIL_SENDER``
 * Compatibility with Flask 0.10 for SandboxedFlask
 
-0.3.11
-------
+0.3.11 - 2013-04-08
+-------------------
 
 * Bugfix: ``PermissionMixin.permissions()`` now checks if parent is not None
 
-0.3.10
-------
+0.3.10 - 2013-04-02
+-------------------
 
 * New ``sorted_timezones`` function
 
-0.3.9
------
+0.3.9 - 2013-14-04
+------------------
 
 * New module for asset management, with testcases and documentation.
 * ``coaster.logging.configure`` is now ``init_app`` in keeping with convention
 
-0.3.8
------
+0.3.8 - 2013-01-22
+------------------
 
 * Updated documentation
 * New SQLAlchemy column types and helpers
 * Use SQL expressions to set ``url_id`` in scoped id classes
 
-0.3.7
------
+0.3.7 - Unreleased
+------------------
 
 * Don't use ``declared_attr`` for the ``id``, ``created_at`` and ``updated_at``
   columns
@@ -256,22 +256,22 @@
 * New ``requestargs`` view wrapper to make working with ``request.args``
   easier
 
-0.3.6
------
+0.3.6 - 2012-10-01
+------------------
 
 * New ``SandboxedFlask`` in ``coaster.app`` that uses Jinja's
   ``SandboxedEnvironment``
 
-0.3.5
------
+0.3.5 - 2012-09-14
+------------------
 
 * ``load_models`` now caches data to ``flask.g``
 * SQLAlchemy models now use ``declared_attr`` for all columns to work around a
   column duplication bug with joined table inheritance in SQLAlchemy < 0.8
 * Misc fixes
 
-0.3.4
------
+0.3.4 - Unreleased
+------------------
 
 * ``get_next_url`` now takes a default parameter. Pass ``default=None`` to
   return ``None`` if no suitable next URL can be found
@@ -285,29 +285,29 @@
 * If the view requires permissions, ``load_models`` caches available
 * permissions as ``g.permissions``
 
-0.3.3
------
+0.3.3 - 2012-08-14
+------------------
 
 * ``coaster.views.get_next_url`` now looks in the session for the next URL
 
-0.3.2
------
+0.3.2 - 2012-07-30
+------------------
 
 * New ``coaster.app.init_app`` function moves away from passing configuration
   status in environment variables
 
-0.3.0
------
+0.3.0 - 2012-07-17
+------------------
 
 * SQLAlchemy models now have a ``permissions`` method that ``load_models``
   looks up
 
-0.2.2
------
+0.2.2 - 2012-06-08
+------------------
 
 * Added logging module
 
-0.1
----
+0.1 - 2011-11-30
+----------------
 
 * First version
