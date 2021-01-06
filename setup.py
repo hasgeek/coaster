@@ -1,3 +1,5 @@
+"""Setup Coaster."""
+
 import os
 import re
 
@@ -8,7 +10,7 @@ with open(os.path.join(here, 'README.rst')) as f:
     README = f.read()
 with open(os.path.join(here, 'CHANGES.rst')) as f:
     CHANGES = f.read()
-with open(os.path.join(here, "coaster", "_version.py")) as f:
+with open(os.path.join(here, 'coaster', '_version.py')) as f:
     versionfile = f.read()
 
 mo = re.search(r"^__version__\s*=\s*['\"]([^'\"]*)['\"]", versionfile, re.M)
@@ -28,32 +30,22 @@ requires = [
     'Flask-SQLAlchemy',
     'Flask>=1.0',
     'furl',
-    'html2text==2019.8.11;python_version=="2.7"',
-    'html2text>2019.8.11;python_version>="3.6"',
+    'html2text>2019.8.11',
     'html5lib>=0.999999999',
     'aniso8601',
     'isoweek',
-    'Jinja2<=2.11.1;python_version=="2.7"',
-    'Jinja2>=2.11.1;python_version>="3.6"',
-    'Markdown<3.2.0;python_version=="2.7"',
-    'Markdown>=3.2.0;python_version>="3.6"',
-    'markupsafe;python_version>="3.6"',
-    'markupsafe<=1.1.1;python_version=="2.7"',
-    'nltk<=3.4.5;python_version=="2.7"',
-    'nltk>=3.4.5;python_version>="3.6"',
+    'Jinja2>=2.11.1',
+    'Markdown>=3.2.0',
+    'markupsafe',
+    'nltk>=3.4.5',
     'psycopg2',
     'PyExecJS',
-    'Pygments<=2.5.2;python_version=="2.7"',
-    'Pygments>=2.6.0;python_version>="3.6"',
-    'pymdown-extensions==6.2.0;python_version=="2.7"',
-    'pymdown-extensions>=6.0;python_version>="3.6"',
-    'PySqlite==2.8.3;python_version=="2.7"',
+    'Pygments>=2.6.0',
+    'pymdown-extensions>=6.0',
     'pytz',
     'semantic_version>=2.8.0',
-    'base58>=2.0.0;python_version>="3.6"',
-    'base58<2.0.0;python_version=="2.7"',
+    'base58>=2.0.0',
     'simplejson',
-    'six>=1.13.0',
     'sqlalchemy-utils',
     'SQLAlchemy>=1.0.9',
     'tldextract',
@@ -69,18 +61,22 @@ setup(
     description='Coaster for Flask',
     long_description=README + '\n\n' + CHANGES,
     classifiers=[
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "License :: OSI Approved :: BSD License",
-        "Operating System :: OS Independent",
-        "Intended Audience :: Developers",
-        "Development Status :: 3 - Alpha",
-        "Topic :: Software Development :: Libraries",
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Framework :: Flask',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: OS Independent',
+        'Intended Audience :: Developers',
+        'Development Status :: 5 - Production/Stable',
+        'Topic :: Database',
+        'Topic :: Software Development :: Libraries',
     ],
-    author='Kiran Jonnalagadda',
-    author_email='kiran@hasgeek.com',
+    author="Kiran Jonnalagadda",
+    author_email="kiran@hasgeek.com",
     url='https://github.com/hasgeek/coaster',
     keywords='coaster',
     packages=['coaster', 'coaster.utils', 'coaster.sqlalchemy', 'coaster.views'],
