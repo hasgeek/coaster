@@ -4,7 +4,6 @@ SQLAlchemy column types
 """
 
 from __future__ import absolute_import
-import six
 
 from sqlalchemy import UnicodeText
 from sqlalchemy.ext.mutable import Mutable
@@ -61,11 +60,11 @@ class JsonDict(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = simplejson.dumps(value, default=six.text_type)  # Callable default
+            value = simplejson.dumps(value, default=str)  # Callable default
         return value
 
     def process_result_value(self, value, dialect):
-        if value is not None and isinstance(value, six.string_types):
+        if value is not None and isinstance(value, str):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
             # we only attempt decoding if the value is a string.
             # Since this column stores dicts only, processed values
@@ -82,7 +81,7 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
                 return MutableDict(value)
-            elif isinstance(value, six.string_types):
+            elif isinstance(value, str):
                 # Assume JSON string
                 if value:
                     return MutableDict(simplejson.loads(value, use_decimal=True))

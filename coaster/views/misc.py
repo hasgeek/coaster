@@ -8,8 +8,8 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from __future__ import absolute_import
-from six.moves.urllib.parse import urlsplit
 
+from urllib.parse import urlsplit
 import re
 
 from flask import Response, current_app, json, request

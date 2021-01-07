@@ -19,10 +19,9 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 """
 
 from __future__ import absolute_import
-import six
-import six.moves.collections_abc as abc
 
 from collections import namedtuple
+import collections.abc as abc
 import uuid as uuid_
 
 from sqlalchemy import (
@@ -135,7 +134,7 @@ class IdMixin(object):
 
             def url_id_func(self):
                 """The URL id, integer primary key rendered as a string"""
-                return six.text_type(self.id)
+                return str(self.id)
 
             def url_id_expression(cls):
                 """The URL id, integer primary key"""
@@ -450,10 +449,7 @@ class UrlForMixin(object):
         cls.url_for_endpoints.setdefault(app, {})
 
         for keyword in paramattrs:
-            if (
-                isinstance(paramattrs[keyword], six.string_types)
-                and '.' in paramattrs[keyword]
-            ):
+            if isinstance(paramattrs[keyword], str) and '.' in paramattrs[keyword]:
                 paramattrs[keyword] = tuple(paramattrs[keyword].split('.'))
         requires_kwargs = False
         for attrs in paramattrs.values():
@@ -630,12 +626,10 @@ class BaseNameMixin(BaseMixin):
                     )
 
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(
-                    make_name(
-                        self.title_for_name,
-                        maxlength=self.__name_length__,
-                        checkused=checkused,
-                    )
+                self.name = make_name(
+                    self.title_for_name,
+                    maxlength=self.__name_length__,
+                    checkused=checkused,
                 )
 
 
@@ -760,12 +754,10 @@ class BaseScopedNameMixin(BaseMixin):
                     )
 
             with self.__class__.query.session.no_autoflush:
-                self.name = six.text_type(
-                    make_name(
-                        self.title_for_name,
-                        maxlength=self.__name_length__,
-                        checkused=checkused,
-                    )
+                self.name = make_name(
+                    self.title_for_name,
+                    maxlength=self.__name_length__,
+                    checkused=checkused,
                 )
 
     @property
@@ -872,9 +864,7 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerates a :attr:`name` from :attr:`title_for_name`"""
         if self.title:
-            self.name = six.text_type(
-                make_name(self.title_for_name, maxlength=self.__name_length__)
-            )
+            self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
     @with_roles(read={'all'})
     @hybrid_property
@@ -1056,9 +1046,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerates a title from the name"""
         if self.title:
-            self.name = six.text_type(
-                make_name(self.title_for_name, maxlength=self.__name_length__)
-            )
+            self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
     @with_roles(read={'all'})
     @hybrid_property

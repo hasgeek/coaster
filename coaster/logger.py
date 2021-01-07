@@ -8,9 +8,9 @@ this is done automatically for you.
 """
 
 from __future__ import absolute_import, print_function, unicode_literals
-import six
 
 from datetime import datetime, timedelta
+from io import StringIO
 from pprint import pprint
 import logging.handlers
 import re
@@ -51,7 +51,6 @@ error_throttle_timestamp_slack = {}
 error_throttle_timestamp_telegram = {}
 
 
-@six.python_2_unicode_compatible
 class FilteredValueIndicator(object):
     def __str__(self):
         return '[Filtered]'
@@ -65,16 +64,16 @@ filtered_value_indicator = FilteredValueIndicator()
 
 
 def filtered_value(key, value):
-    if isinstance(key, six.string_types) and _filter_re.search(key):
+    if isinstance(key, str) and _filter_re.search(key):
         return filtered_value_indicator
-    elif isinstance(value, six.string_types):
+    elif isinstance(value, str):
         return _card_re.sub('[Filtered]', value)
     return value
 
 
 def pprint_with_indent(dictlike, outfile, indent=4):
     """Filter values and pprint with indent to create a Markdown code block."""
-    out = six.StringIO()
+    out = StringIO()
     pprint(  # NOQA: T003
         {key: filtered_value(key, value) for key, value in dictlike.items()}, out
     )
@@ -114,7 +113,7 @@ class LocalVarFormatter(logging.Formatter):
             stack.append(f)
             f = f.f_back
 
-        sio = six.StringIO()
+        sio = StringIO()
         traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
 
         print('\n----------\n', file=sio)  # NOQA: T001

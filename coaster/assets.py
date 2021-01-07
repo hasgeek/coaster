@@ -12,7 +12,6 @@ be careful about assumptions you make around them.
 """
 
 from __future__ import absolute_import
-import six
 
 from collections import defaultdict
 import re
@@ -133,10 +132,10 @@ class VersionedAssets(defaultdict):
                         bundle = asset[-1]
                     elif isinstance(asset, dict):
                         requires = asset.get('requires', [])
-                        if isinstance(requires, six.string_types):
+                        if isinstance(requires, str):
                             requires = [requires]
                         provides = asset.get('provides', [])
-                        if isinstance(provides, six.string_types):
+                        if isinstance(provides, str):
                             provides = [provides]
                         bundle = asset.get('bundle')
                     else:
@@ -197,7 +196,7 @@ class UglipyJS(Filter):
         self.uglipyjs = uglipyjs  # skipcq: PYL-W0201
 
     def output(self, _in, out, **kw):
-        out.write(six.text_type(self.uglipyjs.compile(_in.read()), 'utf-8'))
+        out.write(str(self.uglipyjs.compile(_in.read()), 'utf-8'))
 
 
 register_filter(UglipyJS)

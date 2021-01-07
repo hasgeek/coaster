@@ -6,9 +6,9 @@ Group related views into a class for easier management.
 """
 
 from __future__ import unicode_literals
-from six.moves.urllib.parse import urlsplit, urlunsplit
 
 from functools import update_wrapper, wraps
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty

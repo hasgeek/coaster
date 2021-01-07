@@ -4,9 +4,9 @@ Text processing utilities
 """
 
 from __future__ import absolute_import
-import six
 
 from functools import partial
+from html import unescape
 import re
 import string
 
@@ -16,15 +16,6 @@ from markupsafe import Markup
 import html5lib
 
 from .misc import _punctuation_re, _strip_re, _tag_re
-
-if six.PY3:  # pragma: no cover
-    from html import unescape
-else:  # pragma: no cover
-    import HTMLParser
-
-    unescape = HTMLParser.HTMLParser().unescape
-    del HTMLParser
-
 
 __all__ = [
     'VALID_TAGS',
@@ -243,7 +234,7 @@ def text_blocks(html_text, skip_pre=True):
                 blocks.append(text)
             elif (
                 len(element)
-                and isinstance(element[0].tag, six.string_types)
+                and isinstance(element[0].tag, str)
                 and element[0].tag.split('}')[-1] not in blockish_tags
                 and not (skip_pre and tag == 'pre')
             ):
@@ -374,16 +365,5 @@ def simplify_text(text):
     ...   'awesome coder wanted at awesome company')
     True
     """
-    if isinstance(text, six.text_type):
-        if six.PY3:  # pragma: no cover
-            text = text.translate(text.maketrans("", "", string.punctuation)).lower()
-        else:  # pragma: no cover
-            text = six.text_type(
-                text.encode('utf-8')
-                .translate(string.maketrans("", ""), string.punctuation)
-                .lower(),
-                'utf-8',
-            )
-    else:
-        text = text.translate(string.maketrans("", ""), string.punctuation).lower()
-    return " ".join(text.split())
+    text = text.translate(text.maketrans("", "", string.punctuation)).lower()
+    return ' '.join(text.split())

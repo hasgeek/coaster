@@ -34,7 +34,8 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 """
 
 from __future__ import absolute_import
-from six.moves.collections_abc import Hashable
+
+from collections.abc import Hashable
 
 from sqlalchemy import event
 from sqlalchemy.orm import mapper

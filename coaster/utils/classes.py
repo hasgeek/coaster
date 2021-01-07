@@ -4,10 +4,9 @@ Utility classes
 """
 
 from __future__ import absolute_import
-from six.moves.collections_abc import Set
-import six
 
 from collections import OrderedDict, namedtuple
+from collections.abc import Set
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
@@ -82,7 +81,7 @@ class _LabeledEnumMeta(type):
         return key in cls.__labels__
 
 
-class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
+class LabeledEnum(metaclass=_LabeledEnumMeta):
     """
     Labeled enumerations. Declarate an enumeration with values and labels
     (for use in UI)::

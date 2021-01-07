@@ -8,7 +8,6 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from __future__ import absolute_import
-import six
 
 from functools import wraps
 
@@ -285,7 +284,7 @@ def load_models(*chain, **kwargs):
             permissions = None
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
-            if isinstance(permission_required, six.string_types):
+            if isinstance(permission_required, str):
                 permission_required = {permission_required}
             elif permission_required is not None:
                 permission_required = set(permission_required)
@@ -472,7 +471,7 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
         templates = {'application/json': dict_jsonify}
     else:
         templates = {}
-    if isinstance(template, six.string_types):
+    if isinstance(template, str):
         templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
@@ -483,7 +482,7 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
 
     default_mimetype = '*/*'
     if '*/*' not in templates:
-        templates['*/*'] = six.text_type
+        templates['*/*'] = str
         default_mimetype = 'text/plain'
         for mimetype in ('text/html', 'text/plain', 'application/json'):
             if mimetype in templates:

@@ -1,5 +1,4 @@
 from __future__ import unicode_literals
-import six
 
 import unittest
 
@@ -186,23 +185,6 @@ It has a newline break here.</p>
 </tbody>
 </table>
 '''.strip()
-
-
-if six.PY2:
-    # Pygments >= 2.4 (latest Py3 releases only) inserts "<code>" alongside "<pre>"
-    # We strip it out under the older release in Py2. This is a hack.
-    sample_output = (
-        sample_output.replace('<pre><code>', '<pre>')
-        .replace('</code></pre>', '</pre>')
-        .replace('<pre><span></span><code>', '<pre><span></span>')
-        .replace('<div class="highlight">', '<div class="codehilite">')
-    )
-    sample_output_html = (
-        sample_output_html.replace('<pre><code>', '<pre>')
-        .replace('</code></pre>', '</pre>')
-        .replace('<pre><span></span><code>', '<pre><span></span>')
-        .replace('<div class="highlight">', '<div class="codehilite">')
-    )
 
 
 class TestMarkdown(unittest.TestCase):

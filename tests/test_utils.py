@@ -1,6 +1,4 @@
-from six.moves.collections_abc import MutableSet
-import six
-
+from collections.abc import MutableSet
 import datetime
 import unittest
 
@@ -60,14 +58,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert MY_ENUM[MY_ENUM.SECOND] == "Second"
         assert MY_ENUM[MY_ENUM.THIRD] == "Third"
 
-        if six.PY2:
-            assert sorted(MY_ENUM.items()) == [
-                (1, "First"),
-                (2, "Second"),
-                (3, "Third"),
-            ]
-        else:
-            assert MY_ENUM.items() == [(1, "First"), (2, "Second"), (3, "Third")]
+        assert MY_ENUM.items() == [(1, "First"), (2, "Second"), (3, "Third")]
 
         assert MY_ENUM_TWO.nametitles() == [
             ('first', "First"),
@@ -180,7 +171,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert namespace_from_url('127.0.0.1') is None
         # Return string type is the input type
         assert isinstance(
-            namespace_from_url(u'https://github.com/hasgeek/coaster'), six.text_type
+            namespace_from_url(u'https://github.com/hasgeek/coaster'), str
         )
         assert isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str)
 

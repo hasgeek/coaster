@@ -118,13 +118,12 @@ Example use::
 """
 
 from __future__ import absolute_import
-import six
-import six.moves.collections_abc as abc
 
 from abc import ABCMeta
 from copy import deepcopy
 from functools import wraps
 from itertools import chain
+import collections.abc as abc
 import operator
 import warnings
 
@@ -166,7 +165,7 @@ def _attrs_equal(lhs, rhs):
     But strings can't be compared with `is` to confirm they are the same string.
     We have to change the operator based on types being compared.
     """
-    if isinstance(lhs, six.string_types) and isinstance(rhs, six.string_types):
+    if isinstance(lhs, str) and isinstance(rhs, str):
         return lhs == rhs
     return lhs is rhs
 
@@ -219,7 +218,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
         # List-like object. Scan through it looking for item related to actor.
         # Note: strings are also collections. Checking for abc.Iterable is only safe
         # here because of the unlikeliness of a string relationship. If that becomes
-        # necessary in future, add `and not isinstance(relationship, six.string_types)`
+        # necessary in future, add `and not isinstance(relationship, str)`
         for relitem in relationship:
             if getattr(relitem, actor_attr) == actor:
                 relobj = relitem
@@ -252,8 +251,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
         return roles
 
 
-@six.add_metaclass(ABCMeta)
-class RoleGrantABC(object):
+class RoleGrantABC(object, metaclass=ABCMeta):
     """Base class for an object that grants roles to an actor"""
 
     @property
@@ -1249,7 +1247,7 @@ def _configure_roles(mapper_, cls):
                 for actor_attr, roles in data.get('grants_via', {}).items():
                     if isinstance(roles, dict):
                         offer_map = {
-                            k: {v} if isinstance(v, six.string_types) else set(v)
+                            k: {v} if isinstance(v, str) else set(v)
                             for k, v in roles.items()
                         }
                         reverse_offer_map = {}
@@ -1257,7 +1255,7 @@ def _configure_roles(mapper_, cls):
                             for role in rhs:
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
                         roles = set(reverse_offer_map.keys())
-                    elif isinstance(roles, six.string_types):
+                    elif isinstance(roles, str):
                         raise TypeError(
                             "grants_via declaration {{{actor_attr!r}: {roles!r}}} on"
                             " {cls}.{name} is using a string but needs to be a set or"
@@ -1271,11 +1269,7 @@ def _configure_roles(mapper_, cls):
                     else:
                         offer_map = None
                         reverse_offer_map = None
-                    if (
-                        actor_attr
-                        and isinstance(actor_attr, six.string_types)
-                        and '.' in actor_attr
-                    ):
+                    if actor_attr and isinstance(actor_attr, str) and '.' in actor_attr:
                         parts = actor_attr.split('.')
                         dotted_name = '.'.join([name] + parts[:-1])
                         actor_attr = parts[-1]
