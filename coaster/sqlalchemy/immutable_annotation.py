@@ -31,8 +31,8 @@ class ImmutableColumnError(AttributeError):
 
         if message is None:
             self.message = (
-                "Cannot update column {class_name}.{column_name} from {old_value} to "
-                "{new_value}: column is immutable.".format(
+                "Cannot update column {class_name}.{column_name} from {old_value!r} to"
+                " {new_value!r}: column is immutable.".format(
                     column_name=column_name,
                     class_name=class_name,
                     old_value=old_value,
@@ -43,25 +43,26 @@ class ImmutableColumnError(AttributeError):
 
 @annotations_configured.connect
 def _make_immutable(cls):
+    def add_immutable_event(attr, col):
+        @event.listens_for(col, 'set')
+        def immutable_column_set_listener(target, value, old_value, initiator):
+            # Note:
+            # NEVER_SET is for columns getting a default value during a commit.
+            # NO_VALUE is for columns that have no value (either never set, or not
+            # loaded). Because of this ambiguity, we pair NO_VALUE with a
+            # has_identity test.
+            if old_value == value:
+                pass
+            elif old_value is NEVER_SET:
+                pass
+            elif old_value is NO_VALUE and inspect(target).has_identity is False:
+                pass
+            else:
+                raise ImmutableColumnError(cls.__name__, attr, old_value, value)
+
     if (
         hasattr(cls, '__column_annotations__')
         and immutable.name in cls.__column_annotations__
     ):
         for attr in cls.__column_annotations__[immutable.name]:
-            col = getattr(cls, attr)
-
-            @event.listens_for(col, 'set')
-            def immutable_column_set_listener(target, value, old_value, initiator):
-                # Note:
-                # NEVER_SET is for columns getting a default value during a commit.
-                # NO_VALUE is for columns that have no value (either never set, or not
-                # loaded). Because of this ambiguity, we pair NO_VALUE with a
-                # has_identity test.
-                if old_value == value:
-                    pass
-                elif old_value is NEVER_SET:
-                    pass
-                elif old_value is NO_VALUE and inspect(target).has_identity is False:
-                    pass
-                else:
-                    raise ImmutableColumnError(cls.__name__, col.name, old_value, value)
+            add_immutable_event(attr, getattr(cls, attr))
