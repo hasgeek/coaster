@@ -23,7 +23,6 @@ requires = [
     'bcrypt',
     'bleach',
     'blinker',
-    'docflow>=0.3.2',
     'Flask-Assets',
     'Flask-Migrate',
     'Flask-Script',

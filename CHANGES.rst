@@ -2,6 +2,7 @@
 ------------------
 
 * Dropped Python 2.7 support
+* Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 
 0.6.1 - 2021-01-06
 ------------------

@@ -26,7 +26,6 @@ Coaster is available under the BSD license, the same license as Flask.
    sqlalchemy/index
    db
    nlp
-   docflow
 
 Indices and tables
 ==================
