@@ -48,8 +48,9 @@ __all__ = [
 #: class is named :attr:`~current_view.current_handler`, so to examine it, use
 #: :attr:`current_view.current_handler`.
 current_view = LocalProxy(
-    lambda: has_request_context()
-    and getattr(_request_ctx_stack.top, 'current_view', None)
+    lambda: getattr(_request_ctx_stack.top, 'current_view', None)
+    if has_request_context()
+    else None
 )
 
 
