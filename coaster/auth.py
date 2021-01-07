@@ -94,7 +94,7 @@ def request_has_auth():
     return hasattr(_request_ctx_stack.top, 'current_auth')
 
 
-class CurrentAuth(object):
+class CurrentAuth:
     """
     Holding class for current authenticated objects such as user accounts.
     This class is constructed by :obj:`current_auth`. Typical uses:

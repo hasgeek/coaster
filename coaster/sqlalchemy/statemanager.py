@@ -301,7 +301,7 @@ class AbortTransition(Exception):
 # --- Classes -----------------------------------------------------------------
 
 
-class ManagedState(object):
+class ManagedState:
     """
     Represents a state managed by a :class:`StateManager`. Do not use this
     class directly. Use :meth:`~StateManager.add_conditional_state` instead.
@@ -379,7 +379,7 @@ class ManagedState(object):
             return self._eval(obj, cls)
 
 
-class ManagedStateGroup(object):
+class ManagedStateGroup:
     """
     Represents a group of managed states in a :class:`StateManager`. Do not use
     this class directly. Use :meth:`~StateManager.add_state_group` instead.
@@ -446,7 +446,7 @@ class ManagedStateGroup(object):
             return self._eval(obj, cls)
 
 
-class ManagedStateWrapper(object):
+class ManagedStateWrapper:
     """
     Wraps a :class:`ManagedState` or :class:`ManagedStateGroup` with
     an object or class, and otherwise provides transparent access to contents.
@@ -487,7 +487,7 @@ class ManagedStateWrapper(object):
     __nonzero__ = __bool__
 
 
-class StateTransition(object):
+class StateTransition:
     """
     Helper for transitions from one state to another. Do not use this class
     directly. Use the :meth:`StateManager.transition` decorator instead, which
@@ -583,7 +583,7 @@ class StateTransition(object):
             return StateTransitionWrapper(self, obj)
 
 
-class StateTransitionWrapper(object):
+class StateTransitionWrapper:
     """
     Wraps :class:`StateTransition` with the context of the object it is
     accessed from. Automatically constructed by :class:`StateTransition`.
@@ -679,7 +679,7 @@ class StateTransitionWrapper(object):
         return result
 
 
-class StateManager(object):
+class StateManager:
     """
     Wraps a property with a :class:`~coaster.utils.classes.LabeledEnum` to
     facilitate state inspection and control state changes.
@@ -938,7 +938,7 @@ class StateManager(object):
         )
 
 
-class StateManagerWrapper(object):
+class StateManagerWrapper:
     """
     Wraps :class:`StateManager` with the context of the containing object.
     Automatically constructed when a :class:`StateManager` is accessed from

@@ -37,7 +37,7 @@ db.init_app(app)
 # --- Models ------------------------------------------------------------------
 
 
-class DeclaredAttrMixin(object):
+class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
     def mixed_in1(cls):
@@ -1149,7 +1149,7 @@ class TestLazyRoleSet(unittest.TestCase):
             self._userlist = value
             self.accessed_userlist = False
 
-    class User(object):
+    class User:
         pass
 
     def test_initial(self):

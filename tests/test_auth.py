@@ -21,7 +21,7 @@ from coaster.sqlalchemy import BaseMixin
 db = SQLAlchemy()
 
 
-class LoginManager(object):
+class LoginManager:
     def __init__(self, app):
         app.login_manager = self
         self.user = None

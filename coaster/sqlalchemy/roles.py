@@ -31,7 +31,7 @@ Example use::
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
-    class ColumnMixin(object):
+    class ColumnMixin:
         '''
         Mixin class that offers some columns to the RoleModel class below,
         demonstrating two ways to use `with_roles`.
@@ -251,7 +251,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
         return roles
 
 
-class RoleGrantABC(object, metaclass=ABCMeta):
+class RoleGrantABC(metaclass=ABCMeta):
     """Base class for an object that grants roles to an actor"""
 
     @property
@@ -457,7 +457,7 @@ class LazyRoleSet(abc.MutableSet):
     symmetric_difference_update = nary_op(abc.MutableSet.__ixor__)
 
 
-class DynamicAssociationProxy(object):
+class DynamicAssociationProxy:
     """
     Association proxy for dynamic relationships. Use this instead of SQLAlchemy's
     `association_proxy` when the underlying relationship uses `lazy='dynamic'`.
@@ -884,7 +884,7 @@ def declared_attr_roles(rw=None, call=None, read=None, write=None):
     return inner
 
 
-class RoleMixin(object):
+class RoleMixin:
     """
     Provides methods for role-based access control.
 

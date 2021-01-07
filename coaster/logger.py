@@ -51,7 +51,7 @@ error_throttle_timestamp_slack = {}
 error_throttle_timestamp_telegram = {}
 
 
-class FilteredValueIndicator(object):
+class FilteredValueIndicator:
     def __str__(self):
         return '[Filtered]'
 

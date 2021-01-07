@@ -19,14 +19,14 @@ class RegistryTest2(BaseMixin, db.Model):
 
 
 # Sample registered item (form or view) 1
-class RegisteredItem1(object):
+class RegisteredItem1:
     def __init__(self, obj=None):
         self.obj = obj
 
 
 # Sample registered item 2
 @RegistryTest2.views('test')
-class RegisteredItem2(object):
+class RegisteredItem2:
     def __init__(self, obj=None):
         self.obj = obj
 

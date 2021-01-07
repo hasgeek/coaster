@@ -38,7 +38,7 @@ from sqlalchemy.ext.declarative import declared_attr
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
 
-class Registry(object):
+class Registry:
     """
     Container for items registered to a model.
     """
@@ -62,7 +62,7 @@ class Registry(object):
         return decorator
 
 
-class InstanceRegistry(object):
+class InstanceRegistry:
     """
     Container for accessing registered items from an instance of the model.
     Used internally by :class:`Registry`. Returns a partial that will pass
@@ -77,7 +77,7 @@ class InstanceRegistry(object):
         return partial(getattr(self.__registry, attr), obj=self.__obj)
 
 
-class RegistryMixin(object):
+class RegistryMixin:
     """
     Provides the :attr:`forms` and :attr:`views` registries using
     :class:`Registry`. Additional registries, if needed, should be

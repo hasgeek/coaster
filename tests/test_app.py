@@ -78,7 +78,7 @@ class TestSandBoxedFlask(unittest.TestCase):
     def test_sandboxed_flask_jinja(self):
         template = self.app.jinja_env.from_string("{{ obj.name }}, {{ obj._secret }}")
 
-        class Test(object):
+        class Test:
             def __init__(self, name, _secret):
                 self.name = name
                 self._secret = _secret

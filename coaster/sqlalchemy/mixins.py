@@ -86,7 +86,7 @@ __all__ = [
 ]
 
 
-class IdMixin(object):
+class IdMixin:
     """
     Provides the :attr:`id` primary key column
     """
@@ -149,7 +149,7 @@ class IdMixin(object):
         return '<%s %s>' % (self.__class__.__name__, self.id)
 
 
-class UuidMixin(object):
+class UuidMixin:
     """
     Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
     to the existing ``id`` column if the class uses UUID primary keys. Also
@@ -222,7 +222,7 @@ class UuidMixin(object):
 
 
 # Also see functions.make_timestamp_columns
-class TimestampMixin(object):
+class TimestampMixin:
     """
     Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
     """
@@ -251,7 +251,7 @@ class TimestampMixin(object):
         )
 
 
-class PermissionMixin(object):
+class PermissionMixin:
     """
     Provides the :meth:`permissions` method used by BaseMixin and derived classes
     """
@@ -288,7 +288,7 @@ UrlEndpointData = namedtuple(
 )
 
 
-class UrlDictStub(object):
+class UrlDictStub:
     """
     Dictionary-based access to URLs for a model instance, used by :class:`UrlForMixin`.
     Proxies to :meth:`UrlForMixin.url_for` for keyword-based lookup. Uses
@@ -340,7 +340,7 @@ class UrlDict(abc.Mapping):
                         yield action
 
 
-class UrlForMixin(object):
+class UrlForMixin:
     """
     Provides a :meth:`url_for` method used by BaseMixin-derived classes
     """
@@ -1076,7 +1076,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
 
-class CoordinatesMixin(object):
+class CoordinatesMixin:
     """
     Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand
     :attr:`coordinates` property that returns both.

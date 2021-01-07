@@ -297,11 +297,11 @@ class InspectableSet(Set):
         raise AttributeError(attr)
 
 
-class classmethodproperty(object):  # NOQA: N801
+class classmethodproperty:  # NOQA: N801
     """
     Class method decorator to make class methods behave like properties::
 
-        >>> class Foo(object):
+        >>> class Foo:
         ...     @classmethodproperty
         ...     def test(cls):
         ...         return repr(cls)

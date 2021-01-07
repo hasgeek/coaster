@@ -34,7 +34,7 @@ _additional_config = {
 }
 
 
-class KeyRotationWrapper(object):
+class KeyRotationWrapper:
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
