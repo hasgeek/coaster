@@ -3,6 +3,7 @@
 
 * Dropped Python 2.7 support
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
+* Removed deprecated ``make_password`` and ``check_password`` functions
 
 0.6.1 - 2021-01-06
 ------------------

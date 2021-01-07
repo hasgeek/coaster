@@ -9,10 +9,8 @@ from coaster.utils import (
     InspectableSet,
     LabeledEnum,
     ParseError,
-    check_password,
     deobfuscate_email,
     isoweek_datetime,
-    make_password,
     midnight_to_utc,
     namespace_from_url,
     nary_op,
@@ -69,20 +67,6 @@ class TestCoasterUtils(unittest.TestCase):
 
         with pytest.raises(TypeError):
             MY_ENUM[2] = "SECOND"
-
-    def test_unlisted_make_password_encoding(self):
-        """Test for unsupported password encryption schemes."""
-        with pytest.raises(ValueError):
-            make_password(password='password', encoding='DES')  # noqa: S106
-
-    def test_check_password(self):
-        assert not check_password('{SSHA}ManThisIsPassword', 'ManThisIsPassword')
-        assert check_password('{PLAIN}ManThisIsPassword', 'ManThisIsPassword')
-        assert check_password('{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', 'test')
-        assert check_password(
-            '{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
-            'test',
-        )
 
     def test_parse_isoformat(self):
         assert parse_isoformat('1882-12-11T00:00:00.1234Z') == datetime.datetime(

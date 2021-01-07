@@ -3,13 +3,12 @@ Miscellaneous utilities
 -----------------------
 """
 
-from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
 from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
 from urllib.parse import urlparse
-import binascii
 import collections.abc as abc
 import email.utils
 import hashlib
@@ -19,21 +18,18 @@ import uuid
 
 from unidecode import unidecode
 import base58
-import bcrypt
 import tldextract
 
 __all__ = [
     'base_domain_matches',
     'buid',
     'buid2uuid',
-    'check_password',
     'domain_namespace_match',
     'format_currency',
     'get_email_domain',
     'getbool',
     'is_collection',
     'make_name',
-    'make_password',
     'md5sum',
     'namespace_from_url',
     'nary_op',
@@ -382,105 +378,6 @@ def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
         counter += 1
         existing = checkused(candidate)
     return candidate
-
-
-def make_password(password, encoding='BCRYPT'):
-    """
-    Make a password with PLAIN, SSHA or BCRYPT (default) encoding.
-
-    >>> make_password('foo', encoding='PLAIN')
-    '{PLAIN}foo'
-    >>> make_password('re-foo', encoding='SSHA')[:6]
-    '{SSHA}'
-    >>> make_password('re-foo')[:8]
-    '{BCRYPT}'
-    >>> make_password('foo') == make_password('foo')
-    False
-    """
-    if encoding == 'PLAIN':
-        return '{PLAIN}%s' % password
-    elif encoding == 'SSHA':
-        # SSHA is a modification of the SHA digest scheme with a salt
-        # starting at byte 20 of the base64-encoded string.
-        # Source: http://developer.netscape.com/docs/technote/ldap/pass_sha.html
-        # This implementation is from Zope2's AccessControl.AuthEncoding.
-        random = SystemRandom()
-        salt = ''
-        for n in range(7):
-            salt += chr(random.randrange(256))  # NOQA: S311 # nosec
-        # b64encode accepts only bytes, so password and salt have to be encoded
-        salt = salt.encode('utf-8')
-        password = password.encode('utf-8')
-        b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
-                password + salt
-            ).digest()
-            + salt
-        )
-        b64_encoded = b64_encoded.decode('utf-8')
-        return '{SSHA}%s' % b64_encoded
-    elif encoding == 'BCRYPT':
-        # BCRYPT is the recommended hash for secure passwords
-        password_hashed = bcrypt.hashpw(
-            password.encode('utf-8') if isinstance(password, str) else password,
-            bcrypt.gensalt(),
-        )
-        password_hashed = password_hashed.decode('utf-8')
-        return '{BCRYPT}%s' % password_hashed
-
-    raise ValueError("Unknown encoding %s" % encoding)
-
-
-def check_password(reference, attempt):
-    """
-    Compare a reference password with the user attempt.
-
-    >>> check_password('{PLAIN}foo', 'foo')
-    True
-    >>> check_password('{PLAIN}bar', 'bar')
-    True
-    >>> check_password('{UNKNOWN}baz', 'baz')
-    False
-    >>> check_password('no-encoding', 'no-encoding')
-    False
-    >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
-    True
-    >>> check_password('{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.'
-    ...   'chtMTcS1s01C', 'foo')
-    True
-    """
-    if reference.startswith('{PLAIN}'):
-        if reference[7:] == attempt:
-            return True
-    elif reference.startswith('{SSHA}'):
-        try:
-            ref = b64decode(reference[6:].encode('ascii'))
-        except binascii.Error:
-            return False  # Not Base64
-        if isinstance(attempt, str):
-            attempt = attempt.encode('utf-8')
-        salt = ref[20:]
-        b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
-                attempt + salt
-            ).digest()
-            + salt
-        )
-        # type(b64_encoded) is bytes and can't be compared with type(reference)
-        # which is str
-        compare = str(
-            '{SSHA}%s' % b64_encoded.decode('utf-8')
-            if type(b64_encoded) is bytes
-            else b64_encoded
-        )
-        return compare == reference
-    elif reference.startswith('{BCRYPT}'):
-        if isinstance(attempt, str):
-            attempt = attempt.encode('utf-8')
-        if isinstance(reference, str):
-            reference = reference.encode('utf-8')
-        return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
-    return False
 
 
 def format_currency(value, decimals=2):
