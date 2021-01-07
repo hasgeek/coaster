@@ -31,8 +31,8 @@ class ImmutableColumnError(AttributeError):
 
         if message is None:
             self.message = (
-                u"Cannot update column {class_name}.{column_name} from {old_value} to "
-                u"{new_value}: column is immutable.".format(
+                "Cannot update column {class_name}.{column_name} from {old_value} to "
+                "{new_value}: column is immutable.".format(
                     column_name=column_name,
                     class_name=class_name,
                     old_value=old_value,

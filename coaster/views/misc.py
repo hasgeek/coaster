@@ -113,7 +113,7 @@ def jsonp(*args, **kw):
     data = json.dumps(dict(*args, **kw), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
-        data = callback + u'(' + data + u');'
+        data = callback + '(' + data + ');'
         mimetype = 'application/javascript'
     else:
         mimetype = 'application/json'

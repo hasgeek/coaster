@@ -111,7 +111,7 @@ class TestCoasterViews(unittest.TestCase):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
             response = (
-                u'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'
+                'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'
                 % ('lang', kwargs['lang'], 'query', kwargs['query'])
             ).encode('utf-8')
 
@@ -134,16 +134,16 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_requestargs(self):
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test1() == (u'1', 3, [1, 2])
+            assert requestargs_test1() == ('1', 3, [1, 2])
 
         with self.app.test_request_context('/?p2=2'):
-            assert requestargs_test1(p1='1') == (u'1', 2, None)
+            assert requestargs_test1(p1='1') == ('1', 2, None)
 
         with self.app.test_request_context('/?p2=2'):
-            assert requestargs_test1(p1='1', p2=3) == (u'1', 3, None)
+            assert requestargs_test1(p1='1', p2=3) == ('1', 3, None)
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test2() == (u'1', 3, [u'1', u'2'])
+            assert requestargs_test2() == ('1', 3, ['1', '2'])
 
         with self.app.test_request_context('/?p2=2&p4=4'):
             with pytest.raises(TypeError):
@@ -152,12 +152,12 @@ class TestCoasterViews(unittest.TestCase):
                 requestargs_test1(p4='4')
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestquery_test() == (u'1', 3, [1, 2])
+            assert requestquery_test() == ('1', 3, [1, 2])
 
         with self.app.test_request_context(
             '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
         ):
-            assert requestform_test() == (u'1', 3, [1, 2])
+            assert requestform_test() == ('1', 3, [1, 2])
 
         with self.app.test_request_context(
             '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'

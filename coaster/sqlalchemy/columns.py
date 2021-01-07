@@ -147,7 +147,7 @@ class UrlType(UrlTypeBase):
 
             # Host may be missing only if optional
             if not parsed.host and not self.optional_host:
-                raise ValueError(u"Missing URL host")
+                raise ValueError("Missing URL host")
         return value
 
     def process_result_value(self, value, dialect):

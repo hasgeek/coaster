@@ -643,7 +643,7 @@ class StateTransitionWrapper:
             if isinstance(label, NameTitle):
                 label = label.title
             raise StateTransitionError(
-                u"Invalid state for transition {transition}: {state} = {label}".format(
+                "Invalid state for transition {transition}: {state} = {label}".format(
                     transition=self.statetransition.name,
                     state=repr(state_invalid[0]),
                     label=label,

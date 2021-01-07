@@ -73,15 +73,15 @@ class TestCoasterUtils(unittest.TestCase):
     def test_unlisted_make_password_encoding(self):
         """Test for unsupported password encryption schemes."""
         with pytest.raises(ValueError):
-            make_password(password='password', encoding=u'DES')  # noqa: S106
+            make_password(password='password', encoding='DES')  # noqa: S106
 
     def test_check_password(self):
-        assert not check_password(u'{SSHA}ManThisIsPassword', u'ManThisIsPassword')
-        assert check_password(u'{PLAIN}ManThisIsPassword', u'ManThisIsPassword')
-        assert check_password(u'{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', u'test')
+        assert not check_password('{SSHA}ManThisIsPassword', 'ManThisIsPassword')
+        assert check_password('{PLAIN}ManThisIsPassword', 'ManThisIsPassword')
+        assert check_password('{SSHA}0MToxERtorjT+1Avyrrpgd3KuOtnuHt4qhgp', 'test')
         assert check_password(
-            u'{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
-            u'test',
+            '{BCRYPT}$2a$12$8VF760ysexo5rozFSZhGbuvNVnbZnHeMHQwJ8fQWmUa8h2nd4exsi',
+            'test',
         )
 
     def test_parse_isoformat(self):
@@ -143,36 +143,32 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_sanitize_html(self):
         html = """<html><head><title>Test sanitize_html</title><script src="jquery.js"></script></head><body><!-- Body Comment-->Body<script type="application/x-some-script">alert("foo");</script></body></html>"""
-        assert sanitize_html(html) == u'Test sanitize_htmlBodyalert("foo");'
+        assert sanitize_html(html) == 'Test sanitize_htmlBodyalert("foo");'
         assert (
             sanitize_html(
                 "<html><head><title>Test sanitize_html</title></head><p>P</p><body><!-- Body Comment-><p>Body</p></body></html>"
             )
-            == u'Test sanitize_html<p>P</p>'
+            == 'Test sanitize_html<p>P</p>'
         )
 
     def test_sorted_timezones(self):
         assert isinstance(sorted_timezones(), list)
 
     def test_namespace_from_url(self):
-        assert (
-            namespace_from_url(u'https://github.com/hasgeek/coaster') == u'com.github'
-        )
+        assert namespace_from_url('https://github.com/hasgeek/coaster') == 'com.github'
         assert (
             namespace_from_url(
-                u'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'
+                'https://funnel.hasgeek.com/metarefresh2014/938-making-design-decisions'
             )
-            == u'com.hasgeek.funnel'
+            == 'com.hasgeek.funnel'
         )
-        assert namespace_from_url(u'http://www.hasgeek.com') == u'com.hasgeek'
-        assert namespace_from_url(u'www.hasgeek.com') is None
-        assert namespace_from_url(u'This is an invalid url') is None
+        assert namespace_from_url('http://www.hasgeek.com') == 'com.hasgeek'
+        assert namespace_from_url('www.hasgeek.com') is None
+        assert namespace_from_url('This is an invalid url') is None
         # IP addresses are rejected
         assert namespace_from_url('127.0.0.1') is None
         # Return string type is the input type
-        assert isinstance(
-            namespace_from_url(u'https://github.com/hasgeek/coaster'), str
-        )
+        assert isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str)
         assert isinstance(namespace_from_url('https://github.com/hasgeek/coaster'), str)
 
     def test_deobfuscate_email(self):
@@ -282,16 +278,16 @@ class TestCoasterUtils(unittest.TestCase):
             s1.auth = True
 
     def test_ulstrip(self):
-        assert ulstrip(u' Test this ') == u'Test this '
-        assert ulstrip(u'\u200b Test this \u200b') == u'Test this \u200b'
+        assert ulstrip(' Test this ') == 'Test this '
+        assert ulstrip('\u200b Test this \u200b') == 'Test this \u200b'
 
     def test_urstrip(self):
-        assert urstrip(u' Test this ') == u' Test this'
-        assert urstrip(u'\u200b Test this \u200b') == u'\u200b Test this'
+        assert urstrip(' Test this ') == ' Test this'
+        assert urstrip('\u200b Test this \u200b') == '\u200b Test this'
 
     def test_ustrip(self):
-        assert ustrip(u' Test this ') == u'Test this'
-        assert ustrip(u'\u200b Test this \u200b') == u'Test this'
+        assert ustrip(' Test this ') == 'Test this'
+        assert ustrip('\u200b Test this \u200b') == 'Test this'
 
     def test_nary_op(self):
         class DemoSet(MutableSet):

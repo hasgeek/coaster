@@ -793,7 +793,7 @@ class TestCoasterModels(unittest.TestCase):
             self.session.commit()
 
     def test_urltype_empty(self):
-        m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme=u"")
+        m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme="")
         self.session.add(m1)
         self.session.commit()
         assert str(m1.url) == ""
@@ -802,18 +802,18 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_urltype_invalid_scheme_default(self):
         with self.assertRaises(StatementError):
-            m1 = MyUrlModel(url=u"magnet://example.com")
+            m1 = MyUrlModel(url="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self):
         with self.assertRaises(StatementError):
-            m1 = MyUrlModel(url_custom_scheme=u"magnet://example.com")
+            m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_optional_scheme(self):
-        m1 = MyUrlModel(url_optional_scheme=u"//example.com/test")
+        m1 = MyUrlModel(url_optional_scheme="//example.com/test")
         self.session.add(m1)
         self.session.commit()
 

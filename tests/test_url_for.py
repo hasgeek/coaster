@@ -25,19 +25,19 @@ db.init_app(app2)
 @app1.route('/<doc>')
 @NamedDocument.is_url_for('view', doc='name')
 def doc_view(doc):
-    return u'{} {}'.format('view', doc)
+    return '{} {}'.format('view', doc)
 
 
 @app1.route('/<doc>/edit')
 @NamedDocument.is_url_for('edit', doc='name')
 def doc_edit(doc):
-    return u'{} {}'.format('edit', doc)
+    return '{} {}'.format('edit', doc)
 
 
 @app1.route('/<doc>/upper')
 @NamedDocument.is_url_for('upper', doc=lambda d: d.name.upper())
 def doc_upper(doc):
-    return u'{} {}'.format('upper', doc)
+    return '{} {}'.format('upper', doc)
 
 
 # The unusual parameter `other='**other.name'` requires an explanation.
@@ -46,13 +46,13 @@ def doc_upper(doc):
 @app1.route('/<doc>/with/<other>')
 @NamedDocument.is_url_for('with', doc='name', other='**other.name')
 def doc_with(doc, other):
-    return u'{} {} {}'.format(doc, 'with', other)
+    return '{} {} {}'.format(doc, 'with', other)
 
 
 @app1.route('/<container>/<doc>')
 @ScopedNamedDocument.is_url_for('view', container='parent.id', doc='name')
 def sdoc_view(container, doc):
-    return u'{} {} {}'.format('view', container, doc)
+    return '{} {} {}'.format('view', container, doc)
 
 
 @app1.route('/<container>/<doc>/edit')
@@ -60,25 +60,25 @@ def sdoc_view(container, doc):
     'edit', _external=True, container=('parent', 'id'), doc='name'
 )
 def sdoc_edit(container, doc):
-    return u'{} {} {}'.format('edit', container, doc)
+    return '{} {} {}'.format('edit', container, doc)
 
 
 @app1.route('/<doc>/app_only')
 @NamedDocument.is_url_for('app_only', _app=app1, doc='name')
 def doc_app_only(doc):
-    return u'{} {}'.format('app_only', doc)
+    return '{} {}'.format('app_only', doc)
 
 
 @app1.route('/<doc>/app1')
 @NamedDocument.is_url_for('per_app', _app=app1, doc='name')
 def doc_per_app1(doc):
-    return u'{} {}'.format('per_app', doc)
+    return '{} {}'.format('per_app', doc)
 
 
 @app2.route('/<doc>/app2')
 @NamedDocument.is_url_for('per_app', _app=app2, doc='name')
 def doc_per_app2(doc):
-    return u'{} {}'.format('per_app', doc)
+    return '{} {}'.format('per_app', doc)
 
 
 # --- Tests -------------------------------------------------------------------
@@ -113,11 +113,11 @@ class TestUrlFor(TestUrlForBase):
         Test that is_url_for declarations are saved and used by the url_for method.
         """
         # Make two documents
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         c1 = Container()  # Gets an autoincrementing id starting from 1
         self.session.add(c1)
-        doc2 = ScopedNamedDocument(container=c1, name=u'document2', title=u"Document 2")
+        doc2 = ScopedNamedDocument(container=c1, name='document2', title="Document 2")
         self.session.add(doc2)
         self.session.commit()
 
@@ -144,11 +144,11 @@ class TestUrlFor(TestUrlForBase):
         The .absolute_url property is the same as .url_for(_external=True)
         """
         # Make two documents
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         c1 = Container()  # Gets an autoincrementing id starting from 1
         self.session.add(c1)
-        doc2 = ScopedNamedDocument(container=c1, name=u'document2', title=u"Document 2")
+        doc2 = ScopedNamedDocument(container=c1, name='document2', title="Document 2")
         self.session.add(doc2)
         self.session.commit()
 
@@ -174,7 +174,7 @@ class TestUrlFor(TestUrlForBase):
 
     def test_per_app(self):
         """Allow app-specific URLs for the same action name"""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
 
@@ -183,7 +183,7 @@ class TestUrlFor(TestUrlForBase):
 
     def test_app_only(self):
         """Allow URLs to only be available in one app"""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
 
@@ -192,8 +192,8 @@ class TestUrlFor(TestUrlForBase):
 
     def test_linked_doc(self):
         """URLs linking two unrelated models are possible"""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
-        doc2 = NamedDocument(name=u'document2', title=u"Document 2")
+        doc1 = NamedDocument(name='document1', title="Document 1")
+        doc2 = NamedDocument(name='document2', title="Document 2")
         self.session.add_all([doc1, doc2])
         self.session.commit()
 
@@ -202,7 +202,7 @@ class TestUrlFor(TestUrlForBase):
 
     def test_url_dict(self):
         """URLs to views are available from a .urls dictionary-like object."""
-        doc1 = NamedDocument(name=u'document1', title=u"Document")
+        doc1 = NamedDocument(name='document1', title="Document")
         self.session.add(doc1)
         self.session.commit()
 
@@ -229,7 +229,7 @@ class TestUrlFor2(TestUrlForBase):
 
     def test_per_app(self):
         """Allow app-specific URLs for the same action name"""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
 
@@ -238,7 +238,7 @@ class TestUrlFor2(TestUrlForBase):
 
     def test_app_only(self):
         """Allow URLs to only be available in one app"""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
 
@@ -248,7 +248,7 @@ class TestUrlFor2(TestUrlForBase):
 
     def test_url_dict_app_only(self):
         """The urls dictionary only includes available URLs."""
-        doc1 = NamedDocument(name=u'document1', title=u"Document 1")
+        doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
 

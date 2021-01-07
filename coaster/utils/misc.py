@@ -57,9 +57,9 @@ __all__ = [
 
 # --- Common delimiters and punctuation ---------------------------------------
 
-_strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
+_strip_re = re.compile('[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
-    u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+    '[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
@@ -280,11 +280,11 @@ def newpin(digits=4):
     randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
     while len(str(randnum)) > digits:
         randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
-    return (u'%%0%dd' % digits) % randnum
+    return ('%%0%dd' % digits) % randnum
 
 
-def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
-    u"""
+def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
+    """
     Generate an ASCII name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
     counter numbers starting from 2 until a suitable candidate is found.
@@ -336,9 +336,9 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('Long candidate', maxlength=10,
     ...   checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
-    >>> make_name(u'Lǝnkǝran')
+    >>> make_name('Lǝnkǝran')
     'lankaran'
-    >>> make_name(u'example@example.com')
+    >>> make_name('example@example.com')
     'example-example-com'
     >>> make_name('trailing-delimiter', maxlength=10)
     'trailing-d'
@@ -390,9 +390,9 @@ def make_password(password, encoding='BCRYPT'):
 
     >>> make_password('foo', encoding='PLAIN')
     '{PLAIN}foo'
-    >>> make_password(u're-foo', encoding='SSHA')[:6]
+    >>> make_password('re-foo', encoding='SSHA')[:6]
     '{SSHA}'
-    >>> make_password(u're-foo')[:8]
+    >>> make_password('re-foo')[:8]
     '{BCRYPT}'
     >>> make_password('foo') == make_password('foo')
     False
@@ -437,22 +437,22 @@ def check_password(reference, attempt):
 
     >>> check_password('{PLAIN}foo', 'foo')
     True
-    >>> check_password(u'{PLAIN}bar', 'bar')
+    >>> check_password('{PLAIN}bar', 'bar')
     True
-    >>> check_password(u'{UNKNOWN}baz', 'baz')
+    >>> check_password('{UNKNOWN}baz', 'baz')
     False
-    >>> check_password(u'no-encoding', u'no-encoding')
+    >>> check_password('no-encoding', 'no-encoding')
     False
-    >>> check_password(u'{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', u're-foo')
+    >>> check_password('{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', 're-foo')
     True
-    >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.'
+    >>> check_password('{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.'
     ...   'chtMTcS1s01C', 'foo')
     True
     """
-    if reference.startswith(u'{PLAIN}'):
+    if reference.startswith('{PLAIN}'):
         if reference[7:] == attempt:
             return True
-    elif reference.startswith(u'{SSHA}'):
+    elif reference.startswith('{SSHA}'):
         try:
             ref = b64decode(reference[6:].encode('ascii'))
         except binascii.Error:
@@ -474,7 +474,7 @@ def check_password(reference, attempt):
             else b64_encoded
         )
         return compare == reference
-    elif reference.startswith(u'{BCRYPT}'):
+    elif reference.startswith('{BCRYPT}'):
         if isinstance(attempt, str):
             attempt = attempt.encode('utf-8')
         if isinstance(reference, str):
@@ -509,7 +509,7 @@ def format_currency(value, decimals=2):
     >>> format_currency(123456789.123456789)
     '123,456,789.12'
     """
-    number, decimal = ((u'%%.%df' % decimals) % value).split(u'.')
+    number, decimal = (('%%.%df' % decimals) % value).split('.')
     parts = []
     while len(number) > 3:
         part, number = number[-3:], number[:-3]
@@ -517,9 +517,9 @@ def format_currency(value, decimals=2):
     parts.append(number)
     parts.reverse()
     if int(decimal) == 0:
-        return u','.join(parts)
+        return ','.join(parts)
     else:
-        return u','.join(parts) + u'.' + decimal
+        return ','.join(parts) + '.' + decimal
 
 
 def md5sum(data):
@@ -528,7 +528,7 @@ def md5sum(data):
 
     >>> md5sum('random text')
     'd9b9bec3f4cc5482e7c5ef43143e563a'
-    >>> md5sum(u'random text')
+    >>> md5sum('random text')
     'd9b9bec3f4cc5482e7c5ef43143e563a'
     >>> len(md5sum('random text'))
     32
@@ -656,11 +656,11 @@ def unicode_http_header(value):
     Convert an ASCII HTTP header string into a unicode string with the
     appropriate encoding applied. Expects headers to be RFC 2047 compliant.
 
-    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
     True
-    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
     True
-    >>> unicode_http_header('p\xf6stal') == u'p\xf6stal'
+    >>> unicode_http_header('p\xf6stal') == 'p\xf6stal'
     True
     """
     # email.header.decode_header expects strings, not bytes. Your input data may be
