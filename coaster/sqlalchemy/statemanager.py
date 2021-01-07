@@ -220,7 +220,6 @@ over direct state value changes:
    of failures, allowing for the attempts to be logged.
 """
 
-from collections import OrderedDict
 import functools
 
 from sqlalchemy import CheckConstraint, and_
@@ -696,13 +695,13 @@ class StateManager:
         self.name = propname  # Incorrect, so we depend on __set_name__ to correct this
         self.lenum = lenum
         self.__doc__ = doc
-        self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
-        self.states_by_value = (
-            OrderedDict()
-        )  # value: ManagedState (no conditional states or groups)
-        self.all_states_by_value = (
-            OrderedDict()
-        )  # Same, but as a list including conditional states
+
+        # name: ManagedState/ManagedStateGroup
+        self.states = {}
+        # value: ManagedState (no conditional states or groups)
+        self.states_by_value = {}
+        # Same, but as a list including conditional states
+        self.all_states_by_value = {}
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a
@@ -1001,13 +1000,13 @@ class StateManagerWrapper:
         else:
             proxy = {}
             current = False  # In case the host object is not a RoleMixin
-        return OrderedDict(
-            (name, transition)
+        return {
+            name: transition
             for name, transition in
             # Retrieve transitions from the host object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
             if transition.is_available and (name in proxy if current else True)
-        )
+        }
 
     def transitions_for(self, roles=None, actor=None, anchors=()):
         """
@@ -1025,15 +1024,15 @@ class StateManagerWrapper:
     def group(self, items, keep_empty=False):
         """
         Given an iterable of instances, groups them by state using :class:`ManagedState`
-        instances as dictionary keys. Returns an `OrderedDict` that preserves the order
-        of states from the source :class:`~coaster.utils.classes.LabeledEnum`.
+        instances as dictionary keys. Returns a dict that preserves the order of states
+        from the source :class:`~coaster.utils.classes.LabeledEnum`.
 
         :param bool keep_empty: If ``True``, empty states are included in the result
         """
         cls = (
             self.cls if self.cls is not None else type(self.obj)
         )  # Class of the item being managed
-        groups = OrderedDict()
+        groups = {}
         for mstate in self.statemanager.states_by_value.values():
             # Ensure we sort groups using the order of states in the source LabeledEnum.
             # We'll discard the unused states later.
