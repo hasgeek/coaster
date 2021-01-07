@@ -9,8 +9,6 @@ All functions and mixins are importable from the :mod:`coaster.sqlalchemy`
 namespace.
 """
 
-from __future__ import absolute_import
-
 from .annotations import *  # NOQA
 from .columns import *  # NOQA
 from .comparators import *  # NOQA

@@ -3,8 +3,6 @@ Miscellaneous utilities
 -----------------------
 """
 
-from __future__ import absolute_import
-
 from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
 from email.header import decode_header

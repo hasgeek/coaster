@@ -3,8 +3,6 @@ App configuration
 =================
 """
 
-from __future__ import absolute_import, print_function
-
 from flask import Flask, g, get_flashed_messages, request, session, url_for
 from flask.json import tojson_filter as _tojson_filter
 from flask.sessions import SecureCookieSessionInterface

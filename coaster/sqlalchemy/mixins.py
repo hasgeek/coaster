@@ -18,8 +18,6 @@ your Flask app::
 Mixin classes must always appear *before* ``db.Model`` in your model's base classes.
 """
 
-from __future__ import absolute_import
-
 from collections import namedtuple
 import collections.abc as abc
 import uuid as uuid_

@@ -9,8 +9,6 @@ in Flask-based applications.
 """
 
 
-from __future__ import absolute_import
-
 from .classes import *
 from .datetime import *
 from .markdown import *

@@ -3,8 +3,6 @@ Helper functions
 ----------------
 """
 
-from __future__ import absolute_import
-
 from sqlalchemy import DDL, TIMESTAMP, Column, ForeignKey, Table, event, func, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.compiler import compiles

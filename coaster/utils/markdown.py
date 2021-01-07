@@ -12,8 +12,6 @@ This Markdown processor is used by :func:`~coaster.sqlalchemy.columns.MarkdownCo
 to auto-render HTML from Markdown text.
 """
 
-from __future__ import absolute_import
-
 from bleach import linkify
 from markdown import Markdown
 from markdown.extensions import Extension

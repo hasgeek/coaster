@@ -10,8 +10,6 @@ exceptions map to HTTP 403 Forbidden (via werkzeug.exceptions.Forbidden_).
     http://werkzeug.readthedocs.org/en/latest/exceptions/#werkzeug.exceptions.Forbidden
 """
 
-from __future__ import absolute_import
-
 from flask import g
 from werkzeug.exceptions import Forbidden
 

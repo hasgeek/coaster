@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from os import environ
 import sys
 import unittest

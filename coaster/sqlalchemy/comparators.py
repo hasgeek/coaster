@@ -3,8 +3,6 @@ Enhanced query and custom comparators
 -------------------------------------
 """
 
-from __future__ import absolute_import
-
 import uuid as uuid_
 
 from flask_sqlalchemy import BaseQuery

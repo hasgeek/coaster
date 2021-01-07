@@ -220,8 +220,6 @@ over direct state value changes:
    of failures, allowing for the attempts to be logged.
 """
 
-from __future__ import absolute_import
-
 from collections import OrderedDict
 import functools
 

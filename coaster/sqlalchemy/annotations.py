@@ -33,8 +33,6 @@ dictionary, mapping annotation names to a list of attribute names, and to a
 reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
 """
 
-from __future__ import absolute_import
-
 from collections.abc import Hashable
 
 from sqlalchemy import event

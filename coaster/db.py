@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 from sqlite3 import Connection as SQLite3Connection
 
 from flask_sqlalchemy import SQLAlchemy

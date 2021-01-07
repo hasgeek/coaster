@@ -117,8 +117,6 @@ Example use::
             return roles
 """
 
-from __future__ import absolute_import
-
 from abc import ABCMeta
 from copy import deepcopy
 from functools import wraps

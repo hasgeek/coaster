@@ -3,8 +3,6 @@ SQLAlchemy column types
 -----------------------
 """
 
-from __future__ import absolute_import
-
 from sqlalchemy import UnicodeText
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType

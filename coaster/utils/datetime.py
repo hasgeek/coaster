@@ -3,8 +3,6 @@ Date, time and timezone utilities
 ---------------------------------
 """
 
-from __future__ import absolute_import
-
 from datetime import datetime
 
 from aniso8601 import parse_datetime, parse_duration

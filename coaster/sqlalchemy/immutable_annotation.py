@@ -3,8 +3,6 @@ Immutable annotation
 --------------------
 """
 
-from __future__ import absolute_import
-
 from sqlalchemy import event, inspect
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 

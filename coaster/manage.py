@@ -24,8 +24,6 @@ To see all available commands::
     $ python manage.py --help
 """
 
-from __future__ import absolute_import, print_function
-
 from sys import stdout
 
 from alembic.config import Config

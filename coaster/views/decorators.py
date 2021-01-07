@@ -7,8 +7,6 @@ Decorators for view handlers.
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
-from __future__ import absolute_import
-
 from functools import wraps
 
 from flask import (

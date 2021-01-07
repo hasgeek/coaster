@@ -3,8 +3,6 @@ Utility classes
 ---------------
 """
 
-from __future__ import absolute_import
-
 from collections import OrderedDict, namedtuple
 from collections.abc import Set
 

@@ -1,5 +1,3 @@
-from __future__ import absolute_import, unicode_literals
-
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite

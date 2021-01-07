@@ -5,8 +5,6 @@ Class-based views
 Group related views into a class for easier management.
 """
 
-from __future__ import unicode_literals
-
 from functools import update_wrapper, wraps
 from urllib.parse import urlsplit, urlunsplit
 
