@@ -1,14 +1,10 @@
-# -*- coding: utf-8 -*-
-
 """
 Text processing utilities
 -------------------------
 """
 
-from __future__ import absolute_import
-import six
-
 from functools import partial
+from html import unescape
 import re
 import string
 
@@ -18,15 +14,6 @@ from markupsafe import Markup
 import html5lib
 
 from .misc import _punctuation_re, _strip_re, _tag_re
-
-if six.PY3:  # pragma: no cover
-    from html import unescape
-else:  # pragma: no cover
-    import HTMLParser
-
-    unescape = HTMLParser.HTMLParser().unescape
-    del HTMLParser
-
 
 __all__ = [
     'VALID_TAGS',
@@ -51,35 +38,35 @@ __all__ = [
 #: invisible and usually arrive via copy-paste, so we include them here as characters to
 #: be replaced with spaces and stripped from the ends of text.
 unicode_format_whitespace = (
-    u'\x85'  # NEXT LINE (NEL)
-    u'\xa0'  # NO-BREAK SPACE (NBSP)
-    u'\u1680'  # OGHAM SPACE MARK
-    u'\u180e'  # MONGOLIAN VOWEL SEPARATOR
-    u'\u2000'  # EN QUAD
-    u'\u2001'  # EM QUAD
-    u'\u2002'  # EN SPACE
-    u'\u2003'  # EM SPACE
-    u'\u2004'  # THREE-PER-EM SPACE
-    u'\u2005'  # FOUR-PER-EM SPACE
-    u'\u2006'  # SIX-PER-EM SPACE
-    u'\u2007'  # FIGURE SPACE
-    u'\u2008'  # PUNCTUATION SPACE
-    u'\u2009'  # THIN SPACE
-    u'\u200a'  # HAIR SPACE
-    u'\u200b'  # ZERO WIDTH SPACE (format)
-    u'\u200c'  # ZERO WIDTH NON-JOINER (format)
-    u'\u200d'  # ZERO WIDTH JOINER (format)
-    u'\u2028'  # LINE SEPARATOR
-    u'\u2029'  # PARAGRAPH SEPARATOR
-    u'\u202f'  # NARROW NO-BREAK SPACE (NNBSP)
-    u'\u205f'  # MEDIUM MATHEMATICAL SPACE (MMSP)
-    u'\u2060'  # WORD JOINER (format)
-    u'\u3000'  # IDEOGRAPHIC SPACE
-    u'\ufeff'  # ZERO WIDTH NO-BREAK SPACE (format)
+    '\x85'  # NEXT LINE (NEL)
+    '\xa0'  # NO-BREAK SPACE (NBSP)
+    '\u1680'  # OGHAM SPACE MARK
+    '\u180e'  # MONGOLIAN VOWEL SEPARATOR
+    '\u2000'  # EN QUAD
+    '\u2001'  # EM QUAD
+    '\u2002'  # EN SPACE
+    '\u2003'  # EM SPACE
+    '\u2004'  # THREE-PER-EM SPACE
+    '\u2005'  # FOUR-PER-EM SPACE
+    '\u2006'  # SIX-PER-EM SPACE
+    '\u2007'  # FIGURE SPACE
+    '\u2008'  # PUNCTUATION SPACE
+    '\u2009'  # THIN SPACE
+    '\u200a'  # HAIR SPACE
+    '\u200b'  # ZERO WIDTH SPACE (format)
+    '\u200c'  # ZERO WIDTH NON-JOINER (format)
+    '\u200d'  # ZERO WIDTH JOINER (format)
+    '\u2028'  # LINE SEPARATOR
+    '\u2029'  # PARAGRAPH SEPARATOR
+    '\u202f'  # NARROW NO-BREAK SPACE (NNBSP)
+    '\u205f'  # MEDIUM MATHEMATICAL SPACE (MMSP)
+    '\u2060'  # WORD JOINER (format)
+    '\u3000'  # IDEOGRAPHIC SPACE
+    '\ufeff'  # ZERO WIDTH NO-BREAK SPACE (format)
 )
 
 unicode_extended_whitespace = (
-    u'\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
+    '\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
 ) + unicode_format_whitespace
 
 re_singleline_spaces = re.compile(
@@ -220,16 +207,16 @@ def text_blocks(html_text, skip_pre=True):
         ):  # Comments have a callable tag. TODO: Find out, anything else?
             tag = '<!-->'
             text = ''
-            tail = element.tail or u''
+            tail = element.tail or ''
         else:
             tag = element.tag.split('}')[
                 -1
             ]  # Extract tag from namespace: {http://www.w3.org/1999/xhtml}html
-            text = element.text or u''
-            tail = element.tail or u''
+            text = element.text or ''
+            tail = element.tail or ''
 
         if tag == 'pre' and skip_pre:
-            text = u''
+            text = ''
 
         if tag in blockish_tags or tag == 'DOCUMENT_FRAGMENT':
             text = text.lstrip()  # Leading whitespace is insignificant in a block tag
@@ -245,7 +232,7 @@ def text_blocks(html_text, skip_pre=True):
                 blocks.append(text)
             elif (
                 len(element)
-                and isinstance(element[0].tag, six.string_types)
+                and isinstance(element[0].tag, str)
                 and element[0].tag.split('}')[-1] not in blockish_tags
                 and not (skip_pre and tag == 'pre')
             ):
@@ -284,7 +271,7 @@ def text_blocks(html_text, skip_pre=True):
 
     subloop(None, doc)
     # Replace &nbsp; with ' '
-    blocks = [t.replace(u'\xa0', ' ') for t in blocks]
+    blocks = [t.replace('\xa0', ' ') for t in blocks]
     return blocks
 
 
@@ -372,20 +359,9 @@ def simplify_text(text):
     'awesome coder wanted at awesome company'
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
     'awesome coder wanted at awesome company'
-    >>> simplify_text(u"Awesome Coder, wanted  at Awesome Company! ") == (
+    >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ") == (
     ...   'awesome coder wanted at awesome company')
     True
     """
-    if isinstance(text, six.text_type):
-        if six.PY3:  # pragma: no cover
-            text = text.translate(text.maketrans("", "", string.punctuation)).lower()
-        else:  # pragma: no cover
-            text = six.text_type(
-                text.encode('utf-8')
-                .translate(string.maketrans("", ""), string.punctuation)
-                .lower(),
-                'utf-8',
-            )
-    else:
-        text = text.translate(string.maketrans("", ""), string.punctuation).lower()
-    return " ".join(text.split())
+    text = text.translate(text.maketrans("", "", string.punctuation)).lower()
+    return ' '.join(text.split())

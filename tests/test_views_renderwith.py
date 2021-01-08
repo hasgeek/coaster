@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import six
-
 import unittest
 
 from flask import Flask, Response
@@ -118,9 +114,7 @@ class TestLoadModels(unittest.TestCase):
             assert response.data == jsonp({"data": "value"}).data
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
-        assert (
-            response.data.decode('utf-8') if six.PY3 else response.data
-        ) == "{'data': 'value'}"
+        assert response.data.decode('utf-8') == "{'data': 'value'}"
         response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
         resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 App management script
 =====================
@@ -25,8 +23,6 @@ To see all available commands::
 
     $ python manage.py --help
 """
-
-from __future__ import absolute_import, print_function
 
 from sys import stdout
 

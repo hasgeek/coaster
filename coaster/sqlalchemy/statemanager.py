@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 States and transitions
 ----------------------
@@ -222,9 +220,6 @@ over direct state value changes:
    of failures, allowing for the attempts to be logged.
 """
 
-from __future__ import absolute_import
-
-from collections import OrderedDict
 import functools
 
 from sqlalchemy import CheckConstraint, and_
@@ -303,7 +298,7 @@ class AbortTransition(Exception):
 # --- Classes -----------------------------------------------------------------
 
 
-class ManagedState(object):
+class ManagedState:
     """
     Represents a state managed by a :class:`StateManager`. Do not use this
     class directly. Use :meth:`~StateManager.add_conditional_state` instead.
@@ -381,7 +376,7 @@ class ManagedState(object):
             return self._eval(obj, cls)
 
 
-class ManagedStateGroup(object):
+class ManagedStateGroup:
     """
     Represents a group of managed states in a :class:`StateManager`. Do not use
     this class directly. Use :meth:`~StateManager.add_state_group` instead.
@@ -448,7 +443,7 @@ class ManagedStateGroup(object):
             return self._eval(obj, cls)
 
 
-class ManagedStateWrapper(object):
+class ManagedStateWrapper:
     """
     Wraps a :class:`ManagedState` or :class:`ManagedStateGroup` with
     an object or class, and otherwise provides transparent access to contents.
@@ -489,7 +484,7 @@ class ManagedStateWrapper(object):
     __nonzero__ = __bool__
 
 
-class StateTransition(object):
+class StateTransition:
     """
     Helper for transitions from one state to another. Do not use this class
     directly. Use the :meth:`StateManager.transition` decorator instead, which
@@ -585,7 +580,7 @@ class StateTransition(object):
             return StateTransitionWrapper(self, obj)
 
 
-class StateTransitionWrapper(object):
+class StateTransitionWrapper:
     """
     Wraps :class:`StateTransition` with the context of the object it is
     accessed from. Automatically constructed by :class:`StateTransition`.
@@ -647,7 +642,7 @@ class StateTransitionWrapper(object):
             if isinstance(label, NameTitle):
                 label = label.title
             raise StateTransitionError(
-                u"Invalid state for transition {transition}: {state} = {label}".format(
+                "Invalid state for transition {transition}: {state} = {label}".format(
                     transition=self.statetransition.name,
                     state=repr(state_invalid[0]),
                     label=label,
@@ -681,7 +676,7 @@ class StateTransitionWrapper(object):
         return result
 
 
-class StateManager(object):
+class StateManager:
     """
     Wraps a property with a :class:`~coaster.utils.classes.LabeledEnum` to
     facilitate state inspection and control state changes.
@@ -700,13 +695,13 @@ class StateManager(object):
         self.name = propname  # Incorrect, so we depend on __set_name__ to correct this
         self.lenum = lenum
         self.__doc__ = doc
-        self.states = OrderedDict()  # name: ManagedState/ManagedStateGroup
-        self.states_by_value = (
-            OrderedDict()
-        )  # value: ManagedState (no conditional states or groups)
-        self.all_states_by_value = (
-            OrderedDict()
-        )  # Same, but as a list including conditional states
+
+        # name: ManagedState/ManagedStateGroup
+        self.states = {}
+        # value: ManagedState (no conditional states or groups)
+        self.states_by_value = {}
+        # Same, but as a list including conditional states
+        self.all_states_by_value = {}
         self.transitions = []  # names of transitions linked to this state manager
 
         # Make a copy of all states in the lenum within the state manager as a
@@ -936,11 +931,11 @@ class StateManager(object):
                 .in_(lenum.keys())
                 .compile(compile_kwargs={'literal_binds': True})
             ),
-            **kwargs
+            **kwargs,
         )
 
 
-class StateManagerWrapper(object):
+class StateManagerWrapper:
     """
     Wraps :class:`StateManager` with the context of the containing object.
     Automatically constructed when a :class:`StateManager` is accessed from
@@ -1005,13 +1000,13 @@ class StateManagerWrapper(object):
         else:
             proxy = {}
             current = False  # In case the host object is not a RoleMixin
-        return OrderedDict(
-            (name, transition)
+        return {
+            name: transition
             for name, transition in
             # Retrieve transitions from the host object to activate the descriptor.
             ((name, getattr(self.obj, name)) for name in self.statemanager.transitions)
             if transition.is_available and (name in proxy if current else True)
-        )
+        }
 
     def transitions_for(self, roles=None, actor=None, anchors=()):
         """
@@ -1029,15 +1024,15 @@ class StateManagerWrapper(object):
     def group(self, items, keep_empty=False):
         """
         Given an iterable of instances, groups them by state using :class:`ManagedState`
-        instances as dictionary keys. Returns an `OrderedDict` that preserves the order
-        of states from the source :class:`~coaster.utils.classes.LabeledEnum`.
+        instances as dictionary keys. Returns a dict that preserves the order of states
+        from the source :class:`~coaster.utils.classes.LabeledEnum`.
 
         :param bool keep_empty: If ``True``, empty states are included in the result
         """
         cls = (
             self.cls if self.cls is not None else type(self.obj)
         )  # Class of the item being managed
-        groups = OrderedDict()
+        groups = {}
         for mstate in self.statemanager.states_by_value.values():
             # Ensure we sort groups using the order of states in the source LabeledEnum.
             # We'll discard the unused states later.

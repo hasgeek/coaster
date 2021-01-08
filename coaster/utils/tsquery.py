@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-
 """
 PostgreSQL query processor
 --------------------------
 """
-
-from __future__ import absolute_import
 
 import re
 

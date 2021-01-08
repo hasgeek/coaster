@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-import six
+from io import StringIO
 
 from coaster.logger import filtered_value, pprint_with_indent
 
@@ -35,7 +34,7 @@ def test_filtered_value():
 
 
 def test_pprint_with_indent():
-    out = six.StringIO()
+    out = StringIO()
     data = {
         12: 34,
         'confirm_password': '12345qwerty',

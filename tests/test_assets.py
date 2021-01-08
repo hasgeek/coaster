@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
-import six
-
+from io import StringIO
 import unittest
 
 import pytest
@@ -80,14 +77,14 @@ class TestAssets(unittest.TestCase):
 
     def test_uglipyjs(self):
         """Test the UglipyJS filter"""
-        infile = six.StringIO(
+        infile = StringIO(
             """
             function test() {
               alert("Hello, world!");
             };
             """
         )
-        outfile = six.StringIO()
+        outfile = StringIO()
         afilter = UglipyJS()
         afilter.setup()
         afilter.output(infile, outfile)

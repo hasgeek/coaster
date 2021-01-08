@@ -1,21 +1,15 @@
-# -*- coding: utf-8 -*-
-
 """
 Miscellaneous utilities
 -----------------------
 """
 
-from __future__ import absolute_import
-from six.moves.urllib.parse import urlparse
-import six
-import six.moves.collections_abc as abc
-
-from base64 import b64decode, b64encode, urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
 from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
-import binascii
+from urllib.parse import urlparse
+import collections.abc as abc
 import email.utils
 import hashlib
 import re
@@ -24,21 +18,18 @@ import uuid
 
 from unidecode import unidecode
 import base58
-import bcrypt
 import tldextract
 
 __all__ = [
     'base_domain_matches',
     'buid',
     'buid2uuid',
-    'check_password',
     'domain_namespace_match',
     'format_currency',
     'get_email_domain',
     'getbool',
     'is_collection',
     'make_name',
-    'make_password',
     'md5sum',
     'namespace_from_url',
     'nary_op',
@@ -62,9 +53,9 @@ __all__ = [
 
 # --- Common delimiters and punctuation ---------------------------------------
 
-_strip_re = re.compile(u'[\'"`‘’“”′″‴]+')
+_strip_re = re.compile('[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
-    u'[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+    '[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
 _username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
@@ -88,6 +79,8 @@ def is_collection(item):
     False
     >>> is_collection('')
     False
+    >>> is_collection(b'')
+    False
     >>> is_collection({})
     False
     >>> is_collection({}.keys())
@@ -104,7 +97,7 @@ def is_collection(item):
     >>> is_collection(InspectableSet({1, 2}))
     True
     """
-    return not isinstance(item, six.string_types) and isinstance(
+    return not isinstance(item, (str, bytes)) and isinstance(
         item, (abc.Set, abc.Sequence)
     )
 
@@ -119,7 +112,7 @@ def uuid_b64():
     22
     >>> buid() == buid()
     False
-    >>> isinstance(buid(), six.text_type)
+    >>> isinstance(buid(), str)
     True
     """
     return urlsafe_b64encode(uuid.uuid4().bytes).decode().rstrip('=')
@@ -138,7 +131,7 @@ def uuid_b58():
     True
     >>> uuid_b58() == uuid_b58()
     False
-    >>> isinstance(uuid_b58(), six.text_type)
+    >>> isinstance(uuid_b58(), str)
     True
     """
     return base58.b58encode(uuid.uuid4().bytes).decode()
@@ -283,11 +276,11 @@ def newpin(digits=4):
     randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
     while len(str(randnum)) > digits:
         randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
-    return (u'%%0%dd' % digits) % randnum
+    return ('%%0%dd' % digits) % randnum
 
 
-def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
-    u"""
+def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
+    """
     Generate an ASCII name slug. If a checkused filter is provided, it will
     be called with the candidate. If it returns True, make_name will add
     counter numbers starting from 2 until a suitable candidate is found.
@@ -307,23 +300,23 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     'this-that'
     >>> make_name("How 'bout this?")
     'how-bout-this'
-    >>> make_name(u"How’s that?")
+    >>> make_name("How’s that?")
     'hows-that'
-    >>> make_name(u'K & D')
+    >>> make_name('K & D')
     'k-d'
     >>> make_name('billion+ pageviews')
     'billion-pageviews'
-    >>> make_name(u'हिन्दी slug!')
+    >>> make_name('हिन्दी slug!')
     'hindii-slug'
-    >>> make_name(u'Talk in español, Kiswahili, 廣州話 and অসমীয়া too.', maxlength=250)
-    u'talk-in-espanol-kiswahili-guang-zhou-hua-and-asmiiyaa-too'
-    >>> make_name(u'__name__', delim=u'_')
+    >>> make_name('Talk in español, Kiswahili, 廣州話 and অসমীয়া too.', maxlength=250)
+    'talk-in-espanol-kiswahili-guang-zhou-hua-and-asmiiyaa-too'
+    >>> make_name('__name__', delim='_')
     'name'
-    >>> make_name(u'how_about_this', delim=u'_')
+    >>> make_name('how_about_this', delim='_')
     'how_about_this'
-    >>> make_name(u'and-that', delim=u'_')
+    >>> make_name('and-that', delim='_')
     'and_that'
-    >>> make_name(u'Umlauts in Mötörhead')
+    >>> make_name('Umlauts in Mötörhead')
     'umlauts-in-motorhead'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'])
     'candidate2'
@@ -339,9 +332,9 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('Long candidate', maxlength=10,
     ...   checkused=lambda c: c in ['long-candi', 'long-cand1'])
     'long-cand2'
-    >>> make_name(u'Lǝnkǝran')
+    >>> make_name('Lǝnkǝran')
     'lankaran'
-    >>> make_name(u'example@example.com')
+    >>> make_name('example@example.com')
     'example-example-com'
     >>> make_name('trailing-delimiter', maxlength=10)
     'trailing-d'
@@ -350,22 +343,22 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
     >>> make_name('''test this
     ... newline''')
     'test-this-newline'
-    >>> make_name(u"testing an emoji😁")
-    u'testing-an-emoji'
+    >>> make_name("testing an emoji😁")
+    'testing-an-emoji'
     >>> make_name('''testing\\t\\nmore\\r\\nslashes''')
     'testing-more-slashes'
     >>> make_name('What if a HTML <tag/>')
     'what-if-a-html-tag'
     >>> make_name('These are equivalent to \\x01 through \\x1A')
     'these-are-equivalent-to-through'
-    >>> make_name(u"feedback;\\x00")
-    u'feedback'
+    >>> make_name("feedback;\\x00")
+    'feedback'
     """
     name = text.replace('@', delim)
     name = unidecode(name).replace(
         '@', 'a'
     )  # We don't know why unidecode uses '@' for 'a'-like chars
-    name = six.text_type(
+    name = str(
         delim.join(
             [
                 _strip_re.sub('', x)
@@ -374,9 +367,6 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
             ]
         )
     )
-    if isinstance(text, six.text_type):
-        # Unidecode returns str. Restore to a unicode string if original was unicode
-        name = six.text_type(name)
     candidate = name[:maxlength]
     if candidate.endswith(delim):
         candidate = candidate[:-1]
@@ -388,139 +378,6 @@ def make_name(text, delim=u'-', maxlength=50, checkused=None, counter=2):
         counter += 1
         existing = checkused(candidate)
     return candidate
-
-
-def make_password(password, encoding='BCRYPT'):
-    """
-    Make a password with PLAIN, SSHA or BCRYPT (default) encoding.
-
-    >>> make_password('foo', encoding='PLAIN')
-    '{PLAIN}foo'
-    >>> make_password(u're-foo', encoding='SSHA')[:6]
-    '{SSHA}'
-    >>> make_password(u're-foo')[:8]
-    '{BCRYPT}'
-    >>> make_password('foo') == make_password('foo')
-    False
-    """
-    if encoding == 'PLAIN':
-        if isinstance(password, str) and six.PY2:
-            password = six.text_type(password, 'utf-8')
-        return '{PLAIN}%s' % password
-    elif encoding == 'SSHA':
-        # SSHA is a modification of the SHA digest scheme with a salt
-        # starting at byte 20 of the base64-encoded string.
-        # Source: http://developer.netscape.com/docs/technote/ldap/pass_sha.html
-        # This implementation is from Zope2's AccessControl.AuthEncoding.
-        random = SystemRandom()
-        salt = ''
-        for n in range(7):
-            salt += chr(random.randrange(256))  # NOQA: S311 # nosec
-        # b64encode accepts only bytes in Python 3, so salt also has to be encoded
-        salt = salt.encode('utf-8') if six.PY3 else salt
-        if isinstance(password, six.text_type):
-            password = password.encode('utf-8')
-        else:
-            password = str(password)
-        b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
-                password + salt
-            ).digest()
-            + salt
-        )
-        b64_encoded = b64_encoded.decode('utf-8') if six.PY3 else b64_encoded
-        return '{SSHA}%s' % b64_encoded
-    elif encoding == 'BCRYPT':
-        # BCRYPT is the recommended hash for secure passwords
-        password_hashed = bcrypt.hashpw(
-            password.encode('utf-8')
-            if isinstance(password, six.text_type)
-            else password,
-            bcrypt.gensalt(),
-        )
-        if six.PY3:  # pragma: no cover
-            password_hashed = password_hashed.decode('utf-8')
-        return '{BCRYPT}%s' % password_hashed
-
-    raise ValueError("Unknown encoding %s" % encoding)
-
-
-def check_password(reference, attempt):
-    """
-    Compare a reference password with the user attempt.
-
-    >>> check_password('{PLAIN}foo', 'foo')
-    True
-    >>> check_password(u'{PLAIN}bar', 'bar')
-    True
-    >>> check_password(u'{UNKNOWN}baz', 'baz')
-    False
-    >>> check_password(u'no-encoding', u'no-encoding')
-    False
-    >>> check_password(u'{SSHA}q/uVU8r15k/9QhRi92CWUwMJu2DM6TUSpp25', u're-foo')
-    True
-    >>> check_password(u'{BCRYPT}$2b$12$NfKivgz7njR3/rWZ56EsDe7..PPum.fcmFLbdkbP.'
-    ...   'chtMTcS1s01C', 'foo')
-    True
-    """
-    if reference.startswith(u'{PLAIN}'):
-        if reference[7:] == attempt:
-            return True
-    elif reference.startswith(u'{SSHA}'):
-        # In python3 b64decode takes inputtype as bytes as opposed to str in python 2,
-        # and returns binascii.Error as opposed to TypeError
-        if six.PY3:  # pragma: no cover
-            try:
-                if isinstance(reference, six.text_type):
-                    ref = b64decode(reference[6:].encode('utf-8'))
-                else:
-                    ref = b64decode(reference[6:])
-            except binascii.Error:
-                return False  # Not Base64
-        else:  # pragma: no cover
-            try:
-                ref = b64decode(reference[6:])
-            except TypeError:
-                return False  # Not Base64
-        if isinstance(attempt, six.text_type):
-            attempt = attempt.encode('utf-8')
-        salt = ref[20:]
-        b64_encoded = b64encode(
-            hashlib.sha1(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
-                attempt + salt
-            ).digest()
-            + salt
-        )
-        if six.PY3:  # pragma: no cover
-            # type(b64_encoded) is bytes and can't be compared with type(reference)
-            # which is str
-            compare = six.text_type(
-                '{SSHA}%s' % b64_encoded.decode('utf-8')
-                if type(b64_encoded) is bytes
-                else b64_encoded
-            )
-        else:  # pragma: no cover
-            compare = six.text_type('{SSHA}%s' % b64_encoded)
-        return compare == reference
-    elif reference.startswith(u'{BCRYPT}'):
-        # bcrypt.hashpw() accepts either a unicode encoded string or the basic string
-        # (python 2)
-        if isinstance(attempt, six.text_type) or isinstance(reference, six.text_type):
-            attempt = attempt.encode('utf-8')
-            reference = reference.encode('utf-8')
-        if six.PY3:  # pragma: no cover
-            return bcrypt.hashpw(attempt, reference[8:]) == reference[8:]
-        else:  # pragma: no cover
-            return (
-                bcrypt.hashpw(
-                    attempt.encode('utf-8')
-                    if isinstance(attempt, six.text_type)
-                    else attempt,
-                    str(reference[8:]),
-                )
-                == reference[8:]
-            )
-    return False
 
 
 def format_currency(value, decimals=2):
@@ -549,7 +406,7 @@ def format_currency(value, decimals=2):
     >>> format_currency(123456789.123456789)
     '123,456,789.12'
     """
-    number, decimal = ((u'%%.%df' % decimals) % value).split(u'.')
+    number, decimal = (('%%.%df' % decimals) % value).split('.')
     parts = []
     while len(number) > 3:
         part, number = number[-3:], number[:-3]
@@ -557,9 +414,9 @@ def format_currency(value, decimals=2):
     parts.append(number)
     parts.reverse()
     if int(decimal) == 0:
-        return u','.join(parts)
+        return ','.join(parts)
     else:
-        return u','.join(parts) + u'.' + decimal
+        return ','.join(parts) + '.' + decimal
 
 
 def md5sum(data):
@@ -568,17 +425,14 @@ def md5sum(data):
 
     >>> md5sum('random text')
     'd9b9bec3f4cc5482e7c5ef43143e563a'
-    >>> md5sum(u'random text')
+    >>> md5sum('random text')
     'd9b9bec3f4cc5482e7c5ef43143e563a'
     >>> len(md5sum('random text'))
     32
     """
-    if six.PY3:  # pragma: no cover
-        return hashlib.md5(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
-            data.encode('utf-8')
-        ).hexdigest()
-    else:  # pragma: no cover
-        return hashlib.md5(data).hexdigest()  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+    return hashlib.md5(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+        data.encode('utf-8')
+    ).hexdigest()
 
 
 def getbool(value):
@@ -634,7 +488,7 @@ def nullstr(value):
     >>> nullstr('') is None
     True
     """
-    return six.text_type(value) if value else None
+    return str(value) if value else None
 
 
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
@@ -677,10 +531,7 @@ def require_one_of(_return=False, **kwargs):
     #    have a `count` method. It needs to be cast into a tuple/list first, but
     #    remains faster despite the cast's slowdown. Tuples are faster than lists.
 
-    if six.PY3:  # pragma: no cover
-        count = len(kwargs) - tuple(kwargs.values()).count(None)
-    else:  # pragma: no cover
-        count = len(kwargs) - kwargs.values().count(None)
+    count = len(kwargs) - tuple(kwargs.values()).count(None)
 
     if count == 0:
         raise TypeError(
@@ -702,21 +553,20 @@ def unicode_http_header(value):
     Convert an ASCII HTTP header string into a unicode string with the
     appropriate encoding applied. Expects headers to be RFC 2047 compliant.
 
-    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
     True
-    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == u'p\xf6stal'
+    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
     True
-    >>> unicode_http_header('p\xf6stal') == u'p\xf6stal'
+    >>> unicode_http_header('p\xf6stal') == 'p\xf6stal'
     True
     """
-    if six.PY3:  # pragma: no cover
-        # email.header.decode_header expects strings, not bytes. Your input data may be
-        # in bytes. Since these bytes are almost always ASCII, calling `.decode()` on
-        # it without specifying a charset should work fine.
-        if isinstance(value, six.binary_type):
-            value = value.decode()
-    return u''.join(
-        six.text_type(s, e or 'iso-8859-1') if not isinstance(s, six.text_type) else s
+    # email.header.decode_header expects strings, not bytes. Your input data may be
+    # in bytes. Since these bytes are almost always ASCII, calling `.decode()` on
+    # it without specifying a charset should work fine.
+    if isinstance(value, bytes):
+        value = value.decode()
+    return ''.join(
+        str(s, e or 'iso-8859-1') if not isinstance(s, str) else s
         for s, e in decode_header(value)
     )
 

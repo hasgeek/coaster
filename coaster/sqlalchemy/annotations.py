@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 SQLAlchemy attribute annotations
 --------------------------------
@@ -35,8 +33,7 @@ dictionary, mapping annotation names to a list of attribute names, and to a
 reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
 """
 
-from __future__ import absolute_import
-from six.moves.collections_abc import Hashable
+from collections.abc import Hashable
 
 from sqlalchemy import event
 from sqlalchemy.orm import mapper

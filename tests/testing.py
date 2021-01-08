@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Configuration used by coaster test suite
 """

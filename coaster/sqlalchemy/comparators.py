@@ -1,12 +1,7 @@
-# -*- coding: utf-8 -*-
-
 """
 Enhanced query and custom comparators
 -------------------------------------
 """
-
-from __future__ import absolute_import
-import six
 
 import uuid as uuid_
 
@@ -111,7 +106,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
     def _decode(self, other):
         if other is None:
             return
-        if self.splitindex is not None and isinstance(other, six.string_types):
+        if self.splitindex is not None and isinstance(other, str):
             other = int(other.split('-')[self.splitindex])
         return other
 

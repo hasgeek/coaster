@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Markdown processor
 ==================
@@ -13,8 +11,6 @@ http://blog.stackoverflow.com/2009/10/markdown-one-year-later/
 This Markdown processor is used by :func:`~coaster.sqlalchemy.columns.MarkdownColumn`
 to auto-render HTML from Markdown text.
 """
-
-from __future__ import absolute_import
 
 from bleach import linkify
 from markdown import Markdown

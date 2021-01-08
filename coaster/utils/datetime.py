@@ -1,12 +1,7 @@
-# -*- coding: utf-8 -*-
-
 """
 Date, time and timezone utilities
 ---------------------------------
 """
-
-from __future__ import absolute_import
-import six
 
 from datetime import datetime
 
@@ -70,7 +65,7 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
     datetime.datetime(2007, 12, 30, 18, 30, tzinfo=<UTC>)
     """
     naivedt = datetime.combine(isoweek.Week(year, week).day(0), datetime.min.time())
-    if isinstance(timezone, six.string_types):
+    if isinstance(timezone, str):
         tz = pytz.timezone(timezone)
     else:
         tz = timezone
@@ -108,7 +103,7 @@ def midnight_to_utc(dt, timezone=None, naive=False):
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
     if timezone:
-        if isinstance(timezone, six.string_types):
+        if isinstance(timezone, str):
             tz = pytz.timezone(timezone)
         else:
             tz = timezone

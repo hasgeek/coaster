@@ -1,15 +1,10 @@
-# -*- coding: utf-8 -*-
-
 """
 Utility classes
 ---------------
 """
 
-from __future__ import absolute_import
-from six.moves.collections_abc import Set
-import six
-
-from collections import OrderedDict, namedtuple
+from collections import namedtuple
+from collections.abc import Set
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
@@ -20,13 +15,9 @@ NameTitle = namedtuple('NameTitle', ['name', 'title'])
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration"""
 
-    @classmethod
-    def __prepare__(cls, name, bases, **kwargs):  # NOQA: N804 # pragma: no cover
-        return OrderedDict()
-
     def __new__(cls, name, bases, attrs, **kwargs):
-        labels = OrderedDict()
-        names = OrderedDict()
+        labels = {}
+        names = {}
 
         def pop_name_by_value(value):
             for k, v in list(names.items()):
@@ -52,8 +43,8 @@ class _LabeledEnumMeta(type):
                 }
 
         if '__order__' in attrs:
-            ordered_labels = OrderedDict()
-            ordered_names = OrderedDict()
+            ordered_labels = {}
+            ordered_names = {}
             for value in attrs['__order__']:
                 ordered_labels[value[0]] = labels.pop(value[0])
                 attr_name = pop_name_by_value(value[0])
@@ -84,7 +75,7 @@ class _LabeledEnumMeta(type):
         return key in cls.__labels__
 
 
-class LabeledEnum(six.with_metaclass(_LabeledEnumMeta)):
+class LabeledEnum(metaclass=_LabeledEnumMeta):
     """
     Labeled enumerations. Declarate an enumeration with values and labels
     (for use in UI)::
@@ -300,11 +291,11 @@ class InspectableSet(Set):
         raise AttributeError(attr)
 
 
-class classmethodproperty(object):  # NOQA: N801
+class classmethodproperty:  # NOQA: N801
     """
     Class method decorator to make class methods behave like properties::
 
-        >>> class Foo(object):
+        >>> class Foo:
         ...     @classmethodproperty
         ...     def test(cls):
         ...         return repr(cls)

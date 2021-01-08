@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import, unicode_literals
-
 import unittest
 
 from flask_sqlalchemy import SQLAlchemy
@@ -23,7 +19,7 @@ from coaster.sqlalchemy import BaseMixin
 db = SQLAlchemy()
 
 
-class LoginManager(object):
+class LoginManager:
     def __init__(self, app):
         app.login_manager = self
         self.user = None

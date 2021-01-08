@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import, unicode_literals
-import six
-
 from datetime import datetime, timedelta
 from time import sleep
 import unittest
@@ -798,7 +793,7 @@ class TestCoasterModels(unittest.TestCase):
             self.session.commit()
 
     def test_urltype_empty(self):
-        m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme=u"")
+        m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme="")
         self.session.add(m1)
         self.session.commit()
         assert str(m1.url) == ""
@@ -807,18 +802,18 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_urltype_invalid_scheme_default(self):
         with self.assertRaises(StatementError):
-            m1 = MyUrlModel(url=u"magnet://example.com")
+            m1 = MyUrlModel(url="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self):
         with self.assertRaises(StatementError):
-            m1 = MyUrlModel(url_custom_scheme=u"magnet://example.com")
+            m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_optional_scheme(self):
-        m1 = MyUrlModel(url_optional_scheme=u"//example.com/test")
+        m1 = MyUrlModel(url_optional_scheme="//example.com/test")
         self.session.add(m1)
         self.session.commit()
 
@@ -948,7 +943,7 @@ class TestCoasterModels(unittest.TestCase):
         i3 = u3.uuid
         i4 = u4.uuid
 
-        self.assertEqual(u1.url_id, six.text_type(i1))
+        self.assertEqual(u1.url_id, str(i1))
 
         self.assertIsInstance(i2, uuid.UUID)
         self.assertEqual(u2.url_id, i2.hex)
@@ -970,14 +965,14 @@ class TestCoasterModels(unittest.TestCase):
 
         # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidKey.url_id == 1).compile(compile_kwargs={'literal_binds': True})
             ),
             "non_uuid_key.id = 1",
         )
         # We don't check the data type here, leaving that to the engine
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidKey.url_id == '1').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -994,7 +989,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # Hex UUID
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidKey.url_id == '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1003,7 +998,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         # Hex UUID with !=
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidKey.url_id != '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1012,7 +1007,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         # Hex UUID with dashes
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1021,7 +1016,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         # UUID object
         self.assertEqual(
-            six.text_type(
+            str(
                 (
                     UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(compile_kwargs={'literal_binds': True})
@@ -1030,7 +1025,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         # IN clause with mixed inputs, including an invalid input
         self.assertEqual(
-            six.text_type(
+            str(
                 (
                     UuidKey.url_id.in_(
                         [
@@ -1046,7 +1041,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # None value
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidKey.url_id == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1054,7 +1049,7 @@ class TestCoasterModels(unittest.TestCase):
             "uuid_key.id IS NULL",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidKey.url_id == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1062,7 +1057,7 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_key.id IS NULL",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidMixinKey.uuid_hex == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1080,7 +1075,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         self.assertEqual(
-            six.text_type(
+            str(
                 (
                     NonUuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c'
                 ).compile(compile_kwargs={'literal_binds': True})
@@ -1088,7 +1083,7 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1140,7 +1135,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin with integer primary key queries against the `uuid` column
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1150,7 +1145,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1160,7 +1155,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # Repeat for `uuid_b58`
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1170,7 +1165,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1180,7 +1175,7 @@ class TestCoasterModels(unittest.TestCase):
 
         # All queries work for None values as well
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidMixinKey.buid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1188,7 +1183,7 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_mixin_key.uuid IS NULL",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidMixinKey.buid == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1196,7 +1191,7 @@ class TestCoasterModels(unittest.TestCase):
             "uuid_mixin_key.id IS NULL",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (NonUuidMixinKey.uuid_b58 == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )
@@ -1204,7 +1199,7 @@ class TestCoasterModels(unittest.TestCase):
             "non_uuid_mixin_key.uuid IS NULL",
         )
         self.assertEqual(
-            six.text_type(
+            str(
                 (UuidMixinKey.uuid_b58 == None).compile(  # NOQA
                     compile_kwargs={'literal_binds': True}
                 )

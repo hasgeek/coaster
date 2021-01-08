@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import, unicode_literals
-import six.moves.collections_abc as abc
-
+import collections.abc as abc
 import unittest
 
 from flask import Flask, json

@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import, unicode_literals
-import six
-
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite
@@ -13,7 +9,6 @@ from ..utils import markdown as markdown_processor
 __all__ = ['MarkdownComposite', 'MarkdownColumn', 'markdown_column']
 
 
-@six.python_2_unicode_compatible
 class MarkdownComposite(MutableComposite):
     """
     Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
@@ -38,7 +33,7 @@ class MarkdownComposite(MutableComposite):
 
     # Return a string representation of the text (see class decorator)
     def __str__(self):
-        return six.text_type(self.text)
+        return self.text
 
     # Return a HTML representation of the text
     def __html__(self):

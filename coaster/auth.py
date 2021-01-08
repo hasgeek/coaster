@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Authentication management
 =========================
@@ -17,8 +15,6 @@ For compatibility with Flask-Login, a user object loaded at
 ``_request_ctx_stack.top.user`` will be recognised and made available via
 :obj:`current_auth`.
 """
-
-from __future__ import absolute_import
 
 from flask import _request_ctx_stack, current_app, has_request_context
 from werkzeug.local import LocalProxy
@@ -96,7 +92,7 @@ def request_has_auth():
     return hasattr(_request_ctx_stack.top, 'current_auth')
 
 
-class CurrentAuth(object):
+class CurrentAuth:
     """
     Holding class for current authenticated objects such as user accounts.
     This class is constructed by :obj:`current_auth`. Typical uses:

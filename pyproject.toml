@@ -3,7 +3,7 @@
 
 [tool.black]
 line-length = 88
-target_version = ['py27']
+target_version = ['py36']
 skip-string-normalization = true
 include = '\.pyi?$'
 exclude = '''
@@ -31,7 +31,7 @@ line_length = 88
 order_by_type = true
 use_parentheses = true
 from_first = true
-known_future_library = ['__future__', 'six']
+known_future_library = ['__future__']
 known_first_party = ['coaster']
 known_sqlalchemy = ['alembic', 'sqlalchemy', 'sqlalchemy_utils', 'flask_sqlalchemy', 'psycopg2']
 known_flask = [

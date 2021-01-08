@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-
 import unittest
 
 from coaster.utils import text_blocks
 
-sample_html = u"""
+sample_html = """
 This is some <em>sample</em> HTML<br>with various features.
 <p>
   Here we have a paragraph&nbsp;with <a href="#">a link</a> embedded
@@ -33,14 +31,14 @@ This is some <em>sample</em> HTML<br>with various features.
 """
 
 sample_text_blocks = [
-    u'This is some sample HTML\nwith various features.\n',
-    u'Here we have a paragraph with a link embedded\n  inside it.',
-    u'Let\u2019s make a list:',
-    u'This is the first item.',
-    u'Second item has a paragraph.',
-    u"Now for some fun, let's  have a comment.",
-    u"Submit or\n  Cancel",
-    u"Don't forget the capitalised tags.",
+    'This is some sample HTML\nwith various features.\n',
+    'Here we have a paragraph with a link embedded\n  inside it.',
+    'Let\u2019s make a list:',
+    'This is the first item.',
+    'Second item has a paragraph.',
+    "Now for some fun, let's  have a comment.",
+    "Submit or\n  Cancel",
+    "Don't forget the capitalised tags.",
 ]
 
 

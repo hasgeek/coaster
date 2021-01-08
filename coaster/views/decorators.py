@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 View decorators
 ---------------
@@ -8,9 +6,6 @@ Decorators for view handlers.
 
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
-
-from __future__ import absolute_import
-import six
 
 from functools import wraps
 
@@ -287,7 +282,7 @@ def load_models(*chain, **kwargs):
             permissions = None
             permission_required = kwargs.get('permission')
             url_check_attributes = kwargs.get('urlcheck', [])
-            if isinstance(permission_required, six.string_types):
+            if isinstance(permission_required, str):
                 permission_required = {permission_required}
             elif permission_required is not None:
                 permission_required = set(permission_required)
@@ -328,7 +323,7 @@ def load_models(*chain, **kwargs):
                     view_args.update(item.redirect_view_args())
                     location = url_for(request.endpoint, **view_args)
                     if request.query_string:
-                        location = location + u'?' + request.query_string.decode()
+                        location = location + '?' + request.query_string.decode()
                     return redirect(location, code=307)
 
                 if permission_required:
@@ -358,7 +353,7 @@ def load_models(*chain, **kwargs):
                     if url_redirect:
                         location = url_for(request.endpoint, **view_args)
                         if request.query_string:
-                            location = location + u'?' + request.query_string.decode()
+                            location = location + '?' + request.query_string.decode()
                         return redirect(location, code=302)
                 if parameter.startswith('g.'):
                     parameter = parameter[2:]
@@ -474,7 +469,7 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
         templates = {'application/json': dict_jsonify}
     else:
         templates = {}
-    if isinstance(template, six.string_types):
+    if isinstance(template, str):
         templates['text/html'] = template
     elif isinstance(template, dict):
         templates.update(template)
@@ -485,7 +480,7 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
 
     default_mimetype = '*/*'
     if '*/*' not in templates:
-        templates['*/*'] = six.text_type
+        templates['*/*'] = str
         default_mimetype = 'text/plain'
         for mimetype in ('text/html', 'text/plain', 'application/json'):
             if mimetype in templates:

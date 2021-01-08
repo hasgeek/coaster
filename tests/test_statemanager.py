@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import
-
 from datetime import datetime, timedelta
 import unittest
 
@@ -141,7 +137,7 @@ class MyPost(BaseMixin, db.Model):
 
     @with_roles(call={'author'})
     @state.transition(
-        state.UNPUBLISHED, state.PUBLISHED, message=u"Abort this transition"
+        state.UNPUBLISHED, state.PUBLISHED, message="Abort this transition"
     )
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def abort(self, success=False, empty_abort=False):

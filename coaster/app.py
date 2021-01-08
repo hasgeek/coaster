@@ -1,12 +1,7 @@
-# -*- coding: utf-8 -*-
-
 """
 App configuration
 =================
 """
-
-from __future__ import absolute_import, print_function
-import six
 
 from flask import Flask, g, get_flashed_messages, request, session, url_for
 from flask.json import tojson_filter as _tojson_filter
@@ -37,7 +32,7 @@ _additional_config = {
 }
 
 
-class KeyRotationWrapper(object):
+class KeyRotationWrapper:
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -50,7 +45,7 @@ class KeyRotationWrapper(object):
     """
 
     def __init__(self, cls, secret_keys, **kwargs):
-        if isinstance(secret_keys, six.string_types):
+        if isinstance(secret_keys, str):
             raise ValueError("Secret keys must be a list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 

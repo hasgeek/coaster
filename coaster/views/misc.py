@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Miscellaneous view helpers
 --------------------------
@@ -9,9 +7,7 @@ Helper functions for view handlers.
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
-from __future__ import absolute_import
-from six.moves.urllib.parse import urlsplit
-
+from urllib.parse import urlsplit
 import re
 
 from flask import Response, current_app, json, request
@@ -117,7 +113,7 @@ def jsonp(*args, **kw):
     data = json.dumps(dict(*args, **kw), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
-        data = callback + u'(' + data + u');'
+        data = callback + '(' + data + ');'
         mimetype = 'application/javascript'
     else:
         mimetype = 'application/json'

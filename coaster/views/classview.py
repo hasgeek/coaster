@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Class-based views
 -----------------
@@ -7,10 +5,8 @@ Class-based views
 Group related views into a class for easier management.
 """
 
-from __future__ import unicode_literals
-from six.moves.urllib.parse import urlsplit, urlunsplit
-
 from functools import update_wrapper, wraps
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
@@ -52,8 +48,9 @@ __all__ = [
 #: class is named :attr:`~current_view.current_handler`, so to examine it, use
 #: :attr:`current_view.current_handler`.
 current_view = LocalProxy(
-    lambda: has_request_context()
-    and getattr(_request_ctx_stack.top, 'current_view', None)
+    lambda: getattr(_request_ctx_stack.top, 'current_view', None)
+    if has_request_context()
+    else None
 )
 
 
@@ -107,7 +104,7 @@ def rulejoin(class_rule, method_rule):
         )
 
 
-class ViewHandler(object):
+class ViewHandler:
     """
     Internal object created by the :func:`route` and :func:`viewdata` functions.
     """
@@ -276,7 +273,7 @@ class ViewHandler(object):
                     callback(use_rule, endpoint, view_func, **use_options)
 
 
-class ViewHandlerWrapper(object):
+class ViewHandlerWrapper:
     """Wrapper for a view at runtime"""
 
     def __init__(self, viewh, obj, cls=None):
@@ -311,7 +308,7 @@ class ViewHandlerWrapper(object):
         return True
 
 
-class ClassView(object):
+class ClassView:
     """
     Base class for defining a collection of views that are related to each
     other. Subclasses may define methods decorated with :func:`route`. When
@@ -649,7 +646,7 @@ def requires_roles(roles):
     return inner
 
 
-class UrlForView(object):
+class UrlForView:
     """
     Mixin class for :class:`ModelView` that registers view handler methods with
     :class:`~coaster.sqlalchemy.mixins.UrlForMixin`'s
@@ -797,7 +794,7 @@ class UrlChangeCheck(UrlForView):
     __decorators__ = [url_change_check]
 
 
-class InstanceLoader(object):
+class InstanceLoader:
     """
     Mixin class for :class:`ModelView` that provides a :meth:`loader` that
     attempts to load an instance of the model based on attributes in the
