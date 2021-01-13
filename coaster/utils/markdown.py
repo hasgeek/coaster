@@ -12,7 +12,7 @@ This Markdown processor is used by :func:`~coaster.sqlalchemy.columns.MarkdownCo
 to auto-render HTML from Markdown text.
 """
 
-from bleach import linkify
+from bleach import linkify as linkify_processor
 from markdown import Markdown
 from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
@@ -29,6 +29,8 @@ from .text import (
 
 __all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
 
+
+# --- Constants ------------------------------------------------------------------------
 
 MARKDOWN_HTML_TAGS = dict(VALID_TAGS)
 MARKDOWN_HTML_TAGS.update(
@@ -47,6 +49,8 @@ MARKDOWN_HTML_TAGS.update(
     }
 )
 
+# --- Extensions -----------------------------------------------------------------------
+
 
 class EscapeHtml(Extension):
     """
@@ -62,6 +66,8 @@ class EscapeHtml(Extension):
 
 
 class JavascriptProtocolProcessor(Treeprocessor):
+    """Processor to remove `javascript:` links."""
+
     def run(self, root):
         for anchor in root.iter('a'):
             href = anchor.attrib.get('href')
@@ -81,6 +87,11 @@ class JavascriptProtocolExtension(Extension):
         )
         md.registerExtension(self)
 
+
+# --- Standard extensions --------------------------------------------------------------
+
+# FIXME: Disable support for custom css classes as described here:
+# https://facelessuser.github.io/pymdown-extensions/extensions/superfences/
 
 extensions = [
     'markdown.extensions.abbr',
@@ -108,6 +119,7 @@ extensions_text = extensions + [
 extensions_html = extensions
 
 extension_configs = {
+    'pymdownx.superfences': {'disable_indented_code_blocks': True},
     'pymdownx.smartsymbols': {
         'trademark': False,
         'copyright': False,
@@ -120,16 +132,21 @@ extension_configs = {
         'ordinal_numbers': True,
     },
     'pymdownx.emoji': {'emoji_generator': emoji_to_alt},
+    'pymdownx.mark': {'smart_mark': True},
 }
 
 
-def markdown(text, html=False, valid_tags=None):
+# --- Markdown processor ---------------------------------------------------------------
+
+
+def markdown(text, html=False, linkify=True, valid_tags=None):
     """
-    Markdown parser with a number of sane defaults that resembles
-    GitHub-Flavoured Markdown.
+    Markdown parser with a number of sane defaults that resemble GFM.
 
     :param bool html: Allow known-safe HTML tags in text
-        (this disables code syntax highlighting)
+        (this disables code syntax highlighting and task lists)
+    :param bool linkify: Whether to convert naked URLs into links
+    :param dict valid_tags: Valid tags and attributes if HTML is allowed
     """
     if text is None:
         return None
@@ -148,18 +165,17 @@ def markdown(text, html=False, valid_tags=None):
                     extension_configs=extension_configs,
                 ).convert(text),
                 valid_tags=valid_tags,
-                linkify=True,
+                linkify=linkify,
             )
         )
     else:
-        return Markup(
-            linkify(
-                Markdown(
-                    output_format='html',
-                    extensions=extensions_text,
-                    extension_configs=extension_configs,
-                ).convert(text),
-                callbacks=LINKIFY_CALLBACKS,
-                skip_tags=LINKIFY_SKIP_TAGS,
+        output = Markdown(
+            output_format='html',
+            extensions=extensions_text,
+            extension_configs=extension_configs,
+        ).convert(text)
+        if linkify:
+            output = linkify_processor(
+                output, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS
             )
-        )
+        return Markup(output)
