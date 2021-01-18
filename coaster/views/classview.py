@@ -6,14 +6,17 @@ Group related views into a class for easier management.
 """
 
 from functools import update_wrapper, wraps
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
 from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
+from sqlalchemy.orm.query import Query
 
-from flask import (
+# mypy can't find _request_ctx_stack in flask
+from flask import (  # type: ignore[attr-defined]
     Blueprint,
     _request_ctx_stack,
     abort,
@@ -26,6 +29,7 @@ from werkzeug.local import LocalProxy
 from werkzeug.routing import parse_rule
 
 from ..auth import add_auth_attribute, current_auth
+from ..typing import SimpleDecorator
 from ..utils import InspectableSet
 
 __all__ = [
@@ -41,6 +45,10 @@ __all__ = [
     'UrlForView',
     'InstanceLoader',  # Mixin classes
 ]
+
+#: Type for URL rules in classviews
+RouteRuleOptions = Dict[str, Any]
+
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by
@@ -365,13 +373,13 @@ class ClassView:
     """
 
     # If the class did not get a @route decorator, provide a fallback route
-    __routes__ = [('', {})]
+    __routes__: List[Tuple[str, RouteRuleOptions]] = [('', {})]
     #: Track all the views registered in this class
     __views__ = ()
     #: Subclasses may define decorators here. These will be applied to every
     #: view handler in the class, but only when called as a view and not
     #: as a Python method call.
-    __decorators__ = []
+    __decorators__: List[SimpleDecorator] = []
 
     #: Indicates whether meth:`is_available` should simply return `True`
     #: without conducting a test. Subclasses should not set this flag. It will
@@ -542,9 +550,9 @@ class ModelView(ClassView):
     """
 
     #: The model that this view class represents, to be specified by subclasses.
-    model = None
+    model: Optional[Any] = None
     #: A base query to use if the model needs special handling.
-    query = None
+    query: Optional[Query] = None
 
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
@@ -557,7 +565,7 @@ class ModelView(ClassView):
     #:
     #: The :class:`InstanceLoader` mixin class will convert this mapping into
     #: SQLAlchemy attribute references to load the instance object.
-    route_model_map = {}
+    route_model_map: Dict[str, str] = {}
 
     def __init__(self, obj=None):
         super(ModelView, self).__init__()

@@ -10,6 +10,7 @@ this is done automatically for you.
 from datetime import datetime, timedelta
 from io import StringIO
 from pprint import pprint
+from typing import Dict
 import logging.handlers
 import re
 import traceback
@@ -44,9 +45,9 @@ _filter_re = re.compile(
 )
 
 # global var as lazy in-memory cache
-error_throttle_timestamp_sms = {}
-error_throttle_timestamp_slack = {}
-error_throttle_timestamp_telegram = {}
+error_throttle_timestamp_sms: Dict[str, datetime] = {}
+error_throttle_timestamp_slack: Dict[str, datetime] = {}
+error_throttle_timestamp_telegram: Dict[str, datetime] = {}
 
 
 class FilteredValueIndicator:

@@ -2,7 +2,11 @@ import unittest
 
 from flask_sqlalchemy import SQLAlchemy
 
-from flask import Flask, _request_ctx_stack, has_request_context
+from flask import (  # type: ignore[attr-defined]
+    Flask,
+    _request_ctx_stack,
+    has_request_context,
+)
 
 import pytest
 
@@ -39,20 +43,20 @@ class LoginManager:
 # --- Models ------------------------------------------------------------------
 
 
-class User(BaseMixin, db.Model):
+class User(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'authenticated_user'
     username = db.Column(db.Unicode(80))
     fullname = db.Column(db.Unicode(80))
 
 
-class AnonymousUser(BaseMixin, db.Model):
+class AnonymousUser(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'anonymous_user'
     is_anonymous = True
     username = 'anon'
     fullname = 'Anonymous'
 
 
-class Client(BaseMixin, db.Model):
+class Client(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'client'
 
 
@@ -164,7 +168,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         assert current_auth.is_authenticated
         assert current_auth
         assert current_auth.user is not None
-        assert current_auth.user == user
+        assert current_auth.user == user  # type: ignore[unreachable]
         assert current_auth.actor == user
 
     def test_anonymous_user(self):
@@ -182,7 +186,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         assert current_auth.is_anonymous
         assert current_auth.user is not None
         # is_authenticated == True, since there is an actor
-        assert current_auth.is_authenticated
+        assert current_auth.is_authenticated  # type: ignore[unreachable]
         assert current_auth
         assert current_auth.actor is not None
         assert current_auth.user == user

@@ -34,7 +34,9 @@ class MiddleContainer(BaseMixin, db.Model):
 
 class ParentDocument(BaseNameMixin, db.Model):
     __tablename__ = 'parent_document'
-    middle_id = Column(None, ForeignKey('middle_container.id'))
+    middle_id = Column(  # type: ignore[call-overload]
+        None, ForeignKey('middle_container.id')
+    )
     middle = relationship(MiddleContainer, uselist=False)
 
     def __init__(self, **kwargs):
@@ -52,7 +54,9 @@ class ParentDocument(BaseNameMixin, db.Model):
 
 class ChildDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'child_document'
-    parent_id = Column(None, ForeignKey('middle_container.id'))
+    parent_id = Column(  # type: ignore[call-overload]
+        None, ForeignKey('middle_container.id')
+    )
     parent = relationship(MiddleContainer, backref='children')
 
     def permissions(self, actor, inherited=None):
@@ -68,10 +72,14 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
 
 class RedirectDocument(BaseNameMixin, db.Model):
     __tablename__ = 'redirect_document'
-    container_id = Column(None, ForeignKey('container.id'))
+    container_id = Column(  # type: ignore[call-overload]
+        None, ForeignKey('container.id')
+    )
     container = relationship(Container)
 
-    target_id = Column(None, ForeignKey('named_document.id'))
+    target_id = Column(  # type: ignore[call-overload]
+        None, ForeignKey('named_document.id')
+    )
     target = relationship(NamedDocument)
 
     def redirect_view_args(self):

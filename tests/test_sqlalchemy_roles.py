@@ -1286,7 +1286,7 @@ class TestLazyRoleSet(unittest.TestCase):
 
         # Confirm which relationship was examined
         assert d.accessed_user is True
-        assert d.accessed_userlist is False
+        assert d.accessed_userlist is False  # type: ignore[unreachable]
 
         # The 'owner' role is not granted for a user not present in
         # both relationships.
@@ -1331,7 +1331,7 @@ class TestLazyRoleSet(unittest.TestCase):
         # However, accessing the role does
         assert r1.owner is True
         assert d.accessed_user is True
-        assert d.accessed_userlist is False
+        assert d.accessed_userlist is False  # type: ignore[unreachable]
 
         # Reset and try the other relationship
         d.user = None

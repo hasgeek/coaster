@@ -1,3 +1,4 @@
+from typing import Optional
 import unittest
 
 from flask import Flask
@@ -10,7 +11,7 @@ def view():
 
 
 class TestScaffolding(unittest.TestCase):
-    server_name = None
+    server_name: Optional[str] = None
 
     def setUp(self):
         self.app = Flask(

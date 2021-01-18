@@ -47,7 +47,7 @@ class REVIEW_STATE(LabeledEnum):  # NOQA: N801
     UNLOCKED = {UNSUBMITTED, PENDING}
 
 
-class MyPost(BaseMixin, db.Model):
+class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_post'
     # Database state columns
     _state = db.Column(

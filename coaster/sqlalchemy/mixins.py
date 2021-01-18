@@ -19,6 +19,7 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 """
 
 from collections import namedtuple
+from typing import Any, Container, Dict, Optional, Tuple
 import collections.abc as abc
 import uuid as uuid_
 
@@ -39,7 +40,7 @@ from sqlalchemy.orm import synonym
 from sqlalchemy.sql import func, select
 from sqlalchemy_utils.types import UUIDType
 
-from flask import current_app, url_for
+from flask import Flask, current_app, url_for
 from werkzeug.routing import BuildError
 
 from ..auth import current_auth
@@ -171,12 +172,14 @@ class UuidMixin:
                 )
             )
 
-    @hybrid_property
+    uuid_hex: str
+
+    @hybrid_property  # type: ignore[no-redef]
     def uuid_hex(self):
         """URL-friendly UUID representation as a hex string"""
         return self.uuid.hex
 
-    @uuid_hex.comparator
+    @uuid_hex.comparator  # type: ignore[no-redef]
     def uuid_hex(cls):
         # For some reason the test fails if we use `cls.uuid` here
         # but works fine in the `uuid_b64` and `uuid_b58` comparators below
@@ -185,16 +188,18 @@ class UuidMixin:
         else:
             return SqlUuidHexComparator(cls.uuid)
 
-    @hybrid_property
+    uuid_b64: str
+
+    @hybrid_property  # type: ignore[no-redef]
     def uuid_b64(self):
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
         return uuid_to_base64(self.uuid)
 
-    @uuid_b64.setter
+    @uuid_b64.setter  # type: ignore[no-redef]
     def uuid_b64(self, value):
         self.uuid = uuid_from_base64(value)
 
-    @uuid_b64.comparator
+    @uuid_b64.comparator  # type: ignore[no-redef]
     def uuid_b64(cls):
         return SqlUuidB64Comparator(cls.uuid)
 
@@ -203,16 +208,18 @@ class UuidMixin:
     #: will become public to the `all` role as a result of this annotation.
     buid = with_roles(uuid_b64, read={'all'})
 
-    @hybrid_property
+    uuid_b58: str
+
+    @hybrid_property  # type: ignore[no-redef]
     def uuid_b58(self):
         """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet"""
         return uuid_to_base58(self.uuid)
 
-    @uuid_b58.setter
+    @uuid_b58.setter  # type: ignore[no-redef]
     def uuid_b58(self, value):
         self.uuid = uuid_from_base58(value)
 
-    @uuid_b58.comparator
+    @uuid_b58.comparator  # type: ignore[no-redef]
     def uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid)
 
@@ -347,16 +354,18 @@ class UrlForMixin:
     #: strings. The same action can point to different endpoints in different apps. The
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
-    url_for_endpoints = {None: {}}
+    url_for_endpoints: Dict[Optional[Flask], Dict[str, Dict[str, Tuple[str, str]]]] = {
+        None: {}
+    }
     #: Mapping of {app: {action: (classview, attr)}}
-    view_for_endpoints = {}
+    view_for_endpoints: Dict[Flask, Dict[str, Tuple[Any, str]]] = {}
 
     #: Dictionary of URLs available on this object
     urls = UrlDictStub()
 
     def url_for(self, action='view', **kwargs):
         """
-        Return public URL to this instance for a given action (default 'view')
+        Return public URL to this instance for a given action (default 'view').
         """
         app = current_app._get_current_object() if current_app else None
         if app is not None and action in self.url_for_endpoints.get(app, {}):
@@ -536,11 +545,12 @@ class BaseNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names = []
+    reserved_names: Container[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -664,11 +674,12 @@ class BaseScopedNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names = []
+    reserved_names: Container[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -823,7 +834,8 @@ class BaseIdNameMixin(BaseMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -864,7 +876,9 @@ class BaseIdNameMixin(BaseMixin):
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
-    @with_roles(read={'all'})
+    url_id_name: str
+
+    @with_roles(read={'all'})  # type: ignore[no-redef]
     @hybrid_property
     def url_id_name(self):
         """
@@ -874,7 +888,7 @@ class BaseIdNameMixin(BaseMixin):
         """
         return '%s-%s' % (self.url_id, self.name)
 
-    @url_id_name.comparator
+    @url_id_name.comparator  # type: ignore[no-redef]
     def url_id_name(cls):
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
@@ -883,7 +897,9 @@ class BaseIdNameMixin(BaseMixin):
 
     url_name = url_id_name  # Legacy name
 
-    @with_roles(read={'all'})
+    url_name_uuid_b58: str
+
+    @with_roles(read={'all'})  # type: ignore[no-redef]
     @hybrid_property
     def url_name_uuid_b58(self):
         """
@@ -892,7 +908,7 @@ class BaseIdNameMixin(BaseMixin):
         """
         return '%s-%s' % (self.name, self.uuid_b58)
 
-    @url_name_uuid_b58.comparator
+    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
     def url_name_uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
@@ -993,7 +1009,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -1046,7 +1063,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
-    @with_roles(read={'all'})
+    url_id_name: str
+
+    @with_roles(read={'all'})  # type: ignore[no-redef]
     @hybrid_property
     def url_id_name(self):
         """
@@ -1054,13 +1073,15 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """
         return '%s-%s' % (self.url_id, self.name)
 
-    @url_id_name.comparator
+    @url_id_name.comparator  # type: ignore[no-redef]
     def url_id_name(cls):
         return SqlSplitIdComparator(cls.url_id, splitindex=0)
 
     url_name = url_id_name  # Legacy name
 
-    @with_roles(read={'all'})
+    url_name_uuid_b58: str
+
+    @with_roles(read={'all'})  # type: ignore[no-redef]
     @hybrid_property
     def url_name_uuid_b58(self):
         """
@@ -1069,7 +1090,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """
         return '%s-%s' % (self.name, self.uuid_b58)
 
-    @url_name_uuid_b58.comparator
+    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
     def url_name_uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 

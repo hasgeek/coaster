@@ -1,3 +1,5 @@
+from typing import Any, Callable, Dict, Union
+
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite
@@ -18,7 +20,7 @@ class MarkdownComposite(MutableComposite):
     #: or the markdown processor will receive `self` as first parameter
     markdown = staticmethod(markdown_processor)
     #: Markdown options. Subclasses can override this
-    options = {}
+    options: Union[Callable[[], Dict[str, Any]], Dict[str, Any]] = {}
 
     def __init__(self, text, html=None):
         if html is None:

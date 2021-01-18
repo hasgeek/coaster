@@ -121,6 +121,7 @@ from abc import ABCMeta
 from copy import deepcopy
 from functools import wraps
 from itertools import chain
+from typing import Dict, List, Optional, Set, Union
 import collections.abc as abc
 import operator
 import warnings
@@ -137,7 +138,8 @@ from sqlalchemy.orm.collections import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
-from flask import _request_ctx_stack
+# mypy can't find _request_ctx_stack in flask
+from flask import _request_ctx_stack  # type: ignore[attr-defined]
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
@@ -907,13 +909,15 @@ class RoleMixin:
     """
 
     # This empty dictionary is necessary for the configure step below to work
-    __roles__ = {}
+    __roles__: Dict[
+        str, Dict[str, Union[Set[str], List[str], Dict[str, Optional[str]]]]
+    ] = {}
     # Datasets for limited access to attributes
-    __datasets__ = {}
+    __datasets__: Dict[str, Set[str]] = {}
     # Relationship role offer map (used by LazyRoleSet)
-    __relationship_role_offer_map__ = {}
+    __relationship_role_offer_map__: Dict[str, Set[str]] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__ = {}
+    __relationship_reversed_role_offer_map__: Dict[str, Set[str]] = {}
 
     def roles_for(self, actor=None, anchors=()):
         """
