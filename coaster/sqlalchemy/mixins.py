@@ -205,9 +205,11 @@ class UuidMixin:
         return SqlUuidB64Comparator(cls.uuid)
 
     #: Retain `buid` as a public attribute for backward compatibility
+    buid = uuid_b64
+
     #: Since `with_roles` annotates the attribute, both aliases (uuid_b64 and buid)
     #: will become public to the `all` role as a result of this annotation.
-    buid = with_roles(uuid_b64, read={'all'})
+    with_roles(uuid_b64, read={'all'})
 
     @hybrid_property
     def uuid_b58(self):
@@ -222,7 +224,7 @@ class UuidMixin:
     def uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid)
 
-    uuid_b58 = with_roles(uuid_b58, read={'all'})
+    with_roles(uuid_b58, read={'all'})
 
 
 # Also see functions.make_timestamp_columns
@@ -891,8 +893,6 @@ class BaseIdNameMixin(BaseMixin):
         else:
             return SqlSplitIdComparator(cls.id, splitindex=0)
 
-    with_roles(url_id_name, read={'all'})
-
     url_name = url_id_name  # Legacy name
 
     @hybrid_property
@@ -906,8 +906,6 @@ class BaseIdNameMixin(BaseMixin):
     @url_name_uuid_b58.comparator
     def url_name_uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
-
-    with_roles(url_name_uuid_b58, read={'all'})
 
 
 class BaseScopedIdMixin(BaseMixin):
@@ -1071,8 +1069,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def url_id_name(cls):
         return SqlSplitIdComparator(cls.url_id, splitindex=0)
 
-    with_roles(url_id_name, read={'all'})
-
     url_name = url_id_name  # Legacy name
 
     @hybrid_property
@@ -1086,8 +1082,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @url_name_uuid_b58.comparator
     def url_name_uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
-
-    with_roles(url_name_uuid_b58, read={'all'})
 
 
 class CoordinatesMixin:
