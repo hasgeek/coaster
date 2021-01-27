@@ -20,7 +20,10 @@ class MarkdownComposite(MutableComposite):
     #: or the markdown processor will receive `self` as first parameter
     markdown = staticmethod(markdown_processor)
     #: Markdown options. Subclasses can override this
-    options: Union[Callable[[], Dict[str, Any]], Dict[str, Any]] = {}
+    options: Union[
+        Dict[str, Any],  # Options may be a dictionary of string keys,
+        Callable[[], Dict[str, Any]],  # or a callable that returns such a dictionary
+    ] = {}
 
     def __init__(self, text, html=None):
         if html is None:
