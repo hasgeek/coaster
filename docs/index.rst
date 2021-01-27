@@ -16,6 +16,7 @@ Coaster is available under the BSD license, the same license as Flask.
 .. toctree::
    :maxdepth: 2
 
+   typing
    app
    logger
    manage
