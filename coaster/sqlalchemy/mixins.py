@@ -65,6 +65,9 @@ from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
 if TYPE_CHECKING:
+    # mypy doesn't understand hybrid_property, so this is a hack telling it to assume
+    # hybrid_property is just an alias for property, but only when type checking.
+    # Fix pending in https://github.com/dropbox/sqlalchemy-stubs/issues/98
     hybrid_property = property
 else:
     from sqlalchemy.ext.hybrid import hybrid_property
