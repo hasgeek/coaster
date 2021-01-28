@@ -360,19 +360,18 @@ class ManagedState:
             if self.validator is not None:
                 return valuematch and self.validator(obj)
             return valuematch
+        # We have a class, so return a filter condition, for use as
+        # cls.query.filter(result)
+        if is_collection(self.value):
+            valuematch = self.statemanager._value(obj, cls).in_(self.value)
         else:
-            # We have a class, so return a filter condition, for use as
-            # cls.query.filter(result)
-            if is_collection(self.value):
-                valuematch = self.statemanager._value(obj, cls).in_(self.value)
-            else:
-                valuematch = self.statemanager._value(obj, cls) == self.value
-            cv = self.class_validator
-            if cv is None:
-                cv = self.validator
-            if cv is not None:
-                return and_(valuematch, cv(cls))
-            return valuematch
+            valuematch = self.statemanager._value(obj, cls) == self.value
+        cv = self.class_validator
+        if cv is None:
+            cv = self.validator
+        if cv is not None:
+            return and_(valuematch, cv(cls))
+        return valuematch
 
     def __call__(self, obj, cls=None):
         if obj is not None:

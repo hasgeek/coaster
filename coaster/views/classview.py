@@ -839,20 +839,21 @@ class InstanceLoader:
                             attr.original_property, SynonymProperty
                         ):
                             attr = getattr(source, attr.original_property.name)
-                        if isinstance(attr, InstrumentedAttribute):
-                            if isinstance(attr.property, RelationshipProperty):
-                                if isinstance(attr.property.argument, Mapper):
-                                    attr = (
-                                        attr.property.argument.class_
-                                    )  # Unlikely to be used. pragma: no cover
-                                else:
-                                    attr = attr.property.argument
-                                if attr not in joined_models:
-                                    # SQL JOIN the other model on the basis of
-                                    # the relationship that led us to this join
-                                    query = query.join(attr, relattr)
-                                    # But ensure we don't JOIN twice
-                                    joined_models.add(attr)
+                        if isinstance(attr, InstrumentedAttribute) and isinstance(
+                            attr.property, RelationshipProperty
+                        ):
+                            if isinstance(attr.property.argument, Mapper):
+                                attr = (
+                                    attr.property.argument.class_
+                                )  # Unlikely to be used. pragma: no cover
+                            else:
+                                attr = attr.property.argument
+                            if attr not in joined_models:
+                                # SQL JOIN the other model on the basis of
+                                # the relationship that led us to this join
+                                query = query.join(attr, relattr)
+                                # But ensure we don't JOIN twice
+                                joined_models.add(attr)
                         source = attr
                     query = query.filter(source == value)
                 else:

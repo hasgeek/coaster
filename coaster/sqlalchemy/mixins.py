@@ -118,8 +118,7 @@ class IdMixin:
                     nullable=False,
                 )
             )
-        else:
-            return immutable(Column(Integer, primary_key=True, nullable=False))
+        return immutable(Column(Integer, primary_key=True, nullable=False))
 
     @declared_attr
     def url_id(cls):
@@ -137,20 +136,19 @@ class IdMixin:
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
-        else:
 
-            def url_id_func(self):
-                """The URL id, integer primary key rendered as a string"""
-                return str(self.id)
+        def url_id_func(self):
+            """The URL id, integer primary key rendered as a string"""
+            return str(self.id)
 
-            def url_id_expression(cls):
-                """The URL id, integer primary key"""
-                return cls.id
+        def url_id_expression(cls):
+            """The URL id, integer primary key"""
+            return cls.id
 
-            url_id_func.__name__ = 'url_id'
-            url_id_property = hybrid_property(url_id_func)
-            url_id_property = url_id_property.expression(url_id_expression)
-            return url_id_property
+        url_id_func.__name__ = 'url_id'
+        url_id_property = hybrid_property(url_id_func)
+        url_id_property = url_id_property.expression(url_id_expression)
+        return url_id_property
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
@@ -170,15 +168,14 @@ class UuidMixin:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
-        else:
-            return immutable(
-                Column(
-                    UUIDType(binary=False),
-                    default=uuid_.uuid4,
-                    unique=True,
-                    nullable=False,
-                )
+        return immutable(
+            Column(
+                UUIDType(binary=False),
+                default=uuid_.uuid4,
+                unique=True,
+                nullable=False,
             )
+        )
 
     @hybrid_property
     def uuid_hex(self):
@@ -191,8 +188,7 @@ class UuidMixin:
         # but works fine in the `uuid_b64` and `uuid_b58` comparators below
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id)
-        else:
-            return SqlUuidHexComparator(cls.uuid)
+        return SqlUuidHexComparator(cls.uuid)
 
     @hybrid_property
     def uuid_b64(self):
@@ -271,8 +267,7 @@ class PermissionMixin:
         """
         if inherited is not None:
             return set(inherited)
-        else:
-            return set()
+        return set()
 
     @property
     def current_permissions(self):
@@ -452,7 +447,6 @@ class UrlForMixin:
         :param roles: Roles to which this URL is available, required by :class:`UrlDict`
         :param dict paramattrs: Mapping of URL parameter to attribute on the object
         """
-
         if 'url_for_endpoints' not in cls.__dict__:
             cls.url_for_endpoints = {
                 None: {}
@@ -565,10 +559,9 @@ class BaseNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False, unique=True)
-        else:
-            return Column(
-                column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
-            )
+        return Column(
+            column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
+        )
 
     @declared_attr
     def title(cls):
@@ -694,8 +687,7 @@ class BaseScopedNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -784,14 +776,14 @@ class BaseScopedNameMixin(BaseMixin):
             and self.parent is not None
             and hasattr(self.parent, 'title')
             and self.parent.title
+            and self.title.startswith(self.parent.title)
         ):
-            if self.title.startswith(self.parent.title):
-                short = self.title[len(self.parent.title) :].strip()
-                match = _punctuation_re.match(short)
-                if match:
-                    short = short[match.end() :].strip()
-                if short:
-                    return short
+            short = self.title[len(self.parent.title) :].strip()
+            match = _punctuation_re.match(short)
+            if match:
+                short = short[match.end() :].strip()
+            if short:
+                return short
         return self.title
 
     @property
@@ -807,8 +799,7 @@ class BaseScopedNameMixin(BaseMixin):
             return inherited | super().permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
             return self.parent.permissions(actor) | super().permissions(actor)
-        else:
-            return super().permissions(actor)
+        return super().permissions(actor)
 
 
 class BaseIdNameMixin(BaseMixin):
@@ -848,8 +839,7 @@ class BaseIdNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):

@@ -65,7 +65,7 @@ filtered_value_indicator = FilteredValueIndicator()
 def filtered_value(key, value):
     if isinstance(key, str) and _filter_re.search(key):
         return filtered_value_indicator
-    elif isinstance(value, str):
+    if isinstance(value, str):
         return _card_re.sub('[Filtered]', value)
     return value
 
@@ -94,10 +94,12 @@ class LocalVarFormatter(logging.Formatter):
         :meth:`logging.Formatter.format` to remove cache of
         :attr:`record.exc_text` unless it was produced by this formatter.
         """
-        if record.exc_info:
-            if record.exc_text:
-                if "Stack frames (most recent call first)" not in record.exc_text:
-                    record.exc_text = None
+        if (
+            record.exc_info
+            and record.exc_text
+            and "Stack frames (most recent call first)" not in record.exc_text
+        ):
+            record.exc_text = None
         return super().format(record)
 
     def formatException(self, ei):  # NOQA: N802
@@ -429,35 +431,34 @@ def init_app(app):
         file_handler.setLevel(app.config.get('LOGFILE_LEVEL', logging.WARNING))
         app.logger.addHandler(file_handler)
 
-    if app.config.get('ADMIN_NUMBERS'):
-        if all(
-            key in app.config
-            for key in [
-                'SMS_EXOTEL_SID',
-                'SMS_EXOTEL_TOKEN',
-                'SMS_EXOTEL_FROM',
-                'SMS_TWILIO_SID',
-                'SMS_TWILIO_TOKEN',
-                'SMS_TWILIO_FROM',
-            ]
-        ):
+    if app.config.get('ADMIN_NUMBERS') and all(
+        key in app.config
+        for key in [
+            'SMS_EXOTEL_SID',
+            'SMS_EXOTEL_TOKEN',
+            'SMS_EXOTEL_FROM',
+            'SMS_TWILIO_SID',
+            'SMS_TWILIO_TOKEN',
+            'SMS_TWILIO_FROM',
+        ]
+    ):
 
-            # A little trickery because directly creating
-            # an SMSHandler object didn't work
-            logging.handlers.SMSHandler = SMSHandler
+        # A little trickery because directly creating
+        # an SMSHandler object didn't work
+        logging.handlers.SMSHandler = SMSHandler
 
-            sms_handler = logging.handlers.SMSHandler(
-                app_name=app.config.get('SITE_ID') or app.name,
-                exotel_sid=app.config['SMS_EXOTEL_SID'],
-                exotel_token=app.config['SMS_EXOTEL_TOKEN'],
-                exotel_from=app.config['SMS_EXOTEL_FROM'],
-                twilio_sid=app.config['SMS_TWILIO_SID'],
-                twilio_token=app.config['SMS_TWILIO_TOKEN'],
-                twilio_from=app.config['SMS_TWILIO_FROM'],
-                phonenumbers=app.config['ADMIN_NUMBERS'],
-            )
-            sms_handler.setLevel(logging.ERROR)
-            app.logger.addHandler(sms_handler)
+        sms_handler = logging.handlers.SMSHandler(
+            app_name=app.config.get('SITE_ID') or app.name,
+            exotel_sid=app.config['SMS_EXOTEL_SID'],
+            exotel_token=app.config['SMS_EXOTEL_TOKEN'],
+            exotel_from=app.config['SMS_EXOTEL_FROM'],
+            twilio_sid=app.config['SMS_TWILIO_SID'],
+            twilio_token=app.config['SMS_TWILIO_TOKEN'],
+            twilio_from=app.config['SMS_TWILIO_FROM'],
+            phonenumbers=app.config['ADMIN_NUMBERS'],
+        )
+        sms_handler.setLevel(logging.ERROR)
+        app.logger.addHandler(sms_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler

@@ -64,9 +64,8 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
             perms = set()
         else:
             perms = inherited
-        if actor.username == 'foo':
-            if 'delete' in perms:
-                perms.remove('delete')
+        if actor.username == 'foo' and 'delete' in perms:
+            perms.remove('delete')
         return perms
 
 

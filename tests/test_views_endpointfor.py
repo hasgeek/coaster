@@ -14,9 +14,7 @@ class TestScaffolding(unittest.TestCase):
     server_name: Optional[str] = None
 
     def setUp(self):
-        self.app = Flask(
-            __name__, subdomain_matching=True if self.server_name else False
-        )
+        self.app = Flask(__name__, subdomain_matching=bool(self.server_name))
         # Use `view` as the view function for all routes as it's not actually called
         self.app.add_url_rule('/', 'index', view)
         self.app.add_url_rule('/slashed/', 'slashed', view)

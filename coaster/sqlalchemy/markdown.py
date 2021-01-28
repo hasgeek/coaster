@@ -108,7 +108,6 @@ def markdown_column(
     :param options: Additional options for the Markdown processor
     :param kwargs: Additional column options, passed to SQLAlchemy's column constructor
     """
-
     # Construct a custom subclass of MarkdownComposite and set the markdown processor
     # and processor options on it. We'll pass this class to SQLAlchemy's composite
     # constructor.
