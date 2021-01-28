@@ -148,7 +148,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
         return success, 'passed'
 
     def roles_for(self, actor=None, anchors=()):
-        roles = super(MyPost, self).roles_for(actor, anchors)
+        roles = super().roles_for(actor, anchors)
         # Cheap hack for the sake of testing, using strings instead of objects
         if actor == 'author':
             roles.add('author')

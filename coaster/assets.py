@@ -106,7 +106,7 @@ class VersionedAssets(defaultdict):
 
     def __init__(self):
         # Override dict's __init__ to prevent parameters
-        super(VersionedAssets, self).__init__(dict)
+        super().__init__(dict)
 
     def _require_recursive(self, *namespecs):
         asset_versions = {}  # Name: version

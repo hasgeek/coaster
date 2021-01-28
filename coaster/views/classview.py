@@ -104,12 +104,11 @@ def rulejoin(class_rule, method_rule):
     """
     if method_rule.startswith('/'):
         return method_rule
-    else:
-        return (
-            class_rule
-            + ('' if class_rule.endswith('/') or not method_rule else '/')
-            + method_rule
-        )
+    return (
+        class_rule
+        + ('' if class_rule.endswith('/') or not method_rule else '/')
+        + method_rule
+    )
 
 
 class ViewHandler:
@@ -169,7 +168,7 @@ class ViewHandler:
 
         # Are we decorating another ViewHandler? If so, copy routes and
         # wrapped method from it.
-        elif isinstance(decorated, (ViewHandler, ViewHandlerWrapper)):
+        if isinstance(decorated, (ViewHandler, ViewHandlerWrapper)):
             self.routes.extend(decorated.routes)
             newdata = dict(decorated.data)
             newdata.update(self.data)
@@ -393,7 +392,7 @@ class ClassView:
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
-    view_args = None
+    view_args: Optional[dict] = None
 
     def __eq__(self, other):
         return type(other) is type(self)
@@ -434,7 +433,7 @@ class ClassView:
             class MyView(ClassView):
                 ...
                 def after_request(self, response):
-                    response = super(MyView, self).after_request(response)
+                    response = super().after_request(response)
                     ...  # Process here
                     return response
 
@@ -568,7 +567,7 @@ class ModelView(ClassView):
     route_model_map: Dict[str, str] = {}
 
     def __init__(self, obj=None):
-        super(ModelView, self).__init__()
+        super().__init__()
         self.obj = obj
 
     def __eq__(self, other):
@@ -621,6 +620,7 @@ class ModelView(ClassView):
             else:
                 perms = InspectableSet()
             add_auth_attribute('permissions', perms)
+        return None
 
 
 def requires_roles(roles):
@@ -702,7 +702,7 @@ class UrlForView:
             if callback:  # pragma: no cover
                 callback(rule, endpoint, view_func, **options)
 
-        super(UrlForView, cls).init_app(app, callback=register_view_on_model)
+        super().init_app(app, callback=register_view_on_model)
 
 
 def url_change_check(f):

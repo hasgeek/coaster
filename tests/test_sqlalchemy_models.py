@@ -695,8 +695,8 @@ class TestCoasterModels(unittest.TestCase):
             IdNamedDocument,
             ScopedIdNamedDocument,
         ):
-            assert isinstance(inspect(getattr(model, 'name')).type, Unicode)
-            assert isinstance(inspect(getattr(model, 'title')).type, Unicode)
+            assert isinstance(inspect(model.name).type, Unicode)
+            assert isinstance(inspect(model.title).type, Unicode)
 
         for model in (
             UnlimitedName,
@@ -704,8 +704,8 @@ class TestCoasterModels(unittest.TestCase):
             UnlimitedIdName,
             UnlimitedScopedIdName,
         ):
-            assert isinstance(inspect(getattr(model, 'name')).type, UnicodeText)
-            assert isinstance(inspect(getattr(model, 'title')).type, UnicodeText)
+            assert isinstance(inspect(model.name).type, UnicodeText)
+            assert isinstance(inspect(model.title).type, UnicodeText)
 
     def test_title_for_name(self):
         """Models can customise how their names are generated"""

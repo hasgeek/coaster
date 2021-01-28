@@ -40,11 +40,11 @@ class ParentDocument(BaseNameMixin, db.Model):
     middle = relationship(MiddleContainer, uselist=False)
 
     def __init__(self, **kwargs):
-        super(ParentDocument, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.middle = MiddleContainer()
 
     def permissions(self, actor, inherited=None):
-        perms = super(ParentDocument, self).permissions(actor, inherited)
+        perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor.username == 'foo':
             perms.add('edit')

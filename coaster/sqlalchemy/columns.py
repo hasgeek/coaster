@@ -128,13 +128,13 @@ class UrlType(UrlTypeBase):
     def __init__(
         self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
     ):
-        super(UrlType, self).__init__()
+        super().__init__()
         self.schemes = schemes
         self.optional_host = optional_host
         self.optional_scheme = optional_scheme
 
     def process_bind_param(self, value, dialect):
-        value = super(UrlType, self).process_bind_param(value, dialect)
+        value = super().process_bind_param(value, dialect)
         if value:
             parsed = self.url_parser(value)
             # If scheme is present, it must be valid

@@ -98,7 +98,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
 
     def roles_for(self, actor=None, anchors=()):
         # Calling super gives us a set with the standard roles
-        roles = super(RoleModel, self).roles_for(actor, anchors)
+        roles = super().roles_for(actor, anchors)
         if 'owner-secret' in anchors:
             roles.add('owner')  # Grant owner role
         return roles
@@ -345,7 +345,7 @@ class JsonEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, RoleAccessProxy):
             return dict(o)
-        return super(JsonEncoder, self).default(o)
+        return super().default(o)
 
 
 # --- Tests -------------------------------------------------------------------

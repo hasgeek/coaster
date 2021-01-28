@@ -299,7 +299,7 @@ class AbortTransition(Exception):
     """
 
     def __init__(self, result=None):
-        super(AbortTransition, self).__init__(result)
+        super().__init__(result)
 
 
 # --- Classes --------------------------------------------------------------------------
@@ -359,8 +359,7 @@ class ManagedState:
                 valuematch = self.statemanager._value(obj, cls) == self.value
             if self.validator is not None:
                 return valuematch and self.validator(obj)
-            else:
-                return valuematch
+            return valuematch
         else:
             # We have a class, so return a filter condition, for use as
             # cls.query.filter(result)
@@ -373,14 +372,12 @@ class ManagedState:
                 cv = self.validator
             if cv is not None:
                 return and_(valuematch, cv(cls))
-            else:
-                return valuematch
+            return valuematch
 
     def __call__(self, obj, cls=None):
         if obj is not None:
             return ManagedStateWrapper(self, obj, cls)
-        else:
-            return self._eval(obj, cls)
+        return self._eval(obj, cls)
 
 
 class ManagedStateGroup:
@@ -440,14 +437,12 @@ class ManagedStateGroup:
     def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
-        else:
-            return or_(*[s(obj, cls) for s in self.states])
+        return or_(*[s(obj, cls) for s in self.states])
 
     def __call__(self, obj, cls=None):
         if obj is not None:
             return ManagedStateWrapper(self, obj, cls)
-        else:
-            return self._eval(obj, cls)
+        return self._eval(obj, cls)
 
 
 class ManagedStateWrapper:
@@ -583,8 +578,7 @@ class StateTransition:
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
-        else:
-            return StateTransitionWrapper(self, obj)
+        return StateTransitionWrapper(self, obj)
 
 
 class StateTransitionWrapper:
@@ -732,8 +726,7 @@ class StateManager:
     def __repr__(self):
         if self.owner is not None:
             return '%s.%s' % (self.owner.__name__, self.name)
-        else:
-            return '<StateManager %s>' % self.name
+        return '<StateManager %s>' % self.name
 
     def __get__(
         self, obj: Optional[T], cls: Optional[Type[T]] = None
@@ -908,8 +901,7 @@ class StateManager:
         """The state value (called from the wrapper)"""
         if obj is not None:
             return getattr(obj, self.propname)
-        else:
-            return getattr(cls, self.propname)
+        return getattr(cls, self.propname)
 
     @staticmethod
     def check_constraint(column, lenum, **kwargs):

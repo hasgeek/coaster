@@ -109,7 +109,7 @@ Example use::
         def roles_for(self, actor=None, anchors=()):
             # Calling super gives us a LazyRoleSet with the standard roles
             # and with lazy evaluation of of other roles from `granted_by`
-            roles = super(RoleModel, self).roles_for(actor, anchors)
+            roles = super().roles_for(actor, anchors)
 
             # We can manually add a role to override lazy evaluation
             if 'owner-secret' in anchors:
@@ -174,7 +174,7 @@ def _actor_in_relationship(actor, relationship):
     """Test whether the given actor is present in the given attribute"""
     if actor == relationship:
         return True
-    elif isinstance(relationship, (AppenderMixin, Query, abc.Container)):
+    if isinstance(relationship, (AppenderMixin, Query, abc.Container)):
         return actor in relationship
     return False
 
@@ -195,12 +195,11 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                     )
                 )
             return offered_roles
-        else:
-            raise TypeError(
-                "{0!r} is not a RoleMixin and no actor attribute was specified".format(
-                    relationship
-                )
+        raise TypeError(
+            "{0!r} is not a RoleMixin and no actor attribute was specified".format(
+                relationship
             )
+        )
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
@@ -245,10 +244,9 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 )
             )
         return offered_roles
-    else:
-        # Not a role granting object. Implies that the default roles are granted
-        # by its very existence.
-        return roles
+    # Not a role granting object. Implies that the default roles are granted
+    # by its very existence.
+    return roles
 
 
 class RoleGrantABC(metaclass=ABCMeta):
@@ -288,16 +286,16 @@ class LazyRoleSet(abc.MutableSet):
         return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
 
     # This is required by the `MutableSet` base class
-    def _from_iterable(self, iterable):
-        return LazyRoleSet(self.obj, self.actor, iterable)
+    def _from_iterable(self, it):
+        return LazyRoleSet(self.obj, self.actor, it)
 
     def _role_is_present(self, role):
         """Test whether a role has been granted to the bound actor"""
         if role in self._present:
             return True
-        elif role in self._not_present:
+        if role in self._not_present:
             return False
-        elif self.actor is not None:
+        if self.actor is not None:
             if role not in self.obj.__roles__:
                 self._not_present.add(role)
                 return False
@@ -401,21 +399,20 @@ class LazyRoleSet(abc.MutableSet):
                 and self.actor == other.actor
                 and self._contents() == other._contents()
             )
-        else:
-            return self._contents() == other
+        return self._contents() == other
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def add(self, elem):
-        """Add role `elem` to the set."""
-        self._present.add(elem)
-        self._not_present.discard(elem)
+    def add(self, value):
+        """Add role `value` to the set."""
+        self._present.add(value)
+        self._not_present.discard(value)
 
-    def discard(self, elem):
-        """Remove role `elem` from the set if it is present."""
-        self._present.discard(elem)
-        self._not_present.add(elem)
+    def discard(self, value):
+        """Remove role `value` from the set if it is present."""
+        self._present.discard(value)
+        self._not_present.add(value)
 
     def has_any(self, roles):
         """
@@ -625,14 +622,14 @@ class RoleAccessProxy(abc.Mapping):
             return attr.access_for(
                 actor=self._actor, anchors=self._anchors, datasets=self._datasets
             )
-        elif isinstance(attr, (InstrumentedDict, MappedCollection)):
+        if isinstance(attr, (InstrumentedDict, MappedCollection)):
             return {
                 k: v.access_for(
                     actor=self._actor, anchors=self._anchors, datasets=self._datasets
                 )
                 for k, v in attr.items()
             }
-        elif isinstance(
+        if isinstance(
             attr,
             (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList, Query),
         ):
@@ -645,35 +642,30 @@ class RoleAccessProxy(abc.Mapping):
                 )
                 for m in attr
             )
-        else:
-            return attr
+        return attr
 
     def __getattr__(self, attr):
         # See also __getitem__, which doesn't consult _call
         if attr in self._read or attr in self._call:
             return self.__get_processed_attr(attr)
-        else:
-            raise AttributeError(attr)
+        raise AttributeError(attr)
 
     def __setattr__(self, attr, value):
         # See also __setitem__
         if attr in self._write:
             return setattr(self._obj, attr, value)
-        else:
-            raise AttributeError(attr)
+        raise AttributeError(attr)
 
     def __getitem__(self, key):
         # See also __getattr__, which also looks in _call
         if key in self._read:
             return self.__get_processed_attr(key)
-        else:
-            raise KeyError(key)
+        raise KeyError(key)
 
     def __len__(self):
         if self._dataset_attrs is not None:
             return len(self._read & self._dataset_attrs)
-        else:
-            return len(self._read)
+        return len(self._read)
 
     def __contains__(self, key):
         return key in self._read or key in self._call
@@ -682,8 +674,7 @@ class RoleAccessProxy(abc.Mapping):
         # See also __setattr__
         if key in self._write:
             return setattr(self._obj, key, value)
-        else:
-            raise KeyError(key)
+        raise KeyError(key)
 
     def __iter__(self):
         if self._dataset_attrs is not None:
@@ -838,8 +829,7 @@ def with_roles(
         raise TypeError('Roles must be specified as named parameters')
     if obj is not None:
         return inner(obj)
-    else:
-        return inner
+    return inner
 
 
 # with_roles was set_roles when originally introduced in 0.6.0
@@ -935,7 +925,7 @@ class RoleMixin:
         boilerplate::
 
             def roles_for(self, actor=None, anchors=()):
-                roles = super(YourClass, self).roles_for(actor, anchors)
+                roles = super().roles_for(actor, anchors)
                 # 'roles' is a set. Add more roles here
                 # ...
                 return roles

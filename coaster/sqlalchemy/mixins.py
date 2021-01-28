@@ -585,7 +585,7 @@ class BaseNameMixin(BaseMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if not self.name:
             self.make_name()
 
@@ -707,7 +707,7 @@ class BaseScopedNameMixin(BaseMixin):
         return Column(column_type, nullable=False)
 
     def __init__(self, *args, **kw):
-        super(BaseScopedNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent and not self.name:
             self.make_name()
 
@@ -804,13 +804,11 @@ class BaseScopedNameMixin(BaseMixin):
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedNameMixin, self).permissions(actor)
+            return inherited | super().permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(
-                BaseScopedNameMixin, self
-            ).permissions(actor)
+            return self.parent.permissions(actor) | super().permissions(actor)
         else:
-            return super(BaseScopedNameMixin, self).permissions(actor)
+            return super().permissions(actor)
 
 
 class BaseIdNameMixin(BaseMixin):
@@ -868,7 +866,7 @@ class BaseIdNameMixin(BaseMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseIdNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if not self.name:
             self.make_name()
 
@@ -893,8 +891,7 @@ class BaseIdNameMixin(BaseMixin):
     def url_id_name(cls):
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
-        else:
-            return SqlSplitIdComparator(cls.id, splitindex=0)
+        return SqlSplitIdComparator(cls.id, splitindex=0)
 
     url_name = url_id_name  # Legacy name
 
@@ -934,7 +931,7 @@ class BaseScopedIdMixin(BaseMixin):
         return Column(Integer, nullable=False)
 
     def __init__(self, *args, **kw):
-        super(BaseScopedIdMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent:
             self.make_id()
 
@@ -963,13 +960,10 @@ class BaseScopedIdMixin(BaseMixin):
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedIdMixin, self).permissions(actor)
-        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(
-                BaseScopedIdMixin, self
-            ).permissions(actor)
-        else:
-            return super(BaseScopedIdMixin, self).permissions(actor)
+            return inherited | super().permissions(actor)
+        if self.parent is not None and isinstance(self.parent, PermissionMixin):
+            return self.parent.permissions(actor) | super().permissions(actor)
+        return super().permissions(actor)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
@@ -1019,8 +1013,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -1037,7 +1030,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent:
             self.make_id()
         if not self.name:

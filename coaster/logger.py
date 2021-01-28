@@ -98,7 +98,7 @@ class LocalVarFormatter(logging.Formatter):
             if record.exc_text:
                 if "Stack frames (most recent call first)" not in record.exc_text:
                     record.exc_text = None
-        return super(LocalVarFormatter, self).format(record)
+        return super().format(record)
 
     def formatException(self, ei):  # NOQA: N802
         tb = ei[2]
@@ -263,7 +263,7 @@ class SlackHandler(logging.Handler):
     """
 
     def __init__(self, app_name, webhooks):
-        super(SlackHandler, self).__init__()
+        super().__init__()
         self.app_name = app_name
         self.webhooks = webhooks
 
@@ -340,7 +340,7 @@ class TelegramHandler(logging.Handler):
     """
 
     def __init__(self, app_name, chatid, apikey):
-        super(TelegramHandler, self).__init__()
+        super().__init__()
         self.app_name = app_name
         self.chatid = chatid
         self.apikey = apikey

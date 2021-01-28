@@ -31,7 +31,7 @@ class JsonEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, abc.Mapping):
             return dict(o)
-        return super(JsonEncoder, self).default(o)
+        return super().default(o)
 
 
 app = Flask(__name__)
@@ -50,7 +50,7 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
     def permissions(self, actor, inherited=()):
-        perms = super(ViewDocument, self).permissions(actor, inherited)
+        perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor in (
             'this-is-the-owner',
@@ -61,7 +61,7 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
         return perms
 
     def roles_for(self, actor=None, anchors=()):
-        roles = super(ViewDocument, self).roles_for(actor, anchors)
+        roles = super().roles_for(actor, anchors)
         if actor in ('this-is-the-owner', 'this-is-another-owner'):
             roles.add('owner')
         return roles
@@ -223,7 +223,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
             add_auth_attribute(
                 'user', 'this-is-the-owner'
             )  # See ViewDocument.permissions
-        return super(ModelDocumentView, self).before_request()
+        return super().before_request()
 
     @route('')
     @render_with(json=True)
@@ -304,7 +304,7 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
             add_auth_attribute(
                 'user', 'this-is-another-owner'
             )  # See ViewDocument.permissions
-        return super(GatedDocumentView, self).before_request()
+        return super().before_request()
 
     @route('perm')
     @requires_permission('edit')

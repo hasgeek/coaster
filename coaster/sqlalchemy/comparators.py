@@ -63,7 +63,7 @@ class SplitIndexComparator(Comparator):
     """
 
     def __init__(self, expression, splitindex=None):
-        super(SplitIndexComparator, self).__init__(expression)
+        super().__init__(expression)
         self.splitindex = splitindex
 
     def _decode(self, other):
