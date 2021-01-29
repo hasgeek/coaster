@@ -197,12 +197,18 @@ class MyData(db.Model):
 class MyUrlModel(db.Model):
     __tablename__ = 'my_url'
     id = Column(Integer, primary_key=True)  # NOQA: A003
-    url = Column(UrlType)
-    url_all_scheme = Column(UrlType(schemes=None))
-    url_custom_scheme = Column(UrlType(schemes='ftp'))
-    url_optional_scheme = Column(UrlType(optional_scheme=True))
-    url_optional_host = Column(UrlType(schemes=('mailto', 'file'), optional_host=True))
-    url_optional_scheme_host = Column(UrlType(optional_scheme=True, optional_host=True))
+    url = Column(UrlType)  # type: ignore[var-annotated]
+    url_all_scheme = Column(UrlType(schemes=None))  # type: ignore[var-annotated]
+    url_custom_scheme = Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
+    url_optional_scheme = Column(  # type: ignore[var-annotated]
+        UrlType(optional_scheme=True)
+    )
+    url_optional_host = Column(  # type: ignore[var-annotated]
+        UrlType(schemes=('mailto', 'file'), optional_host=True)
+    )
+    url_optional_scheme_host = Column(  # type: ignore[var-annotated]
+        UrlType(optional_scheme=True, optional_host=True)
+    )
 
 
 class NonUuidKey(BaseMixin, db.Model):
@@ -224,14 +230,14 @@ class UuidKeyNoDefault(BaseMixin, db.Model):
 class UuidForeignKey1(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
     uuidkey = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))
+    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
     uuidkey = relationship(UuidKey)
 
 
@@ -266,7 +272,7 @@ class ParentForPrimary(BaseMixin, db.Model):
 
 class ChildForPrimary(BaseMixin, db.Model):
     __tablename__ = 'child_for_primary'
-    parent_for_primary_id = Column(
+    parent_for_primary_id = Column(  # type: ignore[call-overload]
         None, ForeignKey('parent_for_primary.id'), nullable=False
     )
     parent_for_primary = db.relationship(ParentForPrimary)
@@ -689,8 +695,8 @@ class TestCoasterModels(unittest.TestCase):
             IdNamedDocument,
             ScopedIdNamedDocument,
         ):
-            assert isinstance(inspect(getattr(model, 'name')).type, Unicode)
-            assert isinstance(inspect(getattr(model, 'title')).type, Unicode)
+            assert isinstance(inspect(model.name).type, Unicode)
+            assert isinstance(inspect(model.title).type, Unicode)
 
         for model in (
             UnlimitedName,
@@ -698,8 +704,8 @@ class TestCoasterModels(unittest.TestCase):
             UnlimitedIdName,
             UnlimitedScopedIdName,
         ):
-            assert isinstance(inspect(getattr(model, 'name')).type, UnicodeText)
-            assert isinstance(inspect(getattr(model, 'title')).type, UnicodeText)
+            assert isinstance(inspect(model.name).type, UnicodeText)
+            assert isinstance(inspect(model.title).type, UnicodeText)
 
     def test_title_for_name(self):
         """Models can customise how their names are generated"""

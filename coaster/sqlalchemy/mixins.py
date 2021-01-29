@@ -19,6 +19,7 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 """
 
 from collections import namedtuple
+from typing import TYPE_CHECKING, Any, Container, Dict, Optional, Tuple
 import collections.abc as abc
 import uuid as uuid_
 
@@ -34,12 +35,11 @@ from sqlalchemy import (
     inspect,
 )
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import synonym
 from sqlalchemy.sql import func, select
 from sqlalchemy_utils.types import UUIDType
 
-from flask import current_app, url_for
+from flask import Flask, current_app, url_for
 from werkzeug.routing import BuildError
 
 from ..auth import current_auth
@@ -63,6 +63,15 @@ from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
+
+if TYPE_CHECKING:
+    # mypy doesn't understand hybrid_property, so this is a hack telling it to assume
+    # hybrid_property is just an alias for property, but only when type checking.
+    # Fix pending in https://github.com/dropbox/sqlalchemy-stubs/issues/98
+    hybrid_property = property
+else:
+    from sqlalchemy.ext.hybrid import hybrid_property
+
 
 __all__ = [
     'IdMixin',
@@ -109,8 +118,7 @@ class IdMixin:
                     nullable=False,
                 )
             )
-        else:
-            return immutable(Column(Integer, primary_key=True, nullable=False))
+        return immutable(Column(Integer, primary_key=True, nullable=False))
 
     @declared_attr
     def url_id(cls):
@@ -128,20 +136,19 @@ class IdMixin:
             url_id_property = hybrid_property(url_id_func)
             url_id_property = url_id_property.comparator(url_id_is)
             return url_id_property
-        else:
 
-            def url_id_func(self):
-                """The URL id, integer primary key rendered as a string"""
-                return str(self.id)
+        def url_id_func(self):
+            """The URL id, integer primary key rendered as a string"""
+            return str(self.id)
 
-            def url_id_expression(cls):
-                """The URL id, integer primary key"""
-                return cls.id
+        def url_id_expression(cls):
+            """The URL id, integer primary key"""
+            return cls.id
 
-            url_id_func.__name__ = 'url_id'
-            url_id_property = hybrid_property(url_id_func)
-            url_id_property = url_id_property.expression(url_id_expression)
-            return url_id_property
+        url_id_func.__name__ = 'url_id'
+        url_id_property = hybrid_property(url_id_func)
+        url_id_property = url_id_property.expression(url_id_expression)
+        return url_id_property
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.id)
@@ -161,15 +168,14 @@ class UuidMixin:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
-        else:
-            return immutable(
-                Column(
-                    UUIDType(binary=False),
-                    default=uuid_.uuid4,
-                    unique=True,
-                    nullable=False,
-                )
+        return immutable(
+            Column(
+                UUIDType(binary=False),
+                default=uuid_.uuid4,
+                unique=True,
+                nullable=False,
             )
+        )
 
     @hybrid_property
     def uuid_hex(self):
@@ -182,8 +188,7 @@ class UuidMixin:
         # but works fine in the `uuid_b64` and `uuid_b58` comparators below
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id)
-        else:
-            return SqlUuidHexComparator(cls.uuid)
+        return SqlUuidHexComparator(cls.uuid)
 
     @hybrid_property
     def uuid_b64(self):
@@ -199,9 +204,11 @@ class UuidMixin:
         return SqlUuidB64Comparator(cls.uuid)
 
     #: Retain `buid` as a public attribute for backward compatibility
+    buid = uuid_b64
+
     #: Since `with_roles` annotates the attribute, both aliases (uuid_b64 and buid)
     #: will become public to the `all` role as a result of this annotation.
-    buid = with_roles(uuid_b64, read={'all'})
+    with_roles(uuid_b64, read={'all'})
 
     @hybrid_property
     def uuid_b58(self):
@@ -216,7 +223,7 @@ class UuidMixin:
     def uuid_b58(cls):
         return SqlUuidB58Comparator(cls.uuid)
 
-    uuid_b58 = with_roles(uuid_b58, read={'all'})
+    with_roles(uuid_b58, read={'all'})
 
 
 # Also see functions.make_timestamp_columns
@@ -260,8 +267,7 @@ class PermissionMixin:
         """
         if inherited is not None:
             return set(inherited)
-        else:
-            return set()
+        return set()
 
     @property
     def current_permissions(self):
@@ -347,16 +353,18 @@ class UrlForMixin:
     #: strings. The same action can point to different endpoints in different apps. The
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
-    url_for_endpoints = {None: {}}
+    url_for_endpoints: Dict[Optional[Flask], Dict[str, Dict[str, Tuple[str, str]]]] = {
+        None: {}
+    }
     #: Mapping of {app: {action: (classview, attr)}}
-    view_for_endpoints = {}
+    view_for_endpoints: Dict[Flask, Dict[str, Tuple[Any, str]]] = {}
 
     #: Dictionary of URLs available on this object
     urls = UrlDictStub()
 
     def url_for(self, action='view', **kwargs):
         """
-        Return public URL to this instance for a given action (default 'view')
+        Return public URL to this instance for a given action (default 'view').
         """
         app = current_app._get_current_object() if current_app else None
         if app is not None and action in self.url_for_endpoints.get(app, {}):
@@ -439,7 +447,6 @@ class UrlForMixin:
         :param roles: Roles to which this URL is available, required by :class:`UrlDict`
         :param dict paramattrs: Mapping of URL parameter to attribute on the object
         """
-
         if 'url_for_endpoints' not in cls.__dict__:
             cls.url_for_endpoints = {
                 None: {}
@@ -536,11 +543,12 @@ class BaseNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names = []
+    reserved_names: Container[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -551,10 +559,9 @@ class BaseNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False, unique=True)
-        else:
-            return Column(
-                column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
-            )
+        return Column(
+            column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
+        )
 
     @declared_attr
     def title(cls):
@@ -571,7 +578,7 @@ class BaseNameMixin(BaseMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if not self.name:
             self.make_name()
 
@@ -664,11 +671,12 @@ class BaseScopedNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names = []
+    reserved_names: Container[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -679,8 +687,7 @@ class BaseScopedNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -692,7 +699,7 @@ class BaseScopedNameMixin(BaseMixin):
         return Column(column_type, nullable=False)
 
     def __init__(self, *args, **kw):
-        super(BaseScopedNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent and not self.name:
             self.make_name()
 
@@ -769,14 +776,14 @@ class BaseScopedNameMixin(BaseMixin):
             and self.parent is not None
             and hasattr(self.parent, 'title')
             and self.parent.title
+            and self.title.startswith(self.parent.title)
         ):
-            if self.title.startswith(self.parent.title):
-                short = self.title[len(self.parent.title) :].strip()
-                match = _punctuation_re.match(short)
-                if match:
-                    short = short[match.end() :].strip()
-                if short:
-                    return short
+            short = self.title[len(self.parent.title) :].strip()
+            match = _punctuation_re.match(short)
+            if match:
+                short = short[match.end() :].strip()
+            if short:
+                return short
         return self.title
 
     @property
@@ -789,13 +796,10 @@ class BaseScopedNameMixin(BaseMixin):
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedNameMixin, self).permissions(actor)
+            return inherited | super().permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(
-                BaseScopedNameMixin, self
-            ).permissions(actor)
-        else:
-            return super(BaseScopedNameMixin, self).permissions(actor)
+            return self.parent.permissions(actor) | super().permissions(actor)
+        return super().permissions(actor)
 
 
 class BaseIdNameMixin(BaseMixin):
@@ -823,7 +827,8 @@ class BaseIdNameMixin(BaseMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -834,8 +839,7 @@ class BaseIdNameMixin(BaseMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -852,7 +856,7 @@ class BaseIdNameMixin(BaseMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseIdNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if not self.name:
             self.make_name()
 
@@ -864,7 +868,6 @@ class BaseIdNameMixin(BaseMixin):
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
-    @with_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """
@@ -878,12 +881,10 @@ class BaseIdNameMixin(BaseMixin):
     def url_id_name(cls):
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
-        else:
-            return SqlSplitIdComparator(cls.id, splitindex=0)
+        return SqlSplitIdComparator(cls.id, splitindex=0)
 
     url_name = url_id_name  # Legacy name
 
-    @with_roles(read={'all'})
     @hybrid_property
     def url_name_uuid_b58(self):
         """
@@ -920,7 +921,7 @@ class BaseScopedIdMixin(BaseMixin):
         return Column(Integer, nullable=False)
 
     def __init__(self, *args, **kw):
-        super(BaseScopedIdMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent:
             self.make_id()
 
@@ -949,13 +950,10 @@ class BaseScopedIdMixin(BaseMixin):
         Permissions for this model, plus permissions inherited from the parent.
         """
         if inherited is not None:
-            return inherited | super(BaseScopedIdMixin, self).permissions(actor)
-        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
-            return self.parent.permissions(actor) | super(
-                BaseScopedIdMixin, self
-            ).permissions(actor)
-        else:
-            return super(BaseScopedIdMixin, self).permissions(actor)
+            return inherited | super().permissions(actor)
+        if self.parent is not None and isinstance(self.parent, PermissionMixin):
+            return self.parent.permissions(actor) | super().permissions(actor)
+        return super().permissions(actor)
 
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
@@ -993,7 +991,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__ = __title_length__ = 250
+    __name_length__: Optional[int] = 250
+    __title_length__: Optional[int] = 250
 
     @declared_attr
     def name(cls):
@@ -1004,8 +1003,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             column_type = Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
             return Column(column_type, nullable=False)
-        else:
-            return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
     def title(cls):
@@ -1022,7 +1020,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return self.title
 
     def __init__(self, *args, **kw):
-        super(BaseScopedIdNameMixin, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         if self.parent:
             self.make_id()
         if not self.name:
@@ -1046,7 +1044,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
-    @with_roles(read={'all'})
     @hybrid_property
     def url_id_name(self):
         """
@@ -1060,7 +1057,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     url_name = url_id_name  # Legacy name
 
-    @with_roles(read={'all'})
     @hybrid_property
     def url_name_uuid_b58(self):
         """

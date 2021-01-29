@@ -23,7 +23,7 @@ cached = annotation_wrapper(
 
 class ImmutableColumnError(AttributeError):
     def __init__(self, class_name, column_name, old_value, new_value, message=None):
-        super(ImmutableColumnError, self).__init__(message)
+        super().__init__(message)
         self.class_name = class_name
         self.column_name = column_name
         self.old_value = old_value

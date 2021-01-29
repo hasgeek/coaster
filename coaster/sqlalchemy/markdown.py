@@ -1,3 +1,5 @@
+from typing import Any, Callable, Dict, Union
+
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite
@@ -18,7 +20,10 @@ class MarkdownComposite(MutableComposite):
     #: or the markdown processor will receive `self` as first parameter
     markdown = staticmethod(markdown_processor)
     #: Markdown options. Subclasses can override this
-    options = {}
+    options: Union[
+        Dict[str, Any],  # Options may be a dictionary of string keys,
+        Callable[[], Dict[str, Any]],  # or a callable that returns such a dictionary
+    ] = {}
 
     def __init__(self, text, html=None):
         if html is None:
@@ -103,7 +108,6 @@ def markdown_column(
     :param options: Additional options for the Markdown processor
     :param kwargs: Additional column options, passed to SQLAlchemy's column constructor
     """
-
     # Construct a custom subclass of MarkdownComposite and set the markdown processor
     # and processor options on it. We'll pass this class to SQLAlchemy's composite
     # constructor.
