@@ -1,9 +1,10 @@
-0.7.0 - 2021-01-XX
+0.7.0 - 2021-04-XX
 ------------------
 
 * Dropped Python 2.7 support
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 * Removed deprecated ``make_password`` and ``check_password`` functions
+* Added ``compress_whitespace`` to mimic browser compression of whitespace
 
 0.6.1 - 2021-01-06
 ------------------

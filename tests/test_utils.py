@@ -9,6 +9,7 @@ from coaster.utils import (
     InspectableSet,
     LabeledEnum,
     ParseError,
+    compress_whitespace,
     deobfuscate_email,
     isoweek_datetime,
     midnight_to_utc,
@@ -272,6 +273,26 @@ class TestCoasterUtils(unittest.TestCase):
     def test_ustrip(self):
         assert ustrip(' Test this ') == 'Test this'
         assert ustrip('\u200b Test this \u200b') == 'Test this'
+
+    def test_compress_whitespace(self):
+        assert compress_whitespace("This is normal text") == "This is normal text"
+        assert compress_whitespace("This\tis\ttabbed\ttext") == "This is tabbed text"
+        assert compress_whitespace("This  is  spaced  out") == "This is spaced out"
+        assert compress_whitespace("  Leading whitespace") == "Leading whitespace"
+        assert compress_whitespace("Trailing whitespace  ") == "Trailing whitespace"
+        assert (
+            compress_whitespace(
+                """
+            This is a multiline
+            piece of text.
+            """
+            )
+            == "This is a multiline piece of text."
+        )
+        assert (
+            compress_whitespace("Unicode\u2002whitespace\u2003here")
+            == "Unicode whitespace here"
+        )
 
     def test_nary_op(self):
         class DemoSet(MutableSet):
