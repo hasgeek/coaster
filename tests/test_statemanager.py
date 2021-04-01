@@ -612,6 +612,8 @@ class TestStateManager(unittest.TestCase):
             def dupe_decorator(self):
                 pass
 
+        state.transitions.remove('dupe_decorator')
+
     def test_available_transitions(self):
         """State managers indicate the currently available transitions"""
         assert self.post.state.DRAFT
