@@ -1,5 +1,8 @@
 #!/bin/sh
 set -e
 export FLASK_ENV="TESTING"
-coverage run -m pytest "$@"
-coverage report -m
+if [ $# -eq 0 ]; then
+    pytest --cov=coaster
+else
+    pytest "$@"
+fi
