@@ -40,7 +40,7 @@ class MY_ENUM_TWO(LabeledEnum):  # NOQA: N801
     __order__ = (FIRST, SECOND, THIRD)
 
 
-class TestTZ(datetime.tzinfo):
+class SampleTZ(datetime.tzinfo):
     """A time zone with an arbitrary, constant -06:39 offset."""
 
     def utcoffset(self, dt):
@@ -85,7 +85,7 @@ class TestCoasterUtils(unittest.TestCase):
 
         assert parse_isoformat(
             '1882-12-11T00:00:00-06:39', naive=False
-        ) == datetime.datetime(1882, 12, 11, 0, 0, 0, tzinfo=TestTZ())
+        ) == datetime.datetime(1882, 12, 11, 0, 0, 0, tzinfo=SampleTZ())
 
         assert parse_isoformat(
             '1882-12-11T00:00:00-06:39', naive=True

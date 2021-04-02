@@ -48,3 +48,10 @@ known_flask = [
 ]
 default_section = 'THIRDPARTY'
 sections = ['FUTURE', 'STDLIB', 'SQLALCHEMY', 'FLASK', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
+doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
+filterwarnings = ['ignore::DeprecationWarning', 'ignore::UserWarning']
+mocked-sessions = 'coaster.db.db.session'
