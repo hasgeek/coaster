@@ -5,6 +5,7 @@ Text processing utilities
 
 from functools import partial
 from html import unescape
+from typing import List, Mapping, Set
 import re
 import string
 
@@ -80,7 +81,7 @@ re_compress_spaces = re.compile(
     r'[\s' + unicode_format_whitespace + ']+', re.UNICODE | re.MULTILINE
 )
 
-VALID_TAGS = {
+VALID_TAGS: Mapping[str, List[str]] = {
     'a': ['href', 'title', 'target', 'rel'],
     'abbr': ['title'],
     'b': [],
@@ -112,7 +113,7 @@ VALID_TAGS = {
     'ul': [],
 }
 
-LINKIFY_SKIP_TAGS = ['pre', 'code', 'kbd', 'samp', 'var']
+LINKIFY_SKIP_TAGS: List = ['pre', 'code', 'kbd', 'samp', 'var']
 
 
 # Adapted from https://bleach.readthedocs.io/en/latest/linkify.html#preventing-links
@@ -134,9 +135,7 @@ LINKIFY_CALLBACKS = list(DEFAULT_CALLBACKS) + [dont_linkify_filenames]
 
 
 def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
-    """
-    Strips unwanted markup out of HTML.
-    """
+    """Strip unwanted markup out of HTML."""
     if valid_tags is None:
         valid_tags = VALID_TAGS
     if linkify:
@@ -156,7 +155,7 @@ def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
     return Markup(cleaner.clean(value))
 
 
-blockish_tags = {
+blockish_tags: Set[str] = {
     'address',
     'article',
     'aside',
@@ -199,9 +198,7 @@ blockish_tags = {
 
 
 def text_blocks(html_text, skip_pre=True):
-    """
-    Extracts a list of paragraphs from a given HTML string
-    """
+    """Extracts a list of paragraphs from a given HTML string."""
     doc = html5lib.parseFragment(html_text)
     blocks = []
 
@@ -281,10 +278,11 @@ def text_blocks(html_text, skip_pre=True):
 
 def word_count(text, html=True):
     """
-    Return the count of words in the given text. If the text is HTML (default True),
-    tags are stripped before counting. Handles punctuation and bad formatting like.this
-    when counting words, but assumes conventions for Latin script languages. May not
-    be reliable for other languages.
+    Return the count of words in the given text.
+
+    If the text is HTML (default True), tags are stripped before counting. Handles
+    punctuation and bad formatting like.this when counting words, but assumes
+    conventions for Latin script languages. May not be reliable for other languages.
     """
     if html:
         text = _tag_re.sub(' ', text)
@@ -294,45 +292,36 @@ def word_count(text, html=True):
 
 
 def normalize_spaces(text):
-    """
-    Replace whitespace characters with regular spaces.
-    """
+    """Replace whitespace characters with regular spaces."""
     return re_singleline_spaces.sub(' ', text)
 
 
 def normalize_spaces_multiline(text):
     """
-    Replace whitespace characters with regular spaces, but ignoring characters that are
-    relevant to multiline text, like tabs and newlines.
+    Replace whitespace characters with regular spaces, in multiline text.
+
+    Line break characters like newlines are not considered whitespace.
     """
     return re_multiline_spaces.sub(' ', text)
 
 
 def ulstrip(text):
-    """
-    Strip Unicode extended whitespace from the left side of a string
-    """
+    """Strip Unicode extended whitespace from the left side of a string."""
     return text.lstrip(unicode_extended_whitespace)
 
 
 def urstrip(text):
-    """
-    Strip Unicode extended whitespace from the right side of a string
-    """
+    """Strip Unicode extended whitespace from the right side of a string."""
     return text.rstrip(unicode_extended_whitespace)
 
 
 def ustrip(text):
-    """
-    Strip Unicode extended whitespace from a string
-    """
+    """Strip Unicode extended whitespace from a string."""
     return text.strip(unicode_extended_whitespace)
 
 
 def compress_whitespace(text):
-    """
-    Reduce all space-like characters into single spaces and strip from ends.
-    """
+    """Reduce all space-like characters into single spaces and strip from ends."""
     return ustrip(re_compress_spaces.sub(' ', text))
 
 
@@ -346,9 +335,7 @@ _deobfuscate_at3_re = re.compile(r'([A-Z0-9])at([A-Z0-9])')
 
 
 def deobfuscate_email(text):
-    """
-    Deobfuscate email addresses in provided text
-    """
+    """Deobfuscate email addresses in provided text."""
     text = unescape(text)
     # Find the "dot"
     text = _deobfuscate_dot1_re.sub('.', text)
@@ -374,5 +361,5 @@ def simplify_text(text):
     ...   'awesome coder wanted at awesome company')
     True
     """
-    text = text.translate(text.maketrans("", "", string.punctuation)).lower()
+    text = text.translate(text.maketrans('', '', string.punctuation)).lower()
     return ' '.join(text.split())

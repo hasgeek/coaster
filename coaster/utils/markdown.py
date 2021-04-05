@@ -12,6 +12,9 @@ This Markdown processor is used by :func:`~coaster.sqlalchemy.columns.MarkdownCo
 to auto-render HTML from Markdown text.
 """
 
+from copy import deepcopy
+from typing import Any, Dict, List, Mapping, Optional, Union, cast
+
 from bleach import linkify as linkify_processor
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -27,13 +30,19 @@ from .text import (
     sanitize_html,
 )
 
-__all__ = ['markdown', 'MARKDOWN_HTML_TAGS']
+__all__ = [
+    'markdown',
+    'MARKDOWN_HTML_TAGS',
+    'default_markdown_extensions_html',
+    'default_markdown_extensions',
+    'default_markdown_extension_configs',
+]
 
 
 # --- Constants ------------------------------------------------------------------------
 
-MARKDOWN_HTML_TAGS = dict(VALID_TAGS)
-MARKDOWN_HTML_TAGS.update(
+MARKDOWN_HTML_TAGS = deepcopy(VALID_TAGS)
+cast(Dict, MARKDOWN_HTML_TAGS).update(
     {
         # For tables:
         'table': ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width'],
@@ -54,13 +63,14 @@ MARKDOWN_HTML_TAGS.update(
 
 class EscapeHtml(Extension):
     """
-    Extension to escape HTML tags to use with Markdown()
+    Extension to escape HTML tags to use with Markdown().
+
     This replaces `safe_mode='escape`
     Ref: https://python-markdown.github.io/change_log/release-3.0/
     #safe_mode-and-html_replacement_text-keywords-deprecated
     """
 
-    def extendMarkdown(self, md):  # NOQA: N802
+    def extendMarkdown(self, md) -> None:  # NOQA: N802
         md.preprocessors.deregister('html_block')
         md.inlinePatterns.deregister('html')
 
@@ -76,11 +86,9 @@ class JavascriptProtocolProcessor(Treeprocessor):
 
 
 class JavascriptProtocolExtension(Extension):
-    """
-    Extension to include :class:`JavascriptProtocolProcessor` as a markdown processor.
-    """
+    """Markdown extension for :class:`JavascriptProtocolProcessor`."""
 
-    def extendMarkdown(self, md):  # NOQA: N802
+    def extendMarkdown(self, md) -> None:  # NOQA: N802
         # Register with low priority so we run last
         md.treeprocessors.register(
             JavascriptProtocolProcessor(md), 'javascript_protocol', 1
@@ -93,7 +101,7 @@ class JavascriptProtocolExtension(Extension):
 # FIXME: Disable support for custom css classes as described here:
 # https://facelessuser.github.io/pymdown-extensions/extensions/superfences/
 
-extensions = [
+default_markdown_extensions_html: List[Union[str, Extension]] = [
     'markdown.extensions.abbr',
     'markdown.extensions.footnotes',
     'markdown.extensions.tables',
@@ -106,20 +114,24 @@ extensions = [
     'pymdownx.tilde',  # Support ~~<del>~~
     'pymdownx.emoji',  # Support :emoji:
     'pymdownx.mark',  # Support ==<mark>==
+    'pymdownx.saneheaders',  # Disable `#header`, only allow `# header`
     'pymdownx.smartsymbols',
     JavascriptProtocolExtension(),
 ]
 
-extensions_text = extensions + [
+default_markdown_extensions = default_markdown_extensions_html + [
     'markdown.extensions.codehilite',
     'pymdownx.tasklist',
     EscapeHtml(),
 ]
 
-extensions_html = extensions
 
-extension_configs = {
-    'pymdownx.superfences': {'disable_indented_code_blocks': True},
+default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
+    'markdown.extensions.codehilite': {'css_class': 'highlight', 'guess_lang': False},
+    'pymdownx.superfences': {
+        'css_class': 'highlight',
+        'disable_indented_code_blocks': True,
+    },
     'pymdownx.smartsymbols': {
         'trademark': False,
         'copyright': False,
@@ -139,7 +151,14 @@ extension_configs = {
 # --- Markdown processor ---------------------------------------------------------------
 
 
-def markdown(text, html=False, linkify=True, valid_tags=None):
+def markdown(
+    text: str,
+    html: bool = False,
+    linkify: bool = True,
+    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
+    extensions: Optional[List[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Markup:
     """
     Markdown parser with a number of sane defaults that resemble GFM.
 
@@ -147,11 +166,20 @@ def markdown(text, html=False, linkify=True, valid_tags=None):
         (this disables code syntax highlighting and task lists)
     :param bool linkify: Whether to convert naked URLs into links
     :param dict valid_tags: Valid tags and attributes if HTML is allowed
+    :param list extensions: List of Markdown extensions to be enabled
+    :param dict extension_configs: Config for Markdown extensions
     """
     if text is None:
-        return None
+        return Markup('')  # type:ignore[unreachable]
     if valid_tags is None:
         valid_tags = MARKDOWN_HTML_TAGS
+    if extensions is None:
+        if html:
+            extensions = default_markdown_extensions_html
+        else:
+            extensions = default_markdown_extensions
+    if extension_configs is None:
+        extension_configs = default_markdown_extension_configs
 
     # Replace invisible characters with spaces
     text = normalize_spaces_multiline(text)
@@ -161,7 +189,7 @@ def markdown(text, html=False, linkify=True, valid_tags=None):
             sanitize_html(
                 Markdown(
                     output_format='html',
-                    extensions=extensions_html,
+                    extensions=extensions,
                     extension_configs=extension_configs,
                 ).convert(text),
                 valid_tags=valid_tags,
@@ -171,7 +199,7 @@ def markdown(text, html=False, linkify=True, valid_tags=None):
     else:
         output = Markdown(
             output_format='html',
-            extensions=extensions_text,
+            extensions=extensions,
             extension_configs=extension_configs,
         ).convert(text)
         if linkify:
