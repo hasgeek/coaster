@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
@@ -12,9 +12,7 @@ __all__ = ['MarkdownComposite', 'MarkdownColumn', 'markdown_column']
 
 
 class MarkdownComposite(MutableComposite):
-    """
-    Represents GitHub-flavoured Markdown text and rendered HTML as a composite column.
-    """
+    """Represents Markdown text and rendered HTML as a composite column."""
 
     #: Markdown processor. Subclasses can override this. This has to be a staticmethod
     #: or the markdown processor will receive `self` as first parameter
@@ -26,6 +24,7 @@ class MarkdownComposite(MutableComposite):
     ] = {}
 
     def __init__(self, text, html=None):
+        """Create a composite."""
         if html is None:
             self.text = text  # This will regenerate HTML
         else:
@@ -34,40 +33,48 @@ class MarkdownComposite(MutableComposite):
 
     # Return column values for SQLAlchemy to insert into the database
     def __composite_values__(self):
+        """Return composite values."""
         return (self._text, self._html)
 
     # Return a string representation of the text (see class decorator)
     def __str__(self):
+        """Return string representation."""
         return self.text
 
     # Return a HTML representation of the text
     def __html__(self):
+        """Return HTML representation."""
         return self._html or ''
 
     # Return a Markup string of the HTML
     @property
     def html(self):
+        """Return HTML as a property."""
         return Markup(self._html or '')
 
     @property
     def text(self):
+        """Return text as a property."""
         return self._text
 
     @text.setter
     def text(self, value):
-        self._text = value
+        """Set the text value."""
+        self._text = str(value) if value else None
         self._html = self.markdown(
-            value, **(self.options() if callable(self.options) else self.options)
+            self._text, **(self.options() if callable(self.options) else self.options)
         )
         self.changed()
 
     # Compare text value
     def __eq__(self, other):
+        """Compare for equality."""
         return isinstance(other, MarkdownComposite) and (
             self.__composite_values__() == other.__composite_values__()
         )
 
     def __ne__(self, other):
+        """Compare for inequality."""
         return not self.__eq__(other)
 
     # Pickle support methods implemented as per SQLAlchemy documentation, but not
@@ -75,31 +82,38 @@ class MarkdownComposite(MutableComposite):
     # https://docs.sqlalchemy.org/en/13/orm/extensions/mutable.html#id1
 
     def __getstate__(self):  # pragma: no cover
+        """Get state for pickling."""
         # Return state for pickling
         return (self._text, self._html)
 
     def __setstate__(self, state):  # pragma: no cover
+        """Set state from pickle."""
         # Set state from pickle
         self._text, self._html = state
         self.changed()
 
     def __bool__(self):
+        """Return boolean value."""
         return bool(self._text)
 
-    __nonzero__ = __bool__
-
-    # Allow a composite column to be assigned a string value
     @classmethod  # NOQA: A003
     def coerce(cls, key, value):  # NOQA: A003
+        """Allow a composite column to be assigned a string value."""
         return cls(value)
 
 
 def markdown_column(
-    name, deferred=False, group=None, markdown=None, options=None, **kwargs
-):
+    name: str,
+    deferred: bool = False,
+    group: Optional[str] = None,
+    markdown: Optional[Callable] = None,
+    options: Optional[dict] = None,
+    **kwargs,
+) -> composite:
     """
-    Create a composite column that autogenerates HTML from Markdown text,
-    storing data in db columns named with ``_html`` and ``_text`` prefixes.
+    Create a composite column that autogenerates HTML from Markdown text.
+
+    Creates two db columns named with ``_html`` and ``_text`` suffixes.
 
     :param str name: Column name base
     :param bool deferred: Whether the columns should be deferred by default
@@ -115,8 +129,11 @@ def markdown_column(
         pass
 
     CustomMarkdownComposite.options = options if options is not None else {}
-    if markdown is not None:
-        CustomMarkdownComposite.markdown = staticmethod(markdown)
+    CustomMarkdownComposite.markdown = staticmethod(
+        markdown  # type:ignore[arg-type]
+        if markdown is not None
+        else markdown_processor
+    )
 
     return composite(
         CustomMarkdownComposite
