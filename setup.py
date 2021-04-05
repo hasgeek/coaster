@@ -40,7 +40,7 @@ requires = [
     'psycopg2',
     'PyExecJS',
     'Pygments>=2.6.0',
-    'pymdown-extensions>=6.0',
+    'pymdown-extensions>=8.0',
     'pytz',
     'semantic_version>=2.8.0',
     'base58>=2.0.0',
