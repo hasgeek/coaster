@@ -19,6 +19,7 @@ __all__ = [
     'VALID_TAGS',
     'LINKIFY_SKIP_TAGS',
     'LINKIFY_CALLBACKS',
+    'compress_whitespace',
     'deobfuscate_email',
     'normalize_spaces',
     'normalize_spaces_multiline',
@@ -74,6 +75,9 @@ re_singleline_spaces = re.compile(
 )
 re_multiline_spaces = re.compile(
     '[' + unicode_format_whitespace + ']', re.UNICODE | re.MULTILINE
+)
+re_compress_spaces = re.compile(
+    r'[\s' + unicode_format_whitespace + ']+', re.UNICODE | re.MULTILINE
 )
 
 VALID_TAGS = {
@@ -323,6 +327,13 @@ def ustrip(text):
     Strip Unicode extended whitespace from a string
     """
     return text.strip(unicode_extended_whitespace)
+
+
+def compress_whitespace(text):
+    """
+    Reduce all space-like characters into single spaces and strip from ends.
+    """
+    return ustrip(re_compress_spaces.sub(' ', text))
 
 
 # Based on http://jasonpriem.org/obfuscation-decoder/

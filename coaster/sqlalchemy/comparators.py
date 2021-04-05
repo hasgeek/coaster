@@ -22,6 +22,9 @@ __all__ = [
 ]
 
 
+_marker = object()
+
+
 class Query(BaseQuery):
     """
     Extends flask_sqlalchemy.BaseQuery to add additional helper methods.
@@ -63,7 +66,7 @@ class SplitIndexComparator(Comparator):
     """
 
     def __init__(self, expression, splitindex=None):
-        super(SplitIndexComparator, self).__init__(expression)
+        super().__init__(expression)
         self.splitindex = splitindex
 
     def _decode(self, other):
@@ -84,8 +87,6 @@ class SplitIndexComparator(Comparator):
         return self.__clause_element__() != other
 
     def in_(self, other):
-        _marker = []
-
         def errordecode(val):
             try:
                 return self._decode(val)

@@ -1,3 +1,5 @@
 coverage
 coveralls
-pytest
+pytest>6
+pytest-cov
+pytest-flask-sqlalchemy

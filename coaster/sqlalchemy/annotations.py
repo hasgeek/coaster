@@ -34,6 +34,7 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 """
 
 from collections.abc import Hashable
+from typing import Any, Dict
 
 from sqlalchemy import event
 from sqlalchemy.orm import mapper
@@ -45,7 +46,7 @@ __all__ = ['annotations_configured', 'annotation_wrapper']
 
 # Global dictionary for temporary storage of annotations until the
 # mapper_configured events
-__cache__ = {}
+__cache__: Dict[Any, list] = {}
 
 # --- Signals -----------------------------------------------------------------
 

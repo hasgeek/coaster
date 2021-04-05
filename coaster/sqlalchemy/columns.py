@@ -52,7 +52,7 @@ class JsonDict(TypeDecorator):
             version = tuple(dialect.server_version_info[:2])
             if version in [(9, 2), (9, 3)]:
                 return dialect.type_descriptor(JsonType)
-            elif version >= (9, 4):
+            if version >= (9, 4):
                 return dialect.type_descriptor(JsonbType)
         return dialect.type_descriptor(self.impl)
 
@@ -75,31 +75,26 @@ class MutableDict(Mutable, dict):
     @classmethod  # NOQA: A003
     def coerce(cls, key, value):  # NOQA: A003
         """Convert plain dictionaries to MutableDict."""
-
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
                 return MutableDict(value)
-            elif isinstance(value, str):
+            if isinstance(value, str):
                 # Assume JSON string
                 if value:
                     return MutableDict(simplejson.loads(value, use_decimal=True))
-                else:
-                    return MutableDict()  # Empty value is an empty dict
+                return MutableDict()  # Empty value is an empty dict
 
             # this call will raise ValueError
             return Mutable.coerce(key, value)
-        else:
-            return value
+        return value
 
     def __setitem__(self, key, value):
         """Detect dictionary set events and emit change events."""
-
         dict.__setitem__(self, key, value)
         self.changed()
 
     def __delitem__(self, key):
         """Detect dictionary del events and emit change events."""
-
         dict.__delitem__(self, key)
         self.changed()
 
@@ -128,13 +123,13 @@ class UrlType(UrlTypeBase):
     def __init__(
         self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
     ):
-        super(UrlType, self).__init__()
+        super().__init__()
         self.schemes = schemes
         self.optional_host = optional_host
         self.optional_scheme = optional_scheme
 
     def process_bind_param(self, value, dialect):
-        value = super(UrlType, self).process_bind_param(value, dialect)
+        value = super().process_bind_param(value, dialect)
         if value:
             parsed = self.url_parser(value)
             # If scheme is present, it must be valid

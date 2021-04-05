@@ -16,7 +16,12 @@ For compatibility with Flask-Login, a user object loaded at
 :obj:`current_auth`.
 """
 
-from flask import _request_ctx_stack, current_app, has_request_context
+# mypy can't find _request_ctx_stack in flask
+from flask import (  # type: ignore[attr-defined]
+    _request_ctx_stack,
+    current_app,
+    has_request_context,
+)
 from werkzeug.local import LocalProxy
 
 from .utils import InspectableSet

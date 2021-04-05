@@ -31,7 +31,7 @@ class JsonEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, abc.Mapping):
             return dict(o)
-        return super(JsonEncoder, self).default(o)
+        return super().default(o)
 
 
 app = Flask(__name__)
@@ -45,12 +45,12 @@ db = SQLAlchemy(app)
 # --- Models ------------------------------------------------------------------
 
 
-class ViewDocument(BaseNameMixin, db.Model):
+class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'view_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
     def permissions(self, actor, inherited=()):
-        perms = super(ViewDocument, self).permissions(actor, inherited)
+        perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor in (
             'this-is-the-owner',
@@ -61,13 +61,13 @@ class ViewDocument(BaseNameMixin, db.Model):
         return perms
 
     def roles_for(self, actor=None, anchors=()):
-        roles = super(ViewDocument, self).roles_for(actor, anchors)
+        roles = super().roles_for(actor, anchors)
         if actor in ('this-is-the-owner', 'this-is-another-owner'):
             roles.add('owner')
         return roles
 
 
-class ScopedViewDocument(BaseScopedNameMixin, db.Model):
+class ScopedViewDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_view_document'
     parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
     view_document = db.relationship(
@@ -82,7 +82,7 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):
         return 'scoped-doc'
 
 
-class RenameableDocument(BaseIdNameMixin, db.Model):
+class RenameableDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'renameable_document'
     __uuid_primary_key__ = (
         False  # So that we can get consistent `1-<name>` url_name in tests
@@ -223,7 +223,7 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
             add_auth_attribute(
                 'user', 'this-is-the-owner'
             )  # See ViewDocument.permissions
-        return super(ModelDocumentView, self).before_request()
+        return super().before_request()
 
     @route('')
     @render_with(json=True)
@@ -304,7 +304,7 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
             add_auth_attribute(
                 'user', 'this-is-another-owner'
             )  # See ViewDocument.permissions
-        return super(GatedDocumentView, self).before_request()
+        return super().before_request()
 
     @route('perm')
     @requires_permission('edit')

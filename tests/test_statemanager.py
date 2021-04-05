@@ -47,7 +47,7 @@ class REVIEW_STATE(LabeledEnum):  # NOQA: N801
     UNLOCKED = {UNSUBMITTED, PENDING}
 
 
-class MyPost(BaseMixin, db.Model):
+class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_post'
     # Database state columns
     _state = db.Column(
@@ -148,7 +148,7 @@ class MyPost(BaseMixin, db.Model):
         return success, 'passed'
 
     def roles_for(self, actor=None, anchors=()):
-        roles = super(MyPost, self).roles_for(actor, anchors)
+        roles = super().roles_for(actor, anchors)
         # Cheap hack for the sake of testing, using strings instead of objects
         if actor == 'author':
             roles.add('author')
@@ -611,6 +611,8 @@ class TestStateManager(unittest.TestCase):
             @state.transition(state.PENDING, state.PUBLISHED)
             def dupe_decorator(self):
                 pass
+
+        state.transitions.remove('dupe_decorator')
 
     def test_available_transitions(self):
         """State managers indicate the currently available transitions"""

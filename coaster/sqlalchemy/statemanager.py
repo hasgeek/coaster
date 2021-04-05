@@ -220,6 +220,9 @@ over direct state value changes:
    of failures, allowing for the attempts to be logged.
 """
 
+from __future__ import annotations
+
+from typing import Generic, Optional, Type, TypeVar, Union
 import functools
 
 from sqlalchemy import CheckConstraint, and_
@@ -248,8 +251,12 @@ __all__ = [
     'transition_exception',
 ]
 
+# --- Internal types -------------------------------------------------------------------
 
-# --- Signals -----------------------------------------------------------------
+T = TypeVar('T')
+
+
+# --- Signals --------------------------------------------------------------------------
 
 #: Signal raised when a transition fails validation
 transition_error = coaster_signals.signal(
@@ -272,7 +279,7 @@ transition_exception = coaster_signals.signal(
 )
 
 
-# --- Exceptions --------------------------------------------------------------
+# --- Exceptions -----------------------------------------------------------------------
 
 
 class StateTransitionError(BadRequest, TypeError):
@@ -292,10 +299,10 @@ class AbortTransition(Exception):
     """
 
     def __init__(self, result=None):
-        super(AbortTransition, self).__init__(result)
+        super().__init__(result)
 
 
-# --- Classes -----------------------------------------------------------------
+# --- Classes --------------------------------------------------------------------------
 
 
 class ManagedState:
@@ -352,28 +359,24 @@ class ManagedState:
                 valuematch = self.statemanager._value(obj, cls) == self.value
             if self.validator is not None:
                 return valuematch and self.validator(obj)
-            else:
-                return valuematch
+            return valuematch
+        # We have a class, so return a filter condition, for use as
+        # cls.query.filter(result)
+        if is_collection(self.value):
+            valuematch = self.statemanager._value(obj, cls).in_(self.value)
         else:
-            # We have a class, so return a filter condition, for use as
-            # cls.query.filter(result)
-            if is_collection(self.value):
-                valuematch = self.statemanager._value(obj, cls).in_(self.value)
-            else:
-                valuematch = self.statemanager._value(obj, cls) == self.value
-            cv = self.class_validator
-            if cv is None:
-                cv = self.validator
-            if cv is not None:
-                return and_(valuematch, cv(cls))
-            else:
-                return valuematch
+            valuematch = self.statemanager._value(obj, cls) == self.value
+        cv = self.class_validator
+        if cv is None:
+            cv = self.validator
+        if cv is not None:
+            return and_(valuematch, cv(cls))
+        return valuematch
 
     def __call__(self, obj, cls=None):
         if obj is not None:
             return ManagedStateWrapper(self, obj, cls)
-        else:
-            return self._eval(obj, cls)
+        return self._eval(obj, cls)
 
 
 class ManagedStateGroup:
@@ -433,14 +436,12 @@ class ManagedStateGroup:
     def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
-        else:
-            return or_(*[s(obj, cls) for s in self.states])
+        return or_(*[s(obj, cls) for s in self.states])
 
     def __call__(self, obj, cls=None):
         if obj is not None:
             return ManagedStateWrapper(self, obj, cls)
-        else:
-            return self._eval(obj, cls)
+        return self._eval(obj, cls)
 
 
 class ManagedStateWrapper:
@@ -576,8 +577,7 @@ class StateTransition:
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
-        else:
-            return StateTransitionWrapper(self, obj)
+        return StateTransitionWrapper(self, obj)
 
 
 class StateTransitionWrapper:
@@ -718,24 +718,18 @@ class StateManager:
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
-    # Python 3.6+
-    def __set_name__(self, owner, name):  # pragma: no cover
+    def __set_name__(self, owner, name):
         self.owner = owner
         self.name = name
 
     def __repr__(self):
         if self.owner is not None:
             return '%s.%s' % (self.owner.__name__, self.name)
-        else:
-            return '<StateManager %s>' % self.name
+        return '<StateManager %s>' % self.name
 
-    def __get__(self, obj, cls=None):
-        # XXX: Patch to accommodate the lack of __set_name__ in < Python 3.6
-        if self.owner is None:  # pragma: no cover
-            if obj is not None:
-                self.owner = type(obj)
-            else:
-                self.owner = cls
+    def __get__(
+        self, obj: Optional[T], cls: Optional[Type[T]] = None
+    ) -> StateManagerWrapper[T]:
         return StateManagerWrapper(self, obj, cls)
 
     def __set__(self, obj, value):
@@ -791,6 +785,10 @@ class StateManager:
         setattr(self, name, mstate)
         # Also make available as `statemanager.is_state`
         setattr(self, 'is_' + name.lower(), mstate)
+
+    # Stub for mypy to recognise names added by _add_state_internal
+    def __getattr__(self, name: str) -> Union[ManagedState, ManagedStateGroup]:
+        raise AttributeError(name)
 
     def add_state_group(self, name, *states):
         """
@@ -902,8 +900,7 @@ class StateManager:
         """The state value (called from the wrapper)"""
         if obj is not None:
             return getattr(obj, self.propname)
-        else:
-            return getattr(cls, self.propname)
+        return getattr(cls, self.propname)
 
     @staticmethod
     def check_constraint(column, lenum, **kwargs):
@@ -935,19 +932,19 @@ class StateManager:
         )
 
 
-class StateManagerWrapper:
+class StateManagerWrapper(Generic[T]):
     """
     Wraps :class:`StateManager` with the context of the containing object.
     Automatically constructed when a :class:`StateManager` is accessed from
     either a class or an instance.
     """
 
-    def __init__(self, statemanager, obj, cls):
+    def __init__(self, statemanager, obj: Optional[T], cls: Optional[Type[T]]):
         self.statemanager = statemanager  # StateManager
-        self.obj = (
-            obj  # Instance we're being called on, None if called on the class instead
-        )
-        self.cls = cls  # The class of the instance we're being called on
+        # Instance we're being called on, None if called on the class instead
+        self.obj = obj
+        # The class of the instance we're being called on
+        self.cls = cls
 
     def __repr__(self):
         return '<StateManagerWrapper(%s.%s)>' % (
