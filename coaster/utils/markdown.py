@@ -99,7 +99,7 @@ class JavascriptProtocolExtension(Extension):
 # --- Standard extensions --------------------------------------------------------------
 
 # FIXME: Disable support for custom css classes as described here:
-# https://facelessuser.github.io/pymdown-extensions/extensions/superfences/
+# https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes
 
 default_markdown_extensions_html: List[Union[str, Extension]] = [
     'markdown.extensions.abbr',
