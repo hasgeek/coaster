@@ -14,8 +14,6 @@ from bleach.sanitizer import Cleaner
 from markupsafe import Markup
 import html5lib
 
-from .misc import _punctuation_re, _strip_re, _tag_re
-
 __all__ = [
     'VALID_TAGS',
     'LINKIFY_SKIP_TAGS',
@@ -31,7 +29,6 @@ __all__ = [
     'unicode_extended_whitespace',
     'urstrip',
     'ustrip',
-    'word_count',
 ]
 
 
@@ -274,21 +271,6 @@ def text_blocks(html_text, skip_pre=True):
     # Replace &nbsp; with ' '
     blocks = [t.replace('\xa0', ' ') for t in blocks]
     return blocks
-
-
-def word_count(text, html=True):
-    """
-    Return the count of words in the given text.
-
-    If the text is HTML (default True), tags are stripped before counting. Handles
-    punctuation and bad formatting like.this when counting words, but assumes
-    conventions for Latin script languages. May not be reliable for other languages.
-    """
-    if html:
-        text = _tag_re.sub(' ', text)
-    text = _strip_re.sub('', text)
-    text = _punctuation_re.sub(' ', text)
-    return len(text.split())
 
 
 def normalize_spaces(text):

@@ -5,6 +5,7 @@
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 * Removed deprecated ``make_password`` and ``check_password`` functions
 * Added ``compress_whitespace`` to mimic browser compression of whitespace
+* Removed unused and untested ``word_count`` function
 
 0.6.1 - 2021-01-06
 ------------------
