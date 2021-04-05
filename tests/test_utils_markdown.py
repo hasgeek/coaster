@@ -260,3 +260,32 @@ def test_sample_markdown_html():
     # effect), and Pygments code highlighting is dropped, as we cannot safely
     # distinguish between markdown highlighting and malicious user input.
     assert markdown(sample_markdown, html=True) == sample_output_html
+
+
+linkify_text = '''
+This is a naked link in a line: https://example.com
+
+This is a Markdown link in a line. <https://example.com>
+
+This is an unprefixed link: example.com
+'''.strip()
+
+linkify_html = '''
+<p>This is a naked link in a line: <a href="https://example.com" rel="nofollow">https://example.com</a></p>
+<p>This is a Markdown link in a line. <a href="https://example.com" rel="nofollow">https://example.com</a></p>
+<p>This is an unprefixed link: <a href="http://example.com" rel="nofollow">example.com</a></p>
+'''.strip()
+
+nolinkify_html = '''
+<p>This is a naked link in a line: https://example.com</p>
+<p>This is a Markdown link in a line. <a href="https://example.com">https://example.com</a></p>
+<p>This is an unprefixed link: example.com</p>
+'''.strip()
+
+
+def test_linkify():
+    """Optional Linkify flag controls linkification."""
+    # Linkify is also responsible for adding `nofollow` on all links
+    assert markdown(linkify_text) == linkify_html
+    assert markdown(linkify_text, linkify=True) == linkify_html
+    assert markdown(linkify_text, linkify=False) == nolinkify_html
