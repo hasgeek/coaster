@@ -13,7 +13,7 @@ to auto-render HTML from Markdown text.
 """
 
 from copy import deepcopy
-from typing import Any, Dict, List, Mapping, Optional, Union, cast
+from typing import Any, Dict, List, Mapping, Optional, Union, cast, overload
 
 from bleach import linkify as linkify_processor
 from markdown import Markdown
@@ -151,7 +151,20 @@ default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
 # --- Markdown processor ---------------------------------------------------------------
 
 
-def markdown(
+@overload
+def markdown(  # NOQA: D103
+    text: None,
+    html: bool = False,
+    linkify: bool = True,
+    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
+    extensions: Optional[List[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> None:
+    ...
+
+
+@overload
+def markdown(  # NOQA: D103
     text: str,
     html: bool = False,
     linkify: bool = True,
@@ -159,6 +172,17 @@ def markdown(
     extensions: Optional[List[Union[str, Extension]]] = None,
     extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Markup:
+    ...
+
+
+def markdown(
+    text: Optional[str],
+    html: bool = False,
+    linkify: bool = True,
+    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
+    extensions: Optional[List[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Optional[Markup]:
     """
     Markdown parser with a number of sane defaults that resemble GFM.
 
@@ -170,7 +194,7 @@ def markdown(
     :param dict extension_configs: Config for Markdown extensions
     """
     if text is None:
-        return Markup('')  # type:ignore[unreachable]
+        return None
     if valid_tags is None:
         valid_tags = MARKDOWN_HTML_TAGS
     if extensions is None:
@@ -191,7 +215,7 @@ def markdown(
                     output_format='html',
                     extensions=extensions,
                     extension_configs=extension_configs,
-                ).convert(text),
+                ).convert(cast(str, text)),
                 valid_tags=valid_tags,
                 linkify=linkify,
             )
@@ -201,7 +225,7 @@ def markdown(
             output_format='html',
             extensions=extensions,
             extension_configs=extension_configs,
-        ).convert(text)
+        ).convert(cast(str, text))
         if linkify:
             output = linkify_processor(
                 output, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS

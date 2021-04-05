@@ -246,7 +246,7 @@ def test_markdown_javascript_link_html():
 
 def test_empty_markdown():
     """Don't choke on None."""
-    assert markdown(None) == ''
+    assert markdown(None) is None
 
 
 def test_sample_markdown():
