@@ -91,11 +91,21 @@ class TestMarkdownColumn(unittest.TestCase):
         data.value = text
         self.session.commit()
 
-    def test_empty_value(self):
+    def test_none_value(self):
         doc = MarkdownData(value=None)
         assert not doc.value
         assert doc.value.text is None
+        assert doc.value_text is None
         assert doc.value.html == ''
+        assert doc.value_html is None
+
+    def test_empty_value(self):
+        doc = MarkdownData(value='')
+        assert not doc.value
+        assert doc.value.text == ''
+        assert doc.value_text == ''
+        assert doc.value.html == ''
+        assert doc.value_html == ''
 
     def test_html_customization(self):
         """Markdown columns may specify custom Markdown processor options."""
