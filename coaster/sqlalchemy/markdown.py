@@ -60,7 +60,7 @@ class MarkdownComposite(MutableComposite):
     @text.setter
     def text(self, value):
         """Set the text value."""
-        self._text = str(value) if value else None
+        self._text = None if value is None else str(value)
         self._html = self.markdown(
             self._text, **(self.options() if callable(self.options) else self.options)
         )
