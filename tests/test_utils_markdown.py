@@ -1,5 +1,3 @@
-import unittest
-
 from coaster.gfm import markdown
 
 sample_markdown = '''
@@ -16,11 +14,17 @@ Innocuous HTML tags are allowed when `html=True` is used: <b>Hello!</b>
 
 Dangerous tags are always removed: <script>window.alert('Hello!')</script>
 
+#This is not a header
+
+# This is a header in text-only mode
+
+### This is a header in HTML and text mode
+
 A list:
 
 2. Starts at two, because why not?
 3. 2^10^ = 1024
-4. Water is H~2~0
+4. Water is H~2~O
 5. :smile:
 6. Symbols (ignored): (tm) (c) (r) c/o
 7. Symbols (converted): +/- --> <-- <--> =/= 1/2 1/4 1st 2nd 3rd 4th 42nd
@@ -58,11 +62,14 @@ It has a newline break here.</p>
 <p>In addition, we support <ins>insertions</ins>, <del>deletions</del> and <mark>markers</mark>.</p>
 <p>Innocuous HTML tags are allowed when <code>html=True</code> is used: &lt;b&gt;Hello!&lt;/b&gt;</p>
 <p>Dangerous tags are always removed: &lt;script&gt;window.alert(‘Hello!’)&lt;/script&gt;</p>
+<p>#This is not a header</p>
+<h1>This is a header in text-only mode</h1>
+<h3>This is a header in HTML and text mode</h3>
 <p>A list:</p>
 <ol start="2">
 <li>Starts at two, because why not?</li>
 <li>2<sup>10</sup> = 1024</li>
-<li>Water is H<sub>2</sub>0</li>
+<li>Water is H<sub>2</sub>O</li>
 <li>😄</li>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): ± → ← ↔ ≠ ½ ¼ 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
@@ -125,11 +132,14 @@ It has a newline break here.</p>
 <p>In addition, we support <ins>insertions</ins>, <del>deletions</del> and <mark>markers</mark>.</p>
 <p>Innocuous HTML tags are allowed when <code>html=True</code> is used: <b>Hello!</b></p>
 <p>Dangerous tags are always removed: window.alert(&lsquo;Hello!&rsquo;)</p>
+<p>#This is not a header</p>
+This is a header in text-only mode
+<h3>This is a header in HTML and text mode</h3>
 <p>A list:</p>
 <ol start="2">
 <li>Starts at two, because why not?</li>
 <li>2<sup>10</sup> = 1024</li>
-<li>Water is H<sub>2</sub>0</li>
+<li>Water is H<sub>2</sub>O</li>
 <li>😄</li>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
 <li>Symbols (converted): &plusmn; &rarr; &larr; &harr; &ne; &frac12; &frac14; 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
@@ -185,61 +195,97 @@ It has a newline break here.</p>
 '''.strip()
 
 
-class TestMarkdown(unittest.TestCase):
-    def test_markdown(self):
-        """Markdown rendering"""
-        assert markdown('hello') == '<p>hello</p>'
+def test_markdown():
+    """Markdown rendering."""
+    assert markdown('hello') == '<p>hello</p>'
 
-    def test_text_markdown(self):
-        """Markdown rendering with HTML disabled (default)"""
-        assert (
-            markdown('hello <del>there</del>')
-            == '<p>hello &lt;del&gt;there&lt;/del&gt;</p>'
-        )
 
-    def test_html_markdown(self):
-        """Markdown rendering with HTML enabled"""
-        assert (
-            markdown('hello <del>there</del>', html=True)
-            == '<p>hello <del>there</del></p>'
-        )
+def test_text_markdown():
+    """Markdown rendering with HTML disabled (default)."""
+    assert (
+        markdown('hello <del>there</del>')
+        == '<p>hello &lt;del&gt;there&lt;/del&gt;</p>'
+    )
 
-    def test_markdown_javascript_link(self):
-        """Markdown rendering should strip `javascript:` protocol links"""
-        # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
-        # link3 entirely, mashing it into link2.
-        assert markdown(
-            '[link1](http://example.com) '
-            '[link2](javascript:alert(document.cookie) '
-            '[link3](javascript:alert("Hello"))'
-        ) == (
-            '<p><a href="http://example.com" rel="nofollow">link1</a> '
-            '<a title="Hello">link2</a>)</p>'
-        )
 
-    def test_markdown_javascript_link_html(self):
-        """Markdown rendering should strip `javascript:` protocol links"""
-        # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
-        # link3 entirely, mashing it into link2.
-        assert markdown(
-            '[link1](http://example.com) '
-            '[link2](javascript:alert(document.cookie) '
-            '[link3](javascript:alert("Hello"))',
-            html=True,
-        ) == (
-            '<p><a href="http://example.com" rel="nofollow">link1</a> '
-            '<a title="Hello">link2</a>)</p>'
-        )
+def test_html_markdown():
+    """Markdown rendering with HTML enabled."""
+    assert (
+        markdown('hello <del>there</del>', html=True) == '<p>hello <del>there</del></p>'
+    )
 
-    def test_empty_markdown(self):
-        """Don't choke on None"""
-        assert markdown(None) is None
 
-    def test_sample_markdown(self):
-        assert markdown(sample_markdown) == sample_output
+def test_markdown_javascript_link():
+    """Markdown rendering should strip `javascript:` protocol links."""
+    # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
+    # link3 entirely, mashing it into link2.
+    assert markdown(
+        '[link1](http://example.com) '
+        '[link2](javascript:alert(document.cookie) '
+        '[link3](javascript:alert("Hello"))'
+    ) == (
+        '<p><a href="http://example.com" rel="nofollow">link1</a> '
+        '<a title="Hello">link2</a>)</p>'
+    )
 
-    def test_sample_markdown_html(self):
-        # In HTML mode, many characters are converted to HTML entities (by Bleach; side effect),
-        # and code highlighting is dropped, as we cannot safely distinguish between markdown
-        # highlighting and malicious user input.
-        assert markdown(sample_markdown, html=True) == sample_output_html
+
+def test_markdown_javascript_link_html():
+    """Markdown rendering should strip `javascript:` protocol links."""
+    # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
+    # link3 entirely, mashing it into link2.
+    assert markdown(
+        '[link1](http://example.com) '
+        '[link2](javascript:alert(document.cookie) '
+        '[link3](javascript:alert("Hello"))',
+        html=True,
+    ) == (
+        '<p><a href="http://example.com" rel="nofollow">link1</a> '
+        '<a title="Hello">link2</a>)</p>'
+    )
+
+
+def test_empty_markdown():
+    """Don't choke on None."""
+    assert markdown(None) is None
+
+
+def test_sample_markdown():
+    """Confirm sample Markdown rendering is stable."""
+    assert markdown(sample_markdown) == sample_output
+
+
+def test_sample_markdown_html():
+    """Confirm sample Markdown rendering in HTML mode is stable."""
+    # In HTML mode, many characters are converted to HTML entities (by Bleach; side
+    # effect), and Pygments code highlighting is dropped, as we cannot safely
+    # distinguish between markdown highlighting and malicious user input.
+    assert markdown(sample_markdown, html=True) == sample_output_html
+
+
+linkify_text = '''
+This is a naked link in a line: https://example.com
+
+This is a Markdown link in a line. <https://example.com>
+
+This is an unprefixed link: example.com
+'''.strip()
+
+linkify_html = '''
+<p>This is a naked link in a line: <a href="https://example.com" rel="nofollow">https://example.com</a></p>
+<p>This is a Markdown link in a line. <a href="https://example.com" rel="nofollow">https://example.com</a></p>
+<p>This is an unprefixed link: <a href="http://example.com" rel="nofollow">example.com</a></p>
+'''.strip()
+
+nolinkify_html = '''
+<p>This is a naked link in a line: https://example.com</p>
+<p>This is a Markdown link in a line. <a href="https://example.com">https://example.com</a></p>
+<p>This is an unprefixed link: example.com</p>
+'''.strip()
+
+
+def test_linkify():
+    """Optional Linkify flag controls linkification."""
+    # Linkify is also responsible for adding `nofollow` on all links
+    assert markdown(linkify_text) == linkify_html
+    assert markdown(linkify_text, linkify=True) == linkify_html
+    assert markdown(linkify_text, linkify=False) == nolinkify_html
