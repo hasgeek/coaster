@@ -37,10 +37,16 @@ from collections.abc import Hashable
 from typing import Any, Dict
 
 from sqlalchemy import event
-from sqlalchemy.orm import mapper
-from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
+from sqlalchemy.orm import ColumnProperty, RelationshipProperty, SynonymProperty, mapper
+from sqlalchemy.orm.attributes import QueryableAttribute
+from sqlalchemy.schema import SchemaItem
 
 from ..signals import coaster_signals
+
+try:  # SQLAlchemy >= 1.4
+    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
+except ImportError:  # SQLAlchemy < 1.4
+    from sqlalchemy.orm.interfaces import MapperProperty
 
 __all__ = ['annotations_configured', 'annotation_wrapper']
 
@@ -62,6 +68,8 @@ annotations_configured = coaster_signals.signal(
 @event.listens_for(mapper, 'mapper_configured')
 def _configure_annotations(mapper_, cls):
     """
+    Extract annotations from attributes.
+
     Run through attributes of the class looking for annotations from
     :func:`annotation_wrapper` and add them to :attr:`cls.__column_annotations__`
     and :attr:`cls.__column_annotations_by_attr__`
@@ -79,22 +87,27 @@ def _configure_annotations(mapper_, cls):
             if name in processed or name.startswith('__'):
                 continue
 
-            # 'data' is a list of string annotations
-            if isinstance(attr, Hashable) and attr in __cache__:
-                data = __cache__[attr]
-                del __cache__[attr]
-            elif isinstance(attr, QueryableAttribute) and hasattr(
-                attr, 'original_property'
+            if isinstance(attr, QueryableAttribute) and isinstance(
+                getattr(attr, 'original_property', None), SynonymProperty
             ):
-                if hasattr(attr.original_property, '_coaster_annotations'):
-                    data = attr.original_property._coaster_annotations
-                else:
-                    data = None
-            elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
-                data = __cache__[attr.property]
-                del __cache__[attr.property]
+                # Skip synonyms
+                data = None
+            # 'data' is a list of string annotations
+            elif isinstance(attr, Hashable) and attr in __cache__:
+                data = __cache__[attr]
             elif hasattr(attr, '_coaster_annotations'):
                 data = attr._coaster_annotations
+            elif isinstance(
+                attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
+            ):
+                if attr.property in __cache__:
+                    data = __cache__[attr.property]
+                elif '_coaster_annotations' in attr.info:
+                    data = attr.info['_coaster_annotations']
+                elif hasattr(attr.property, '_coaster_annotations'):
+                    data = getattr(attr.property, '_coaster_annotations')
+                else:
+                    data = None
             else:
                 data = None
             if data is not None:
@@ -112,17 +125,11 @@ def _configure_annotations(mapper_, cls):
     annotations_configured.send(cls)
 
 
-@event.listens_for(mapper, 'after_configured')
-def _clear_cache():
-    for key in tuple(__cache__):
-        del __cache__[key]
-
-
 # --- Helpers -----------------------------------------------------------------
 
 
 def annotation_wrapper(annotation, doc=None):
-    """Defines an annotation, which can be applied to attributes in a database model."""
+    """Define an annotation, which can be applied to attributes in a database model."""
 
     def decorator(attr):
         __cache__.setdefault(attr, []).append(annotation)
@@ -131,12 +138,19 @@ def annotation_wrapper(annotation, doc=None):
         # required for some objects like Column because SQLAlchemy copies
         # them in subclasses, changing their hash and making them
         # undiscoverable via the cache.
-        try:
-            if not hasattr(attr, '_coaster_annotations'):
-                setattr(attr, '_coaster_annotations', [])
-            attr._coaster_annotations.append(annotation)
-        except AttributeError:
-            pass
+        if isinstance(attr, SynonymProperty):
+            raise TypeError(
+                "Synonyms cannot have annotations; set it on the referred attribute"
+            )
+        if isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
+            attr.info.setdefault('_coaster_annotations', []).append(annotation)
+        else:
+            try:
+                if not hasattr(attr, '_coaster_annotations'):
+                    setattr(attr, '_coaster_annotations', [])
+                attr._coaster_annotations.append(annotation)
+            except AttributeError:
+                pass
         return attr
 
     decorator.__name__ = decorator.name = annotation
