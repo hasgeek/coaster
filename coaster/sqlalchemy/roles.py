@@ -1224,6 +1224,8 @@ def _configure_roles(mapper_, cls):
 
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
+            elif hasattr(attr, '_coaster_roles'):
+                data = attr._coaster_roles
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
@@ -1235,8 +1237,6 @@ def _configure_roles(mapper_, cls):
                     data = getattr(attr.property, '_coaster_roles')
                 else:
                     data = None
-            elif hasattr(attr, '_coaster_roles'):
-                data = attr._coaster_roles
             else:
                 data = None
             if data is not None:
