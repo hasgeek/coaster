@@ -6,6 +6,8 @@
 * Removed deprecated ``make_password`` and ``check_password`` functions
 * Added ``compress_whitespace`` to mimic browser compression of whitespace
 * Removed unused and untested ``word_count`` function
+* Added SQLAlchemy 1.4 support and dropped support for annotations and roles
+  on synonyms
 
 0.6.1 - 2021-01-06
 ------------------

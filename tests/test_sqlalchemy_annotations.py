@@ -111,12 +111,7 @@ class SynonymAnnotation(BaseMixin, db.Model):
     col_regular = db.Column(db.UnicodeText())
     col_immutable = immutable(db.Column(db.UnicodeText()))
 
-    # The immutable annotation is ineffective on synonyms as SQLAlchemy does not
-    # honour the `set` event on synonyms
-    syn_to_regular = immutable(db.synonym('col_regular'))
-
-    # However, the immutable annotation on the target of a synonym will also apply
-    # on the synonym
+    # Synonyms cannot have annotations. They mirror the underlying attribute
     syn_to_immutable = db.synonym('col_immutable')
 
 
@@ -347,6 +342,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         i1.referral_target = rt2
         with pytest.raises(ImmutableColumnError):
             i2.referral_target = rt2
+        self.session.rollback()
         with pytest.raises(ImmutableColumnError):
             i3.referral_target = rt2
 
@@ -381,12 +377,6 @@ class TestCoasterAnnotations(unittest.TestCase):
         with pytest.raises(ImmutableColumnError):
             sa.col_immutable = 'y'
         assert sa.col_immutable == 'b'
-        # The synonyms can add immutability, but cannot remove it from the
-        # underlying column:
-        assert sa.syn_to_regular == 'x'
-        assert sa.syn_to_immutable == 'b'
-        sa.syn_to_regular = 'p'
-        assert sa.syn_to_regular == 'p'
         with pytest.raises(ImmutableColumnError):
             sa.syn_to_immutable = 'y'
         assert sa.syn_to_immutable == 'b'
