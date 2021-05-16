@@ -659,7 +659,7 @@ class StateTransitionWrapper:
                 self.obj, transition=self.statetransition, exception=e
             )
             return e.args[0]
-        except Exception as e:
+        except Exception as e:  # NOQA: B902
             transition_exception.send(
                 self.obj, transition=self.statetransition, exception=e
             )
