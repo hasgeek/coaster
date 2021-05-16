@@ -8,6 +8,7 @@
 * Removed unused and untested ``word_count`` function
 * Added SQLAlchemy 1.4 support and dropped support for annotations and roles
   on synonyms
+* Registries now support property-like access and caching
 
 0.6.1 - 2021-01-06
 ------------------
