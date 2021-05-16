@@ -128,8 +128,8 @@ import warnings
 
 from sqlalchemy import event, inspect
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import Query, mapper
-from sqlalchemy.orm.attributes import InstrumentedAttribute, QueryableAttribute
+from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
+from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
     InstrumentedList,
@@ -137,12 +137,19 @@ from sqlalchemy.orm.collections import (
     MappedCollection,
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
+from sqlalchemy.schema import SchemaItem
 
 # mypy can't find _request_ctx_stack in flask
 from flask import _request_ctx_stack  # type: ignore[attr-defined]
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
+
+try:  # SQLAlchemy >= 1.4
+    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
+except ImportError:  # SQLAlchemy < 1.4
+    from sqlalchemy.orm.interfaces import MapperProperty
+
 
 __all__ = [
     'RoleGrantABC',
@@ -800,7 +807,11 @@ def with_roles(
     write.update(rw)
 
     def inner(attr):
-        __cache__[attr] = {
+        if isinstance(attr, SynonymProperty):
+            raise TypeError(
+                "Synonyms cannot have roles as they acquire from the underlying entity"
+            )
+        data = {
             'call': call,
             'read': read,
             'write': write,
@@ -808,20 +819,24 @@ def with_roles(
             'grants_via': grants_via,
             'datasets': datasets,
         }
-        try:
-            attr._coaster_roles = {
-                'call': call,
-                'read': read,
-                'write': write,
-                'grants': grants,
-                'grants_via': grants_via,
-                'datasets': datasets,
-            }
-            # If the attr has a restrictive __slots__, we'll get an attribute error.
-            # Unfortunately, because of the way SQLAlchemy works, by copying objects
-            # into subclasses, the cache alone is not a reliable mechanism. We need both
-        except AttributeError:
-            pass
+        if attr in __cache__:
+            raise TypeError("Duplicate use of with_roles for this attribute")
+        __cache__[attr] = data
+        if isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
+            if '_coaster_roles' in attr.info:
+                raise TypeError("Duplicate use of with_roles for this attribute")
+            attr.info['_coaster_roles'] = data
+        else:
+            try:
+                if hasattr(attr, '_coaster_roles'):
+                    raise TypeError("Duplicate use of with_roles for this attribute")
+                attr._coaster_roles = data
+                # If the attr has a restrictive __slots__, we'll get an attribute error.
+                # Unfortunately, because of the way SQLAlchemy works, by copying objects
+                # into subclasses, the cache alone is not a reliable mechanism. We need
+                # both
+            except AttributeError:
+                pass
         return attr
 
     if is_collection(obj):
@@ -1200,21 +1215,28 @@ def _configure_roles(mapper_, cls):
             if name in processed or name.startswith('__'):
                 continue
 
+            while isinstance(attr, QueryableAttribute) and isinstance(
+                getattr(attr, 'original_property', None), SynonymProperty
+            ):
+                # If we have a synonym, replace the attr with the referred attr, but
+                # process it under the synonym name
+                attr = getattr(cls, attr.original_property.name)
+
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
-                del __cache__[attr]
-            elif isinstance(attr, QueryableAttribute) and hasattr(
-                attr, 'original_property'
-            ):
-                if hasattr(attr.original_property, '_coaster_roles'):
-                    data = attr.original_property._coaster_roles
-                else:
-                    data = None
-            elif isinstance(attr, InstrumentedAttribute) and attr.property in __cache__:
-                data = __cache__[attr.property]
-                del __cache__[attr.property]
             elif hasattr(attr, '_coaster_roles'):
                 data = attr._coaster_roles
+            elif isinstance(
+                attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
+            ):
+                if attr.property in __cache__:
+                    data = __cache__[attr.property]
+                elif '_coaster_roles' in attr.info:
+                    data = attr.info['_coaster_roles']
+                elif hasattr(attr.property, '_coaster_roles'):
+                    data = getattr(attr.property, '_coaster_roles')
+                else:
+                    data = None
             else:
                 data = None
             if data is not None:
@@ -1280,9 +1302,3 @@ def _configure_roles(mapper_, cls):
                 for dataset in data.get('datasets', ()):
                     cls.__datasets__.setdefault(dataset, set()).add(name)
                 processed.add(name)
-
-
-@event.listens_for(mapper, 'after_configured')
-def _clear_cache():
-    for key in tuple(__cache__):
-        del __cache__[key]

@@ -30,11 +30,16 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.util import CommandError
 
-from flask_migrate import MigrateCommand
 import flask
 
 from flask_script import Manager, Shell, prompt_bool
 from flask_script.commands import Clean, ShowUrls
+
+try:
+    from flask_migrate import MigrateCommand
+except ImportError:
+    # No longer supported in Flask-Migrate 3.0; use `flask db` instead
+    MigrateCommand = None
 
 manager = Manager()
 
@@ -112,7 +117,8 @@ def init_manager(app, db, **kwargs):
     manager.app = app
     manager.db = db
     manager.context = kwargs
-    manager.add_command('db', MigrateCommand)
+    if MigrateCommand is not None:
+        manager.add_command('db', MigrateCommand)
     manager.add_command('clean', Clean())
     manager.add_command('showurls', ShowUrls())
     manager.add_command('shell', Shell(make_context=shell_context))

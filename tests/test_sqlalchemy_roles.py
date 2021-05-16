@@ -231,10 +231,8 @@ class RoleGrantSynonym(BaseMixin, db.Model):
 
     # Base column has roles defined
     datacol = with_roles(db.Column(db.UnicodeText()), rw={'owner'})
-    # Synonym has no roles defined, so it acquires from the target
-    altcol_unroled = db.synonym('datacol')
-    # However, when the synonym has roles defined, these override the target's
-    altcol_roled = with_roles(db.synonym('datacol'), read={'all'})
+    # Synonym cannot have independent roles and will mirror the target
+    altcol = db.synonym('datacol')
 
 
 class RoleMembership(BaseMixin, db.Model):
@@ -803,19 +801,16 @@ class TestCoasterRoles(unittest.TestCase):
             next(m1.actors_with('owner'))
 
     def test_role_grant_synonyms(self):
-        """Test that synonyms get independent access control"""
+        """Test that synonyms reflect the underlying attribute"""
         rgs = RoleGrantSynonym(datacol='abc')
         assert rgs.datacol == 'abc'
-        assert rgs.altcol_unroled == 'abc'
-        assert rgs.altcol_roled == 'abc'
+        assert rgs.altcol == 'abc'
 
         owner_proxy = rgs.access_for(roles={'owner'})
         # datacol is present as it has owner read access defined
         assert 'datacol' in owner_proxy
-        # altcol_unroled is not present as no roles were defined for it
-        assert 'altcol_unroled' not in owner_proxy
-        # altcol_roled had its own roles defined, and owner access was not in them
-        assert 'altcol_roled' not in owner_proxy
+        # altcol mirrors datacol
+        assert 'altcol' in owner_proxy
 
         assert owner_proxy.datacol == 'abc'
         assert owner_proxy['datacol'] == 'abc'
@@ -824,19 +819,12 @@ class TestCoasterRoles(unittest.TestCase):
         owner_proxy.datacol = 'xyz'
         assert owner_proxy.datacol == 'xyz'
 
-        # Confirm the unroled synonym isn't available in the proxy
-        with pytest.raises(AttributeError):
-            owner_proxy.altcol_unroled = 'uvw'
+        owner_proxy.altcol = 'uvw'
+        assert owner_proxy.datacol == 'uvw'
 
         all_proxy = rgs.access_for(roles={'all'})
         assert 'datacol' not in all_proxy
-        assert 'altcol_unroled' not in all_proxy
-        assert 'altcol_roled' in all_proxy
-        assert all_proxy.altcol_roled == 'xyz'
-
-        # The altcol_roled synonym has only read access to the all role
-        with pytest.raises(AttributeError):
-            all_proxy.altcol_roled = 'pqr'
+        assert 'altcol' not in all_proxy
 
     def test_dynamic_association_proxy(self):
         parent1 = RelationshipParent(title="Proxy Parent 1")

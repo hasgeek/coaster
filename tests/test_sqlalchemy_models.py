@@ -20,6 +20,8 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 from flask import Flask
 from werkzeug.routing import BuildError
 
+from pytz import utc
+
 from coaster.db import db
 from coaster.sqlalchemy import (
     BaseIdNameMixin,
@@ -1463,7 +1465,7 @@ class TestCoasterModelsPG(TestCoasterModels):
 
         assert row.created_at is not None
         assert row.created_at.tzinfo is not None
-        assert row.created_at.utcoffset() == timedelta(0)
+        assert row.created_at.astimezone(utc).utcoffset() == timedelta(0)
         assert row.updated_at is not None
         assert row.updated_at.tzinfo is not None
-        assert row.updated_at.utcoffset() == timedelta(0)
+        assert row.updated_at.astimezone(utc).utcoffset() == timedelta(0)
