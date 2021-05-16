@@ -9,6 +9,7 @@ services:
 # command to install dependencies
 install:
   - pip install pre-commit
+  - pip install 'idna<3'
   - python setup.py install
   - pip install -r test_requirements.txt
 # command to prepare environment
