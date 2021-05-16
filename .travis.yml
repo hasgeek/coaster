@@ -1,14 +1,15 @@
 language: python
 cache: pip
 python:
-  - "3.6"
   - "3.7"
   - "3.8"
+  - "3.9"
 services:
   - postgresql
 # command to install dependencies
 install:
   - pip install pre-commit
+  - pip install 'idna<3'
   - python setup.py install
   - pip install -r test_requirements.txt
 # command to prepare environment

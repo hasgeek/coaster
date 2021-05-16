@@ -4,7 +4,6 @@ App configuration
 """
 
 from flask import Flask, g, get_flashed_messages, request, session, url_for
-from flask.json import tojson_filter as _tojson_filter
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
 
@@ -134,7 +133,6 @@ class SandboxedFlask(Flask):
             session=session,
             g=g,  # FIXME: Similarly with g: no access for sandboxed templates
         )
-        rv.filters['tojson'] = _tojson_filter
         return rv
 
 
