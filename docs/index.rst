@@ -19,7 +19,6 @@ Coaster is available under the BSD license, the same license as Flask.
    typing
    app
    logger
-   manage
    assets
    utils/index
    auth

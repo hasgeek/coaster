@@ -81,7 +81,6 @@ It has a newline break here.</p>
 <div class="highlight"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
 </span>    <span class="k">return</span> <span class="s1">'https://www.example.com/'</span>
 </code></pre></div>
-
 <table>
 <thead>
 <tr>
@@ -151,7 +150,6 @@ This is a header in text-only mode
 <pre><code>def foo():
     return &#39;https://www.example.com/&#39;
 </code></pre>
-
 <table>
 <thead>
 <tr>
