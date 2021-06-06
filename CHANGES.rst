@@ -1,4 +1,4 @@
-0.7.0 - 2021-04-XX
+0.7.0 - 2021-06-XX
 ------------------
 
 * Dropped Python 2.7 support
@@ -9,6 +9,10 @@
 * Added SQLAlchemy 1.4 support and dropped support for annotations and roles
   on synonyms
 * Registries now support property-like access and caching
+* Dropped Python 3.6 support as it lacks typing annotations
+* Removed SandboxedFlask as it is unused and adds maintenance overhead
+* Fix MarkdownColumn behaviour with None value
+* ``manage.py`` is no longer supported as Flask-Script has been deprecated
 
 0.6.1 - 2021-01-06
 ------------------

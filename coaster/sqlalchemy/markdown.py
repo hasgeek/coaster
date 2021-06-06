@@ -4,7 +4,7 @@ from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite
 
-from flask import Markup
+from markupsafe import Markup
 
 from ..utils import markdown as markdown_processor
 
@@ -39,7 +39,7 @@ class MarkdownComposite(MutableComposite):
     # Return a string representation of the text (see class decorator)
     def __str__(self):
         """Return string representation."""
-        return self.text
+        return self.text or ''
 
     # Return a HTML representation of the text
     def __html__(self):
@@ -50,7 +50,7 @@ class MarkdownComposite(MutableComposite):
     @property
     def html(self):
         """Return HTML as a property."""
-        return Markup(self._html or '')
+        return Markup(self._html) if self._html is not None else None
 
     @property
     def text(self):

@@ -2,4 +2,3 @@ coverage
 coveralls
 pytest>6
 pytest-cov
-pytest-flask-sqlalchemy

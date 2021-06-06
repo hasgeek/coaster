@@ -46,7 +46,7 @@ requires = [
     'base58>=2.0.0',
     'simplejson',
     'sqlalchemy-utils',
-    'SQLAlchemy>=1.0.9',
+    'SQLAlchemy>=1.3',
     'tldextract',
     'UgliPyJS',
     'unidecode',

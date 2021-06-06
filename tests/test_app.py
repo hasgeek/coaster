@@ -10,7 +10,6 @@ import pytest
 from coaster.app import (
     KeyRotationWrapper,
     RotatingKeySecureCookieSessionInterface,
-    SandboxedFlask,
     _additional_config,
     init_app,
     load_config_from_file,
@@ -48,7 +47,7 @@ class TestCoasterApp(unittest.TestCase):
         for handler in self.another_app.logger.handlers:
             try:
                 raise Exception
-            except Exception:  # skipcq: PYL-W0703
+            except Exception:  # NOQA: B902 # skipcq: PYL-W0703
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())
@@ -67,22 +66,6 @@ class TestCoasterApp(unittest.TestCase):
                 )
                 == 'No'
             )
-
-
-class TestSandBoxedFlask(unittest.TestCase):
-    def setUp(self):
-        self.app = SandboxedFlask(__name__)
-
-    def test_sandboxed_flask_jinja(self):
-        template = self.app.jinja_env.from_string("{{ obj.name }}, {{ obj._secret }}")
-
-        class Test:
-            def __init__(self, name, _secret):
-                self.name = name
-                self._secret = _secret
-
-        obj = Test("Name", "secret")
-        assert template.render(obj=obj) == "%s, " % (obj.name)
 
 
 def test_key_rotation_wrapper():

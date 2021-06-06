@@ -98,8 +98,10 @@ class TestMarkdownColumn(unittest.TestCase):
         assert not doc.value
         assert doc.value.text is None
         assert doc.value_text is None
-        assert doc.value.html == ''
+        assert doc.value.html is None
         assert doc.value_html is None
+        assert str(doc.value) == ''
+        assert doc.value.__html__() == ''
 
     def test_empty_value(self):
         doc = MarkdownData(value='')
