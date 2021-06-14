@@ -100,14 +100,14 @@ def failsafe_add(_session, _instance, **filters):
         # nested transaction, which defeats the purpose of nesting, so
         # remove it for now and add it back inside the SAVEPOINT.
         _session.expunge(_instance)
-    _session.begin_nested()
+    savepoint = _session.begin_nested()
     try:
         _session.add(_instance)
-        _session.commit()
+        savepoint.commit()
         if filters:
             return _instance
     except IntegrityError as e:
-        _session.rollback()
+        savepoint.rollback()
         if filters:
             try:
                 return _session.query(_instance.__class__).filter_by(**filters).one()
