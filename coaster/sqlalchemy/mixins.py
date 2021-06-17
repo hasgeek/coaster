@@ -943,7 +943,7 @@ class BaseScopedIdMixin(BaseMixin):
             self.url_id = select(
                 [func.coalesce(func.max(self.__class__.url_id + 1), 1)],
                 self.__class__.parent == self.parent,
-            )
+            ).as_scalar()
 
     def permissions(self, actor, inherited=None):
         """
