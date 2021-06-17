@@ -13,6 +13,10 @@
 * Removed SandboxedFlask as it is unused and adds maintenance overhead
 * Fix MarkdownColumn behaviour with None value
 * ``manage.py`` is no longer supported as Flask-Script has been deprecated
+* Log reporting over SMS has been removed as it is no longer reliable under the
+  Indian DLT template system; Telegram reporting is typically more effective
+* Local stack variables in error logs no longer show app config, and don't
+  repeat already logged values
 
 0.6.1 - 2021-01-06
 ------------------
