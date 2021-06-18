@@ -12,6 +12,7 @@ from io import StringIO
 from pprint import pprint
 from threading import Lock
 from typing import Any, Dict
+import logging
 import logging.handlers
 import re
 import textwrap
@@ -24,7 +25,12 @@ import requests
 
 from .auth import current_auth
 
+# Global variable to ensure log handlers are registered only once per process
+logging_configured = False
+
+# Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
+
 # These keywords are borrowed from Sentry's documentation and expanded for PII
 _filter_re = re.compile(
     '''
@@ -160,15 +166,15 @@ class LocalVarFormatter(logging.Formatter):
                     % (frame.f_code.co_name, frame.f_code.co_filename, frame.f_lineno),
                     file=sio,
                 )
-                for key, value in list(frame.f_locals.items()):
+                for attr, value in list(frame.f_locals.items()):
                     idvalue = id(value)
                     if idvalue in value_cache:
                         value = RepeatValueIndicator(value_cache[idvalue])
                     else:
-                        value_cache[idvalue] = key
-                    print("\t%20s = " % key, end=' ', file=sio)  # NOQA: T001
+                        value_cache[idvalue] = "%s.%s" % (frame.f_code.co_name, attr)
+                    print("\t%20s = " % attr, end=' ', file=sio)  # NOQA: T001
                     try:
-                        print(repr(filtered_value(key, value)), file=sio)  # NOQA: T001
+                        print(repr(filtered_value(attr, value)), file=sio)  # NOQA: T001
                     except:  # NOQA
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
@@ -332,10 +338,13 @@ class TelegramHandler(logging.Handler):
                 message=escape(record.message),
             )
             if record.exc_info:
+                lines = traceback.format_exception(*record.exc_info)
+                # Reverse the lines (except first line)
+                lines = lines[1:][::-1]
+                # Change first line's claim
+                # lines[0].replace('Traceback (most recent call last):', 'Traceback:')
                 text += '\n\n<pre>{traceback}</pre>'.format(
-                    traceback=escape(
-                        ''.join(traceback.format_exception(*record.exc_info))
-                    )
+                    traceback=escape(''.join(lines))
                 )
             if len(text) > 4096:
                 text = text[: (4096 - 7)] + '…</pre>'
@@ -380,6 +389,14 @@ def init_app(app):
             }]
 
     """
+    global logging_configured
+    if logging_configured:
+        app.logger.warning("Logging already configured, ignoring repeat call")
+        return
+    logging_configured = True
+
+    root = logging.getLogger()
+
     formatter = LocalVarFormatter(
         '%(asctime)s - %(module)s.%(funcName)s:%(lineno)s - %(levelname)s - %(message)s'
     )
@@ -393,7 +410,7 @@ def init_app(app):
         )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(app.config.get('LOGFILE_LEVEL', logging.WARNING))
-        app.logger.addHandler(file_handler)
+        root.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler
@@ -403,7 +420,7 @@ def init_app(app):
         )
         slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
-        app.logger.addHandler(slack_handler)
+        root.addHandler(slack_handler)
 
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
@@ -415,7 +432,7 @@ def init_app(app):
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],
         )
         telegram_handler.setLevel(logging.ERROR)
-        app.logger.addHandler(telegram_handler)
+        root.addHandler(telegram_handler)
 
     if app.config.get('ADMINS'):
         mail_sender = app.config.get('MAIL_DEFAULT_SENDER', 'logs@example.com')
@@ -434,7 +451,7 @@ def init_app(app):
         )
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
-        app.logger.addHandler(mail_handler)
+        root.addHandler(mail_handler)
 
 
 # Legacy name
