@@ -358,10 +358,9 @@ class TelegramHandler(logging.Handler):
                 text += '\n\n' + '\n'.join(traceback_lines)
             if len(text) > 4096:
                 text = text[: 4096 - 7]  # 7 = len('</pre>…')
-
-            if text.count('<pre>') > text.count('</pre>'):
-                text += '</pre>'
-            text += '…'
+                if text.count('<pre>') > text.count('</pre>'):
+                    text += '</pre>'
+                text += '…'
 
             requests.post(
                 'https://api.telegram.org/bot{apikey}/sendMessage'.format(
