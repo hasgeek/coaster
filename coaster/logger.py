@@ -8,6 +8,7 @@ this is done automatically for you.
 """
 
 from datetime import datetime, timedelta
+from html import escape
 from io import StringIO
 from pprint import pprint
 from threading import Lock
@@ -18,7 +19,7 @@ import re
 import textwrap
 import traceback
 
-from flask import escape, g, request, session
+from flask import g, request, session
 from flask.config import Config
 
 import requests
@@ -333,21 +334,35 @@ class TelegramHandler(logging.Handler):
             > timedelta(minutes=5)
         ):
             text = '<b>{levelname}</b> in <b>{name}</b>: {message}'.format(
-                levelname=escape(record.levelname),
-                name=escape(self.app_name),
-                message=escape(record.message),
+                levelname=escape(record.levelname, False),
+                name=escape(self.app_name, False),
+                message=escape(record.message, False),
             )
             if record.exc_info:
-                lines = traceback.format_exception(*record.exc_info)
-                # Reverse the lines (except first line)
-                lines = lines[1:][::-1]
-                # Change first line's claim
-                # lines[0].replace('Traceback (most recent call last):', 'Traceback:')
-                text += '\n\n<pre>{traceback}</pre>'.format(
-                    traceback=escape(''.join(lines))
-                )
+                # Reverse the traceback, after dropping the first line with
+                # "Traceback (most recent call first)".
+                traceback_lines = traceback.format_exception(*record.exc_info)[1:][::-1]
+                for index, stack_frame in enumerate(traceback_lines):
+                    stack_frame_lines = stack_frame.split('\n', 1)
+                    traceback_lines[index] = (
+                        '\n'.join(
+                            [escape(stack_frame_lines[0].strip(), False)]
+                            + [
+                                '<pre>' + escape(_l.strip(), False) + '</pre>'
+                                for _l in stack_frame_lines[1:]
+                                if _l
+                            ]
+                        )
+                        + '\n'
+                    )
+                text += '\n\n' + '\n'.join(traceback_lines)
             if len(text) > 4096:
-                text = text[: (4096 - 7)] + '…</pre>'
+                text = text[: 4096 - 7]  # 7 = len('</pre>…')
+
+            if text.count('<pre>') > text.count('</pre>'):
+                text += '</pre>'
+            text += '…'
+
             requests.post(
                 'https://api.telegram.org/bot{apikey}/sendMessage'.format(
                     apikey=self.apikey
