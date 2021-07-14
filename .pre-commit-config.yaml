@@ -14,7 +14,7 @@ repos:
             '--remove-duplicate-keys',
           ]
   - repo: https://github.com/PyCQA/isort
-    rev: 5.9.1
+    rev: 5.9.2
     hooks:
       - id: isort
         additional_dependencies:
