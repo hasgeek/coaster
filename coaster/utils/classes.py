@@ -269,7 +269,7 @@ class InspectableSet(Set):
         object.__setattr__(self, '_members', members)
 
     def __repr__(self):
-        return 'InspectableSet({members})'.format(members=repr(self._members))
+        return f'InspectableSet({repr(self._members)})'
 
     def __len__(self):
         return len(self._members)
@@ -278,8 +278,7 @@ class InspectableSet(Set):
         return key in self._members
 
     def __iter__(self):
-        for key in self._members:
-            yield key
+        yield from self._members
 
     def __getitem__(self, key):
         return key in self._members  # Returns True if present, False otherwise
@@ -291,7 +290,7 @@ class InspectableSet(Set):
         raise AttributeError(attr)
 
 
-class classmethodproperty:  # NOQA: N801
+class classmethodproperty:  # noqa: N801
     """
     Class method decorator to make class methods behave like properties::
 

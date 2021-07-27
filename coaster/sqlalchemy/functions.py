@@ -23,8 +23,8 @@ __all__ = [
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.htm
 # #utc-timestamp-function
-class utcnow(functions.GenericFunction):  # NOQA: N801
-    type = TIMESTAMP()  # NOQA: A003
+class utcnow(functions.GenericFunction):  # noqa: N801
+    type = TIMESTAMP()  # noqa: A003
 
 
 @compiles(utcnow)
@@ -211,8 +211,8 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'parentcol': parentcol,
                 'child_table_name': child_table_name,
                 'child_id_column': child_id_columns[0],
-                'lhs': '%s_%s' % (parent_table_name, parent_id_columns[0]),
-                'rhs': '%s_%s' % (child_table_name, child_id_columns[0]),
+                'lhs': f'{parent_table_name}_{parent_id_columns[0]}',
+                'rhs': f'{child_table_name}_{child_id_columns[0]}',
             },
         ).execute_if(dialect='postgresql'),
     )

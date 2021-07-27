@@ -173,11 +173,11 @@ class VersionedAssets(defaultdict):
         blacklist = {n[1:] for n in namespecs if n.startswith('!')}
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
         return Bundle(
-            *[
+            *(
                 bundle
                 for name, version, bundle in self._require_recursive(*not_blacklist)
                 if name not in blacklist
-            ]
+            )
         )
 
 

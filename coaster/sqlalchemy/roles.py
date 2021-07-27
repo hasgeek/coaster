@@ -203,7 +203,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 )
             return offered_roles
         raise TypeError(
-            "{0!r} is not a RoleMixin and no actor attribute was specified".format(
+            "{!r} is not a RoleMixin and no actor attribute was specified".format(
                 relationship
             )
         )
@@ -290,7 +290,7 @@ class LazyRoleSet(abc.MutableSet):
         self._scanned_granted_by = set()  # Contains relattr
 
     def __repr__(self):  # pragma: no cover
-        return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
+        return f'LazyRoleSet({self.obj}, {self.actor})'
 
     # This is required by the `MutableSet` base class
     def _from_iterable(self, it):
@@ -493,7 +493,7 @@ class DynamicAssociationProxy:
         self.attr = attr
 
     def __repr__(self):
-        return 'DynamicAssociationProxy(%s, %s)' % (repr(self.rel), repr(self.attr))
+        return f'DynamicAssociationProxy({repr(self.rel)}, {repr(self.attr)})'
 
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -510,7 +510,7 @@ class DynamicAssociationProxyWrapper(abc.Set):
         self.attr = attr
 
     def __repr__(self):
-        return 'DynamicAssociationProxyWrapper(%s, %s, %s)' % (
+        return 'DynamicAssociationProxyWrapper({}, {}, {})'.format(
             repr(self.obj),
             repr(self.rel),
             repr(self.attr),
@@ -688,8 +688,7 @@ class RoleAccessProxy(abc.Mapping):
             source = self._read & self._dataset_attrs
         else:
             source = self._read
-        for key in source:
-            yield key
+        yield from source
 
 
 def with_roles(

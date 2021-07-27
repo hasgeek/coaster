@@ -348,7 +348,7 @@ class ManagedState:
         return self.validator is None and not is_collection(self.value)
 
     def __repr__(self):
-        return '%s.%s' % (self.statemanager.name, self.name)
+        return f'{self.statemanager.name}.{self.name}'
 
     def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
@@ -398,7 +398,7 @@ class ManagedStateGroup:
                 or state.statemanager != statemanager
             ):
                 raise ValueError(
-                    "Invalid state %s for state group %s" % (repr(state), repr(self))
+                    f"Invalid state {repr(state)} for state group {repr(self)}"
                 )
 
         # Second, separate conditional from regular states (regular states may still be
@@ -431,12 +431,12 @@ class ManagedStateGroup:
             values.update(state_values)
 
     def __repr__(self):
-        return '%s.%s' % (self.statemanager.name, self.name)
+        return f'{self.statemanager.name}.{self.name}'
 
     def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
-        return or_(*[s(obj, cls) for s in self.states])
+        return or_(*(s(obj, cls) for s in self.states))
 
     def __call__(self, obj, cls=None):
         if obj is not None:
@@ -659,7 +659,7 @@ class StateTransitionWrapper:
                 self.obj, transition=self.statetransition, exception=e
             )
             return e.args[0]
-        except Exception as e:  # NOQA: B902
+        except Exception as e:  # noqa: B902
             transition_exception.send(
                 self.obj, transition=self.statetransition, exception=e
             )
@@ -724,7 +724,7 @@ class StateManager:
 
     def __repr__(self):
         if self.owner is not None:
-            return '%s.%s' % (self.owner.__name__, self.name)
+            return f'{self.owner.__name__}.{self.name}'
         return '<StateManager %s>' % self.name
 
     def __get__(
@@ -947,7 +947,7 @@ class StateManagerWrapper(Generic[T]):
         self.cls = cls
 
     def __repr__(self):
-        return '<StateManagerWrapper(%s.%s)>' % (
+        return '<StateManagerWrapper({}.{})>'.format(
             type(self.obj).__name__,
             self.statemanager.name,
         )

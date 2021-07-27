@@ -73,7 +73,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
-    id = db.Column(db.Integer, primary_key=True)  # NOQA: A003
+    id = db.Column(db.Integer, primary_key=True)  # noqa: A003
     name = with_roles(
         db.Column(db.Unicode(250)), rw={'owner'}
     )  # Specify read+write access
@@ -109,7 +109,7 @@ class AutoRoleModel(RoleMixin, db.Model):
 
     # This model doesn't specify __roles__. It only uses with_roles.
     # It should still work
-    id = db.Column(db.Integer, primary_key=True)  # NOQA: A003
+    id = db.Column(db.Integer, primary_key=True)  # noqa: A003
     with_roles(id, read={'all'})
 
     name = db.Column(db.Unicode(250))

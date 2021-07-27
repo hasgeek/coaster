@@ -27,13 +27,13 @@ from coaster.utils import (
 )
 
 
-class MY_ENUM(LabeledEnum):  # NOQA: N801
+class MY_ENUM(LabeledEnum):  # noqa: N801
     FIRST = (1, "First")
     SECOND = (2, "Second")
     THIRD = (3, "Third")
 
 
-class MY_ENUM_TWO(LabeledEnum):  # NOQA: N801
+class MY_ENUM_TWO(LabeledEnum):  # noqa: N801
     FIRST = (1, 'first', "First")
     SECOND = (2, 'second', "Second")
     THIRD = (3, 'third', "Third")

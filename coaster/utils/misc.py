@@ -272,9 +272,9 @@ def newpin(digits=4):
     True
     """
     random = SystemRandom()
-    randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
+    randnum = random.randint(0, 10 ** digits)  # noqa: S311 # nosec
     while len(str(randnum)) > digits:
-        randnum = random.randint(0, 10 ** digits)  # NOQA: S311 # nosec
+        randnum = random.randint(0, 10 ** digits)  # noqa: S311 # nosec
     return ('%%0%dd' % digits) % randnum
 
 
@@ -429,7 +429,7 @@ def md5sum(data):
     >>> len(md5sum('random text'))
     32
     """
-    return hashlib.md5(  # NOQA: S303 # skipcq: PTC-W1003 # nosec
+    return hashlib.md5(  # noqa: S303 # skipcq: PTC-W1003 # nosec
         data.encode('utf-8')
     ).hexdigest()
 
@@ -542,7 +542,7 @@ def require_one_of(_return=False, **kwargs):
         )
 
     if _return:
-        keys, values = zip(*[(k, 1 if v is not None else 0) for k, v in kwargs.items()])
+        keys, values = zip(*((k, 1 if v is not None else 0) for k, v in kwargs.items()))
         k = keys[values.index(1)]
         return k, kwargs[k]
 

@@ -29,7 +29,7 @@ db = SQLAlchemy(app)
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
 # StateManager is agnostic to which syntax you use.
-class MY_STATE(LabeledEnum):  # NOQA: N801
+class MY_STATE(LabeledEnum):  # noqa: N801
     DRAFT = (0, "Draft")
     PENDING = (1, 'pending', "Pending")
     PUBLISHED = (2, 'published', "Published")
@@ -39,7 +39,7 @@ class MY_STATE(LabeledEnum):  # NOQA: N801
     PUBLISHED_AND_AFTER = {PUBLISHED}
 
 
-class REVIEW_STATE(LabeledEnum):  # NOQA: N801
+class REVIEW_STATE(LabeledEnum):  # noqa: N801
     UNSUBMITTED = (0, "Unsubmitted")
     PENDING = (1, "Pending")
     LOCKED = (2, "Locked")

@@ -103,8 +103,8 @@ class IdMixin:
     #: the need to commit to the database
     __uuid_primary_key__ = False
 
-    @declared_attr  # NOQA: A003
-    def id(cls):  # NOQA: A003
+    @declared_attr
+    def id(cls):  # noqa: A003
         """
         Database identity for this model, used for foreign key references from other
         models
@@ -151,7 +151,7 @@ class IdMixin:
         return url_id_property
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.id)
+        return f'<{self.__class__.__name__} {self.id}>'
 
 
 class UuidMixin:
@@ -583,7 +583,7 @@ class BaseNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s">' % (self.__class__.__name__, self.name, self.title)
+        return f'<{self.__class__.__name__} {self.name} "{self.title}">'
 
     @classmethod
     def get(cls, name):
@@ -704,7 +704,7 @@ class BaseScopedNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (
+        return '<{} {} "{}" of {}>'.format(
             self.__class__.__name__,
             self.name,
             self.title,
@@ -861,7 +861,7 @@ class BaseIdNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s">' % (self.__class__.__name__, self.url_id_name, self.title)
+        return f'<{self.__class__.__name__} {self.url_id_name} "{self.title}">'
 
     def make_name(self):
         """Autogenerates a :attr:`name` from :attr:`title_for_name`"""
@@ -875,7 +875,7 @@ class BaseIdNameMixin(BaseMixin):
         id-name syntax. This property is also available as :attr:`url_name`
         for legacy reasons.
         """
-        return '%s-%s' % (self.url_id, self.name)
+        return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator
     def url_id_name(cls):
@@ -891,7 +891,7 @@ class BaseIdNameMixin(BaseMixin):
         Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
         syntax. To use this, the class must derive from :class:`UuidMixin`.
         """
-        return '%s-%s' % (self.name, self.uuid_b58)
+        return f'{self.name}-{self.uuid_b58}'
 
     @url_name_uuid_b58.comparator
     def url_name_uuid_b58(cls):
@@ -926,7 +926,7 @@ class BaseScopedIdMixin(BaseMixin):
             self.make_id()
 
     def __repr__(self):
-        return '<%s %s of %s>' % (
+        return '<{} {} of {}>'.format(
             self.__class__.__name__,
             self.url_id,
             repr(self.parent)[1:-1] if self.parent else None,
@@ -1027,7 +1027,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<%s %s "%s" of %s>' % (
+        return '<{} {} "{}" of {}>'.format(
             self.__class__.__name__,
             self.url_id_name,
             self.title,
@@ -1049,7 +1049,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """
         Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax
         """
-        return '%s-%s' % (self.url_id, self.name)
+        return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator
     def url_id_name(cls):
@@ -1063,7 +1063,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
         syntax. To use this, the class must derive from :class:`UuidMixin`.
         """
-        return '%s-%s' % (self.name, self.uuid_b58)
+        return f'{self.name}-{self.uuid_b58}'
 
     @url_name_uuid_b58.comparator
     def url_name_uuid_b58(cls):

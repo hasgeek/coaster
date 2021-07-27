@@ -192,13 +192,13 @@ class User(BaseMixin, db.Model):
 
 class MyData(db.Model):
     __tablename__ = 'my_data'
-    id = Column(Integer, primary_key=True)  # NOQA: A003
+    id = Column(Integer, primary_key=True)  # noqa: A003
     data = Column(JsonDict)
 
 
 class MyUrlModel(db.Model):
     __tablename__ = 'my_url'
-    id = Column(Integer, primary_key=True)  # NOQA: A003
+    id = Column(Integer, primary_key=True)  # noqa: A003
     url = Column(UrlType)  # type: ignore[var-annotated]
     url_all_scheme = Column(UrlType(schemes=None))  # type: ignore[var-annotated]
     url_custom_scheme = Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
@@ -226,7 +226,7 @@ class UuidKey(BaseMixin, db.Model):
 class UuidKeyNoDefault(BaseMixin, db.Model):
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(UUIDType(binary=False), primary_key=True)  # NOQA: A003
+    id = db.Column(UUIDType(binary=False), primary_key=True)  # noqa: A003
 
 
 class UuidForeignKey1(BaseMixin, db.Model):

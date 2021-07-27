@@ -72,8 +72,8 @@ class JsonDict(TypeDecorator):
 
 
 class MutableDict(Mutable, dict):
-    @classmethod  # NOQA: A003
-    def coerce(cls, key, value):  # NOQA: A003
+    @classmethod
+    def coerce(cls, key, value):
         """Convert plain dictionaries to MutableDict."""
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):

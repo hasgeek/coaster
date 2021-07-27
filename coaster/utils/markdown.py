@@ -70,7 +70,7 @@ class EscapeHtml(Extension):
     #safe_mode-and-html_replacement_text-keywords-deprecated
     """
 
-    def extendMarkdown(self, md) -> None:  # NOQA: N802
+    def extendMarkdown(self, md) -> None:  # noqa: N802
         md.preprocessors.deregister('html_block')
         md.inlinePatterns.deregister('html')
 
@@ -88,7 +88,7 @@ class JavascriptProtocolProcessor(Treeprocessor):
 class JavascriptProtocolExtension(Extension):
     """Markdown extension for :class:`JavascriptProtocolProcessor`."""
 
-    def extendMarkdown(self, md) -> None:  # NOQA: N802
+    def extendMarkdown(self, md) -> None:  # noqa: N802
         # Register with low priority so we run last
         md.treeprocessors.register(
             JavascriptProtocolProcessor(md), 'javascript_protocol', 1
@@ -152,7 +152,7 @@ default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
 
 
 @overload
-def markdown(  # NOQA: D103
+def markdown(
     text: None,
     html: bool = False,
     linkify: bool = True,
@@ -164,7 +164,7 @@ def markdown(  # NOQA: D103
 
 
 @overload
-def markdown(  # NOQA: D103
+def markdown(
     text: str,
     html: bool = False,
     linkify: bool = True,
