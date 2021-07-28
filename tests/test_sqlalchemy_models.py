@@ -13,6 +13,7 @@ from sqlalchemy import (
     func,
     inspect,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.orm.exc import MultipleResultsFound
@@ -974,7 +975,9 @@ class TestCoasterModels(unittest.TestCase):
         # With integer primary keys, `url_id` is simply a proxy for `id`
         self.assertEqual(
             str(
-                (NonUuidKey.url_id == 1).compile(compile_kwargs={'literal_binds': True})
+                (NonUuidKey.url_id == 1).compile(
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
+                )
             ),
             "non_uuid_key.id = 1",
         )
@@ -982,7 +985,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             str(
                 (NonUuidKey.url_id == '1').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "non_uuid_key.id = '1'",
@@ -999,37 +1002,39 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             str(
                 (UuidKey.url_id == '74d588574a7611e78c27c38403d0935c').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
         # Hex UUID with !=
         self.assertEqual(
             str(
                 (UuidKey.url_id != '74d588574a7611e78c27c38403d0935c').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id != '74d588574a7611e78c27c38403d0935c'",
+            "uuid_key.id != '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
         # Hex UUID with dashes
         self.assertEqual(
             str(
                 (UuidKey.url_id == '74d58857-4a76-11e7-8c27-c38403d0935c').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
         # UUID object
         self.assertEqual(
             str(
                 (
                     UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
-                ).compile(compile_kwargs={'literal_binds': True})
+                ).compile(
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
+                )
             ),
-            "uuid_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
         # IN clause with mixed inputs, including an invalid input
         self.assertEqual(
@@ -1042,32 +1047,34 @@ class TestCoasterModels(unittest.TestCase):
                             'garbage!',
                         ]
                     )
-                ).compile(compile_kwargs={'literal_binds': True})
+                ).compile(
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
+                )
             ),
-            "uuid_key.id IN ('74d588574a7611e78c27c38403d0935c', '74d588574a7611e78c27c38403d0935c')",
+            "uuid_key.id IN ('74d58857-4a76-11e7-8c27-c38403d0935c', '74d58857-4a76-11e7-8c27-c38403d0935c')",
         )
 
         # None value
         self.assertEqual(
             str(
-                (UuidKey.url_id == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (UuidKey.url_id == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "uuid_key.id IS NULL",
         )
         self.assertEqual(
             str(
-                (NonUuidKey.url_id == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (NonUuidKey.url_id.is_(None)).compile(
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "non_uuid_key.id IS NULL",
         )
         self.assertEqual(
             str(
-                (NonUuidMixinKey.uuid_hex == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (NonUuidMixinKey.uuid_hex == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "non_uuid_mixin_key.uuid IS NULL",
@@ -1086,17 +1093,19 @@ class TestCoasterModels(unittest.TestCase):
             str(
                 (
                     NonUuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c'
-                ).compile(compile_kwargs={'literal_binds': True})
+                ).compile(
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
+                )
             ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
+            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
         self.assertEqual(
             str(
                 (UuidMixinKey.uuid_hex == '74d588574a7611e78c27c38403d0935c').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
 
         # Running a database query with url_id works as expected.
@@ -1145,71 +1154,71 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             str(
                 (NonUuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
+            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
             str(
                 (UuidMixinKey.buid == 'dNWIV0p2EeeMJ8OEA9CTXA').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
 
         # Repeat for `uuid_b58`
         self.assertEqual(
             str(
                 (NonUuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "non_uuid_mixin_key.uuid = '74d588574a7611e78c27c38403d0935c'",
+            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
 
         # UuidMixin with UUID primary key queries against the `id` column
         self.assertEqual(
             str(
                 (UuidMixinKey.uuid_b58 == 'FRn1p6EnzbhydnssMnHqFZ').compile(
-                    compile_kwargs={'literal_binds': True}
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d588574a7611e78c27c38403d0935c'",
+            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
         )
 
         # All queries work for None values as well
         self.assertEqual(
             str(
-                (NonUuidMixinKey.buid == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (NonUuidMixinKey.buid == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "non_uuid_mixin_key.uuid IS NULL",
         )
         self.assertEqual(
             str(
-                (UuidMixinKey.buid == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (UuidMixinKey.buid == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "uuid_mixin_key.id IS NULL",
         )
         self.assertEqual(
             str(
-                (NonUuidMixinKey.uuid_b58 == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (NonUuidMixinKey.uuid_b58 == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "non_uuid_mixin_key.uuid IS NULL",
         )
         self.assertEqual(
             str(
-                (UuidMixinKey.uuid_b58 == None).compile(  # NOQA
-                    compile_kwargs={'literal_binds': True}
+                (UuidMixinKey.uuid_b58 == None).compile(  # noqa: E711
+                    dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
             "uuid_mixin_key.id IS NULL",
