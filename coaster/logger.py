@@ -173,7 +173,7 @@ class LocalVarFormatter(logging.Formatter):
                     print("\t%20s = " % attr, end=' ', file=sio)  # noqa: T001
                     try:
                         print(repr(filtered_value(attr, value)), file=sio)  # noqa: T001
-                    except:  # NOQA
+                    except:  # noqa: B901, E722
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
                         print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
@@ -202,7 +202,7 @@ class LocalVarFormatter(logging.Formatter):
             }
             try:
                 pprint_with_indent(request_data, sio)
-            except:  # NOQA
+            except:  # noqa: B901, E722
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if session:
@@ -210,7 +210,7 @@ class LocalVarFormatter(logging.Formatter):
             print("Session cookie contents:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(session, sio)
-            except:  # NOQA
+            except:  # noqa: B901, E722
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if g:
@@ -218,7 +218,7 @@ class LocalVarFormatter(logging.Formatter):
             print("App context:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(vars(g), sio)
-            except:  # NOQA
+            except:  # noqa: B901, E722
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if current_auth:
@@ -226,7 +226,7 @@ class LocalVarFormatter(logging.Formatter):
             print("Current auth:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(vars(current_auth), sio)
-            except:  # NOQA
+            except:  # noqa: B901, E722
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         s = sio.getvalue()

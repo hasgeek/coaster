@@ -8,14 +8,15 @@ that add standard columns or special functionality.
 All functions and mixins are importable from the :mod:`coaster.sqlalchemy`
 namespace.
 """
+# flake8: noqa
 
-from .annotations import *  # NOQA
-from .columns import *  # NOQA
-from .comparators import *  # NOQA
-from .functions import *  # NOQA
-from .immutable_annotation import *  # NOQA
-from .markdown import *  # NOQA
-from .mixins import *  # NOQA
-from .registry import *  # NOQA
-from .roles import *  # NOQA
-from .statemanager import *  # NOQA
+from .annotations import *
+from .columns import *
+from .comparators import *
+from .functions import *
+from .immutable_annotation import *
+from .markdown import *
+from .mixins import *
+from .registry import *
+from .roles import *
+from .statemanager import *
