@@ -35,7 +35,7 @@ class _LabeledEnumMeta(type):
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = names[key] = value[0]
                 else:  # pragma: no cover
-                    raise AttributeError("Unprocessed attribute %s" % key)
+                    raise AttributeError(f"Unprocessed attribute {key}")
             elif key != '__order__' and isinstance(value, set):
                 # value = set of other unprocessed values
                 attrs[key] = names[key] = {
@@ -348,7 +348,7 @@ class classmethodproperty:  # noqa: N801
         return self.func(cls)
 
     def __set__(self, obj, value):
-        raise AttributeError("%s is read-only" % self.func.__name__)
+        raise AttributeError(f"{self.func.__name__} is read-only")
 
     def __delete__(self, obj):
-        raise AttributeError("%s is read-only" % self.func.__name__)
+        raise AttributeError(f"{self.func.__name__} is read-only")

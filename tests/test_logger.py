@@ -61,5 +61,5 @@ def test_pprint_with_indent():
 
 def test_repeat_value_indicator():
     """Test RepeatValueIndicator class."""
-    assert repr(RepeatValueIndicator('key')) == '<same as prior "key">'
-    assert str(RepeatValueIndicator('key')) == '<same as prior "key">'
+    assert repr(RepeatValueIndicator('key')) == "<same as prior 'key'>"
+    assert str(RepeatValueIndicator('key')) == "<same as prior 'key'>"

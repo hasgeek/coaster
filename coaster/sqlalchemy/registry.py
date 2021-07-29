@@ -87,7 +87,7 @@ class Registry:
         if name.startswith('_'):
             raise ValueError("Registry member names cannot be underscore-prefixed")
         if hasattr(self, name):
-            raise ValueError("%s is already registered" % name)
+            raise ValueError(f"{name} is already registered")
         if not callable(value):
             raise ValueError("Registry members must be callable")
         self._members.add(name)

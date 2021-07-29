@@ -81,7 +81,7 @@ class RepeatValueIndicator:
 
     def __repr__(self):
         """Return representation."""
-        return '<same as prior "%s">' % self.key
+        return f'<same as prior {self.key!r}>'
 
     __str__ = __repr__
 
@@ -160,8 +160,8 @@ class LocalVarFormatter(logging.Formatter):
             for frame in stack:
                 print('\n----\n', file=sio)  # noqa: T001
                 print(  # noqa: T001
-                    "Frame %s in %s at line %s"
-                    % (frame.f_code.co_name, frame.f_code.co_filename, frame.f_lineno),
+                    f"Frame {frame.f_code.co_name} in {frame.f_code.co_filename} at"
+                    f" line {frame.f_lineno}",
                     file=sio,
                 )
                 for attr, value in list(frame.f_locals.items()):
@@ -170,7 +170,7 @@ class LocalVarFormatter(logging.Formatter):
                         value = RepeatValueIndicator(value_cache[idvalue])
                     else:
                         value_cache[idvalue] = f"{frame.f_code.co_name}.{attr}"
-                    print("\t%20s = " % attr, end=' ', file=sio)  # noqa: T001
+                    print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T001
                     try:
                         print(repr(filtered_value(attr, value)), file=sio)  # noqa: T001
                     except:  # noqa: B901, E722
@@ -451,7 +451,7 @@ def init_app(app):
             app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
-            '%s failure' % (app.config.get('SITE_ID') or app.name),
+            "{name} failure".format(name=app.config.get('SITE_ID') or app.name),
             credentials=credentials,
         )
         mail_handler.setFormatter(formatter)

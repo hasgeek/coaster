@@ -397,9 +397,7 @@ class ManagedStateGroup:
                 not isinstance(state, ManagedState)
                 or state.statemanager != statemanager
             ):
-                raise ValueError(
-                    f"Invalid state {repr(state)} for state group {repr(self)}"
-                )
+                raise ValueError(f"Invalid state {state!r} for state group {self!r}")
 
         # Second, separate conditional from regular states (regular states may still be
         # grouped states)
@@ -424,8 +422,7 @@ class ManagedStateGroup:
             )
             if state_values & values:  # They overlap
                 raise ValueError(
-                    "The value for state %s is already in this state group"
-                    % repr(state)
+                    f"The value for state {state!r} is already in this state group"
                 )
             self.states.append(state)
             values.update(state_values)
@@ -454,13 +451,13 @@ class ManagedStateWrapper:
 
     def __init__(self, mstate, obj, cls=None):
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
-            raise TypeError("Parameter is not a managed state: %s" % repr(mstate))
+            raise TypeError(f"Parameter is not a managed state: {mstate!r}")
         self._mstate = mstate
         self._obj = obj
         self._cls = cls
 
     def __repr__(self):
-        return '<ManagedStateWrapper %s>' % repr(self._mstate)
+        return f'<ManagedStateWrapper {self._mstate!r}>'
 
     def __call__(self):
         return self._mstate._eval(self._obj, self._cls)
@@ -513,26 +510,20 @@ class StateTransition:
         if from_ is not None and not isinstance(
             from_, (ManagedState, ManagedStateGroup)
         ):
-            raise StateTransitionError(
-                "From state is not a managed state: %s" % repr(from_)
-            )
+            raise StateTransitionError(f"From state is not a managed state: {from_!r}")
         if from_ and from_.statemanager != statemanager:
             raise StateTransitionError(
-                "From state is not managed by this state manager: %s" % repr(from_)
+                f"From state is not managed by this state manager: {from_!r}"
             )
         if to is not None:
             if not isinstance(to, ManagedState):
-                raise StateTransitionError(
-                    "To state is not a managed state: %s" % repr(to)
-                )
+                raise StateTransitionError(f"To state is not a managed state: {to!r}")
             if to.statemanager != statemanager:
                 raise StateTransitionError(
-                    "To state is not managed by this state manager: %s" % repr(to)
+                    f"To state is not managed by this state manager: {to!r}"
                 )
             if not to.is_direct:
-                raise StateTransitionError(
-                    "To state must be a direct state: %s" % repr(to)
-                )
+                raise StateTransitionError(f"To state must be a direct state: {to!r}")
         if data:
             if 'name' in data:
                 raise TypeError("Invalid transition data parameter 'name'")
@@ -642,11 +633,8 @@ class StateTransitionWrapper:
             if isinstance(label, NameTitle):
                 label = label.title
             raise StateTransitionError(
-                "Invalid state for transition {transition}: {state} = {label}".format(
-                    transition=self.statetransition.name,
-                    state=repr(state_invalid[0]),
-                    label=label,
-                )
+                f"Invalid state for transition {self.statetransition.name}:"
+                f" {state_invalid[0]!r} = {label}"
             )
 
         # Send a transition-before signal
@@ -725,7 +713,7 @@ class StateManager:
     def __repr__(self):
         if self.owner is not None:
             return f'{self.owner.__name__}.{self.name}'
-        return '<StateManager %s>' % self.name
+        return f'<StateManager {self.name}>'
 
     def __get__(
         self, obj: Optional[T], cls: Optional[Type[T]] = None
@@ -743,7 +731,7 @@ class StateManager:
     def _set(self, obj, value):
         """Internal method to set state, called by meth:`StateTransition.__call__`"""
         if value not in self.lenum:
-            raise ValueError("Not a valid value: %s" % value)
+            raise ValueError(f"Not a valid value: {value!r}")
 
         type(obj).__dict__[self.propname].__set__(obj, value)
 
@@ -759,8 +747,8 @@ class StateManager:
         # Also see `add_state_group` for similar code
         if hasattr(self, name):  # Don't clobber self with a state name
             raise AttributeError(
-                "State name %s conflicts with existing attribute in the state manager"
-                % name
+                f"State name {name!r} conflicts with an existing attribute in the state"
+                f" manager"
             )
         mstate = ManagedState(
             name=name,
@@ -803,8 +791,8 @@ class StateManager:
         # See `_add_state_internal` for explanation of the following
         if hasattr(self, name):
             raise AttributeError(
-                "State group name %s conflicts with existing "
-                "attribute in the state manager" % name
+                f"State group name {name!r} conflicts with an existing "
+                f"attribute in the state manager"
             )
         mstate = ManagedStateGroup(name, self, states)
         self.states[name] = mstate
@@ -838,10 +826,10 @@ class StateManager:
         """
         # We'll accept a ManagedState with grouped values, but not a ManagedStateGroup
         if not isinstance(state, ManagedState):
-            raise TypeError("Not a managed state: %s" % repr(state))
+            raise TypeError(f"Not a managed state: {state!r}")
         if state.statemanager != self:
             raise ValueError(
-                "State %s is not associated with this state manager" % repr(state)
+                f"State {state!r} is not associated with this state manager"
             )
         if isinstance(label, tuple) and len(label) == 2:
             label = NameTitle(*label)
@@ -1039,8 +1027,7 @@ class StateManagerWrapper(Generic[T]):
             # Use isinstance instead of `type(item) != cls` to account for subclasses
             if not isinstance(item, cls):
                 raise TypeError(
-                    "Item %s is not an instance of type %s"
-                    % (repr(item), repr(self.cls))
+                    f"Item {item!r} is not an instance of type {self.cls!r}"
                 )
             statevalue = self.statemanager._value(item)
             mstate = self.statemanager.states_by_value[statevalue]
@@ -1064,4 +1051,4 @@ class StateManagerWrapper(Generic[T]):
             mstate = getattr(self.statemanager, name)
             if isinstance(mstate, (ManagedState, ManagedStateGroup)):
                 return mstate(self.obj, self.cls)
-        raise AttributeError("Not a state: %s" % name)
+        raise AttributeError(f"Not a state: {name}")

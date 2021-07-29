@@ -493,7 +493,7 @@ class DynamicAssociationProxy:
         self.attr = attr
 
     def __repr__(self):
-        return f'DynamicAssociationProxy({repr(self.rel)}, {repr(self.attr)})'
+        return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -510,10 +510,8 @@ class DynamicAssociationProxyWrapper(abc.Set):
         self.attr = attr
 
     def __repr__(self):
-        return 'DynamicAssociationProxyWrapper({}, {}, {})'.format(
-            repr(self.obj),
-            repr(self.rel),
-            repr(self.attr),
+        return (
+            f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
         )
 
     def __contains__(self, member):
@@ -592,8 +590,7 @@ class RoleAccessProxy(abc.Mapping):
                     dataset_attrs = set(obj.__datasets__[datasets[0]])
                 except KeyError:
                     raise KeyError(
-                        "Object of type %r is missing dataset %s"
-                        % (type(obj), datasets[0])
+                        f"Object of type {type(obj)!r} is missing dataset {datasets[0]}"
                     )
             else:
                 # Got an empty list, so turn off enumeration

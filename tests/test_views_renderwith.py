@@ -20,7 +20,7 @@ def anycallable(data):
 
 
 def returns_string(data):
-    return "Not of Response: %s" % repr(data)
+    return f"Not of Response: {data!r}"
 
 
 @app.route('/renderedview1')

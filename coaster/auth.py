@@ -58,7 +58,7 @@ def add_auth_attribute(attr, value, actor=False):
         'is_authenticated',
         'not_authenticated',
     ):
-        raise AttributeError("Attribute name %s is reserved by current_auth" % attr)
+        raise AttributeError(f"Attribute name {attr} is reserved by current_auth")
 
     # Invoking current_auth will also create it on the local stack. We can
     # then proceed to set attributes on it.
@@ -140,7 +140,7 @@ class CurrentAuth:
         raise AttributeError('CurrentAuth is read-only')
 
     def __repr__(self):  # pragma: no cover
-        return 'CurrentAuth(%s)' % repr(self.actor)
+        return f'CurrentAuth({self.actor!r})'
 
     def __bool__(self):
         """
