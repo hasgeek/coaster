@@ -8,6 +8,7 @@ from datetime import datetime
 from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
+from secrets import token_bytes
 from urllib.parse import urlparse
 import collections.abc as abc
 import email.utils
@@ -246,23 +247,24 @@ def uuid_from_base58(value):
 
 def newsecret():
     """
-    Make a secret key for non-cryptographic use cases like email account verification.
-    Mashes two UUID4s into a Base58 rendering, between 42 and 44 characters long. The
-    resulting string consists of only ASCII strings and so will typically not be
-    word-wrapped by email clients.
+    Make a secret key.
+
+    Uses :func:`secrets.token_bytes` with 32 characters and renders into Base58 for a
+    URL-friendly token, with a resulting length between 42 and 44 characters long.
 
     >>> len(newsecret()) in (42, 43, 44)
+    True
+    >>> isinstance(newsecret(), str)
     True
     >>> newsecret() == newsecret()
     False
     """
-    return uuid_b58() + uuid_b58()
+    return base58.b58encode(token_bytes(32)).decode()
 
 
 def newpin(digits=4):
     """
-    Return a random numeric string with the specified number of digits,
-    default 4.
+    Return a random numeric string with the specified number of digits, default 4.
 
     >>> len(newpin())
     4
