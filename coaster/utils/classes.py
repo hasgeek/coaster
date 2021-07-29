@@ -269,7 +269,7 @@ class InspectableSet(Set):
         object.__setattr__(self, '_members', members)
 
     def __repr__(self):
-        return f'InspectableSet({repr(self._members)})'
+        return f'InspectableSet({self._members!r})'
 
     def __len__(self):
         return len(self._members)
