@@ -25,19 +25,19 @@ db.init_app(app2)
 @app1.route('/<doc>')
 @NamedDocument.is_url_for('view', doc='name')
 def doc_view(doc):
-    return '{} {}'.format('view', doc)
+    return f'view {doc}'
 
 
 @app1.route('/<doc>/edit')
 @NamedDocument.is_url_for('edit', doc='name')
 def doc_edit(doc):
-    return '{} {}'.format('edit', doc)
+    return f'edit {doc}'
 
 
 @app1.route('/<doc>/upper')
 @NamedDocument.is_url_for('upper', doc=lambda d: d.name.upper())
 def doc_upper(doc):
-    return '{} {}'.format('upper', doc)
+    return f'upper {doc}'
 
 
 # The unusual parameter `other='**other.name'` requires an explanation.
@@ -46,13 +46,13 @@ def doc_upper(doc):
 @app1.route('/<doc>/with/<other>')
 @NamedDocument.is_url_for('with', doc='name', other='**other.name')
 def doc_with(doc, other):
-    return '{} {} {}'.format(doc, 'with', other)
+    return f'{doc} with {other}'
 
 
 @app1.route('/<container>/<doc>')
 @ScopedNamedDocument.is_url_for('view', container='parent.id', doc='name')
 def sdoc_view(container, doc):
-    return '{} {} {}'.format('view', container, doc)
+    return f'view {container} {doc}'
 
 
 @app1.route('/<container>/<doc>/edit')
@@ -60,25 +60,25 @@ def sdoc_view(container, doc):
     'edit', _external=True, container=('parent', 'id'), doc='name'
 )
 def sdoc_edit(container, doc):
-    return '{} {} {}'.format('edit', container, doc)
+    return f'edit {container} {doc}'
 
 
 @app1.route('/<doc>/app_only')
 @NamedDocument.is_url_for('app_only', _app=app1, doc='name')
 def doc_app_only(doc):
-    return '{} {}'.format('app_only', doc)
+    return f'app_only {doc}'
 
 
 @app1.route('/<doc>/app1')
 @NamedDocument.is_url_for('per_app', _app=app1, doc='name')
 def doc_per_app1(doc):
-    return '{} {}'.format('per_app', doc)
+    return f'per_app {doc}'
 
 
 @app2.route('/<doc>/app2')
 @NamedDocument.is_url_for('per_app', _app=app2, doc='name')
 def doc_per_app2(doc):
-    return '{} {}'.format('per_app', doc)
+    return f'per_app {doc}'
 
 
 # --- Tests -------------------------------------------------------------------

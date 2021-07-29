@@ -360,9 +360,7 @@ class TelegramHandler(logging.Handler):
                 text += '…'
 
             requests.post(
-                'https://api.telegram.org/bot{apikey}/sendMessage'.format(
-                    apikey=self.apikey
-                ),
+                f'https://api.telegram.org/bot{self.apikey}/sendMessage',
                 data={
                     'chat_id': self.chatid,
                     'parse_mode': 'html',

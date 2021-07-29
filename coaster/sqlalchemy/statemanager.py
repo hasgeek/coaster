@@ -935,9 +935,8 @@ class StateManagerWrapper(Generic[T]):
         self.cls = cls
 
     def __repr__(self):
-        return '<StateManagerWrapper({}.{})>'.format(
-            type(self.obj).__name__,
-            self.statemanager.name,
+        return (
+            f'<StateManagerWrapper({type(self.obj).__name__}.{self.statemanager.name})>'
         )
 
     @property

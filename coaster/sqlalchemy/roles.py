@@ -203,9 +203,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 )
             return offered_roles
         raise TypeError(
-            "{!r} is not a RoleMixin and no actor attribute was specified".format(
-                relationship
-            )
+            f"{relationship!r} is not a RoleMixin and no actor attribute was specified"
         )
 
     # We have a relationship. If it's a collection, find the item in it that relates
@@ -613,9 +611,7 @@ class RoleAccessProxy(abc.Mapping):
         object.__setattr__(self, '_write', write)
 
     def __repr__(self):
-        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
-            obj=repr(self._obj), roles=repr(self.current_roles)
-        )
+        return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
     def __get_processed_attr(self, name):
         attr = getattr(self._obj, name)
@@ -1266,15 +1262,10 @@ def _configure_roles(mapper_, cls):
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
                         roles = set(reverse_offer_map.keys())
                     elif isinstance(roles, str):
+                        _decl = {actor_attr: roles}
                         raise TypeError(
-                            "grants_via declaration {{{actor_attr!r}: {roles!r}}} on"
-                            " {cls}.{name} is using a string but needs to be a set or"
-                            " dict".format(
-                                actor_attr=actor_attr,
-                                roles=roles,
-                                cls=cls.__name__,
-                                name=name,
-                            )
+                            f"grants_via declaration {_decl!r} on {cls.__name__}.{name}"
+                            f" is using a string but needs to be a set or dict"
                         )
                     else:
                         offer_map = None
