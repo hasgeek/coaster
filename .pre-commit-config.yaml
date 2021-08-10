@@ -37,7 +37,7 @@ repos:
           - pep8-naming==0.11.1
           - toml==0.10.2
   - repo: https://github.com/PyCQA/isort
-    rev: 5.9.2
+    rev: 5.9.3
     hooks:
       - id: isort
         additional_dependencies:
