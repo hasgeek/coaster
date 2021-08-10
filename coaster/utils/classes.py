@@ -35,7 +35,7 @@ class _LabeledEnumMeta(type):
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = names[key] = value[0]
                 else:  # pragma: no cover
-                    raise AttributeError("Unprocessed attribute %s" % key)
+                    raise AttributeError(f"Unprocessed attribute {key}")
             elif key != '__order__' and isinstance(value, set):
                 # value = set of other unprocessed values
                 attrs[key] = names[key] = {
@@ -269,7 +269,7 @@ class InspectableSet(Set):
         object.__setattr__(self, '_members', members)
 
     def __repr__(self):
-        return 'InspectableSet({members})'.format(members=repr(self._members))
+        return f'InspectableSet({self._members!r})'
 
     def __len__(self):
         return len(self._members)
@@ -278,8 +278,7 @@ class InspectableSet(Set):
         return key in self._members
 
     def __iter__(self):
-        for key in self._members:
-            yield key
+        yield from self._members
 
     def __getitem__(self, key):
         return key in self._members  # Returns True if present, False otherwise
@@ -291,7 +290,7 @@ class InspectableSet(Set):
         raise AttributeError(attr)
 
 
-class classmethodproperty:  # NOQA: N801
+class classmethodproperty:  # noqa: N801
     """
     Class method decorator to make class methods behave like properties::
 
@@ -349,7 +348,7 @@ class classmethodproperty:  # NOQA: N801
         return self.func(cls)
 
     def __set__(self, obj, value):
-        raise AttributeError("%s is read-only" % self.func.__name__)
+        raise AttributeError(f"{self.func.__name__} is read-only")
 
     def __delete__(self, obj):
-        raise AttributeError("%s is read-only" % self.func.__name__)
+        raise AttributeError(f"{self.func.__name__} is read-only")

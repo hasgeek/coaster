@@ -26,9 +26,6 @@ import requests
 
 from .auth import current_auth
 
-# Global variable to ensure log handlers are registered only once per process
-logging_configured = False
-
 # Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
 
@@ -84,7 +81,7 @@ class RepeatValueIndicator:
 
     def __repr__(self):
         """Return representation."""
-        return '<same as prior "%s">' % self.key
+        return f'<same as prior {self.key!r}>'
 
     __str__ = __repr__
 
@@ -101,7 +98,7 @@ def filtered_value(key, value):
 def pprint_with_indent(dictlike, outfile, indent=4):
     """Filter values and pprint with indent to create a Markdown code block."""
     out = StringIO()
-    pprint(  # NOQA: T003
+    pprint(  # noqa: T003
         {key: filtered_value(key, value) for key, value in dictlike.items()}, out
     )
     outfile.write(textwrap.indent(out.getvalue(), ' ' * indent))
@@ -116,7 +113,7 @@ class LocalVarFormatter(logging.Formatter):
         super().__init__(*args, **kwargs)
         self.lock = Lock()
 
-    def format(self, record):  # NOQA: A003
+    def format(self, record):  # noqa: A003
         """
         Format the specified record as text.
 
@@ -131,7 +128,7 @@ class LocalVarFormatter(logging.Formatter):
             record.exc_text = None
         return super().format(record)
 
-    def formatException(self, ei) -> str:  # NOQA: N802
+    def formatException(self, ei) -> str:  # noqa: N802
         """Render a stack trace with local variables in each stack frame."""
         tb = ei[2]
         while True:
@@ -157,14 +154,14 @@ class LocalVarFormatter(logging.Formatter):
             Config.__repr__ = lambda self: '<Config [FILTERED]>'  # type: ignore[assignment]
             value_cache: Dict[Any, str] = {}
 
-            print('\n----------\n', file=sio)  # NOQA: T001
+            print('\n----------\n', file=sio)  # noqa: T001
             # XXX: The following text is used as a signature in :meth:`format` above
-            print("Stack frames (most recent call first):", file=sio)  # NOQA: T001
+            print("Stack frames (most recent call first):", file=sio)  # noqa: T001
             for frame in stack:
-                print('\n----\n', file=sio)  # NOQA: T001
-                print(  # NOQA: T001
-                    "Frame %s in %s at line %s"
-                    % (frame.f_code.co_name, frame.f_code.co_filename, frame.f_lineno),
+                print('\n----\n', file=sio)  # noqa: T001
+                print(  # noqa: T001
+                    f"Frame {frame.f_code.co_name} in {frame.f_code.co_filename} at"
+                    f" line {frame.f_lineno}",
                     file=sio,
                 )
                 for attr, value in list(frame.f_locals.items()):
@@ -172,21 +169,21 @@ class LocalVarFormatter(logging.Formatter):
                     if idvalue in value_cache:
                         value = RepeatValueIndicator(value_cache[idvalue])
                     else:
-                        value_cache[idvalue] = "%s.%s" % (frame.f_code.co_name, attr)
-                    print("\t%20s = " % attr, end=' ', file=sio)  # NOQA: T001
+                        value_cache[idvalue] = f"{frame.f_code.co_name}.{attr}"
+                    print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T001
                     try:
-                        print(repr(filtered_value(attr, value)), file=sio)  # NOQA: T001
-                    except:  # NOQA
+                        print(repr(filtered_value(attr, value)), file=sio)  # noqa: T001
+                    except:  # noqa: B901, E722
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
-                        print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
+                        print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
             del value_cache
             Config.__repr__ = original_config_repr  # type: ignore[assignment]
 
         if request:
-            print('\n----------\n', file=sio)  # NOQA: T001
-            print("Request context:", file=sio)  # NOQA: T001
+            print('\n----------\n', file=sio)  # noqa: T001
+            print("Request context:", file=sio)  # noqa: T001
             request_data = {
                 'form': {
                     k: filtered_value(k, v)
@@ -205,32 +202,32 @@ class LocalVarFormatter(logging.Formatter):
             }
             try:
                 pprint_with_indent(request_data, sio)
-            except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
+            except:  # noqa: B901, E722
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if session:
-            print('\n----------\n', file=sio)  # NOQA: T001
-            print("Session cookie contents:", file=sio)  # NOQA: T001
+            print('\n----------\n', file=sio)  # noqa: T001
+            print("Session cookie contents:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(session, sio)
-            except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
+            except:  # noqa: B901, E722
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if g:
-            print('\n----------\n', file=sio)  # NOQA: T001
-            print("App context:", file=sio)  # NOQA: T001
+            print('\n----------\n', file=sio)  # noqa: T001
+            print("App context:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(vars(g), sio)
-            except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
+            except:  # noqa: B901, E722
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         if current_auth:
-            print('\n----------\n', file=sio)  # NOQA: T001
-            print("Current auth:", file=sio)  # NOQA: T001
+            print('\n----------\n', file=sio)  # noqa: T001
+            print("Current auth:", file=sio)  # noqa: T001
             try:
                 pprint_with_indent(vars(current_auth), sio)
-            except:  # NOQA
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # NOQA: T001
+            except:  # noqa: B901, E722
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
 
         s = sio.getvalue()
         sio.close()
@@ -363,9 +360,7 @@ class TelegramHandler(logging.Handler):
                 text += '…'
 
             requests.post(
-                'https://api.telegram.org/bot{apikey}/sendMessage'.format(
-                    apikey=self.apikey
-                ),
+                f'https://api.telegram.org/bot{self.apikey}/sendMessage',
                 data={
                     'chat_id': self.chatid,
                     'parse_mode': 'html',
@@ -403,13 +398,7 @@ def init_app(app):
             }]
 
     """
-    global logging_configured
-    if logging_configured:
-        app.logger.warning("Logging already configured, ignoring repeat call")
-        return
-    logging_configured = True
-
-    root = logging.getLogger()
+    logger = app.logger  # logging.getLogger()
 
     formatter = LocalVarFormatter(
         '%(asctime)s - %(module)s.%(funcName)s:%(lineno)s - %(levelname)s - %(message)s'
@@ -424,7 +413,7 @@ def init_app(app):
         )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(app.config.get('LOGFILE_LEVEL', logging.WARNING))
-        root.addHandler(file_handler)
+        logger.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
         logging.handlers.SlackHandler = SlackHandler
@@ -434,7 +423,7 @@ def init_app(app):
         )
         slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
-        root.addHandler(slack_handler)
+        logger.addHandler(slack_handler)
 
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
@@ -446,7 +435,7 @@ def init_app(app):
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],
         )
         telegram_handler.setLevel(logging.ERROR)
-        root.addHandler(telegram_handler)
+        logger.addHandler(telegram_handler)
 
     if app.config.get('ADMINS'):
         mail_sender = app.config.get('MAIL_DEFAULT_SENDER', 'logs@example.com')
@@ -460,12 +449,12 @@ def init_app(app):
             app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
-            '%s failure' % (app.config.get('SITE_ID') or app.name),
+            "{name} failure".format(name=app.config.get('SITE_ID') or app.name),
             credentials=credentials,
         )
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
-        root.addHandler(mail_handler)
+        logger.addHandler(mail_handler)
 
 
 # Legacy name

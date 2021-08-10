@@ -106,7 +106,7 @@ def requestargs(*args, **config):
         ('1', 200, [1, 2])
     """
     if config and list(config.keys()) != ['source']:
-        raise TypeError("Unrecognised parameters: %s" % repr(config.keys()))
+        raise TypeError(f"Unrecognised parameters: {config.keys()!r}")
 
     def inner(f):
         namefilt = [
@@ -191,14 +191,14 @@ def load_model(
             # 'profileob' is now a Profile model instance.
             # The load_model decorator replaced this:
             # profileob = Profile.query.filter_by(name=profile).first_or_404()
-            return "Hello, %s" % profileob.name
+            return f"Hello, {profileob.name}"
 
     Using the same name for request and parameter makes code easier to understand::
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profile')
         def profile_view(profile):
-            return "Hello, %s" % profile.name
+            return f"Hello, {profile.name}"
 
     ``load_model`` aborts with a 404 if no instance is found.
 

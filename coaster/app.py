@@ -130,7 +130,7 @@ def load_config_from_file(app, filepath):
     try:
         app.config.from_pyfile(filepath)
         return True
-    except IOError:
+    except OSError:
         app.logger.warning(
             "Did not find settings file %s for additional settings, skipping it",
             filepath,

@@ -57,7 +57,7 @@ class Registry:
     def __init__(
         self,
         param: Optional[str] = None,
-        property: bool = False,  # NOQA: A002
+        property: bool = False,  # noqa: A002
         cached_property: bool = False,
     ):
         """Initialize with config."""
@@ -87,13 +87,13 @@ class Registry:
         if name.startswith('_'):
             raise ValueError("Registry member names cannot be underscore-prefixed")
         if hasattr(self, name):
-            raise ValueError("%s is already registered" % name)
+            raise ValueError(f"{name} is already registered")
         if not callable(value):
             raise ValueError("Registry members must be callable")
         self._members.add(name)
         object.__setattr__(self, name, value)
 
-    def __call__(self, name=None, property=None, cached_property=None):  # NOQA: A002
+    def __call__(self, name=None, property=None, cached_property=None):  # noqa: A002
         """Return decorator to aid class or function registration."""
         use_property = self._default_property if property is None else property
         use_cached_property = (

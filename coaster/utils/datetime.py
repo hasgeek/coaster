@@ -78,7 +78,7 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
 
 def midnight_to_utc(dt, timezone=None, naive=False):
     """
-    Returns a UTC datetime matching the midnight for the given date or datetime.
+    Return a UTC datetime matching the midnight for the given date or datetime.
 
     >>> from datetime import date
     >>> midnight_to_utc(datetime(2017, 1, 1))
@@ -119,9 +119,7 @@ def midnight_to_utc(dt, timezone=None, naive=False):
 
 
 def sorted_timezones():
-    """
-    Return a list of timezones sorted by offset from UTC.
-    """
+    """Return a list of timezones sorted by offset from UTC."""
 
     def hourmin(delta):
         if delta.days < 0:
@@ -152,17 +150,20 @@ def sorted_timezones():
     presorted = [
         (
             delta,
-            '%s%s - %s%s (%s)'
-            % (
-                (delta.days < 0 and '-')
-                or (delta.days == 0 and delta.seconds == 0 and ' ')
-                or '+',
-                '%02d:%02d' % hourmin(delta),
-                (pytz.country_names[timezone_country[name]] + ': ')
-                if name in timezone_country
-                else '',
-                name.replace('_', ' '),
-                pytz.timezone(name).tzname(now, is_dst=False),
+            '{sign}{offset} – {country}{zone} ({tzname})'.format(
+                sign=(
+                    (delta.days < 0 and '-')
+                    or (delta.days == 0 and delta.seconds == 0 and ' ')
+                    or '+'
+                ),
+                offset='{:02d}:{:02d}'.format(*hourmin(delta)),
+                country=(
+                    (f'{pytz.country_names[timezone_country[name]]}: ')
+                    if name in timezone_country
+                    else ''
+                ),
+                zone=name.replace('_', ' '),
+                tzname=pytz.timezone(name).tzname(now, is_dst=False),
             ),
             name,
         )

@@ -1,1 +1,2 @@
-from ._version import *  # NOQA
+# flake8: noqa
+from ._version import *

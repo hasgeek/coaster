@@ -91,7 +91,7 @@ warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
-    id = db.Column(  # NOQA: A003
+    id = db.Column(  # noqa: A003
         None,
         db.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'),
         primary_key=True,

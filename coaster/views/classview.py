@@ -813,7 +813,7 @@ class InstanceLoader:
     """
 
     def loader(self, **view_args):
-        if any((name in self.route_model_map for name in view_args)):
+        if any(name in self.route_model_map for name in view_args):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance
             filters = {

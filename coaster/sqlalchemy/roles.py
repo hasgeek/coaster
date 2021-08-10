@@ -203,9 +203,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
                 )
             return offered_roles
         raise TypeError(
-            "{0!r} is not a RoleMixin and no actor attribute was specified".format(
-                relationship
-            )
+            f"{relationship!r} is not a RoleMixin and no actor attribute was specified"
         )
 
     # We have a relationship. If it's a collection, find the item in it that relates
@@ -290,7 +288,7 @@ class LazyRoleSet(abc.MutableSet):
         self._scanned_granted_by = set()  # Contains relattr
 
     def __repr__(self):  # pragma: no cover
-        return 'LazyRoleSet({obj}, {actor})'.format(obj=self.obj, actor=self.actor)
+        return f'LazyRoleSet({self.obj}, {self.actor})'
 
     # This is required by the `MutableSet` base class
     def _from_iterable(self, it):
@@ -493,7 +491,7 @@ class DynamicAssociationProxy:
         self.attr = attr
 
     def __repr__(self):
-        return 'DynamicAssociationProxy(%s, %s)' % (repr(self.rel), repr(self.attr))
+        return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -510,10 +508,8 @@ class DynamicAssociationProxyWrapper(abc.Set):
         self.attr = attr
 
     def __repr__(self):
-        return 'DynamicAssociationProxyWrapper(%s, %s, %s)' % (
-            repr(self.obj),
-            repr(self.rel),
-            repr(self.attr),
+        return (
+            f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
         )
 
     def __contains__(self, member):
@@ -592,8 +588,7 @@ class RoleAccessProxy(abc.Mapping):
                     dataset_attrs = set(obj.__datasets__[datasets[0]])
                 except KeyError:
                     raise KeyError(
-                        "Object of type %r is missing dataset %s"
-                        % (type(obj), datasets[0])
+                        f"Object of type {type(obj)!r} is missing dataset {datasets[0]}"
                     )
             else:
                 # Got an empty list, so turn off enumeration
@@ -616,9 +611,7 @@ class RoleAccessProxy(abc.Mapping):
         object.__setattr__(self, '_write', write)
 
     def __repr__(self):
-        return 'RoleAccessProxy(obj={obj}, roles={roles})'.format(
-            obj=repr(self._obj), roles=repr(self.current_roles)
-        )
+        return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
     def __get_processed_attr(self, name):
         attr = getattr(self._obj, name)
@@ -688,8 +681,7 @@ class RoleAccessProxy(abc.Mapping):
             source = self._read & self._dataset_attrs
         else:
             source = self._read
-        for key in source:
-            yield key
+        yield from source
 
 
 def with_roles(
@@ -1270,15 +1262,10 @@ def _configure_roles(mapper_, cls):
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
                         roles = set(reverse_offer_map.keys())
                     elif isinstance(roles, str):
+                        _decl = {actor_attr: roles}
                         raise TypeError(
-                            "grants_via declaration {{{actor_attr!r}: {roles!r}}} on"
-                            " {cls}.{name} is using a string but needs to be a set or"
-                            " dict".format(
-                                actor_attr=actor_attr,
-                                roles=roles,
-                                cls=cls.__name__,
-                                name=name,
-                            )
+                            f"grants_via declaration {_decl!r} on {cls.__name__}.{name}"
+                            f" is using a string but needs to be a set or dict"
                         )
                     else:
                         offer_map = None

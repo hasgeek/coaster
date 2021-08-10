@@ -12,7 +12,7 @@ from coaster.sqlalchemy.registry import Registry
 
 
 @pytest.fixture()
-def CallableRegistry():  # NOQA: N802
+def CallableRegistry():  # noqa: N802
     """Callable registry with a positional parameter."""
 
     class CallableRegistry:
@@ -22,7 +22,7 @@ def CallableRegistry():  # NOQA: N802
 
 
 @pytest.fixture()
-def PropertyRegistry():  # NOQA: N802
+def PropertyRegistry():  # noqa: N802
     """Registry with property and a positional parameter."""
 
     class PropertyRegistry:
@@ -32,7 +32,7 @@ def PropertyRegistry():  # NOQA: N802
 
 
 @pytest.fixture()
-def CachedPropertyRegistry():  # NOQA: N802
+def CachedPropertyRegistry():  # noqa: N802
     """Registry with cached property and a positional parameter."""
 
     class CachedPropertyRegistry:
@@ -42,7 +42,7 @@ def CachedPropertyRegistry():  # NOQA: N802
 
 
 @pytest.fixture()
-def CallableParamRegistry():  # NOQA: N802
+def CallableParamRegistry():  # noqa: N802
     """Callable registry with a keyword parameter."""
 
     class CallableParamRegistry:
@@ -52,7 +52,7 @@ def CallableParamRegistry():  # NOQA: N802
 
 
 @pytest.fixture()
-def PropertyParamRegistry():  # NOQA: N802
+def PropertyParamRegistry():  # noqa: N802
     """Registry with property and a keyword parameter."""
 
     class PropertyParamRegistry:
@@ -62,7 +62,7 @@ def PropertyParamRegistry():  # NOQA: N802
 
 
 @pytest.fixture()
-def CachedPropertyParamRegistry():  # NOQA: N802
+def CachedPropertyParamRegistry():  # noqa: N802
     """Registry with cached property and a keyword parameter."""
 
     class CachedPropertyParamRegistry:
@@ -73,7 +73,7 @@ def CachedPropertyParamRegistry():  # NOQA: N802
 
 @pytest.fixture()
 def all_registry_hosts(
-    CallableRegistry,  # NOQA: N803
+    CallableRegistry,  # noqa: N803
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
@@ -231,7 +231,7 @@ def test_registry_property_cached_property():
 
 
 def test_add_to_registry(
-    CallableRegistry,  # NOQA: N803
+    CallableRegistry,  # noqa: N803
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
@@ -268,7 +268,7 @@ def test_add_to_registry(
 
 
 def test_property_cache_mismatch(
-    PropertyRegistry, CachedPropertyRegistry  # NOQA: N803
+    PropertyRegistry, CachedPropertyRegistry  # noqa: N803
 ):
     """A registry's default setting must be explicitly turned off if conflicting."""
     with pytest.raises(TypeError):
@@ -290,7 +290,7 @@ def test_property_cache_mismatch(
 
 
 def test_add_to_registry_host(
-    CallableRegistry,  # NOQA: N803
+    CallableRegistry,  # noqa: N803
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
@@ -327,7 +327,7 @@ def test_add_to_registry_host(
 
 
 def test_add_to_registry_property(
-    CallableRegistry,  # NOQA: N803
+    CallableRegistry,  # noqa: N803
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
@@ -364,7 +364,7 @@ def test_add_to_registry_property(
 
 
 def test_add_to_registry_cached_property(
-    CallableRegistry,  # NOQA: N803
+    CallableRegistry,  # noqa: N803
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
@@ -436,7 +436,7 @@ def test_add_to_registry_dupe(all_registry_hosts, registry_member):
 
 
 def test_cached_properties_are_cached(
-    PropertyRegistry,  # NOQA: N803
+    PropertyRegistry,  # noqa: N803
     CachedPropertyRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,

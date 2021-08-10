@@ -96,8 +96,8 @@ class MarkdownComposite(MutableComposite):
         """Return boolean value."""
         return bool(self._text)
 
-    @classmethod  # NOQA: A003
-    def coerce(cls, key, value):  # NOQA: A003
+    @classmethod
+    def coerce(cls, key, value):
         """Allow a composite column to be assigned a string value."""
         return cls(value)
 

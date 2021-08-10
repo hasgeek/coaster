@@ -26,22 +26,16 @@ class ImmutableColumnError(AttributeError):
 
     def __init__(self, class_name, column_name, old_value, new_value, message=None):
         """Create exception."""
+        if message is None:
+            message = (
+                f"Cannot update column {class_name}.{column_name} from {old_value!r} to"
+                f" {new_value!r}: column is immutable."
+            )
         super().__init__(message)
         self.class_name = class_name
         self.column_name = column_name
         self.old_value = old_value
         self.new_value = new_value
-
-        if message is None:
-            self.message = (
-                "Cannot update column {class_name}.{column_name} from {old_value!r} to"
-                " {new_value!r}: column is immutable.".format(
-                    column_name=column_name,
-                    class_name=class_name,
-                    old_value=old_value,
-                    new_value=new_value,
-                )
-            )
 
 
 @annotations_configured.connect

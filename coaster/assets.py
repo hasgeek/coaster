@@ -118,8 +118,8 @@ class VersionedAssets(defaultdict):
                 if name in asset_versions:
                     if asset_versions[name] not in spec:
                         raise ValueError(
-                            "%s does not match already requested asset %s==%s"
-                            % (namespec, name, asset_versions[name])
+                            f"{namespec} does not match already requested asset"
+                            f" {name}=={asset_versions[name]}"
                         )
                 else:
                     asset = self[name][version]
@@ -148,8 +148,8 @@ class VersionedAssets(defaultdict):
                                 # The version asked for conflicts with a version
                                 # currently used.
                                 raise ValueError(
-                                    "%s is not compatible with already requested "
-                                    "version %s" % (req, asset_versions[req_name])
+                                    f"{req} is not compatible with already requested"
+                                    f" version {asset_versions[req_name]}"
                                 )
                         else:
                             filtered_requires.append(req)
@@ -173,11 +173,11 @@ class VersionedAssets(defaultdict):
         blacklist = {n[1:] for n in namespecs if n.startswith('!')}
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
         return Bundle(
-            *[
+            *(
                 bundle
                 for name, version, bundle in self._require_recursive(*not_blacklist)
                 if name not in blacklist
-            ]
+            )
         )
 
 

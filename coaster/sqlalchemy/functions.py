@@ -23,8 +23,8 @@ __all__ = [
 # Provide sqlalchemy.func.utcnow()
 # Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.htm
 # #utc-timestamp-function
-class utcnow(functions.GenericFunction):  # NOQA: N801
-    type = TIMESTAMP()  # NOQA: A003
+class utcnow(functions.GenericFunction):  # noqa: N801
+    type = TIMESTAMP()  # noqa: A003
 
 
 @compiles(utcnow)
@@ -206,13 +206,13 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             ''',
             context={
                 'table': primary_table_name,
-                'function': '%s_validate' % primary_table_name,
-                'trigger': '%s_trigger' % primary_table_name,
+                'function': f'{primary_table_name}_validate',
+                'trigger': f'{primary_table_name}_trigger',
                 'parentcol': parentcol,
                 'child_table_name': child_table_name,
                 'child_id_column': child_id_columns[0],
-                'lhs': '%s_%s' % (parent_table_name, parent_id_columns[0]),
-                'rhs': '%s_%s' % (child_table_name, child_id_columns[0]),
+                'lhs': f'{parent_table_name}_{parent_id_columns[0]}',
+                'rhs': f'{child_table_name}_{child_id_columns[0]}',
             },
         ).execute_if(dialect='postgresql'),
     )
@@ -227,8 +227,8 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
             ''',
             context={
                 'table': primary_table_name,
-                'trigger': '%s_trigger' % primary_table_name,
-                'function': '%s_validate' % primary_table_name,
+                'trigger': f'{primary_table_name}_trigger',
+                'function': f'{primary_table_name}_validate',
             },
         ).execute_if(dialect='postgresql'),
     )
