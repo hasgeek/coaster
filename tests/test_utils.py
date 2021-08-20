@@ -116,6 +116,18 @@ class TestCoasterUtils(unittest.TestCase):
         with pytest.raises(ParseError):
             parse_isoformat('2019-05-03T05:02:26.340937Z\'', naive=False)
 
+        # These are from logged attempts at SQL injections
+
+        with pytest.raises(ParseError):
+            parse_isoformat('-7199 UNION ALL SELECT 31,31,31,31,31,31,31,31,31,31#')
+
+        with pytest.raises(ParseError):
+            parse_isoformat(
+                '((CHR(113)||CHR(107)||CHR(113)||CHR(113)||CHR(113))||(SELECT'
+                ' (CASE WHEN (1020=1020) THEN 1 ELSE 0 END))::TEXT||(CHR(113)||CHR(98)'
+                '||CHR(107)||CHR(107)||CHR(113)) AS NUMERIC) AND (2521=2521'
+            )
+
     def test_parse_duration(self):
         assert parse_duration('P1Y2M3DT4H54M6S') == datetime.timedelta(
             days=428, seconds=17646
