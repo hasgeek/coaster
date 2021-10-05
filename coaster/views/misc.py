@@ -60,8 +60,7 @@ def get_current_url():
     query = request.query_string
     if query:
         return url + '?' + query.decode()
-    else:
-        return url
+    return url
 
 
 __marker = object()
