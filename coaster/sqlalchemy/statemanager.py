@@ -286,7 +286,7 @@ class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state"""
 
 
-class AbortTransition(Exception):
+class AbortTransition(Exception):  # noqa: N818
     """
     Transitions may raise :exc:`AbortTransition` to return without changing
     state. The parameter to this exception is returned as the transition's
