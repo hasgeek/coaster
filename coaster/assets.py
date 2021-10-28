@@ -36,7 +36,7 @@ def split_namespec(namespec):
     return name, spec
 
 
-class AssetNotFound(Exception):
+class AssetNotFound(Exception):  # noqa: N818
     """No asset with this name"""
 
 
