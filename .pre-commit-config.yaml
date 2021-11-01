@@ -43,7 +43,7 @@ repos:
         additional_dependencies:
           - toml
   - repo: https://github.com/psf/black
-    rev: 21.9b0
+    rev: 21.10b0
     hooks:
       - id: black
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -52,11 +52,13 @@ repos:
       - id: mypy
         additional_dependencies:
           - sqlalchemy-stubs==0.4
-          - types-bleach==3.3.3
-          - types-Markdown==3.3.0
-          - types-pytz==2021.1.0
-          - types-requests==2.25.0
-          - types-simplejson==0.1.4
+          - types-bleach==4.1.1
+          - types-Markdown==3.3.6
+          - types-pytz==2021.3.0
+          - types-requests==2.25.11
+          - types-simplejson==3.17.1
+          - types-toml==0.10.1
+          - types-PyYAML==6.0.0
   - repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:

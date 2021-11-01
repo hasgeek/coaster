@@ -3,9 +3,14 @@ App configuration
 =================
 """
 
+import json
+
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
+
+import toml
+import yaml
 
 from . import logger
 from .auth import current_auth
@@ -19,12 +24,28 @@ __all__ = [
 ]
 
 _additional_config = {
-    'dev': 'development.py',
-    'development': 'development.py',
-    'test': 'testing.py',
-    'testing': 'testing.py',
-    'prod': 'production.py',
-    'production': 'production.py',
+    'dev': 'development',
+    'development': 'development',
+    'test': 'testing',
+    'testing': 'testing',
+    'prod': 'production',
+    'production': 'production',
+}
+
+_config_extensions = {
+    'py': '.py',
+    'json': '.json',
+    'toml': '.toml',
+    'yaml': '.yaml',
+    'yml': '.yml',
+}
+
+_config_loaders = {
+    'py': None,
+    'json': json.load,
+    'toml': toml.load,
+    'yaml': yaml.safe_load,
+    'yml': yaml.safe_load,
 }
 
 
@@ -41,11 +62,13 @@ class KeyRotationWrapper:
     """
 
     def __init__(self, cls, secret_keys, **kwargs):
+        """Init key rotation wrapper."""
         if isinstance(secret_keys, str):
             raise ValueError("Secret keys must be a list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
     def __getattr__(self, attr):
+        """Read a wrapped attribute."""
         item = getattr(self._engines[0], attr)
         return self._make_wrapper(attr) if callable(item) else item
 
@@ -64,9 +87,10 @@ class KeyRotationWrapper:
 
 
 class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
-    """Replaces the serializer with key rotation support"""
+    """Replaces the serializer with key rotation support."""
 
     def get_signing_serializer(self, app):
+        """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None
         signer_kwargs = {
@@ -83,23 +107,30 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
-def init_app(app, init_logging=True):
+def init_app(app, config='py', init_logging=True):
     """
-    Configure an app depending on the environment. Loads settings from a file
-    named ``settings.py`` in the instance folder, followed by additional
-    settings from one of ``development.py``, ``production.py`` or
-    ``testing.py``. Typical usage::
+    Configure an app depending on the environment.
+
+    Loads settings from a file named ``settings.py`` in the instance folder, followed
+    by additional settings from one of ``development.py``, ``production.py`` or
+    ``testing.py``. Can also load from JSON, TOML or YAML files if requested. Typical
+    usage::
 
         from flask import Flask
         import coaster.app
 
         app = Flask(__name__, instance_relative_config=True)
         coaster.app.init_app(app)  # Guess environment automatically
+        coaster.app.init_app(app, config='json')  # Load config from JSON files
+        coaster.app.init_app(app, config='toml')  # Load config from TOML files
+        coaster.app.init_app(app, config='yaml')  # Load config from YAML files
 
     :func:`init_app` also configures logging by calling
     :func:`coaster.logger.init_app`.
 
     :param app: App to be configured
+    :param config: Type of config file, one of ``py`` (default), ``json``, ``toml`` or
+        ``yaml``
     :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
     """
     # Make current_auth available to app templates
@@ -110,7 +141,9 @@ def init_app(app, init_logging=True):
     # Apps that want it can turn it back on in their config
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
     # Load config from the app's settings.py
-    load_config_from_file(app, 'settings.py')
+    load_config_from_file(
+        app, 'settings' + _config_extensions[config], load=_config_loaders[config]
+    )
 
     # Load additional settings from the app's environment-specific config file:
     # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
@@ -119,16 +152,21 @@ def init_app(app, init_logging=True):
     # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
     additional = _additional_config.get(app.config['ENV'].lower())
     if additional:
-        load_config_from_file(app, additional)
+        load_config_from_file(
+            app, additional + _config_extensions[config], load=_config_loaders[config]
+        )
 
     if init_logging:
         logger.init_app(app)
 
 
-def load_config_from_file(app, filepath):
-    """Helper function to load config from a specified file"""
+def load_config_from_file(app, filepath, load=None):
+    """Load config from a specified file with a specified loader (default Python)."""
     try:
-        app.config.from_pyfile(filepath)
+        if load is None:
+            app.config.from_pyfile(filepath)
+        else:
+            app.config.from_file(filepath, load=load)
         return True
     except OSError:
         app.logger.warning(
