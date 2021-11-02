@@ -3,6 +3,7 @@ App configuration
 =================
 """
 
+from typing import Callable, List, NamedTuple, Optional
 import json
 
 from flask import Flask
@@ -23,6 +24,12 @@ __all__ = [
     'init_app',
 ]
 
+
+class ConfigLoader(NamedTuple):
+    extn: str
+    loader: Optional[Callable]
+
+
 _additional_config = {
     'dev': 'development',
     'development': 'development',
@@ -32,20 +39,12 @@ _additional_config = {
     'production': 'production',
 }
 
-_config_extensions = {
-    'py': '.py',
-    'json': '.json',
-    'toml': '.toml',
-    'yaml': '.yaml',
-    'yml': '.yml',
-}
-
 _config_loaders = {
-    'py': None,
-    'json': json.load,
-    'toml': toml.load,
-    'yaml': yaml.safe_load,
-    'yml': yaml.safe_load,
+    'py': ConfigLoader(extn='.py', loader=None),
+    'json': ConfigLoader(extn='.json', loader=json.load),
+    'toml': ConfigLoader(extn='.toml', loader=toml.load),
+    'yaml': ConfigLoader(extn='.yaml', loader=yaml.safe_load),
+    'yml': ConfigLoader(extn='.yml', loader=yaml.safe_load),
 }
 
 
@@ -107,7 +106,7 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
-def init_app(app, config='py', init_logging=True):
+def init_app(app: Flask, config: List[str] = None, init_logging: bool = True) -> None:
     """
     Configure an app depending on the environment.
 
@@ -129,10 +128,12 @@ def init_app(app, config='py', init_logging=True):
     :func:`coaster.logger.init_app`.
 
     :param app: App to be configured
-    :param config: Type of config file, one of ``py`` (default), ``json``, ``toml`` or
-        ``yaml``
+    :param config: Types of config files, one or more of of ``py`` (default), ``json``,
+        ``toml`` and ``yaml``
     :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
     """
+    if not config:
+        config = ['py']
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
@@ -140,27 +141,37 @@ def init_app(app, config='py', init_logging=True):
     # Disable Flask-SQLAlchemy events.
     # Apps that want it can turn it back on in their config
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
-    # Load config from the app's settings.py
-    load_config_from_file(
-        app, 'settings' + _config_extensions[config], load=_config_loaders[config]
-    )
+    # Load config from the app's settings[.py]
+    for config_option in config:
+        if config_option not in _config_loaders:
+            raise ValueError(f"{config_option} is not a recognized type of config")
+        load_config_from_file(
+            app,
+            'settings' + _config_loaders[config_option].extn,
+            load=_config_loaders[config_option].loader,
+        )
 
-    # Load additional settings from the app's environment-specific config file:
+    # Load additional settings from the app's environment-specific config file(s):
     # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
     # variable. So we can directly get it from ``app.config['ENV']``.
     # Lowercase because that's how flask defines it.
     # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
     additional = _additional_config.get(app.config['ENV'].lower())
     if additional:
-        load_config_from_file(
-            app, additional + _config_extensions[config], load=_config_loaders[config]
-        )
+        for config_option in config:
+            load_config_from_file(
+                app,
+                additional + _config_loaders[config_option].extn,
+                load=_config_loaders[config_option].loader,
+            )
 
     if init_logging:
         logger.init_app(app)
 
 
-def load_config_from_file(app, filepath, load=None):
+def load_config_from_file(
+    app: Flask, filepath: str, load: Optional[Callable] = None
+) -> bool:
     """Load config from a specified file with a specified loader (default Python)."""
     try:
         if load is None:
