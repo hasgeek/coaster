@@ -3,9 +3,15 @@ App configuration
 =================
 """
 
+from typing import Callable, List, NamedTuple, Optional
+import json
+
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
+
+import toml
+import yaml
 
 from . import logger
 from .auth import current_auth
@@ -18,13 +24,27 @@ __all__ = [
     'init_app',
 ]
 
+
+class ConfigLoader(NamedTuple):
+    extn: str
+    loader: Optional[Callable]
+
+
 _additional_config = {
-    'dev': 'development.py',
-    'development': 'development.py',
-    'test': 'testing.py',
-    'testing': 'testing.py',
-    'prod': 'production.py',
-    'production': 'production.py',
+    'dev': 'development',
+    'development': 'development',
+    'test': 'testing',
+    'testing': 'testing',
+    'prod': 'production',
+    'production': 'production',
+}
+
+_config_loaders = {
+    'py': ConfigLoader(extn='.py', loader=None),
+    'json': ConfigLoader(extn='.json', loader=json.load),
+    'toml': ConfigLoader(extn='.toml', loader=toml.load),
+    'yaml': ConfigLoader(extn='.yaml', loader=yaml.safe_load),
+    'yml': ConfigLoader(extn='.yml', loader=yaml.safe_load),
 }
 
 
@@ -41,11 +61,13 @@ class KeyRotationWrapper:
     """
 
     def __init__(self, cls, secret_keys, **kwargs):
+        """Init key rotation wrapper."""
         if isinstance(secret_keys, str):
             raise ValueError("Secret keys must be a list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
     def __getattr__(self, attr):
+        """Read a wrapped attribute."""
         item = getattr(self._engines[0], attr)
         return self._make_wrapper(attr) if callable(item) else item
 
@@ -64,9 +86,10 @@ class KeyRotationWrapper:
 
 
 class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
-    """Replaces the serializer with key rotation support"""
+    """Replaces the serializer with key rotation support."""
 
     def get_signing_serializer(self, app):
+        """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None
         signer_kwargs = {
@@ -83,25 +106,34 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
-def init_app(app, init_logging=True):
+def init_app(app: Flask, config: List[str] = None, init_logging: bool = True) -> None:
     """
-    Configure an app depending on the environment. Loads settings from a file
-    named ``settings.py`` in the instance folder, followed by additional
-    settings from one of ``development.py``, ``production.py`` or
-    ``testing.py``. Typical usage::
+    Configure an app depending on the environment.
+
+    Loads settings from a file named ``settings.py`` in the instance folder, followed
+    by additional settings from one of ``development.py``, ``production.py`` or
+    ``testing.py``. Can also load from JSON, TOML or YAML files if requested. Typical
+    usage::
 
         from flask import Flask
         import coaster.app
 
         app = Flask(__name__, instance_relative_config=True)
         coaster.app.init_app(app)  # Guess environment automatically
+        coaster.app.init_app(app, config='json')  # Load config from JSON files
+        coaster.app.init_app(app, config='toml')  # Load config from TOML files
+        coaster.app.init_app(app, config='yaml')  # Load config from YAML files
 
     :func:`init_app` also configures logging by calling
     :func:`coaster.logger.init_app`.
 
     :param app: App to be configured
+    :param config: Types of config files, one or more of of ``py`` (default), ``json``,
+        ``toml`` and ``yaml``
     :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
     """
+    if not config:
+        config = ['py']
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
@@ -109,26 +141,43 @@ def init_app(app, init_logging=True):
     # Disable Flask-SQLAlchemy events.
     # Apps that want it can turn it back on in their config
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
-    # Load config from the app's settings.py
-    load_config_from_file(app, 'settings.py')
+    # Load config from the app's settings[.py]
+    for config_option in config:
+        if config_option not in _config_loaders:
+            raise ValueError(f"{config_option} is not a recognized type of config")
+        load_config_from_file(
+            app,
+            'settings' + _config_loaders[config_option].extn,
+            load=_config_loaders[config_option].loader,
+        )
 
-    # Load additional settings from the app's environment-specific config file:
+    # Load additional settings from the app's environment-specific config file(s):
     # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
     # variable. So we can directly get it from ``app.config['ENV']``.
     # Lowercase because that's how flask defines it.
     # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
     additional = _additional_config.get(app.config['ENV'].lower())
     if additional:
-        load_config_from_file(app, additional)
+        for config_option in config:
+            load_config_from_file(
+                app,
+                additional + _config_loaders[config_option].extn,
+                load=_config_loaders[config_option].loader,
+            )
 
     if init_logging:
         logger.init_app(app)
 
 
-def load_config_from_file(app, filepath):
-    """Helper function to load config from a specified file"""
+def load_config_from_file(
+    app: Flask, filepath: str, load: Optional[Callable] = None
+) -> bool:
+    """Load config from a specified file with a specified loader (default Python)."""
     try:
-        app.config.from_pyfile(filepath)
+        if load is None:
+            app.config.from_pyfile(filepath)
+        else:
+            app.config.from_file(filepath, load=load)
         return True
     except OSError:
         app.logger.warning(

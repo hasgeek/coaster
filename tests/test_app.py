@@ -11,6 +11,7 @@ from coaster.app import (
     KeyRotationWrapper,
     RotatingKeySecureCookieSessionInterface,
     _additional_config,
+    _config_loaders,
     init_app,
     load_config_from_file,
 )
@@ -19,13 +20,27 @@ from coaster.logger import init_app as logger_init_app
 
 
 class TestCoasterApp(unittest.TestCase):
+    """Test coaster.app."""
+
     def setUp(self):
         self.app = Flask(__name__)
         self.another_app = Flask(__name__)
 
     def test_load_config_from_file(self):
-        load_config_from_file(self.app, "settings.py")
+        load_config_from_file(self.app, 'settings.py')
         assert self.app.config['SETTINGS_KEY'] == "settings"
+
+    def test_load_config_from_file_json(self):
+        load_config_from_file(self.app, 'settings.json', _config_loaders['json'].loader)
+        assert self.app.config['SETTINGS_KEY'] == "settings_json"
+
+    def test_load_config_from_file_toml(self):
+        load_config_from_file(self.app, 'settings.toml', _config_loaders['toml'].loader)
+        assert self.app.config['SETTINGS_KEY'] == "settings_toml"
+
+    def test_load_config_from_file_yaml(self):
+        load_config_from_file(self.app, 'settings.yaml', _config_loaders['yaml'].loader)
+        assert self.app.config['SETTINGS_KEY'] == "settings_yaml"
 
     def test_additional_settings_from_file(self):
         env = 'COASTER_ENV'
@@ -36,13 +51,23 @@ class TestCoasterApp(unittest.TestCase):
             assert _additional_config.get(environ[env]) == v
 
     def test_init_app(self):
-        environ['FLASK_ENV'] = "testing"
+        environ['FLASK_ENV'] = 'testing'
         init_app(self.app)
-        assert self.app.config['SETTINGS_KEY'] == "settings"
-        assert self.app.config['TEST_KEY'] == "test"
+        assert self.app.config['SETTINGS_KEY'] == 'settings'
+        assert self.app.config['TEST_KEY'] == 'test'
+
+    def test_init_app_config_py_toml(self):
+        environ['FLASK_ENV'] = 'testing'
+        init_app(self.app, ['py', 'toml'])
+        assert self.app.config['SETTINGS_KEY'] == 'settings_toml'
+
+    def test_init_app_config_toml_py(self):
+        environ['FLASK_ENV'] = 'testing'
+        init_app(self.app, ['toml', 'py'])
+        assert self.app.config['SETTINGS_KEY'] == 'settings'
 
     def test_logging_handler(self):
-        load_config_from_file(self.another_app, "testing.py")
+        load_config_from_file(self.another_app, 'testing.py')
         logger_init_app(self.another_app)
         for handler in self.another_app.logger.handlers:
             try:
@@ -54,10 +79,19 @@ class TestCoasterApp(unittest.TestCase):
 
     def test_load_config_from_file_ioerror(self):
         app = Flask(__name__)
-        assert not load_config_from_file(app, "notfound.py")
+        assert not load_config_from_file(app, 'notfound.py')
+        assert not load_config_from_file(
+            app, 'notfound.json', load=_config_loaders['json']
+        )
+        assert not load_config_from_file(
+            app, 'notfound.toml', load=_config_loaders['toml']
+        )
+        assert not load_config_from_file(
+            app, 'notfound.yaml', load=_config_loaders['yaml']
+        )
 
     def test_current_auth(self):
-        environ['FLASK_ENV'] = "testing"
+        environ['FLASK_ENV'] = 'testing'
         init_app(self.app)
         with self.app.test_request_context():
             assert (
