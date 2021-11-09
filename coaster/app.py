@@ -119,10 +119,12 @@ def init_app(app: Flask, config: List[str] = None, init_logging: bool = True) ->
         import coaster.app
 
         app = Flask(__name__, instance_relative_config=True)
-        coaster.app.init_app(app)  # Guess environment automatically
-        coaster.app.init_app(app, config='json')  # Load config from JSON files
-        coaster.app.init_app(app, config='toml')  # Load config from TOML files
-        coaster.app.init_app(app, config='yaml')  # Load config from YAML files
+        # Any one of the following lines. Runtime environment will be as per FLASK_ENV
+        coaster.app.init_app(app)  # Load config from Python files
+        coaster.app.init_app(app, config=['json'])  # Load config from JSON files
+        coaster.app.init_app(app, config=['toml'])  # Load config from TOML files
+        coaster.app.init_app(app, config=['yaml'])  # Load config from YAML files
+        coaster.app.init_app(app, config=['py', 'toml'])  # Both Python & TOML config
 
     :func:`init_app` also configures logging by calling
     :func:`coaster.logger.init_app`.
