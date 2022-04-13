@@ -274,9 +274,9 @@ def newpin(digits=4):
     True
     """
     random = SystemRandom()
-    randnum = random.randint(0, 10 ** digits)  # noqa: S311 # nosec
+    randnum = random.randint(0, 10**digits)  # noqa: S311 # nosec
     while len(str(randnum)) > digits:
-        randnum = random.randint(0, 10 ** digits)  # noqa: S311 # nosec
+        randnum = random.randint(0, 10**digits)  # noqa: S311 # nosec
     return ('%%0%dd' % digits) % randnum
 
 
