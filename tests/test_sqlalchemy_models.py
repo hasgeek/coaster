@@ -1005,7 +1005,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
         # Hex UUID with !=
         self.assertEqual(
@@ -1014,7 +1014,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id != '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_key.id != ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
         # Hex UUID with dashes
         self.assertEqual(
@@ -1023,7 +1023,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
         # UUID object
         self.assertEqual(
@@ -1034,7 +1034,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
         # IN clause with mixed inputs, including an invalid input
         self.assertEqual(
@@ -1051,7 +1051,8 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_key.id IN ('74d58857-4a76-11e7-8c27-c38403d0935c', '74d58857-4a76-11e7-8c27-c38403d0935c')",
+            "uuid_key.id IN (''74d58857-4a76-11e7-8c27-c38403d0935c'',"
+            " ''74d58857-4a76-11e7-8c27-c38403d0935c'')",
         )
 
         # None value
@@ -1097,7 +1098,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "non_uuid_mixin_key.uuid = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
         self.assertEqual(
             str(
@@ -1105,7 +1106,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_mixin_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
 
         # Running a database query with url_id works as expected.
@@ -1157,7 +1158,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "non_uuid_mixin_key.uuid = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
 
         # UuidMixin with UUID primary key queries against the `id` column
@@ -1167,7 +1168,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_mixin_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
 
         # Repeat for `uuid_b58`
@@ -1177,7 +1178,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "non_uuid_mixin_key.uuid = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "non_uuid_mixin_key.uuid = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
 
         # UuidMixin with UUID primary key queries against the `id` column
@@ -1187,7 +1188,7 @@ class TestCoasterModels(unittest.TestCase):
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             ),
-            "uuid_mixin_key.id = '74d58857-4a76-11e7-8c27-c38403d0935c'",
+            "uuid_mixin_key.id = ''74d58857-4a76-11e7-8c27-c38403d0935c''",
         )
 
         # All queries work for None values as well
