@@ -21,23 +21,25 @@ __all__ = [
 # --- SQL functions -----------------------------------------------------------
 
 # Provide sqlalchemy.func.utcnow()
-# Adapted from http://docs.sqlalchemy.org/en/rel_1_0/core/compiler.htm
+# Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
-class utcnow(functions.GenericFunction):  # noqa: N801
+class UtcNow(functions.GenericFunction):
     type = TIMESTAMP()  # noqa: A003
+    identifier = 'utcnow'
+    inherit_cache = True
 
 
-@compiles(utcnow)
+@compiles(UtcNow)
 def _utcnow_default(element, compiler, **kw):
     return 'CURRENT_TIMESTAMP'
 
 
-@compiles(utcnow, 'mysql')
+@compiles(UtcNow, 'mysql')
 def _utcnow_mysql(element, compiler, **kw):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
-@compiles(utcnow, 'mssql')
+@compiles(UtcNow, 'mssql')
 def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 

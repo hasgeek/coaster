@@ -4,12 +4,8 @@ Coaster: common patterns for Flask apps
 |docs| |travis| |coveralls| |deepsource|
 
 Coaster contains functions and db models for recurring patterns in Flask
-apps. Documentation at http://coaster.readthedocs.org/
-
-Coaster is compatible with Python versions 2.7 and 3.6. Earlier 3.x versions
-are not supported due to obsolete SQLite drivers missing some functionality.
-If you need to use an earlier 3.x version (3.3-3.5) and don't use SQLite, you
-may still be in luck.
+apps. Documentation is at https://coaster.readthedocs.org/. Coaster requires
+Python 3.7 or later.
 
 
 Run tests
@@ -24,11 +20,6 @@ Create a test database in PostgreSQL::
 Testing also requires additional dependencies. Install them with::
 
     $ pip install -r test_requirements.txt
-
-On Python 2.7, an additional package is required, to replace the obsolete
-SQLite driver shipped with 2.7::
-
-    $ pip install PySqlite
 
 To run a single test::
 
