@@ -246,7 +246,7 @@ def add_primary_relationship(
     return primary_table
 
 
-def auto_init_default(column):
+def auto_init_default(column) -> None:
     """
     Set the default value of a columnn on first access.
 

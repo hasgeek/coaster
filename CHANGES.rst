@@ -2,7 +2,8 @@
 ------------------
 
 * Dropped Python 2.7 support
-* Dropped Python 3.6 support as it lacks typing annotations; 3.7+ is now required
+* Dropped Python 3.6 support as it lacks typing annotations; 3.7+ is now
+  required
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 * Removed deprecated ``make_password`` and ``check_password`` functions
 * Added ``compress_whitespace`` to mimic browser compression of whitespace
@@ -18,6 +19,7 @@
 * Local stack variables in error logs no longer show app config, and don't
   repeat already logged values
 * Dropped deprecated declared_attr_roles and set_roles
+* Added ``__json__`` protocol in ``RoleMixin``
 
 0.6.1 - 2021-01-06
 ------------------

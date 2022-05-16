@@ -94,7 +94,7 @@ class SplitIndexComparator(Comparator):
         return self.__clause_element__() != other
 
     def in_(self, other):
-        """Check if self if present in the other."""
+        """Check if self is present in the other."""
 
         def errordecode(val):
             try:

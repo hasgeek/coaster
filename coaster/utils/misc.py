@@ -715,8 +715,8 @@ def nary_op(f, doc: Optional[str] = None):
     Example::
 
         >>> @nary_op
-        >>> def subtract_all(lhs, rhs):
-        >>>     return lhs - rhs
+        ... def subtract_all(lhs, rhs):
+        ...     return lhs - rhs
 
     This converts ``subtract_all`` to accept multiple parameters::
 

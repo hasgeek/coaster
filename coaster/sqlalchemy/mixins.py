@@ -170,7 +170,7 @@ class UuidMixin:
     an alias to the existing UUID :attr:`id` column. If not, a new UUID column is
     provided.
 
-    Also provides representations of UUID value in hex (:attr:`uuid_hex`), URL-safe
+    Also provides representations of the UUID value in hex (:attr:`uuid_hex`), URL-safe
     Base64 (:attr:`uuid_b64`) and Base58 (:attr:`uuid_b58`). :attr:`uuid_hex` is
     recommended over :attr:`IdMixin.url_id` as that name is ambiguous. Base58 is
     recommended over Base64 for URLs that contain text slugs as the Base64 alphabet
@@ -934,7 +934,7 @@ class BaseScopedIdMixin(BaseMixin):
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
 
-    # FIXME: Change this to `scoped_id` and provide a migration guide.
+    # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
     def url_id(cls):

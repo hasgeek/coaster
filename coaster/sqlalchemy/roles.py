@@ -1139,6 +1139,10 @@ class RoleMixin:
             actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
         )
 
+    def __json__(self):
+        """Render to a JSON-compatible data structure."""
+        return self.current_access(self.__json_datasets__)
+
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
 def _configure_roles(mapper_, cls):
