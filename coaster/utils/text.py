@@ -195,7 +195,7 @@ blockish_tags: Set[str] = {
 
 
 def text_blocks(html_text, skip_pre=True):
-    """Extracts a list of paragraphs from a given HTML string."""
+    """Extract a list of paragraphs from a given HTML string."""
     doc = html5lib.parseFragment(html_text)
     blocks = []
 

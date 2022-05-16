@@ -9,6 +9,7 @@ from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
 from secrets import token_bytes
+from typing import Any, Callable, Optional, Tuple, TypeVar, Union
 from urllib.parse import urlparse
 import collections.abc as abc
 import email.utils
@@ -52,6 +53,8 @@ __all__ = [
     'valid_username',
 ]
 
+T = TypeVar('T')
+
 # --- Common delimiters and punctuation ---------------------------------------
 
 _strip_re = re.compile('[\'"`‘’“”′″‴]+')
@@ -68,10 +71,13 @@ _ipv4_re = re.compile(
 # --- Utilities ---------------------------------------------------------------
 
 
-def is_collection(item):
+def is_collection(item) -> bool:
     """
-    Returns True if the item is a collection class: list, tuple, set, frozenset
-    or any other class that resembles one of these (using abstract base classes).
+    Return True if the item is a collection class.
+
+    List, tuple, set, frozenset or any other class that resembles one of these (using
+    abstract base classes). The `Collections` ABC is not suitable as it also matches
+    strings and dicts.
 
     >>> is_collection(0)
     False
@@ -102,11 +108,9 @@ def is_collection(item):
     )
 
 
-def uuid_b64():
+def uuid_b64() -> str:
     """
-    Return a new random id that is exactly 22 characters long,
-    by encoding a UUID4 in URL-safe Base64. See
-    http://en.wikipedia.org/wiki/Base64#Variants_summary_table
+    Return a UUID4 encoded in URL-safe Base64, for use as a random identifier.
 
     >>> len(buid())
     22
@@ -122,10 +126,9 @@ def uuid_b64():
 buid = uuid_b64
 
 
-def uuid_b58():
+def uuid_b58() -> str:
     """
-    Return a UUID4 encoded in base58 and rendered as a string. Will be 21 or 22
-    characters long
+    Return a UUID4 encoded in Base58 using the Bitcoin alphabet.
 
     >>> len(uuid_b58()) in (21, 22)
     True
@@ -137,20 +140,19 @@ def uuid_b58():
     return base58.b58encode(uuid.uuid4().bytes).decode()
 
 
-def uuid1mc():
+def uuid1mc() -> uuid.UUID:
     """
     Return a UUID1 with a random multicast MAC id.
 
     >>> isinstance(uuid1mc(), uuid.UUID)
     True
     """
-    return uuid.uuid1(node=uuid._random_getnode())
+    return uuid.uuid1(node=uuid._random_getnode())  # type: ignore[attr-defined]
 
 
-def uuid1mc_from_datetime(dt):
+def uuid1mc_from_datetime(dt) -> uuid.UUID:
     """
-    Return a UUID1 with a random multicast MAC id and with a timestamp
-    matching the given datetime object or timestamp value.
+    Return a UUID1 with a specific timestamp and a random multicast MAC id.
 
     .. warning::
         This function does not consider the timezone, and is not guaranteed to
@@ -188,12 +190,12 @@ def uuid1mc_from_datetime(dt):
     fields[1] = time_mid
     fields[2] = time_hi_version
 
-    return uuid.UUID(fields=tuple(fields))
+    return uuid.UUID(fields=tuple(fields))  # type:ignore[arg-type]
 
 
-def uuid_to_base64(value):
+def uuid_to_base64(value: uuid.UUID) -> str:
     """
-    Convert a UUID object to a 22-char URL-safe Base64 string (BUID)
+    Encode a UUID as a 22-char URL-safe Base64 string.
 
     >>> uuid_to_base64(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
     'MyA90vLvQi-usAWNb19wiQ'
@@ -205,9 +207,9 @@ def uuid_to_base64(value):
 uuid2buid = uuid_to_base64
 
 
-def uuid_from_base64(value):
+def uuid_from_base64(value: str) -> uuid.UUID:
     """
-    Convert a 22-char URL-safe Base64 string (BUID) to a UUID object
+    Decode a UUID from a URL-safe Base64 string.
 
     >>> uuid_from_base64('MyA90vLvQi-usAWNb19wiQ')
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
@@ -219,9 +221,9 @@ def uuid_from_base64(value):
 buid2uuid = uuid_from_base64
 
 
-def uuid_to_base58(value):
+def uuid_to_base58(value: uuid.UUID) -> str:
     """
-    Render a UUID in Base58 and return as a string
+    Encode a UUID as a Base58 string using the Bitcoin alphabet.
 
     >>> uuid_to_base58(uuid.UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089'))
     '7KAmj837MyuJWUYPwtqAfz'
@@ -232,9 +234,9 @@ def uuid_to_base58(value):
     return base58.b58encode(value.bytes).decode()
 
 
-def uuid_from_base58(value):
+def uuid_from_base58(value: str) -> uuid.UUID:
     """
-    Convert a Base58-encoded UUID back into a UUID object
+    Decode a UUID from Base58 using the Bitcoin alphabet.
 
     >>> uuid_from_base58('7KAmj837MyuJWUYPwtqAfz')
     UUID('33203dd2-f2ef-422f-aeb0-058d6f5f7089')
@@ -245,7 +247,7 @@ def uuid_from_base58(value):
     return uuid.UUID(bytes=base58.b58decode(str(value)))
 
 
-def newsecret():
+def newsecret() -> str:
     """
     Make a secret key.
 
@@ -262,7 +264,7 @@ def newsecret():
     return base58.b58encode(token_bytes(32)).decode()
 
 
-def newpin(digits=4):
+def newpin(digits: int = 4) -> str:
     """
     Return a random numeric string with the specified number of digits, default 4.
 
@@ -280,11 +282,19 @@ def newpin(digits=4):
     return ('%%0%dd' % digits) % randnum
 
 
-def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
-    """
-    Generate an ASCII name slug. If a checkused filter is provided, it will
-    be called with the candidate. If it returns True, make_name will add
-    counter numbers starting from 2 until a suitable candidate is found.
+def make_name(
+    text: str,
+    delim: str = '-',
+    maxlength: int = 50,
+    checkused: Optional[Callable[[str], bool]] = None,
+    counter: int = 2,
+) -> str:
+    r"""
+    Generate an ASCII name slug.
+
+    If a checkused filter is provided, it will be called with the candidate. If it
+    returns True, make_name will add counter numbers starting from 2 until a suitable
+    candidate is found.
 
     :param string delim: Delimiter between words, default '-'
     :param int maxlength: Maximum length of name, default 50
@@ -346,13 +356,13 @@ def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
     'test-this-newline'
     >>> make_name("testing an emoji😁")
     'testing-an-emoji'
-    >>> make_name('''testing\\t\\nmore\\r\\nslashes''')
+    >>> make_name('''testing\t\nmore\r\nslashes''')
     'testing-more-slashes'
     >>> make_name('What if a HTML <tag/>')
     'what-if-a-html-tag'
-    >>> make_name('These are equivalent to \\x01 through \\x1A')
+    >>> make_name('These are equivalent to \x01 through \x1A')
     'these-are-equivalent-to-through'
-    >>> make_name("feedback;\\x00")
+    >>> make_name("feedback;\x00")
     'feedback'
     """
     name = text.replace('@', delim)
@@ -383,8 +393,12 @@ def make_name(text, delim='-', maxlength=50, checkused=None, counter=2):
 
 def format_currency(value, decimals=2):
     """
-    Return a number suitably formatted for display as currency, with
-    thousands separated by commas and up to two decimal points.
+    Return a number suitably formatted for display as currency.
+
+    Separates thousands with commas and includes up to two decimal points.
+
+    .. deprecated:: 0.7.0
+       Use Babel for context-sensitive formatting.
 
     >>> format_currency(1000)
     '1,000'
@@ -431,16 +445,19 @@ def md5sum(data):
     >>> len(md5sum('random text'))
     32
     """
-    return hashlib.md5(  # noqa: S303 # skipcq: PTC-W1003 # nosec
+    return hashlib.md5(  # noqa: S324  # skipcq: PTC-W1003 # nosec
         data.encode('utf-8')
     ).hexdigest()
 
 
-def getbool(value):
+def getbool(value: Union[bool, int, str]):
     """
-    Returns a boolean from any of a range of values. Returns None for
-    unrecognized values. Numbers other than 0 and 1 are considered
-    unrecognized.
+    Return a boolean from any of a range of boolean-like values.
+
+    * Returns `True` for ``1``, ``t``, ``true``, ``y`` and ``yes``
+    * Returns `False` for ``0``, ``f``, ``false``, ``n`` and ``no``
+    * Returns `None` for unrecognized values. Numbers other than 0 and 1 are considered
+      unrecognized
 
     >>> getbool(True)
     True
@@ -468,7 +485,8 @@ def getbool(value):
 
 def nullint(value):
     """
-    Return int(value) if bool(value) is not False. Return None otherwise.
+    Return `int(value)` if `bool(value)` is not `False`. Return `None` otherwise.
+
     Useful for coercing optional values to an integer.
 
     >>> nullint('10')
@@ -481,7 +499,8 @@ def nullint(value):
 
 def nullstr(value):
     """
-    Return unicode(value) if bool(value) is not False. Return None otherwise.
+    Return `str(value)` if `bool(value)` is not `False`. Return `None` otherwise.
+
     Useful for coercing optional values to a string.
 
     >>> nullstr(10) == '10'
@@ -495,11 +514,14 @@ def nullstr(value):
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
-def require_one_of(_return=False, **kwargs):
+# TODO: When `Literal`` becomes available in Python 3.8, re-specify the return type
+# using @overload decorators
+def require_one_of(_return=False, **kwargs) -> Optional[Tuple[str, Any]]:
     """
-    Validator that raises :exc:`TypeError` unless one and only one parameter is
-    not ``None``. Use this inside functions that take multiple parameters, but
-    allow only one of them to be specified::
+    Validate that only one of multiple parameters has a non-None value.
+
+    Use this inside functions that take multiple parameters, but allow only one of them
+    to be specified::
 
         def my_func(this=None, that=None, other=None):
             # Require one and only one of `this` or `that`
@@ -511,13 +533,12 @@ def require_one_of(_return=False, **kwargs):
             # Carry on with function logic
             pass
 
-    :param _return: Return the matching parameter
+    :param _return: Return the matching parameter name and value
     :param kwargs: Parameters, of which one and only one is mandatory
     :return: If `_return`, matching parameter name and value
     :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
     """
-
     # Two ways to count number of non-None parameters:
     #
     # 1. sum([1 if v is not None else 0 for v in kwargs.values()])
@@ -547,12 +568,14 @@ def require_one_of(_return=False, **kwargs):
         keys, values = zip(*((k, 1 if v is not None else 0) for k, v in kwargs.items()))
         k = keys[values.index(1)]
         return k, kwargs[k]
+    return None
 
 
 def unicode_http_header(value):
     r"""
-    Convert an ASCII HTTP header string into a unicode string with the
-    appropriate encoding applied. Expects headers to be RFC 2047 compliant.
+    Convert an ASCII HTTP header string into a unicode string.
+
+    Expects headers to be RFC 2047 compliant, and will decode from recognised encodings.
 
     >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
     True
@@ -567,15 +590,18 @@ def unicode_http_header(value):
     if isinstance(value, bytes):
         value = value.decode()
     return ''.join(
-        str(s, e or 'iso-8859-1') if not isinstance(s, str) else s
-        for s, e in decode_header(value)
+        str(_string, _encoding or 'iso-8859-1')
+        if not isinstance(_string, str)
+        else _string
+        for _string, _encoding in decode_header(value)
     )
 
 
 def get_email_domain(emailaddr):
     """
-    Return the domain component of an email address. Returns None if the
-    provided string cannot be parsed as an email address.
+    Return the domain component of an email address.
+
+    Returns None if the provided string cannot be parsed as an email address.
 
     >>> get_email_domain('test@example.com')
     'example.com'
@@ -601,6 +627,9 @@ def valid_username(candidate):
     """
     Check if a username is valid.
 
+    .. deprecated:: 0.7.0
+       Coaster is too low level to specify rules for valid usernames.
+
     >>> valid_username('example person')
     False
     >>> valid_username('example_person')
@@ -619,9 +648,7 @@ def valid_username(candidate):
 
 
 def namespace_from_url(url):
-    """
-    Construct a dotted namespace string from a URL.
-    """
+    """Construct a dotted namespace string from a URL."""
     parsed = urlparse(url)
     if (
         parsed.hostname is None
@@ -665,7 +692,7 @@ def base_domain_matches(d1, d2):
 
 def domain_namespace_match(domain, namespace):
     """
-    Checks if namespace is related to the domain because the base domain matches.
+    Check if namespace is related to the domain because the base domain matches.
 
     >>> domain_namespace_match('hasgeek.com', 'com.hasgeek')
     True
@@ -681,13 +708,24 @@ def domain_namespace_match(domain, namespace):
     return base_domain_matches(domain, ".".join(namespace.split(".")[::-1]))
 
 
-def nary_op(f, doc=None):
+def nary_op(f, doc: Optional[str] = None):
     """
-    Decorator to convert a binary operator into a chained n-ary operator.
+    Convert a binary operator function into a chained n-ary operator.
+
+    Example::
+
+        >>> @nary_op
+        ... def subtract_all(lhs, rhs):
+        ...     return lhs - rhs
+
+    This converts ``subtract_all`` to accept multiple parameters::
+
+        >>> subtract_all(10, 2, 3)
+        5
     """
 
     @wraps(f)
-    def inner(lhs, *others):
+    def inner(lhs: T, *others: T) -> T:
         for other in others:
             lhs = f(lhs, other)
         return lhs

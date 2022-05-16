@@ -1,7 +1,9 @@
-0.7.0 - 2021-06-XX
+0.7.0 - 2022-05-XX
 ------------------
 
 * Dropped Python 2.7 support
+* Dropped Python 3.6 support as it lacks typing annotations; 3.7+ is now
+  required
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 * Removed deprecated ``make_password`` and ``check_password`` functions
 * Added ``compress_whitespace`` to mimic browser compression of whitespace
@@ -9,7 +11,6 @@
 * Added SQLAlchemy 1.4 support and dropped support for annotations and roles
   on synonyms
 * Registries now support property-like access and caching
-* Dropped Python 3.6 support as it lacks typing annotations
 * Removed SandboxedFlask as it is unused and adds maintenance overhead
 * Fix MarkdownColumn behaviour with None value
 * ``manage.py`` is no longer supported as Flask-Script has been deprecated
@@ -17,6 +18,8 @@
   Indian DLT template system; Telegram reporting is typically more effective
 * Local stack variables in error logs no longer show app config, and don't
   repeat already logged values
+* Dropped deprecated declared_attr_roles and set_roles
+* Added ``__json__`` protocol in ``RoleMixin``
 
 0.6.1 - 2021-01-06
 ------------------

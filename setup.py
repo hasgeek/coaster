@@ -20,6 +20,8 @@ else:
     raise RuntimeError("Unable to find version string in coaster/_version.py.")
 
 requires = [
+    'aniso8601',
+    'base58>=2.0.0',
     'bcrypt',
     'bleach',
     'blinker',
@@ -31,7 +33,6 @@ requires = [
     'furl',
     'html2text>2019.8.11',
     'html5lib>=0.999999999',
-    'aniso8601',
     'isoweek',
     'Jinja2>=2.11.1',
     'Markdown>=3.2.0',
@@ -42,14 +43,14 @@ requires = [
     'Pygments>=2.6.0',
     'pymdown-extensions>=8.0',
     'pytz',
-    'semantic_version>=2.8.0',
-    'base58>=2.0.0',
     'PyYAML',
+    'semantic_version>=2.8.0',
     'simplejson',
     'sqlalchemy-utils',
     'SQLAlchemy>=1.3',
     'tldextract',
     'toml',
+    'typing_extensions',
     'UgliPyJS',
     'unidecode',
     'webassets',

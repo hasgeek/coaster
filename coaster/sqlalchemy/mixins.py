@@ -19,7 +19,8 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 """
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Container, Dict, Optional, Tuple
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Set, Tuple
 import collections.abc as abc
 import uuid as uuid_
 
@@ -95,9 +96,18 @@ __all__ = [
 
 class IdMixin:
     """
-    Provides the :attr:`id` primary key column
+    Provides the :attr:`id` primary key column.
+
+    Provides an auto-incrementing integer primary key by default. However, can be told
+    to provide a UUID primary key by specifying a flag on the class::
+
+        class MyModel(IdMixin, db.Model):
+            __uuid_primary_key__ = True
+
+    :class:`IdMixin` is a base class for :class:`BaseMixin`, the standard base class.
     """
 
+    query: Query
     query_class = Query
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database
@@ -105,10 +115,7 @@ class IdMixin:
 
     @declared_attr
     def id(cls):  # noqa: A003
-        """
-        Database identity for this model, used for foreign key references from other
-        models
-        """
+        """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return immutable(
                 Column(
@@ -122,14 +129,15 @@ class IdMixin:
 
     @declared_attr
     def url_id(cls):
-        """The URL id"""
+        """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
             def url_id_func(self):
-                """The URL id, UUID primary key rendered as a hex string"""
+                """URL-safe representation of the UUID id as a hex value."""
                 return self.id.hex
 
             def url_id_is(cls):
+                """Compare two hex UUID values."""
                 return SqlUuidHexComparator(cls.id)
 
             url_id_func.__name__ = 'url_id'
@@ -138,11 +146,11 @@ class IdMixin:
             return url_id_property
 
         def url_id_func(self):
-            """The URL id, integer primary key rendered as a string"""
+            """URL-safe representation of the integer id as a string."""
             return str(self.id)
 
         def url_id_expression(cls):
-            """The URL id, integer primary key"""
+            """Database column for id, for SQL expressions."""
             return cls.id
 
         url_id_func.__name__ = 'url_id'
@@ -156,16 +164,26 @@ class IdMixin:
 
 class UuidMixin:
     """
-    Provides a ``uuid`` attribute that is either a SQL UUID column or an alias
-    to the existing ``id`` column if the class uses UUID primary keys. Also
-    provides hybrid properties ``uuid_hex``, ``buid`` and ``uuid_b58`` that provide
-    hex, URL-safe Base64 and Base58 representations of the ``uuid`` column.
+    Provides a :attr:`uuid` attribute.
+
+    If the class has :attr:`__uuid_primary_key__` set to `True`, :attr:`uuid` becomes
+    an alias to the existing UUID :attr:`id` column. If not, a new UUID column is
+    provided.
+
+    Also provides representations of the UUID value in hex (:attr:`uuid_hex`), URL-safe
+    Base64 (:attr:`uuid_b64`) and Base58 (:attr:`uuid_b58`). :attr:`uuid_hex` is
+    recommended over :attr:`IdMixin.url_id` as that name is ambiguous. Base58 is
+    recommended over Base64 for URLs that contain text slugs as the Base64 alphabet
+    includes the ``_`` and ``-`` characters that may also appear in text slugs.
+
+    :attr:`buid` is a legacy alias for :attr:`uuid_b64` and should not be used in new
+    code.
     """
 
     @with_roles(read={'all'})
     @declared_attr
     def uuid(cls):
-        """UUID column, or synonym to existing :attr:`id` column if that is a UUID"""
+        """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         return immutable(
@@ -179,7 +197,7 @@ class UuidMixin:
 
     @hybrid_property
     def uuid_hex(self):
-        """URL-friendly UUID representation as a hex string"""
+        """URL-friendly UUID representation as a hex string."""
         return self.uuid.hex
 
     @uuid_hex.comparator
@@ -192,7 +210,7 @@ class UuidMixin:
 
     @hybrid_property
     def uuid_b64(self):
-        """URL-friendly UUID representation, using URL-safe Base64 (BUID)"""
+        """URL-friendly UUID representation, using URL-safe Base64 (BUID)."""
         return uuid_to_base64(self.uuid)
 
     @uuid_b64.setter
@@ -212,7 +230,7 @@ class UuidMixin:
 
     @hybrid_property
     def uuid_b58(self):
-        """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet"""
+        """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet."""
         return uuid_to_base58(self.uuid)
 
     @uuid_b58.setter
@@ -228,17 +246,16 @@ class UuidMixin:
 
 # Also see functions.make_timestamp_columns
 class TimestampMixin:
-    """
-    Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps
-    """
+    """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
     __with_timezone__ = False
+    query: Query
     query_class = Query
 
     @immutable
     @declared_attr
     def created_at(cls):
-        """Timestamp for when this instance was created, in UTC"""
+        """Timestamp for when this instance was created, in UTC."""
         return Column(
             TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
@@ -247,7 +264,7 @@ class TimestampMixin:
 
     @declared_attr
     def updated_at(cls):
-        """Timestamp for when this instance was last updated (via the app), in UTC"""
+        """Timestamp for when this instance was last updated (via the app), in UTC."""
         return Column(
             TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
@@ -258,23 +275,25 @@ class TimestampMixin:
 
 class PermissionMixin:
     """
-    Provides the :meth:`permissions` method used by BaseMixin and derived classes
+    Provides the :meth:`permissions` method.
+
+    Base class for :class:`BaseMixin`. The permissions mechanism is deprecated. New code
+    should use the role granting mechanism in :class:`RoleMixin`.
     """
 
-    def permissions(self, actor, inherited=None):
-        """
-        Return permissions available to the given user on this object
-        """
+    def permissions(self, actor, inherited: Optional[Set[str]] = None) -> Set[str]:
+        """Return permissions available to the given user on this object."""
         if inherited is not None:
             return set(inherited)
         return set()
 
     @property
-    def current_permissions(self):
+    def current_permissions(self) -> InspectableSet[str]:
         """
-        :class:`~coaster.utils.classes.InspectableSet` containing currently
-        available permissions from this object, using
-        :obj:`~coaster.auth.current_auth`.
+        Available permissions for the current user on this object.
+
+        This property depends on `current_auth` to provide the current user and
+        existing permissions.
         """
         # current_auth.permissions will be an InspectableSet.
         # Cast it back into a regular set so that the permissions method can call the
@@ -295,7 +314,8 @@ UrlEndpointData = namedtuple(
 class UrlDictStub:
     """
     Dictionary-based access to URLs for a model instance, used by :class:`UrlForMixin`.
-    Proxies to :meth:`UrlForMixin.url_for` for keyword-based lookup. Uses
+
+    This class proxies to :meth:`UrlForMixin.url_for` for keyword-based lookup. Uses
     :attr:`UrlForMixin.url_for_endpoints` for enumeration, but with URLs limited to
     those available under current roles.
     """
@@ -307,9 +327,7 @@ class UrlDictStub:
 
 
 class UrlDict(abc.Mapping):
-    """
-    Provides dictionary access to an object's URLs.
-    """
+    """Provides dictionary access to an object's URLs."""
 
     def __init__(self, obj):
         self.obj = obj
@@ -345,9 +363,7 @@ class UrlDict(abc.Mapping):
 
 
 class UrlForMixin:
-    """
-    Provides a :meth:`url_for` method used by BaseMixin-derived classes
-    """
+    """Provides a :meth:`url_for` method used by BaseMixin-derived classes."""
 
     #: Mapping of {app: {action: UrlEndpointData}}, where attr is a string or tuple of
     #: strings. The same action can point to different endpoints in different apps. The
@@ -363,9 +379,7 @@ class UrlForMixin:
     urls = UrlDictStub()
 
     def url_for(self, action='view', **kwargs):
-        """
-        Return public URL to this instance for a given action (default 'view').
-        """
+        """Return public URL to this instance for a given action (default 'view')."""
         app = current_app._get_current_object() if current_app else None
         if app is not None and action in self.url_for_endpoints.get(app, {}):
             epdata = self.url_for_endpoints[app][action]
@@ -401,6 +415,7 @@ class UrlForMixin:
 
     @property
     def absolute_url(self):
+        """Absolute URL to this object."""
         try:
             return self.url_for(_external=True)
         except BuildError:
@@ -437,7 +452,7 @@ class UrlForMixin:
         cls, action, endpoint, app=None, external=None, roles=None, paramattrs=None
     ):
         """
-        Helper method for registering an endopint to a :meth:`url_for` action.
+        Register an endpoint to a :meth:`url_for` action.
 
         :param view_func: View handler to be registered
         :param str action: Action to register a URL under
@@ -471,38 +486,33 @@ class UrlForMixin:
 
     @classmethod
     def register_view_for(cls, app, action, classview, attr):
-        """
-        Register a classview and viewhandler for a given app and action
-        """
+        """Register a classview and viewhandler for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:
             cls.view_for_endpoints = {}
         cls.view_for_endpoints.setdefault(app, {})[action] = (classview, attr)
 
     def view_for(self, action='view'):
-        """
-        Return the classview viewhandler that handles the specified action
-        """
+        """Return the classview viewhandler that handles the specified action."""
         app = current_app._get_current_object()
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
     def classview_for(self, action='view'):
-        """
-        Return the classview that contains the viewhandler for the specified action
-        """
+        """Return the classview containing the viewhandler for the specified action."""
         app = current_app._get_current_object()
         return self.view_for_endpoints[app][action][0](self)
 
 
 class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
     """
-    Mixin that combines all mixin classes except :class:`IdMixin`, for use
-    anywhere the timestamp columns and helper methods are required, but an
-    id column is not.
+    Mixin that combines all mixin classes except :class:`IdMixin`.
+
+    For use anywhere the timestamp columns and helper methods are required, but an id
+    column is not.
     """
 
     def _set_fields(self, fields):
-        """Helper method for :meth:`upsert` in the various subclasses"""
+        """Helper method for :meth:`upsert` in the various subclasses."""
         for f in fields:
             if hasattr(self, f):
                 setattr(self, f, fields[f])
@@ -515,14 +525,12 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
 
 
 class BaseMixin(IdMixin, NoIdMixin):
-    """
-    Base mixin class for all tables that have an id column.
-    """
+    """Base mixin class for all tables that have an id column."""
 
 
 class BaseNameMixin(BaseMixin):
     """
-    Base mixin class for named objects
+    Base mixin class for named objects.
 
     .. versionchanged:: 0.5.0
         If you used BaseNameMixin in your app before Coaster 0.5.0:
@@ -543,7 +551,7 @@ class BaseNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: Container[str] = []
+    reserved_names: Collection[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
@@ -552,7 +560,7 @@ class BaseNameMixin(BaseMixin):
 
     @declared_attr
     def name(cls):
-        """The URL name of this object, unique across all instances of this model"""
+        """Column for URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
             column_type = UnicodeText()
         else:
@@ -565,7 +573,7 @@ class BaseNameMixin(BaseMixin):
 
     @declared_attr
     def title(cls):
-        """The title of this object"""
+        """Column for title of this object."""
         if cls.__title_length__ is None:
             column_type = UnicodeText()
         else:
@@ -574,7 +582,11 @@ class BaseNameMixin(BaseMixin):
 
     @property
     def title_for_name(self):
-        """The version of the title used for :meth:`make_name`"""
+        """
+        Variant of :attr:`title` suitable for :meth:`make_name`.
+
+        Returns :attr:`title` unmodified, but subclasses may override.
+        """
         return self.title
 
     def __init__(self, *args, **kw):
@@ -587,12 +599,12 @@ class BaseNameMixin(BaseMixin):
 
     @classmethod
     def get(cls, name):
-        """Get an instance matching the name"""
+        """Get an instance matching the name."""
         return cls.query.filter_by(name=name).one_or_none()
 
     @classmethod
     def upsert(cls, name, **fields):
-        """Insert or update an instance"""
+        """Insert or update an instance."""
         instance = cls.get(name)
         if instance:
             instance._set_fields(fields)
@@ -601,13 +613,16 @@ class BaseNameMixin(BaseMixin):
             instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
-    def make_name(self, reserved=()):
+    def make_name(self, reserved: Collection = ()):
         """
-        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name
-        is already in use in this model, :meth:`make_name` tries again by suffixing
-        numbers starting with 2 until an available name is found.
+        Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
 
-        :param reserved: List or set of reserved names unavailable for use
+        If the auto-generated name is already in use in this model, :meth:`make_name`
+        tries again by suffixing numbers starting with 2 until an available name is
+        found.
+
+        :param reserved: Reserved names unavailable for use. Complements the
+            :attr:`reserved_names` collection.
         """
         if self.title:
             if inspect(self).has_identity:
@@ -633,17 +648,18 @@ class BaseNameMixin(BaseMixin):
             with self.__class__.query.session.no_autoflush:
                 self.name = make_name(
                     self.title_for_name,
-                    maxlength=self.__name_length__,
+                    maxlength=self.__name_length__ or 50,
                     checkused=checkused,
                 )
 
 
 class BaseScopedNameMixin(BaseMixin):
     """
-    Base mixin class for named objects within containers. When using this,
-    you must provide an model-level attribute "parent" that is a synonym for
-    the parent object. You must also create a unique constraint on 'name' in
-    combination with the parent foreign key. Sample use case in Flask::
+    Base mixin class for named objects within containers.
+
+    When using this class, you must provide an model-level attribute "parent" that is a
+    synonym for the parent object. You must also create a unique constraint on 'name'
+    in combination with the parent foreign key. Sample use case in Flask::
 
         class Event(BaseScopedNameMixin, db.Model):
             __tablename__ = 'event'
@@ -671,7 +687,7 @@ class BaseScopedNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: Container[str] = []
+    reserved_names: Collection[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
@@ -680,7 +696,7 @@ class BaseScopedNameMixin(BaseMixin):
 
     @declared_attr
     def name(cls):
-        """The URL name of this object, unique within a parent container"""
+        """Column for URL name of this object, unique within a parent container."""
         if cls.__name_length__ is None:
             column_type = UnicodeText()
         else:
@@ -691,7 +707,7 @@ class BaseScopedNameMixin(BaseMixin):
 
     @declared_attr
     def title(cls):
-        """The title of this object"""
+        """Column for title of this object."""
         if cls.__title_length__ is None:
             column_type = UnicodeText()
         else:
@@ -713,12 +729,12 @@ class BaseScopedNameMixin(BaseMixin):
 
     @classmethod
     def get(cls, parent, name):
-        """Get an instance matching the parent and name"""
+        """Get an instance matching the parent and name."""
         return cls.query.filter_by(parent=parent, name=name).one_or_none()
 
     @classmethod
     def upsert(cls, parent, name, **fields):
-        """Insert or update an instance"""
+        """Insert or update an instance."""
         instance = cls.get(parent, name)
         if instance:
             instance._set_fields(fields)
@@ -731,9 +747,11 @@ class BaseScopedNameMixin(BaseMixin):
 
     def make_name(self, reserved=()):
         """
-        Autogenerates a :attr:`name` from the :attr:`title`. If the auto-generated name
-        is already in use in this model, :meth:`make_name` tries again by suffixing
-        numbers starting with 2 until an available name is found.
+        Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
+
+        If the auto-generated name is already in use in this model, :meth:`make_name`
+        tries again by suffixing numbers starting with 2 until an available name is
+        found.
         """
         if self.title:
             if inspect(self).has_identity:
@@ -767,10 +785,7 @@ class BaseScopedNameMixin(BaseMixin):
 
     @property
     def short_title(self):
-        """
-        Generates an abbreviated title by subtracting the parent's title from this
-        instance's title.
-        """
+        """Abbreviated title that subtracts the parent's title from this instance's."""
         if (
             self.title
             and self.parent is not None
@@ -788,13 +803,15 @@ class BaseScopedNameMixin(BaseMixin):
 
     @property
     def title_for_name(self):
-        """The version of the title used for :meth:`make_name`"""
+        """
+        Variant of :attr:`title` suitable for :meth:`make_name`.
+
+        Returns :attr:`short_title`, but subclasses may override.
+        """
         return self.short_title
 
     def permissions(self, actor, inherited=None):
-        """
-        Permissions for this model, plus permissions inherited from the parent.
-        """
+        """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
         elif self.parent is not None and isinstance(self.parent, PermissionMixin):
@@ -832,7 +849,7 @@ class BaseIdNameMixin(BaseMixin):
 
     @declared_attr
     def name(cls):
-        """The URL name of this object, non-unique"""
+        """Column for the URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = UnicodeText()
         else:
@@ -843,7 +860,7 @@ class BaseIdNameMixin(BaseMixin):
 
     @declared_attr
     def title(cls):
-        """The title of this object"""
+        """Column for the title of this object."""
         if cls.__title_length__ is None:
             column_type = UnicodeText()
         else:
@@ -852,7 +869,11 @@ class BaseIdNameMixin(BaseMixin):
 
     @property
     def title_for_name(self):
-        """The version of the title used for :meth:`make_name`"""
+        """
+        Variant of :attr:`title` suitable for :meth:`make_name`.
+
+        Returns :attr:`title` unmodified, but subclasses may override.
+        """
         return self.title
 
     def __init__(self, *args, **kw):
@@ -864,17 +885,13 @@ class BaseIdNameMixin(BaseMixin):
         return f'<{self.__class__.__name__} {self.url_id_name} "{self.title}">'
 
     def make_name(self):
-        """Autogenerates a :attr:`name` from :attr:`title_for_name`"""
+        """Autogenerate a :attr:`name` from :attr:`title_for_name`."""
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
     @hybrid_property
     def url_id_name(self):
-        """
-        Returns a URL name combining :attr:`url_id` and :attr:`name` in
-        id-name syntax. This property is also available as :attr:`url_name`
-        for legacy reasons.
-        """
+        """Id and name in ``id-name`` format for use in URLs."""
         return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator
@@ -888,8 +905,10 @@ class BaseIdNameMixin(BaseMixin):
     @hybrid_property
     def url_name_uuid_b58(self):
         """
-        Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
-        syntax. To use this, the class must derive from :class:`UuidMixin`.
+        Name and UUID in Base58 rendering, in ``name-uuid`` format, for use in URLs.
+
+        To use this, the class must derive from :class:`UuidMixin` as that provides
+        the ``uuid_b58`` property.
         """
         return f'{self.name}-{self.uuid_b58}'
 
@@ -901,6 +920,7 @@ class BaseIdNameMixin(BaseMixin):
 class BaseScopedIdMixin(BaseMixin):
     """
     Base mixin class for objects with an id that is unique within a parent.
+
     Implementations must provide a 'parent' attribute that is either a relationship
     or a synonym to a relationship referring to the parent object, and must
     declare a unique constraint between url_id and the parent. Sample use case in
@@ -914,10 +934,11 @@ class BaseScopedIdMixin(BaseMixin):
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
 
+    # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
     def url_id(cls):
-        """Contains an id number that is unique within the parent container"""
+        """Column for an id number that is unique within the parent container."""
         return Column(Integer, nullable=False)
 
     def __init__(self, *args, **kw):
@@ -934,11 +955,11 @@ class BaseScopedIdMixin(BaseMixin):
 
     @classmethod
     def get(cls, parent, url_id):
-        """Get an instance matching the parent and url_id"""
+        """Get an instance matching the parent and url_id."""
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_id(self):
-        """Create a new URL id that is unique to the parent container"""
+        """Create a new URL id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
             self.url_id = select(
                 [func.coalesce(func.max(self.__class__.url_id + 1), 1)],
@@ -946,9 +967,7 @@ class BaseScopedIdMixin(BaseMixin):
             ).as_scalar()
 
     def permissions(self, actor, inherited=None):
-        """
-        Permissions for this model, plus permissions inherited from the parent.
-        """
+        """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
         if self.parent is not None and isinstance(self.parent, PermissionMixin):
@@ -958,10 +977,11 @@ class BaseScopedIdMixin(BaseMixin):
 
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
-    Base mixin class for named objects with an id tag that is unique within a
-    parent. Implementations must provide a 'parent' attribute that is a
-    synonym to the parent relationship, and must declare a unique constraint
-    between url_id and the parent. Sample use case in Flask::
+    Base mixin class for named objects with an id tag that is unique within a parent.
+
+    Implementations must provide a 'parent' attribute that is a synonym to the parent
+    relationship, and must declare a unique constraint between url_id and the parent.
+    Sample use case in Flask::
 
         class Event(BaseScopedIdNameMixin, db.Model):
             __tablename__ = 'event'
@@ -996,7 +1016,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     @declared_attr
     def name(cls):
-        """The URL name of this instance, non-unique"""
+        """Column for the URL name of this instance, non-unique."""
         if cls.__name_length__ is None:
             column_type = UnicodeText()
         else:
@@ -1007,7 +1027,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     @declared_attr
     def title(cls):
-        """The title of this instance"""
+        """Column for the title of this instance."""
         if cls.__title_length__ is None:
             column_type = UnicodeText()
         else:
@@ -1016,7 +1036,11 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     @property
     def title_for_name(self):
-        """The version of the title used for :meth:`make_name`"""
+        """
+        Variant of :attr:`title` suitable for :meth:`make_name`.
+
+        Returns :attr:`title` unmodified, but subclasses may override.
+        """
         return self.title
 
     def __init__(self, *args, **kw):
@@ -1036,19 +1060,17 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     @classmethod
     def get(cls, parent, url_id):
-        """Get an instance matching the parent and name"""
+        """Get an instance matching the parent and name."""
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_name(self):
-        """Autogenerates a title from the name"""
+        """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
         if self.title:
             self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
 
     @hybrid_property
     def url_id_name(self):
-        """
-        Returns a URL name combining :attr:`url_id` and :attr:`name` in id-name syntax
-        """
+        """Combine :attr:`url_id` and :attr:`name` in ``id-name`` syntax for URLs."""
         return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator
@@ -1060,8 +1082,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @hybrid_property
     def url_name_uuid_b58(self):
         """
-        Returns a URL name combining :attr:`name` and :attr:`uuid_b58` in name-uuid_b58
-        syntax. To use this, the class must derive from :class:`UuidMixin`.
+        Provide a URL stub in ``name-uuid`` syntax.
+
+        Combines :attr:`name` with :attr:`UuidMixin.uuid_b58`. The subclass must use
+        :class:`UuidMixin` to get this method.
         """
         return f'{self.name}-{self.uuid_b58}'
 
@@ -1072,8 +1096,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
 class CoordinatesMixin:
     """
-    Adds :attr:`latitude` and :attr:`longitude` columns with a shorthand
-    :attr:`coordinates` property that returns both.
+    Mixin for models that store location coordinates.
+
+    Adds :attr:`latitude` and :attr:`longitude` columns, and a :attr:`coordinates` tuple property.
     """
 
     latitude = Column(Numeric)
@@ -1090,12 +1115,12 @@ class CoordinatesMixin:
         return self.latitude is None or self.longitude is None
 
     @property
-    def coordinates(self):
+    def coordinates(self) -> Tuple[Optional[Decimal], Optional[Decimal]]:
         """Tuple of (latitude, longitude)."""
         return self.latitude, self.longitude
 
     @coordinates.setter
-    def coordinates(self, value):
+    def coordinates(self, value: Tuple[Optional[Decimal], Optional[Decimal]]):
         self.latitude, self.longitude = value
 
 
