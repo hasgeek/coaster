@@ -117,14 +117,14 @@ Example use::
             return roles
 """
 
+from __future__ import annotations
+
 from abc import ABCMeta
 from copy import deepcopy
-from functools import wraps
 from itertools import chain
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Sequence, Set, Union
 import collections.abc as abc
 import operator
-import warnings
 
 from sqlalchemy import event, inspect
 from sqlalchemy.ext.orderinglist import OrderingList
@@ -158,7 +158,6 @@ __all__ = [
     'DynamicAssociationProxy',
     'RoleMixin',
     'with_roles',
-    'declared_attr_roles',
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
@@ -167,7 +166,8 @@ __cache__ = {}
 
 def _attrs_equal(lhs, rhs):
     """
-    Helper function to compare two strings or two QueryableAttributes.
+    Compare two strings or two QueryableAttributes.
+
     QueryableAttributes can't be compared with `==` to confirm both are same object.
     But strings can't be compared with `is` to confirm they are the same string.
     We have to change the operator based on types being compared.
@@ -178,7 +178,7 @@ def _attrs_equal(lhs, rhs):
 
 
 def _actor_in_relationship(actor, relationship):
-    """Test whether the given actor is present in the given attribute"""
+    """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
     if isinstance(relationship, (AppenderMixin, Query, abc.Container)):
@@ -187,7 +187,7 @@ def _actor_in_relationship(actor, relationship):
 
 
 def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
-    """Find roles granted via a relationship"""
+    """Find roles granted via a relationship."""
     relobj = None  # Role-granting object found via the relationship
 
     # There is no actor_attr. Check if the relationship is a RoleMixin and call
@@ -255,15 +255,16 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
 
 
 class RoleGrantABC(metaclass=ABCMeta):
-    """Base class for an object that grants roles to an actor"""
+    """Base class for an object that grants roles to an actor."""
 
     @property
     def offered_roles(self):  # pragma: no cover
-        """Roles offered by this object"""
+        """Roles offered by this object."""
         return ()
 
     @classmethod
     def __subclasshook__(cls, c):
+        """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             if any('offered_roles' in b.__dict__ for b in c.__mro__):
                 return True
@@ -272,9 +273,7 @@ class RoleGrantABC(metaclass=ABCMeta):
 
 
 class LazyRoleSet(abc.MutableSet):
-    """
-    Set that provides lazy evaluations for whether a role is present
-    """
+    """Set that provides lazy evaluations for whether a role is present."""
 
     def __init__(self, obj, actor, initial=()):
         self.obj = obj
@@ -290,12 +289,12 @@ class LazyRoleSet(abc.MutableSet):
     def __repr__(self):  # pragma: no cover
         return f'LazyRoleSet({self.obj}, {self.actor})'
 
-    # This is required by the `MutableSet` base class
-    def _from_iterable(self, it):
+    def _from_iterable(self, it) -> LazyRoleSet:
+        """Make a copy, as required by the `MutableSet` base class."""
         return LazyRoleSet(self.obj, self.actor, it)
 
     def _role_is_present(self, role):
-        """Test whether a role has been granted to the bound actor"""
+        """Test whether a role has been granted to the bound actor."""
         if role in self._present:
             return True
         if role in self._not_present:
@@ -375,7 +374,7 @@ class LazyRoleSet(abc.MutableSet):
         return False
 
     def _contents(self):
-        """Return all available roles"""
+        """Return all available roles."""
         # Populate cache
         [  # skipcq: PYL-W0106
             self._role_is_present(role) for role in self.obj.__roles__
@@ -394,8 +393,6 @@ class LazyRoleSet(abc.MutableSet):
     def __bool__(self):
         # Make bool() faster than len() by using the cache first
         return bool(self._present) or bool(self._contents())
-
-    __nonzero__ = __bool__  # For Python 2.7 compatibility
 
     def __eq__(self, other):
         if isinstance(other, LazyRoleSet):
@@ -421,9 +418,9 @@ class LazyRoleSet(abc.MutableSet):
 
     def has_any(self, roles):
         """
-        Convenience method for checking if any of the given roles is present in the set.
+        Check if any of the given roles is present in the set.
 
-        Equivalent of evaluating using either of these approaches:
+        Convinience method, qquivalent of evaluating using either of these approaches:
 
         1. ``not roles.isdisjoint(lazy_role_set)``
         2. ``any(role in lazy_role_set for role in roles)``
@@ -461,8 +458,10 @@ class LazyRoleSet(abc.MutableSet):
 
 class DynamicAssociationProxy:
     """
-    Association proxy for dynamic relationships. Use this instead of SQLAlchemy's
-    `association_proxy` when the underlying relationship uses `lazy='dynamic'`.
+    Association proxy for dynamic relationships.
+
+    Use this instead of SQLAlchemy's `association_proxy` when the underlying
+    relationship uses `lazy='dynamic'`.
 
     Usage::
 
@@ -500,7 +499,7 @@ class DynamicAssociationProxy:
 
 
 class DynamicAssociationProxyWrapper(abc.Set):
-    """:class:`DynamicAssociationProxy` wrapped around an instance"""
+    """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
     def __init__(self, obj, rel, attr):
         self.obj = obj
@@ -527,8 +526,6 @@ class DynamicAssociationProxyWrapper(abc.Set):
         rel = getattr(self.obj, self.rel)
         return rel.session.query(rel.exists()).scalar()
 
-    __nonzero__ = __bool__  # For Python 2.7 compatibility
-
     def __eq__(self, other):
         return (
             isinstance(other, DynamicAssociationProxyWrapper)
@@ -544,17 +541,15 @@ class DynamicAssociationProxyWrapper(abc.Set):
 
 class RoleAccessProxy(abc.Mapping):
     """
-    A proxy interface that wraps an object and provides pass-through read and
-    write access to attributes that the specified roles have access to.
-    Consults the ``__roles__`` dictionary on the object for determining which roles can
-    access which attributes. Provides both attribute and dictionary interfaces.
+    Provide restricted access to a wrapped object based on available roles.
 
-    Note that if the underlying attribute is a callable and is specified with
-    the 'call' action, it will be available via attribute access but not
-    dictionary access.
+    RoleAccessProxy consults the ``__roles__`` dictionary on the object to determine
+    which roles have read, write or call access, and the ``__datasets__`` dictionary
+    to limit enumeration when casting to a Python dictionary or JSON rendering.
 
-    :class:`RoleAccessProxy` is typically accessed directly from the target
-    object via :meth:`~RoleMixin.access_for` (from :class:`RoleMixin`).
+    RoleAccessProxy offers both attribute and dictionary access to contents, except
+    when an attribute is specified to have ``call`` but not ``read`` access, in which
+    case it is only available via attribute access.
 
     Example::
 
@@ -563,6 +558,9 @@ class RoleAccessProxy(abc.Mapping):
         proxy.attr1 = 'new value'
         proxy['attr2'] = 'new value'
         dict(proxy)
+
+    The :class:`RoleAccessProxy` wrapper is typically constructed from the target
+    object via :meth:`~RoleMixin.access_for` (from :class:`RoleMixin`).
 
     :param obj: The object that should be wrapped with the proxy
     :param roles: A set of roles to determine what attributes are accessible
@@ -695,9 +693,13 @@ def with_roles(
     datasets=None,
 ):
     """
-    Convenience function and decorator to define roles on an attribute. Only
-    works with :class:`RoleMixin`, which reads the annotations made by this
-    function and populates :attr:`~RoleMixin.__roles__`.
+    Define roles on an attribute and return the attribute.
+
+    :func:`with_roles` can be used as a decorator or as a function. It creates
+    annotations directly on the attribute, for later discovery by the
+    :class:`RoleMixin` base class (during SQLAlchemy init) which transfers the
+    annotations to the subclass's :attr:`~RoleMixin.__roles__` dictionary. Because of
+    this dependency, :func:`with_roles` only works in :class:`RoleMixin` subclasses.
 
     Examples::
 
@@ -839,48 +841,6 @@ def with_roles(
     return inner
 
 
-# with_roles was set_roles when originally introduced in 0.6.0
-# set_roles is deprecated since 0.6.1
-set_roles = with_roles
-
-
-def declared_attr_roles(rw=None, call=None, read=None, write=None):
-    """
-    Equivalent of :func:`with_roles` for use with ``@declared_attr``::
-
-        @declared_attr
-        @declared_attr_roles(read={'all'})
-        def my_column(cls):
-            return Column(Integer)
-
-    While :func:`with_roles` is always the outermost decorator on properties
-    and functions, :func:`declared_attr_roles` must appear below
-    ``@declared_attr`` to work correctly.
-
-    .. deprecated:: 0.6.1
-        Use :func:`with_roles` instead. It works for
-        :class:`~sqlalchemy.ext.declarative.declared_attr` since 0.6.1
-    """
-
-    def inner(f):
-        @wraps(f)
-        def attr(cls):
-            # Pass f(cls) as a parameter to with_roles.inner to avoid the test for
-            # iterables within with_roles. We have no idea about the use cases for
-            # declared_attr in downstream code. There could be a declared_attr
-            # that returns a list that should be accessible via the proxy.
-            return with_roles(rw=rw, call=call, read=read, write=write)(f(cls))
-
-        return attr
-
-    warnings.warn(
-        "declared_attr_roles is deprecated; use with_roles",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return inner
-
-
 class RoleMixin:
     """
     Provides methods for role-based access control.
@@ -911,6 +871,8 @@ class RoleMixin:
     ] = {}
     # Datasets for limited access to attributes
     __datasets__: Dict[str, Set[str]] = {}
+    # Datasets to use when rendering to JSON
+    __json_datasets__: Sequence[str] = ()
     # Relationship role offer map (used by LazyRoleSet)
     __relationship_role_offer_map__: Dict[str, Set[str]] = {}
     # Relationship reversed role offer map (used by actors_with)
@@ -918,18 +880,17 @@ class RoleMixin:
 
     def roles_for(self, actor=None, anchors=()):
         """
-        Return roles available to the given ``actor`` or ``anchors`` on this
-        object. The data type for both parameters are intentionally undefined
-        here. Subclasses are free to define them in any way appropriate. Actors
-        and anchors are assumed to be valid.
+        Return roles available to the given ``actor`` or ``anchors`` on this object.
 
-        The role ``all`` is always granted. If ``actor`` is
-        specified, the role ``auth`` is granted. If not, ``anon`` is
-        granted.
+        The data type for both parameters are intentionally undefined here. Subclasses
+        are free to define them in any way appropriate. Actors and anchors are assumed
+        to be valid.
 
-        Subclasses overriding :meth:`roles_for` must always call :func:`super`
-        to ensure they are receiving the standard roles. Recommended
-        boilerplate::
+        The role ``all`` is always granted. If ``actor`` is specified, the role
+        ``auth`` is granted. If not, ``anon`` is granted.
+
+        Subclasses overriding :meth:`roles_for` must always call :func:`super` to
+        ensure they are receiving the standard roles. Recommended boilerplate::
 
             def roles_for(self, actor=None, anchors=()):
                 roles = super().roles_for(actor, anchors)
@@ -946,10 +907,11 @@ class RoleMixin:
     @property
     def current_roles(self):
         """
-        :class:`~coaster.utils.classes.InspectableSet` containing currently
-        available roles on this object, using
-        :obj:`~coaster.auth.current_auth`. Use in the view layer to inspect
-        for a role being present:
+        Roles currently available on this object.
+
+        Uses :obj:`~coaster.auth.current_auth` to get the current actor, and returns an
+        :class:`~coaster.utils.classes.InspectableSet`. Use in the view layer to
+        inspect for a role being present:
 
             if obj.current_roles.editor:
                 pass
@@ -968,7 +930,7 @@ class RoleMixin:
         cache = getattr(_request_ctx_stack.top, '_role_cache', None)
         if cache is None:
             cache = {}
-            setattr(_request_ctx_stack.top, '_role_cache', cache)
+            _request_ctx_stack.top._role_cache = cache
         cache_key = (self, current_auth.actor, current_auth.anchors)
         if cache_key not in cache:
             cache[cache_key] = InspectableSet(
@@ -1109,10 +1071,18 @@ class RoleMixin:
                         else:
                             raise TypeError("Unknown type of related object", obj)
 
-    def access_for(self, roles=None, actor=None, anchors=(), datasets=None):
+    def access_for(
+        self,
+        roles: Optional[Set[str]] = None,
+        actor=None,
+        anchors=(),
+        datasets: Optional[Sequence[str]] = None,
+    ):
         """
-        Return a proxy object that limits read and write access to attributes
-        based on the actor's roles.
+        Return an access control proxy for this instance.
+
+        Read, write and call access will be limited based on the specified roles, or on
+        the roles available to the specified actor and the given anchors.
 
         .. warning::
             If the `roles` parameter is provided, it overrides discovery of the actor's
@@ -1159,8 +1129,9 @@ class RoleMixin:
 
     def current_access(self, datasets=None):
         """
-        Wraps :meth:`access_for` with :obj:`~coaster.auth.current_auth` to
-        return a proxy for the currently authenticated user.
+        Return an access control proxy for this instance for the current actor.
+
+        Calls :meth:`access_for` with :obj:`~coaster.auth.current_auth`.
 
         :param tuple datasets: Datasets to limit enumeration to
         """
@@ -1172,7 +1143,9 @@ class RoleMixin:
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
 def _configure_roles(mapper_, cls):
     """
-    Run through attributes of the class looking for role decorations from
+    Configure roles on all models when configuring SQLAlchemy mappers.
+
+    Run through attribute of the class looking for role decorations from
     :func:`with_roles` and add them to :attr:`cls.__roles__`
     """
     # Don't mutate ``__roles__`` in the base class.
@@ -1226,7 +1199,7 @@ def _configure_roles(mapper_, cls):
                 elif '_coaster_roles' in attr.info:
                     data = attr.info['_coaster_roles']
                 elif hasattr(attr.property, '_coaster_roles'):
-                    data = getattr(attr.property, '_coaster_roles')
+                    data = attr.property._coaster_roles
                 else:
                     data = None
             else:

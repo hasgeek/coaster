@@ -24,6 +24,8 @@ __all__ = [
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
 class UtcNow(functions.GenericFunction):
+    """Provide func.utcnow() that guarantees UTC timestamp."""
+
     type = TIMESTAMP()  # noqa: A003
     identifier = 'utcnow'
     inherit_cache = True
@@ -48,7 +50,7 @@ def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
 
 
 def make_timestamp_columns(timezone=False):
-    """Return two columns, `created_at` and `updated_at`, with appropriate defaults"""
+    """Return two columns, `created_at` and `updated_at`, with appropriate defaults."""
     return (
         Column(
             'created_at',
@@ -68,10 +70,11 @@ def make_timestamp_columns(timezone=False):
 
 def failsafe_add(_session, _instance, **filters):
     """
-    Add and commit a new instance in a nested transaction (using SQL SAVEPOINT),
-    gracefully handling failure in case a conflicting entry is already in the
-    database (which may occur due to parallel requests causing race conditions
-    in a production environment with multiple workers).
+    Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).
+
+    Gracefully handles failure in case a conflicting entry is already in the
+    database, which may occur due to parallel requests causing race conditions
+    in a production environment with multiple workers.
 
     Returns the instance saved to database if no error occurred, or loaded from
     database using the provided filters if an error occurred. If the filters fail
@@ -117,12 +120,14 @@ def failsafe_add(_session, _instance, **filters):
                 raise e
 
 
-def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
+def add_primary_relationship(
+    parent, childrel: str, child, parentrel: str, parentcol: str
+) -> Table:
     """
-    When a parent-child relationship is defined as one-to-many,
-    :func:`add_primary_relationship` lets the parent refer to one child as the
-    primary, by creating a secondary table to hold the reference. Under
-    PostgreSQL, a trigger is added as well to ensure foreign key integrity.
+    Add support for the primary child of a parent, given a one-to-many relationship.
+
+    This is achieved by creating a secondary table to hold the reference, and if the
+    database is PostgreSQL, by adding a trigger to ensure foreign key integrity.
 
     A SQLAlchemy relationship named ``parent.childrel`` is added that makes
     usage seamless within SQLAlchemy.
@@ -216,7 +221,9 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'lhs': f'{parent_table_name}_{parent_id_columns[0]}',
                 'rhs': f'{child_table_name}_{child_id_columns[0]}',
             },
-        ).execute_if(dialect='postgresql'),
+        ).execute_if(
+            dialect='postgresql'  # type: ignore[arg-type]
+        ),
     )
 
     event.listen(
@@ -232,15 +239,25 @@ def add_primary_relationship(parent, childrel, child, parentrel, parentcol):
                 'trigger': f'{primary_table_name}_trigger',
                 'function': f'{primary_table_name}_validate',
             },
-        ).execute_if(dialect='postgresql'),
+        ).execute_if(
+            dialect='postgresql'  # type: ignore[arg-type]
+        ),
     )
     return primary_table
 
 
 def auto_init_default(column):
     """
-    Set the default value for a column when it's first accessed rather than
-    first committed to the database.
+    Set the default value of a columnn on first access.
+
+    SQLAlchemy defaults to setting default values on commit, but code that attempts to
+    read the value before commit will get None instead of the default value. This
+    helper fixes that. Usage::
+
+        class MyModel(db.Model):
+            column = db.Column(Type, default="value")
+
+        auto_init_default(MyModel.column)
     """
     if isinstance(column, ColumnProperty):
         default = column.columns[0].default

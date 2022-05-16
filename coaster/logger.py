@@ -98,7 +98,7 @@ def filtered_value(key, value):
 def pprint_with_indent(dictlike, outfile, indent=4):
     """Filter values and pprint with indent to create a Markdown code block."""
     out = StringIO()
-    pprint(  # noqa: T003
+    pprint(  # noqa: T203
         {key: filtered_value(key, value) for key, value in dictlike.items()}, out
     )
     outfile.write(textwrap.indent(out.getvalue(), ' ' * indent))
@@ -154,12 +154,12 @@ class LocalVarFormatter(logging.Formatter):
             Config.__repr__ = lambda self: '<Config [FILTERED]>'  # type: ignore[assignment]
             value_cache: Dict[Any, str] = {}
 
-            print('\n----------\n', file=sio)  # noqa: T001
+            print('\n----------\n', file=sio)  # noqa: T201
             # XXX: The following text is used as a signature in :meth:`format` above
-            print("Stack frames (most recent call first):", file=sio)  # noqa: T001
+            print("Stack frames (most recent call first):", file=sio)  # noqa: T201
             for frame in stack:
-                print('\n----\n', file=sio)  # noqa: T001
-                print(  # noqa: T001
+                print('\n----\n', file=sio)  # noqa: T201
+                print(  # noqa: T201
                     f"Frame {frame.f_code.co_name} in {frame.f_code.co_filename} at"
                     f" line {frame.f_lineno}",
                     file=sio,
@@ -170,20 +170,20 @@ class LocalVarFormatter(logging.Formatter):
                         value = RepeatValueIndicator(value_cache[idvalue])
                     else:
                         value_cache[idvalue] = f"{frame.f_code.co_name}.{attr}"
-                    print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T001
+                    print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T201
                     try:
-                        print(repr(filtered_value(attr, value)), file=sio)  # noqa: T001
+                        print(repr(filtered_value(attr, value)), file=sio)  # noqa: T201
                     except:  # noqa: B901, E722
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
-                        print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
+                        print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
             del value_cache
             Config.__repr__ = original_config_repr  # type: ignore[assignment]
 
         if request:
-            print('\n----------\n', file=sio)  # noqa: T001
-            print("Request context:", file=sio)  # noqa: T001
+            print('\n----------\n', file=sio)  # noqa: T201
+            print("Request context:", file=sio)  # noqa: T201
             request_data = {
                 'form': {
                     k: filtered_value(k, v)
@@ -203,31 +203,31 @@ class LocalVarFormatter(logging.Formatter):
             try:
                 pprint_with_indent(request_data, sio)
             except:  # noqa: B901, E722
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if session:
-            print('\n----------\n', file=sio)  # noqa: T001
-            print("Session cookie contents:", file=sio)  # noqa: T001
+            print('\n----------\n', file=sio)  # noqa: T201
+            print("Session cookie contents:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(session, sio)
             except:  # noqa: B901, E722
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if g:
-            print('\n----------\n', file=sio)  # noqa: T001
-            print("App context:", file=sio)  # noqa: T001
+            print('\n----------\n', file=sio)  # noqa: T201
+            print("App context:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(vars(g), sio)
             except:  # noqa: B901, E722
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if current_auth:
-            print('\n----------\n', file=sio)  # noqa: T001
-            print("Current auth:", file=sio)  # noqa: T001
+            print('\n----------\n', file=sio)  # noqa: T201
+            print("Current auth:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(vars(current_auth), sio)
             except:  # noqa: B901, E722
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T001
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         s = sio.getvalue()
         sio.close()

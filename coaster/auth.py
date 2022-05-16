@@ -31,8 +31,7 @@ __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current
 
 def add_auth_attribute(attr, value, actor=False):
     """
-    Helper function for login managers. Adds authorization attributes
-    to :obj:`current_auth` for the duration of the request.
+    Add authorization attributes to :obj:`current_auth` for the duration of the request.
 
     :param str attr: Name of the attribute
     :param value: Value of the attribute
@@ -147,8 +146,6 @@ class CurrentAuth:
         Returns ``True`` if user is authenticated, ``False`` if not.
         """
         return self.is_authenticated
-
-    __nonzero__ = __bool__  # for backward compatibility in Python 2.x
 
     @property
     def is_anonymous(self):

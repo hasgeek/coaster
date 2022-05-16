@@ -13,6 +13,7 @@ to auto-render HTML from Markdown text.
 """
 
 from copy import deepcopy
+from html import unescape
 from typing import Any, Dict, List, Mapping, Optional, Union, cast, overload
 
 from bleach import linkify as linkify_processor
@@ -81,7 +82,7 @@ class JavascriptProtocolProcessor(Treeprocessor):
     def run(self, root):
         for anchor in root.iter('a'):
             href = anchor.attrib.get('href')
-            if href and href.lower().startswith('javascript:'):
+            if href and unescape(href).lower().startswith('javascript:'):
                 del anchor.attrib['href']
 
 
@@ -115,19 +116,20 @@ default_markdown_extensions_html: List[Union[str, Extension]] = [
     'pymdownx.emoji',  # Support :emoji:
     'pymdownx.mark',  # Support ==<mark>==
     'pymdownx.saneheaders',  # Disable `#header`, only allow `# header`
-    'pymdownx.smartsymbols',
+    'pymdownx.smartsymbols',  # Support +/-, =/=, -->, 1/2, 1st, etc
     JavascriptProtocolExtension(),
 ]
 
 default_markdown_extensions = default_markdown_extensions_html + [
-    'markdown.extensions.codehilite',
+    'pymdownx.highlight',
+    'pymdownx.inlinehilite',
     'pymdownx.tasklist',
     EscapeHtml(),
 ]
 
 
 default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
-    'markdown.extensions.codehilite': {'css_class': 'highlight', 'guess_lang': False},
+    'pymdownx.highlight': {'css_class': 'highlight', 'guess_lang': False},
     'pymdownx.superfences': {
         'css_class': 'highlight',
         'disable_indented_code_blocks': True,

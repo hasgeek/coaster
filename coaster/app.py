@@ -179,7 +179,7 @@ def load_config_from_file(
         if load is None:
             app.config.from_pyfile(filepath)
         else:
-            app.config.from_file(filepath, load=load)
+            app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
         return True
     except OSError:
         app.logger.warning(

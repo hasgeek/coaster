@@ -35,7 +35,9 @@ class JsonbType(UserDefinedType):
 
 class JsonDict(TypeDecorator):
     """
-    Represents a JSON data structure. Usage::
+    Represents a JSON data structure.
+
+    Usage::
 
         column = Column(JsonDict)
 
@@ -104,9 +106,7 @@ MutableDict.associate_with(JsonDict)
 
 class UrlType(UrlTypeBase):
     """
-    Extension of URLType_ from SQLAlchemy-Utils that adds basic validation to
-    ensure URLs are well formed. Parses the value into a :class:`furl` object,
-    allowing manipulation of
+    Extension of URLType_ from SQLAlchemy-Utils that ensures URLs are well formed.
 
     .. _URLType: https://sqlalchemy-utils.readthedocs.io/en/latest/data_types.html#module-sqlalchemy_utils.types.url
 
@@ -119,6 +119,7 @@ class UrlType(UrlTypeBase):
 
     impl = UnicodeText
     url_parser = furl
+    cache_ok = True
 
     def __init__(
         self, schemes=('http', 'https'), optional_scheme=False, optional_host=False

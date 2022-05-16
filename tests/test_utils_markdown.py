@@ -132,6 +132,7 @@ It has a newline break here.</p>
 <p>Innocuous HTML tags are allowed when <code>html=True</code> is used: <b>Hello!</b></p>
 <p>Dangerous tags are always removed: window.alert(&lsquo;Hello!&rsquo;)</p>
 <p>#This is not a header</p>
+
 This is a header in text-only mode
 <h3>This is a header in HTML and text mode</h3>
 <p>A list:</p>
@@ -147,6 +148,7 @@ This is a header in text-only mode
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>Un-prefixed naked links: <a href="http://hasgeek.in" rel="nofollow">hasgeek.in</a> python.py</p>
 <p>Python/Paraguay link, prefixed: <a href="http://python.py" rel="nofollow">http://python.py</a></p>
+
 <pre><code>def foo():
     return &#39;https://www.example.com/&#39;
 </code></pre>

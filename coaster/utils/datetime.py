@@ -3,7 +3,8 @@ Date, time and timezone utilities
 ---------------------------------
 """
 
-from datetime import datetime
+from datetime import datetime, tzinfo
+from typing import Union
 
 from aniso8601 import parse_datetime, parse_duration
 from aniso8601.exceptions import ISOFormatError as ParseError
@@ -53,11 +54,14 @@ def parse_isoformat(text, naive=True, delimiter='T'):
     return dt
 
 
-def isoweek_datetime(year, week, timezone='UTC', naive=False):
+def isoweek_datetime(
+    year: int, week: int, timezone: Union[tzinfo, str] = 'UTC', naive=False
+) -> datetime:
     """
-    Returns a datetime matching the starting point of a specified ISO week
-    in the specified timezone (default UTC). Returns a naive datetime in
-    UTC if requested (default False).
+    Return a datetime matching the starting point of a specified ISO week.
+
+    The return value is in the specified timezone, or in the specified timezone (default
+    `UTC`). Returns a naive datetime in UTC if requested (default `False`).
 
     >>> isoweek_datetime(2017, 1)
     datetime.datetime(2017, 1, 2, 0, 0, tzinfo=<UTC>)
@@ -70,10 +74,10 @@ def isoweek_datetime(year, week, timezone='UTC', naive=False):
     """
     naivedt = datetime.combine(isoweek.Week(year, week).day(0), datetime.min.time())
     if isinstance(timezone, str):
-        tz = pytz.timezone(timezone)
+        tz: tzinfo = pytz.timezone(timezone)
     else:
         tz = timezone
-    dt = tz.localize(naivedt).astimezone(pytz.UTC)
+    dt = tz.localize(naivedt).astimezone(pytz.UTC)  # type: ignore[attr-defined]
     if naive:
         return dt.replace(tzinfo=None)
     else:

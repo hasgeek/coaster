@@ -21,7 +21,6 @@ from coaster.sqlalchemy import (
     RoleGrantABC,
     RoleMixin,
     UuidMixin,
-    declared_attr_roles,
     with_roles,
 )
 from coaster.utils import InspectableSet
@@ -41,10 +40,9 @@ class DeclaredAttrMixin:
     def mixed_in1(cls):
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
-    # declared_attr_roles is deprecated since 0.6.1. Use with_roles
-    # as the outer decorator now. It remains here for the test case.
+    # This previously used the declared_attr_roles decorator, now deprecated and removed
+    @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
-    @declared_attr_roles(rw={'owner', 'editor'}, read={'all'})
     def mixed_in2(cls):
         return db.Column(db.Unicode(250))
 

@@ -5,15 +5,16 @@ Utility classes
 
 from collections import namedtuple
 from collections.abc import Set
+from typing import Generic, TypeVar
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
-
+T = TypeVar('T')
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 
 class _LabeledEnumMeta(type):
-    """Construct labeled enumeration"""
+    """Construct labeled enumeration."""
 
     def __new__(cls, name, bases, attrs, **kwargs):
         labels = {}
@@ -77,16 +78,17 @@ class _LabeledEnumMeta(type):
 
 class LabeledEnum(metaclass=_LabeledEnumMeta):
     """
-    Labeled enumerations. Declarate an enumeration with values and labels
-    (for use in UI)::
+    Labeled enumerations.
+
+    Declarate an enumeration with values and labels (for use in UI)::
 
         >>> class MY_ENUM(LabeledEnum):
         ...     FIRST = (1, "First")
         ...     THIRD = (3, "Third")
         ...     SECOND = (2, "Second")
 
-    :class:`LabeledEnum` will convert any attribute that is a 2-tuple into
-    a value and label pair. Access values as direct attributes of the enumeration::
+    :class:`LabeledEnum` will convert any attribute that is a 2-tuple into a value and
+    label pair. Access values as direct attributes of the enumeration::
 
         >>> MY_ENUM.FIRST
         1
@@ -116,8 +118,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> sorted(MY_ENUM.values())
         ['First', 'Second', 'Third']
 
-    However, if you really want ordering in Python 2.x, add an __order__ list.
-    Anything not in it will default to Python's ordering::
+    However, if you really want ordering in Python 2.x, add an __order__ list. Anything
+    not in it will default to Python's ordering::
 
         >>> class RSVP(LabeledEnum):
         ...     RSVP_Y = ('Y', "Yes")
@@ -130,8 +132,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> RSVP.items()
         [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
 
-    Three value tuples are assumed to be (value, name, title) and the name and
-    title are converted into NameTitle(name, title)::
+    Three value tuples are assumed to be (value, name, title) and the name and title are
+    converted into NameTitle(name, title)::
 
         >>> class NAME_ENUM(LabeledEnum):
         ...     FIRST = (1, 'first', "First")
@@ -148,8 +150,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> NAME_ENUM[NAME_ENUM.THIRD].title
         'Third'
 
-    To make it easier to use with forms and to hide the actual values, a list of
-    (name, title) pairs is available::
+    To make it easier to use with forms and to hide the actual values, a list of (name,
+    title) pairs is available::
 
         >>> NAME_ENUM.nametitles()
         [('first', 'First'), ('second', 'Second'), ('third', 'Third')]
@@ -161,8 +163,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> NAME_ENUM.value_for('second')
         2
 
-    Values can be grouped together using a set, for performing "in" operations.
-    These do not have labels and cannot be accessed via dictionary access::
+    Values can be grouped together using a set, for performing "in" operations. These do
+    not have labels and cannot be accessed via dictionary access::
 
         >>> class RSVP_EXTRA(LabeledEnum):
         ...     RSVP_Y = ('Y', "Yes")
@@ -184,12 +186,12 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> RSVP_EXTRA.RSVP_U in RSVP_EXTRA.UNCERTAIN
         True
 
-    Labels are stored internally in a dictionary named ``__labels__``, mapping
-    the value to the label. Symbol names are stored in ``__names__``, mapping
-    name to the value. The label dictionary will only contain values processed
-    using the tuple syntax, which excludes grouped values, while the names
-    dictionary will contain both, but will exclude anything else found in the
-    class that could not be processed (use ``__dict__`` for everything)::
+    Labels are stored internally in a dictionary named ``__labels__``, mapping the value
+    to the label. Symbol names are stored in ``__names__``, mapping name to the value.
+    The label dictionary will only contain values processed using the tuple syntax,
+    which excludes grouped values, while the names dictionary will contain both, but
+    will exclude anything else found in the class that could not be processed (use
+    ``__dict__`` for everything)::
 
         >>> list(RSVP_EXTRA.__labels__.keys())
         ['Y', 'N', 'M', 'U', 'A']
@@ -199,37 +201,42 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
 
     @classmethod
     def get(cls, key, default=None):
+        """Get the label for an enum value."""
         return cls.__labels__.get(key, default)
 
     @classmethod
     def keys(cls):
+        """Get all enum values."""
         return list(cls.__labels__.keys())
 
     @classmethod
     def values(cls):
+        """Get all enum labels."""
         return list(cls.__labels__.values())
 
     @classmethod
     def items(cls):
+        """Get all enum values and associated labels."""
         return list(cls.__labels__.items())
 
     @classmethod
     def value_for(cls, name):
+        """Get enum value given a label name."""
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
 
     @classmethod
     def nametitles(cls):
+        """Get names and titles of labels."""
         return [(name, title) for name, title in cls.values()]
 
 
-class InspectableSet(Set):
+class InspectableSet(Set, Generic[T]):
     """
-    Given a set, mimics a read-only dictionary where the items are keys and
-    have a value of ``True``, and any other key has a value of ``False``. Also
-    supports attribute access. Useful in templates to simplify membership
-    inspection::
+    Provides attribute and dictionary access to test for an element present in a set.
+
+    This is useful in templates to simplify membership inspection::
 
         >>> myset = InspectableSet({'member', 'other'})
         >>> 'member' in myset
@@ -292,7 +299,9 @@ class InspectableSet(Set):
 
 class classmethodproperty:  # noqa: N801
     """
-    Class method decorator to make class methods behave like properties::
+    Class method decorator to make class methods behave like properties.
+
+    Usage::
 
         >>> class Foo:
         ...     @classmethodproperty
@@ -320,8 +329,8 @@ class classmethodproperty:  # noqa: N801
         >>> Bar().test
         "<class 'coaster.utils.classes.Bar'>"
 
-    Due to limitations in Python's descriptor API, :class:`classmethodproperty`
-    can block write and delete access on an instance...
+    Due to limitations in Python's descriptor API, :class:`classmethodproperty` can
+    block write and delete access on an instance...
 
     ::
 
