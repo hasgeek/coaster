@@ -445,7 +445,9 @@ def md5sum(data):
     >>> len(md5sum('random text'))
     32
     """
-    return hashlib.md5(data.encode('utf-8')).hexdigest()  # skipcq: PTC-W1003 # nosec
+    return hashlib.md5(  # noqa: S324  # skipcq: PTC-W1003 # nosec
+        data.encode('utf-8')
+    ).hexdigest()
 
 
 def getbool(value: Union[bool, int, str]):
