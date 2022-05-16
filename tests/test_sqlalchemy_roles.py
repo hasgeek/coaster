@@ -113,6 +113,9 @@ class AutoRoleModel(RoleMixin, db.Model):
     name = db.Column(db.Unicode(250))
     with_roles(name, rw={'owner'}, read={'all'})
 
+    __datasets__ = {'default': {'name'}}
+    __json_datasets__ = ('default',)
+
 
 class BaseModel(BaseMixin, db.Model):
     __tablename__ = 'base_model'
@@ -337,10 +340,21 @@ class MultiroleChild(BaseMixin, db.Model):
 # --- Utilities ---------------------------------------------------------------
 
 
-class JsonEncoder(json.JSONEncoder):
+class JsonTestEncoder(json.JSONEncoder):
+    """Encode to JSON."""
+
     def default(self, o):
         if isinstance(o, RoleAccessProxy):
             return dict(o)
+        return super().default(o)
+
+
+class JsonProtocolEncoder(json.JSONEncoder):
+    """Encode to JSON."""
+
+    def default(self, o):
+        if hasattr(o, '__json__'):
+            return o.__json__()
         return super().default(o)
 
 
@@ -469,6 +483,17 @@ class TestCoasterRoles(unittest.TestCase):
         assert roles.all
         assert roles.anon
         assert not roles.owner
+
+    def test_json_protocol(self):
+        """Cast to JSON happens with __json__"""
+        arm = AutoRoleModel(name='test')
+        json_str = json.dumps(arm, cls=JsonProtocolEncoder)
+        data = json.loads(json_str)
+        assert data == {'name': 'test'}
+        # We know what the JSON contains because it's specified in the model
+        assert AutoRoleModel.__datasets__[AutoRoleModel.__json_datasets__[0]] == {
+            'name'
+        }
 
     def test_attr_dict_access(self):
         """Proxies support identical attribute and dictionary access"""
@@ -674,14 +699,14 @@ class TestCoasterRoles(unittest.TestCase):
 
         # Using a well crafted set of profiles will result in a clean containment
         pchild = child.access_for(roles={'all'}, datasets=('primary', 'related'))
-        assert json.loads(json.dumps(pchild, cls=JsonEncoder)) == {
+        assert json.loads(json.dumps(pchild, cls=JsonTestEncoder)) == {
             'name': "child",
             'title': "Child",
             'parent': {'name': "parent", 'title': "Parent"},
         }
 
         pparent = parent.access_for(roles={'all'}, datasets=('primary', 'related'))
-        assert json.loads(json.dumps(pparent, cls=JsonEncoder)) == {
+        assert json.loads(json.dumps(pparent, cls=JsonTestEncoder)) == {
             'name': "parent",
             'title': "Parent",
             'children_list': [{'name': "child", 'title': "Child"}],
@@ -706,7 +731,8 @@ class TestCoasterRoles(unittest.TestCase):
         self.session.commit()
         with self.assertRaises(KeyError) as cm:
             json.dumps(
-                parent.access_for(roles={'all'}, datasets=('bogus',)), cls=JsonEncoder
+                parent.access_for(roles={'all'}, datasets=('bogus',)),
+                cls=JsonTestEncoder,
             )
         exc = str(cm.exception)
         assert 'bogus' in exc

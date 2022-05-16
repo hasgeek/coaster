@@ -1141,7 +1141,7 @@ class RoleMixin:
 
     def __json__(self):
         """Render to a JSON-compatible data structure."""
-        return self.current_access(self.__json_datasets__)
+        return dict(self.current_access(self.__json_datasets__))
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
