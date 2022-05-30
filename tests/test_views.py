@@ -103,8 +103,34 @@ class TestCoasterViews(unittest.TestCase):
             assert get_next_url(default=()) == ()
 
         with self.app.test_request_context('/'):
-            session['next'] = '/external'
-            assert get_next_url(session=True) == '/external'
+            session['next'] = '/next_url'
+            assert get_next_url(session=True) == '/next_url'
+
+        with self.app.test_request_context('/?next=Http://example.com'):
+            assert get_next_url(external=True) == 'Http://example.com'
+            assert get_next_url() == '/'
+            assert get_next_url(default=()) == ()
+
+        with self.app.test_request_context('/?next=ftp://example.com'):
+            assert get_next_url(external=True) == 'ftp://example.com'
+            assert get_next_url() == '/'
+            assert get_next_url(default=()) == ()
+
+        with self.app.test_request_context(
+            '/somewhere?next=https://sub.example.com/elsewhere',
+            environ_overrides={'HTTP_HOST': 'example.com'},
+        ):
+            assert get_next_url() == 'https://sub.example.com/elsewhere'
+            assert get_next_url(external=True) == 'https://sub.example.com/elsewhere'
+            assert get_next_url(default=()) == 'https://sub.example.com/elsewhere'
+
+        with self.app.test_request_context(
+            '/somewhere?next=//sub.example.com/elsewhere',
+            environ_overrides={'HTTP_HOST': 'example.com'},
+        ):
+            assert get_next_url() == '//sub.example.com/elsewhere'
+            assert get_next_url(external=True) == '//sub.example.com/elsewhere'
+            assert get_next_url(default=()) == '//sub.example.com/elsewhere'
 
     def test_jsonp(self):
         with self.app.test_request_context('/?callback=callback'):

@@ -49,7 +49,7 @@ repos:
     hooks:
       - id: black
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.950
+    rev: v0.960
     hooks:
       - id: mypy
         additional_dependencies:
@@ -66,11 +66,20 @@ repos:
     hooks:
       - id: flake8
         additional_dependencies: *flake8deps
+  # - repo: https://github.com/PyCQA/pylint
+  #   rev: v2.14.0-b1
+  #   hooks:
+  #     - id: pylint
+  #       additional_dependencies:
+  #         - toml
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.4
     hooks:
       - id: bandit
-        args: ["--ini", "setup.cfg", "-l", "-x", "tests, build/lib"]
+        language_version: python3
+        args: ["-c", "pyproject.toml"]
+        additional_dependencies:
+          - toml
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.2.0
     hooks:

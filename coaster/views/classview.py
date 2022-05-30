@@ -6,7 +6,7 @@ Group related views into a class for easier management.
 """
 
 from functools import update_wrapper, wraps
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Collection, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -25,8 +25,10 @@ from flask import (  # type: ignore[attr-defined]
     redirect,
     request,
 )
+from flask.typing import ResponseReturnValue
 from werkzeug.local import LocalProxy
 from werkzeug.routing import parse_rule
+from werkzeug.wrappers import BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
 from ..typing import SimpleDecorator
@@ -112,9 +114,7 @@ def rulejoin(class_rule, method_rule):
 
 
 class ViewHandler:
-    """
-    Internal object created by the :func:`route` and :func:`viewdata` functions.
-    """
+    """Internal object created by the :func:`route` and :func:`viewdata` functions."""
 
     def __init__(
         self,
@@ -281,7 +281,7 @@ class ViewHandler:
 
 
 class ViewHandlerWrapper:
-    """Wrapper for a view at runtime"""
+    """Wrapper for a view at runtime."""
 
     def __init__(self, viewh, obj, cls=None):
         # obj is the ClassView instance
@@ -317,9 +317,10 @@ class ViewHandlerWrapper:
 
 class ClassView:
     """
-    Base class for defining a collection of views that are related to each
-    other. Subclasses may define methods decorated with :func:`route`. When
-    :meth:`init_app` is called, these will be added as routes to the app.
+    Base class for defining a collection of views that are related to each other.
+
+    Subclasses may define methods decorated with :func:`route`. When :meth:`init_app` is
+    called, these will be added as routes to the app.
 
     Typical use::
 
@@ -337,16 +338,15 @@ class ClassView:
 
         IndexView.init_app(app)
 
-    The :func:`route` decorator on the class specifies the base rule, which is
-    prefixed to the rule specified on each view method. This example produces
-    two view handlers, for ``/`` and ``/about``. Multiple :func:`route`
-    decorators may be used in both places.
+    The :func:`route` decorator on the class specifies the base rule, which is prefixed
+    to the rule specified on each view method. This example produces two view handlers,
+    for ``/`` and ``/about``. Multiple :func:`route` decorators may be used in both
+    places.
 
-    The :func:`viewdata` decorator can be used to specify additional data, and
-    may appear either before or after the :func:`route` decorator, but only
-    adjacent to it. Data specified here is available as the :attr:`data`
-    attribute on the view handler, or at runtime in templates as
-    ``current_view.current_handler.data``.
+    The :func:`viewdata` decorator can be used to specify additional data, and may
+    appear either before or after the :func:`route` decorator, but only adjacent to it.
+    Data specified here is available as the :attr:`data` attribute on the view handler,
+    or at runtime in templates as ``current_view.current_handler.data``.
 
     A rudimentary CRUD view collection can be assembled like this::
 
@@ -374,7 +374,7 @@ class ClassView:
     # If the class did not get a @route decorator, provide a fallback route
     __routes__: List[Tuple[str, RouteRuleOptions]] = [('', {})]
     #: Track all the views registered in this class
-    __views__ = ()
+    __views__: Collection[ViewHandler] = ()
     #: Subclasses may define decorators here. These will be applied to every
     #: view handler in the class, but only when called as a view and not
     #: as a Python method call.
@@ -388,7 +388,7 @@ class ClassView:
 
     #: When a view is called, this will point to the current view handler,
     #: an instance of :class:`ViewHandler`.
-    current_handler = None
+    current_handler: Optional[ViewHandler] = None
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
@@ -397,14 +397,15 @@ class ClassView:
     def __eq__(self, other):
         return type(other) is type(self)
 
-    def dispatch_request(self, view, view_args):
+    def dispatch_request(self, view, view_args) -> ResponseReturnValue:
         """
         View dispatcher that calls before_request, the view, and then after_request.
-        Subclasses may override this to provide a custom flow. :class:`ModelView`
-        does this to insert a model loading phase.
 
-        :param view: View method wrapped in specified decorators. The dispatcher
-            must call this
+        Subclasses may override this to provide a custom flow. :class:`ModelView` does
+        this to insert a model loading phase.
+
+        :param view: View method wrapped in specified decorators. The dispatcher must
+            call this
         :param dict view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
@@ -414,17 +415,18 @@ class ClassView:
         # Call the view handler method, then pass the response to :meth:`after_response`
         return self.after_request(make_response(view(self, **view_args)))
 
-    def before_request(self):
+    def before_request(self) -> Optional[ResponseReturnValue]:
         """
-        This method is called after the app's ``before_request`` handlers, and
-        before the class's view method. Subclasses and mixin classes may define
-        their own :meth:`before_request` to pre-process requests. This method
-        receives context via `self`, in particular via :attr:`current_handler`
-        and :attr:`view_args`.
+        Process request before the view handler.
+
+        This method is called after the app's ``before_request`` handlers, and before
+        the class's view method. Subclasses and mixin classes may define their own
+        :meth:`before_request` to pre-process requests. This method receives context via
+        `self`, in particular via :attr:`current_handler` and :attr:`view_args`.
         """
         return None
 
-    def after_request(self, response):
+    def after_request(self, response: BaseResponse) -> BaseResponse:
         """
         This method is called with the response from the view handler method.
         It must return a valid response object. Subclasses and mixin classes
@@ -442,15 +444,16 @@ class ClassView:
         """
         return response
 
-    def is_available(self):
+    def is_available(self) -> bool:
         """
-        Returns `True` if *any* view handler in the class is currently
-        available via its `is_available` method.
+        Return `True` if *any* view handler in the class is currently available.
+
+        Tests by calling the `is_available` method of each view.
         """
         if self.is_always_available:
             return True
         for viewname in self.__views__:
-            if getattr(self, viewname).is_available():
+            if getattr(self, viewname).is_available():  # type: ignore[call-overload]
                 return True
         return False
 
@@ -594,7 +597,7 @@ class ModelView(ClassView):
         # Call the view handler method, then pass the response to :meth:`after_response`
         return self.after_request(make_response(view(self)))
 
-    def loader(self, **view_args):  # pragma: no cover
+    def loader(self, **view_args) -> None:  # pragma: no cover
         """
         Subclasses or mixin classes may override this method to provide a model
         instance loader. The return value of this method will be placed at
@@ -604,10 +607,13 @@ class ModelView(ClassView):
         """
         raise NotImplementedError("View class is missing a loader method")
 
-    def after_loader(self):
+    def after_loader(self) -> Optional[ResponseReturnValue]:
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
-        if hasattr(self.current_handler.wrapped_func, 'requires_permission'):
+        if hasattr(
+            self.current_handler.wrapped_func,  # type: ignore[union-attr]
+            'requires_permission',
+        ):
             if isinstance(self.obj, tuple):
                 perms = None
                 for subobj in self.obj:
