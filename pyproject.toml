@@ -55,3 +55,29 @@ addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
 filterwarnings = ['ignore::DeprecationWarning', 'ignore::UserWarning']
 mocked-sessions = 'coaster.db.db.session'
+
+[tool.pylint.message_control]
+max-line-length = 88
+disable = [
+  'duplicate-code',
+  'fixme',
+  'invalid-name',
+  'no-member',
+  'unused-argument',
+]
+
+[tool.mypy]
+files = '**/*.py'
+exclude = 'node_modules'
+ignore_missing_imports = true
+show_error_codes = true
+warn_unreachable = true
+# Unsafe with pre-commit, see https://github.com/python/mypy/issues/2960
+warn_unused_ignores = false
+plugins = ['sqlmypy']
+
+[tool.bandit]
+exclude_dirs = ['node_modules', 'build/lib']
+
+[tool.bandit.assert_used]
+skips = ['*/*_test.py', '*/test_*.py']

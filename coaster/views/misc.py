@@ -7,6 +7,7 @@ Helper functions for view handlers.
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
+from typing import Container
 from urllib.parse import urlsplit
 import re
 
@@ -24,29 +25,41 @@ __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 def _index_url():
     if request:
         return request.script_root or '/'
-    else:
-        return '/'
+    return '/'
 
 
-def _clean_external_url(url):
-    if url.lower().startswith(('http://', 'https://', '//')):
-        # Do the domains and ports match?
-        pnext = urlsplit(url)
-        preq = urlsplit(request.url)
-        if pnext.port != preq.port:
-            return ''
-        if not (
+def _clean_external_url(
+    url: str, allowed_schemes: Container[str] = ('http', 'https')
+) -> str:
+    """Allow external URLs if they match current request's hostname."""
+    # Do the domains and ports match?
+    pnext = urlsplit(url)
+    preq = urlsplit(request.url)
+    if pnext.scheme and pnext.scheme.lower() not in allowed_schemes:
+        # Not an allowed scheme, quit
+        return ''
+    if pnext.port is not None and pnext.port != preq.port:
+        # Port doesn't match, quit
+        return ''
+    if (
+        pnext.hostname is not None
+        and preq.hostname is not None
+        and not (
             pnext.hostname == preq.hostname
             or pnext.hostname.endswith('.' + preq.hostname)
-        ):
-            return ''
+        )
+    ):
+        # Hostname is not same or subdomain, quit
+        return ''
+    # All tests passed, so return URL
     return url
 
 
-def get_current_url():
+def get_current_url() -> str:
     """
-    Return the current URL including the query string as a relative path. If the app
-    uses subdomains, return an absolute path
+    Return the current URL including the query string as a relative path.
+
+    If the app uses subdomains, return an absolute path.
     """
     if current_app.config.get('SERVER_NAME') and (
         # Check current hostname against server name, ignoring port numbers, if any
@@ -67,17 +80,19 @@ def get_current_url():
 __marker = object()
 
 
-def get_next_url(referrer=False, external=False, session=False, default=__marker):
+def get_next_url(
+    referrer=False, external=False, session=False, default=__marker
+) -> str:
     """
-    Get the next URL to redirect to. Don't return external URLs unless
-    explicitly asked for. This is to protect the site from being an unwitting
-    redirector to external URLs. Subdomains are okay, however.
+    Get the next URL to redirect to.
+
+    Don't return external URLs unless explicitly asked for. This is to protect the site
+    from being an unwitting redirector to external URLs. Subdomains are okay, however.
 
     This function looks for a ``next`` parameter in the request or in the session
-    (depending on whether parameter ``session`` is True). If no ``next`` is present,
-    it checks the referrer (if enabled), and finally returns either the provided
-    default (which can be any value including ``None``) or the script root
-    (typically ``/``).
+    (depending on whether parameter ``session`` is True). If no ``next`` is present, it
+    checks the referrer (if enabled), and finally returns either the provided default
+    (which can be any value including ``None``) or the script root (typically ``/``).
     """
     if session:
         next_url = request_session.pop('next', None) or request.args.get('next', '')
