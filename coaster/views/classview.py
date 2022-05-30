@@ -28,7 +28,7 @@ from flask import (  # type: ignore[attr-defined]
 from flask.typing import ResponseReturnValue
 from werkzeug.local import LocalProxy
 from werkzeug.routing import parse_rule
-from werkzeug.wrappers import BaseResponse
+from werkzeug.wrappers import Response as BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
 from ..typing import SimpleDecorator
