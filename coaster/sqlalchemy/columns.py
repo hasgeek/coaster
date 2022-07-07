@@ -70,7 +70,7 @@ class JsonDict(TypeDecorator):
             # we only attempt decoding if the value is a string.
             # Since this column stores dicts only, processed values
             # can never be strings.
-            value = json.loads(value, use_decimal=True)
+            value = json.loads(value)
         return value
 
 
