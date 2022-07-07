@@ -3,6 +3,8 @@ SQLAlchemy column types
 -----------------------
 """
 
+import json
+
 from sqlalchemy import UnicodeText
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
@@ -10,7 +12,6 @@ from sqlalchemy_utils.types import URLType as UrlTypeBase
 from sqlalchemy_utils.types import UUIDType
 
 from furl import furl
-import simplejson
 
 __all__ = ['JsonDict', 'UUIDType', 'UrlType']
 
@@ -60,7 +61,7 @@ class JsonDict(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = simplejson.dumps(value, default=str)  # Callable default
+            value = json.dumps(value, default=str)  # Callable default
         return value
 
     def process_result_value(self, value, dialect):
@@ -69,7 +70,7 @@ class JsonDict(TypeDecorator):
             # we only attempt decoding if the value is a string.
             # Since this column stores dicts only, processed values
             # can never be strings.
-            value = simplejson.loads(value, use_decimal=True)
+            value = json.loads(value, use_decimal=True)
         return value
 
 
@@ -83,7 +84,7 @@ class MutableDict(Mutable, dict):
             if isinstance(value, str):
                 # Assume JSON string
                 if value:
-                    return MutableDict(simplejson.loads(value, use_decimal=True))
+                    return MutableDict(json.loads(value, use_decimal=True))
                 return MutableDict()  # Empty value is an empty dict
 
             # this call will raise ValueError
