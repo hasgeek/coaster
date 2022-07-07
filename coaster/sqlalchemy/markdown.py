@@ -66,6 +66,10 @@ class MarkdownComposite(MutableComposite):
         )
         self.changed()
 
+    def __json__(self) -> Dict[str, Optional[str]]:
+        """Return JSON-compatible rendering of composite."""
+        return {'text': self._text, 'html': self._html}
+
     # Compare text value
     def __eq__(self, other):
         """Compare for equality."""
