@@ -84,7 +84,7 @@ class MutableDict(Mutable, dict):
             if isinstance(value, str):
                 # Assume JSON string
                 if value:
-                    return MutableDict(json.loads(value, use_decimal=True))
+                    return MutableDict(json.loads(value))
                 return MutableDict()  # Empty value is an empty dict
 
             # this call will raise ValueError
