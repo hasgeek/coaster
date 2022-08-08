@@ -22,7 +22,7 @@ repos:
         args:
           ["--keep-runtime-typing", "--py3-plus", "--py36-plus", "--py37-plus"]
   - repo: https://github.com/asottile/yesqa
-    rev: v1.3.0
+    rev: v1.4.0
     hooks:
       - id: yesqa
         additional_dependencies: &flake8deps
@@ -61,7 +61,7 @@ repos:
           - types-toml
           - types-PyYAML
   - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.2
+    rev: 5.0.4
     hooks:
       - id: flake8
         additional_dependencies: *flake8deps
