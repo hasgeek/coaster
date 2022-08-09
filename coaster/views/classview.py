@@ -712,7 +712,7 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
             add_auth_attribute('login_required', True)
             if not is_available_here(self):
                 abort(403)
-            return f(self, *args, **kwargs)
+            return ensure_sync(f)(self, *args, **kwargs)
 
         wrapper.requires_roles = roles  # type: ignore[attr-defined]
         wrapper.is_available = is_available  # type: ignore[attr-defined]
@@ -833,7 +833,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
                 return redirect(
                     str(correct_url.set(query=request.query_string.decode()))
                 )
-        return f(self, *args, **kwargs)
+        return ensure_sync(f)(self, *args, **kwargs)
 
     return t.cast(tc.WrappedFunc, wrapper)
 
