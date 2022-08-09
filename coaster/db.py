@@ -2,16 +2,8 @@ from sqlite3 import Connection as SQLite3Connection
 
 from flask_sqlalchemy import SQLAlchemy
 from psycopg2.extensions import connection as PostgresConnection  # noqa: N812
-from sqlalchemy import event
 from sqlalchemy.engine import Engine
-
-try:
-    # PySqlite is only available for Python 2.x
-    import pysqlite2.dbapi2
-
-    PySQLite3Connection = pysqlite2.dbapi2.Connection  # pragma: no cover
-except ImportError:
-    PySQLite3Connection = SQLite3Connection
+import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
 __all__ = ['SQLAlchemy', 'db']
 
@@ -24,7 +16,7 @@ db = SQLAlchemy()
 @event.listens_for(Engine, 'connect')
 def _set_sqlite_pragma(dbapi_connection, connection_record):
     if isinstance(  # pragma: no cover
-        dbapi_connection, (SQLite3Connection, PySQLite3Connection)
+        dbapi_connection, (SQLite3Connection, SQLite3Connection)
     ):
         cursor = dbapi_connection.cursor()
         cursor.execute('PRAGMA foreign_keys=ON;')

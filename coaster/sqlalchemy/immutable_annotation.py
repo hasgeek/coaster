@@ -3,8 +3,8 @@ Immutable annotation
 --------------------
 """
 
-from sqlalchemy import event, inspect
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
+import sqlalchemy as sa
 
 from .annotations import annotation_wrapper, annotations_configured
 
@@ -41,7 +41,7 @@ class ImmutableColumnError(AttributeError):
 @annotations_configured.connect
 def _make_immutable(cls):
     def add_immutable_event(attr, col):
-        @event.listens_for(col, 'set')
+        @sa.event.listens_for(col, 'set')
         def immutable_column_set_listener(target, value, old_value, initiator):
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in
@@ -51,7 +51,7 @@ def _make_immutable(cls):
             # has_identity test.
             if old_value == value:
                 pass
-            elif (old_value is NEVER_SET or old_value is NO_VALUE) and inspect(
+            elif (old_value is NEVER_SET or old_value is NO_VALUE) and sa.inspect(
                 target
             ).has_identity is False:
                 pass

@@ -3,8 +3,9 @@ App configuration
 =================
 """
 
-from typing import Callable, List, NamedTuple, Optional
+from typing import NamedTuple
 import json
+import typing as t
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
@@ -26,8 +27,10 @@ __all__ = [
 
 
 class ConfigLoader(NamedTuple):
+    """Configuration loader registry entry."""
+
     extn: str
-    loader: Optional[Callable]
+    loader: t.Optional[t.Callable]
 
 
 _additional_config = {
@@ -39,7 +42,7 @@ _additional_config = {
     'production': 'production',
 }
 
-_config_loaders = {
+_config_loaders: t.Dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
     'toml': ConfigLoader(extn='.toml', loader=toml.load),
@@ -77,7 +80,7 @@ class KeyRotationWrapper:
             for counter, engine in enumerate(self._engines):
                 try:
                     return getattr(engine, attr)(*args, **kwargs)
-                except itsdangerous.exc.BadSignature:
+                except itsdangerous.BadSignature:
                     if counter == last:
                         # We've run out of engines. Raise error to caller
                         raise
@@ -106,7 +109,7 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
-def init_app(app: Flask, config: List[str] = None, init_logging: bool = True) -> None:
+def init_app(app: Flask, config: t.List[str] = None, init_logging: bool = True) -> None:
     """
     Configure an app depending on the environment.
 
@@ -172,7 +175,7 @@ def init_app(app: Flask, config: List[str] = None, init_logging: bool = True) ->
 
 
 def load_config_from_file(
-    app: Flask, filepath: str, load: Optional[Callable] = None
+    app: Flask, filepath: str, load: t.Optional[t.Callable] = None
 ) -> bool:
     """Load config from a specified file with a specified loader (default Python)."""
     try:

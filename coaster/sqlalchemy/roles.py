@@ -27,10 +27,12 @@ Example use::
     from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
     from coaster.sqlalchemy import BaseMixin, with_roles
+    from sqlalchemy.orm import declarative_mixin
 
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
+    @declarative_mixin
     class ColumnMixin:
         '''
         Mixin class that offers some columns to the RoleModel class below,
@@ -106,7 +108,7 @@ Example use::
         # to `roles_for` must be present in the relationship. You can augment this
         # by providing a custom `roles_for` method:
 
-        def roles_for(self, actor=None, anchors=()):
+        def roles_for(self, actor=None, anchors=()) -> LazyRoleSet:
             # Calling super gives us a LazyRoleSet with the standard roles
             # and with lazy evaluation of of other roles from `granted_by`
             roles = super().roles_for(actor, anchors)
@@ -120,15 +122,26 @@ Example use::
 from __future__ import annotations
 
 from abc import ABCMeta
+from collections import abc
 from copy import deepcopy
 from itertools import chain
-from typing import Dict, List, Optional, Sequence, Set, Union
-import collections.abc as abc
 import operator
+import typing as t
 
-from sqlalchemy import event, inspect
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
+from sqlalchemy.orm import (
+    ColumnProperty,
+    Query,
+    RelationshipProperty,
+    SynonymProperty,
+    declarative_mixin,
+)
+
+try:  # SQLAlchemy >= 1.4
+    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
+except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
+    from sqlalchemy.orm.interfaces import MapperProperty
+
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
@@ -136,20 +149,16 @@ from sqlalchemy.orm.collections import (
     InstrumentedSet,
     MappedCollection,
 )
-from sqlalchemy.orm.dynamic import AppenderMixin
+from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
+import sqlalchemy as sa
+import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
 # mypy can't find _request_ctx_stack in flask
 from flask import _request_ctx_stack  # type: ignore[attr-defined]
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
-
-try:  # SQLAlchemy >= 1.4
-    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4
-    from sqlalchemy.orm.interfaces import MapperProperty
-
 
 __all__ = [
     'RoleGrantABC',
@@ -161,7 +170,7 @@ __all__ = [
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
-__cache__ = {}
+__cache__: t.Dict[t.Any, t.Dict[str, set]] = {}
 
 
 def _attrs_equal(lhs, rhs):
@@ -181,7 +190,7 @@ def _actor_in_relationship(actor, relationship):
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
-    if isinstance(relationship, (AppenderMixin, Query, abc.Container)):
+    if isinstance(relationship, (AppenderQuery, Query, abc.Container)):
         return actor in relationship
     return False
 
@@ -208,7 +217,7 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
-    if isinstance(relationship, (AppenderMixin, Query)):
+    if isinstance(relationship, (AppenderQuery, Query)):
         # Query-like relationship. Run a query. It is possible to have multiple matches
         # for the actor, so use .first()
         # TODO: Consider retrieving all and consolidating roles from across them in case
@@ -289,8 +298,10 @@ class LazyRoleSet(abc.MutableSet):
     def __repr__(self):  # pragma: no cover
         return f'LazyRoleSet({self.obj}, {self.actor})'
 
-    def _from_iterable(self, it) -> LazyRoleSet:
+    def _from_iterable(self, it) -> LazyRoleSet:  # pylint: disable=arguments-differ
         """Make a copy, as required by the `MutableSet` base class."""
+        # MutableSet defines this as a classmethod. We need an instance method to get
+        # self.obj and self.actor. Pylint doesn't like it and must be silenced
         return LazyRoleSet(self.obj, self.actor, it)
 
     def _role_is_present(self, role):
@@ -376,7 +387,7 @@ class LazyRoleSet(abc.MutableSet):
     def _contents(self):
         """Return all available roles."""
         # Populate cache
-        [  # skipcq: PYL-W0106
+        [  # pylint: disable=expression-not-assigned
             self._role_is_present(role) for role in self.obj.__roles__
         ]
         return self._present
@@ -438,7 +449,7 @@ class LazyRoleSet(abc.MutableSet):
     def copy(self):
         """Return a shallow copy of the :class:`LazyRoleSet`."""
         result = LazyRoleSet(self.obj, self.actor, self._present)
-        result._not_present = set(self._not_present)
+        result._not_present = set(self._not_present)  # pylint: disable=protected-access
         return result
 
     # Set operators take a single `other` parameter while these methods
@@ -572,7 +583,14 @@ class RoleAccessProxy(abc.Mapping):
     construct proxies for objects accessed via relationships.
     """
 
-    def __init__(self, obj, roles, actor, anchors, datasets):
+    def __init__(
+        self,
+        obj: t.Any,
+        roles: t.Union[LazyRoleSet, t.Set[str]],
+        actor: t.Optional[t.Any],
+        anchors: t.Iterable,
+        datasets: t.Optional[t.Sequence[str]],
+    ):
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
         object.__setattr__(self, '_actor', actor)
@@ -584,10 +602,10 @@ class RoleAccessProxy(abc.Mapping):
             if datasets:
                 try:
                     dataset_attrs = set(obj.__datasets__[datasets[0]])
-                except KeyError:
+                except KeyError as exc:
                     raise KeyError(
                         f"Object of type {type(obj)!r} is missing dataset {datasets[0]}"
-                    )
+                    ) from exc
             else:
                 # Got an empty list, so turn off enumeration
                 dataset_attrs = set()
@@ -629,7 +647,7 @@ class RoleAccessProxy(abc.Mapping):
             }
         if isinstance(
             attr,
-            (InstrumentedList, InstrumentedSet, AppenderMixin, OrderingList, Query),
+            (InstrumentedList, InstrumentedSet, AppenderQuery, OrderingList, Query),
         ):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
@@ -706,7 +724,7 @@ def with_roles(
         id = db.Column(Integer, primary_key=True)
         with_roles(id, read={'all'})
 
-        title = with_roles(db.Column(db.UnicodeText), read={'all'})
+        title = with_roles(db.Column(db.Unicode), read={'all'})
 
         @with_roles(read={'all'})
         @hybrid_property
@@ -841,6 +859,7 @@ def with_roles(
     return inner
 
 
+@declarative_mixin
 class RoleMixin:
     """
     Provides methods for role-based access control.
@@ -866,19 +885,21 @@ class RoleMixin:
     """
 
     # This empty dictionary is necessary for the configure step below to work
-    __roles__: Dict[
-        str, Dict[str, Union[Set[str], List[str], Dict[str, Optional[str]]]]
+    __roles__: t.Dict[
+        str, t.Dict[str, t.Union[t.Set[str], t.List[str], t.Dict[str, t.Optional[str]]]]
     ] = {}
     # Datasets for limited access to attributes
-    __datasets__: Dict[str, Set[str]] = {}
+    __datasets__: t.Dict[str, t.Set[str]] = {}
     # Datasets to use when rendering to JSON
-    __json_datasets__: Sequence[str] = ()
+    __json_datasets__: t.Sequence[str] = ()
     # Relationship role offer map (used by LazyRoleSet)
-    __relationship_role_offer_map__: Dict[str, Set[str]] = {}
+    __relationship_role_offer_map__: t.Dict[str, t.Set[str]] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__: Dict[str, Set[str]] = {}
+    __relationship_reversed_role_offer_map__: t.Dict[str, t.Set[str]] = {}
 
-    def roles_for(self, actor=None, anchors=()):
+    def roles_for(
+        self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
+    ) -> LazyRoleSet:
         """
         Return roles available to the given ``actor`` or ``anchors`` on this object.
 
@@ -890,9 +911,13 @@ class RoleMixin:
         ``auth`` is granted. If not, ``anon`` is granted.
 
         Subclasses overriding :meth:`roles_for` must always call :func:`super` to
-        ensure they are receiving the standard roles. Recommended boilerplate::
+        ensure they receive a lazy role set that includes the standard roles and
+        evaluates for declarative roles when they are first accessed. Recommended
+        boilerplate::
 
-            def roles_for(self, actor=None, anchors=()):
+            def roles_for(
+                self, actor: t.Optional[User] = None, anchors: t.Iterable = ()
+            ) -> LazyRoleSet:
                 roles = super().roles_for(actor, anchors)
                 # 'roles' is a set. Add more roles here
                 # ...
@@ -983,7 +1008,7 @@ class RoleMixin:
             # itself as a backup identifier. More at:
             # <https://docs.sqlalchemy.org/en/13/orm/mapping_api.html
             # #sqlalchemy.orm.util.identity_key>
-            aid = inspect(actor).identity_key or actor
+            aid = sa.inspect(actor).identity_key or actor
             if aid not in actor_ids:
                 actor_ids.add(aid)
                 return True
@@ -993,7 +1018,7 @@ class RoleMixin:
             # Scan granted_by declarations
             for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 relationship = getattr(self, relattr)
-                if isinstance(relationship, (AppenderMixin, Query, abc.Iterable)):
+                if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
                     for actor in relationship:
                         if is_new(actor):
                             yield (actor, role) if with_role else actor
@@ -1010,7 +1035,7 @@ class RoleMixin:
                 # What kind of relationship is this?
                 # 1. It's a collection of some sort
                 # 2. It's scalar item (either the 1 side of 1:n, or a property)
-                if isinstance(relationship, (AppenderMixin, Query, abc.Iterable)):
+                if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
                     iterable = relationship
                 else:
                     iterable = [relationship]
@@ -1073,10 +1098,10 @@ class RoleMixin:
 
     def access_for(
         self,
-        roles: Optional[Set[str]] = None,
+        roles: t.Optional[t.Union[LazyRoleSet, t.Set[str]]] = None,
         actor=None,
         anchors=(),
-        datasets: Optional[Sequence[str]] = None,
+        datasets: t.Optional[t.Sequence[str]] = None,
     ):
         """
         Return an access control proxy for this instance.

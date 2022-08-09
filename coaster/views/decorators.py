@@ -8,6 +8,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
 from functools import wraps
+import typing as t
 
 from flask import (
     Response,
@@ -25,16 +26,20 @@ from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 
+import typing_extensions as te
+
+from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
 from ..utils import is_collection
-from .misc import jsonp
+from .misc import ensure_sync, jsonp
 
 __all__ = [
     'RequestTypeError',
     'RequestValueError',
     'requestargs',
-    'requestform',
     'requestquery',
+    'requestform',
+    'requestbody',
     'load_model',
     'load_models',
     'render_with',
@@ -44,27 +49,32 @@ __all__ = [
 
 
 class RequestTypeError(BadRequest, TypeError):
-    """
-    Exception that combines TypeError with BadRequest. Used by :func:`requestargs`.
-    """
+    """Exception that combines TypeError with BadRequest."""
 
 
 class RequestValueError(BadRequest, ValueError):
-    """
-    Exception that combines ValueError with BadRequest. Used by :func:`requestargs`.
-    """
+    """Exception that combines ValueError with BadRequest."""
 
 
-def requestargs(*args, **config):
+def requestargs(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]],
+    source: t.Union[
+        te.Literal['values'],
+        te.Literal['form'],
+        te.Literal['query'],
+        te.Literal['body'],
+    ] = 'values',
+):
     """
-    Decorator that loads parameters from request.values if not specified in the
-    function's keyword arguments. Usage::
+    Decorate a function to load parameters from the request if not supplied directly.
+
+    Usage::
 
         @requestargs('param1', ('param2', int), 'param3[]', ...)
         def function(param1, param2=0, param3=None):
             ...
 
-    requestargs takes a list of parameters to pass to the wrapped function, with
+    :func:`requestargs` takes a list of parameters to pass to the wrapped function, with
     an optional filter (useful to convert incoming string request data into integers
     and other common types). If a required parameter is missing and your function does
     not specify a default value, Python will raise TypeError. requestargs recasts this
@@ -105,11 +115,10 @@ def requestargs(*args, **config):
         ...
         ('1', 200, [1, 2])
     """
-    if config and list(config.keys()) != ['source']:
-        raise TypeError(f"Unrecognised parameters: {config.keys()!r}")
 
-    def inner(f):
-        namefilt = [
+    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+        """Apply config to wrapped function."""
+        namefilt: t.List[t.Tuple[str, t.Optional[t.Callable[[str], t.Any]], bool]] = [
             (name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
             for name, filt in [
                 (a[0], a[1]) if isinstance(a, (list, tuple)) else (a, None)
@@ -117,24 +126,37 @@ def requestargs(*args, **config):
             ]
         ]
 
-        if config and config.get('source') == 'form':
+        if source == 'query':
 
-            def datasource():
-                return request.form if request else {}
+            def datasource() -> t.Tuple[t.Any, bool]:
+                return (request.args, True) if request else ({}, False)
 
-        elif config and config.get('source') == 'query':
+        elif source == 'form':
 
-            def datasource():
-                return request.args if request else {}
+            def datasource() -> t.Tuple[t.Any, bool]:
+                return (request.form, True) if request else ({}, False)
+
+        elif source == 'body':
+
+            def datasource() -> t.Tuple[t.Any, bool]:
+                if not request:
+                    return ({}, False)
+                return (
+                    (request.json, False) if request.is_json else (request.form, True)
+                )
+
+        elif source == 'values':
+
+            def datasource() -> t.Tuple[t.Any, bool]:
+                return (request.values, True) if request else ({}, False)
 
         else:
-
-            def datasource():
-                return request.values if request else {}
+            raise TypeError("Unknown data source")
 
         @wraps(f)
-        def decorated_function(*args, **kw):
-            values = datasource()
+        def wrapper(*args, **kw) -> t.Any:
+            """Wrap a view to insert keyword arguments."""
+            values, has_gettype = datasource()
             for name, filt, is_list in namefilt:
                 # Process name if
                 # (a) it's not in the function's parameters, and
@@ -142,36 +164,49 @@ def requestargs(*args, **config):
                 if name not in kw and name in values:
                     try:
                         if is_list:
-                            kw[name] = values.getlist(name, type=filt)
+                            if has_gettype:
+                                kw[name] = values.getlist(name, type=filt)
+                            else:
+                                if filt:
+                                    kw[name] = [filt(_v) for _v in values[name]]
+                                else:
+                                    kw[name] = values[name]
                         else:
-                            kw[name] = values.get(name, type=filt)
+                            if has_gettype:
+                                kw[name] = values.get(name, type=filt)
+                            else:
+                                if filt:
+                                    kw[name] = filt(values[name])
+                                else:
+                                    kw[name] = values[name]
                     except ValueError as e:
-                        raise RequestValueError(e)
+                        raise RequestValueError(str(e)) from e
             try:
-                return f(*args, **kw)
+                return ensure_sync(f)(*args, **kw)
             except TypeError as e:
-                raise RequestTypeError(e)
+                raise RequestTypeError(str(e)) from e
 
-        return decorated_function
+        return t.cast(tc.WrappedFunc, wrapper)
 
-    return inner
-
-
-def requestform(*args):
-    """
-    Like :func:`requestargs`, but loads from request.form (the form submission).
-    """
-    return requestargs(*args, **{'source': 'form'})
+    return decorator
 
 
-def requestquery(*args):
-    """
-    Like :func:`requestargs`, but loads from request.args (the query string).
-    """
-    return requestargs(*args, **{'source': 'query'})
+def requestquery(*args) -> tc.ReturnDecorator:
+    """Like :func:`requestargs`, but loads from request.args (the query string)."""
+    return requestargs(*args, source='query')
 
 
-def load_model(
+def requestform(*args) -> tc.ReturnDecorator:
+    """Like :func:`requestargs`, but loads from request.form (the form submission)."""
+    return requestargs(*args, source='form')
+
+
+def requestbody(*args) -> tc.ReturnDecorator:
+    """Like :func:`requestargs`, but loads from form or JSON basis content type."""
+    return requestargs(*args, source='body')
+
+
+def load_model(  # pylint: disable=too-many-arguments
     model,
     attributes=None,
     parameter=None,
@@ -181,7 +216,7 @@ def load_model(
     urlcheck=(),
 ):
     """
-    Decorator to load a model given a query parameter.
+    Decorate a view to load a model given a query parameter.
 
     Typical usage::
 
@@ -362,9 +397,9 @@ def load_models(*chain, **kwargs):
             if permission_required and not permission_required & permissions:
                 abort(403)
             if kwargs.get('kwargs'):
-                return f(*args, kwargs=kw, **result)
+                return ensure_sync(f)(*args, kwargs=kw, **result)
             else:
-                return f(*args, **result)
+                return ensure_sync(f)(*args, **result)
 
         return decorated_function
 
@@ -372,7 +407,7 @@ def load_models(*chain, **kwargs):
 
 
 def _best_mimetype_match(available_list, accept_mimetypes, default=None):
-    for use_mimetype, quality in accept_mimetypes:
+    for use_mimetype, _quality in accept_mimetypes:
         for mimetype in available_list:
             if use_mimetype.lower() == mimetype.lower():
                 return use_mimetype.lower()
@@ -399,7 +434,7 @@ def dict_jsonp(param):
     return jsonp(param)
 
 
-def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
+def render_with(template=None, json=False, jsonp=False):  # pylint: disable=W0621
     """
     Decorator to render the wrapped function with the given template (or dictionary
     of mimetype keys to templates, where the template is a string name of a template
@@ -502,7 +537,7 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
             render = kwargs.pop('_render', True)
 
             # Get the result
-            result = f(*args, **kwargs)
+            result = ensure_sync(f)(*args, **kwargs)
 
             # Is the result a Response object? Don't attempt rendering
             if isinstance(
@@ -584,19 +619,27 @@ def render_with(template=None, json=False, jsonp=False):  # skipcq: PYL-W0621
 
 
 def cors(
-    origins,
-    methods=('HEAD', 'OPTIONS', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE'),
-    headers=(
+    origins: t.Union[te.Literal['*'], t.Container[str], t.Callable[[str], bool]],
+    methods: t.Iterable[str] = (
+        'OPTIONS',
+        'HEAD',
+        'GET',
+        'POST',
+        'DELETE',
+        'PATCH',
+        'PUT',
+    ),
+    headers: t.Iterable[str] = (
         'Accept',
         'Accept-Language',
         'Content-Language',
         'Content-Type',
         'X-Requested-With',
     ),
-    max_age=None,
-):
+    max_age: t.Optional[int] = None,
+) -> tc.ReturnDecorator:
     """
-    Adds CORS headers to the decorated view function.
+    Add CORS headers to the decorated view function.
 
     :param origins: Allowed origins (see below)
     :param methods: A list of allowed HTTP methods
@@ -624,7 +667,7 @@ def cors(
         @app.route('/static', methods=['GET', 'POST'])
         @cors(
             ['https://hasgeek.com'],
-            methods=['GET'],
+            methods=['GET', 'POST'],
             headers=['Content-Type', 'X-Requested-With'],
             max_age=3600)
         def static_list():
@@ -634,22 +677,28 @@ def cors(
             # check if origin should be allowed
             return True
 
-        @app.route('/callable')
+        @app.route('/callable', methods=['GET'])
         @cors(check_origin)
         def callable_function():
             return Response()
     """
 
-    def inner(f):
+    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> WerkzeugResponse:
             origin = request.headers.get('Origin')
+            if not origin or origin == 'null':
+                if request.method == 'OPTIONS':
+                    abort(400)
+                # If no Origin header is supplied, CORS checks don't apply
+                return make_response(ensure_sync(f)(*args, **kwargs))
+
             if request.method not in methods:
                 abort(405)
 
             if origins == '*':
                 pass
-            elif is_collection(origins) and origin in origins:
+            elif is_collection(origins) and origin in origins:  # type: ignore[operator]
                 pass
             elif callable(origins) and origins(origin):
                 pass
@@ -660,40 +709,32 @@ def cors(
                 # pre-flight request
                 resp = Response()
             else:
-                result = f(*args, **kwargs)
-                resp = (
-                    make_response(result)
-                    if not isinstance(
-                        result, (Response, WerkzeugResponse, current_app.response_class)
-                    )
-                    else result
-                )
+                resp = make_response(ensure_sync(f)(*args, **kwargs))
 
-            resp.headers['Access-Control-Allow-Origin'] = origin if origin else ''
+            resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
             if max_age:
                 resp.headers['Access-Control-Max-Age'] = str(max_age)
             # Add 'Origin' to the Vary header since response will vary by origin
-            if 'Vary' in resp.headers:
-                vary_values = [item.strip() for item in resp.headers['Vary'].split(',')]
-                if 'Origin' not in vary_values:
-                    vary_values.append('Origin')
-                resp.headers['Vary'] = ', '.join(vary_values)
-            else:
-                resp.headers['Vary'] = 'Origin'
+            resp.vary.add('Origin')  # type: ignore[union-attr]
 
             return resp
 
-        return wrapper
+        wrapper.provide_automatic_options = False  # type: ignore[attr-defined]
+        wrapper.required_methods = ['OPTIONS']  # type: ignore[attr-defined]
 
-    return inner
+        return t.cast(tc.WrappedFunc, wrapper)
+
+    return decorator
 
 
-def requires_permission(permission):
+def requires_permission(
+    permission: t.Union[str, t.Collection[str]]
+) -> tc.ReturnDecorator:
     """
-    View decorator that requires a certain permission to be present in
-    ``current_auth.permissions`` before the view is allowed to proceed.
+    Decorate to require a permission to be present in ``current_auth.permissions``.
+
     Aborts with ``403 Forbidden`` if the permission is not present.
 
     The decorated view will have an ``is_available`` method that can be called
@@ -703,31 +744,30 @@ def requires_permission(permission):
         provided, any one permission must be available
     """
 
-    def inner(f):
-        def is_available_here():
+    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+        def is_available_here() -> bool:
             if not current_auth.permissions:
                 return False
-            elif is_collection(permission):
+            if is_collection(permission):
                 return bool(current_auth.permissions & permission)
-            else:
-                return permission in current_auth.permissions
+            return permission in current_auth.permissions
 
-        def is_available(context=None):
+        def is_available(context=None) -> bool:
             result = is_available_here()
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well
-                return f.is_available(context)
+                return f.is_available(context)  # type: ignore[attr-defined]
             return result
 
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> t.Any:
             add_auth_attribute('login_required', True)
             if not is_available_here():
                 abort(403)
-            return f(*args, **kwargs)
+            return ensure_sync(f)(*args, **kwargs)
 
-        wrapper.requires_permission = permission
-        wrapper.is_available = is_available
-        return wrapper
+        wrapper.requires_permission = permission  # type: ignore[attr-defined]
+        wrapper.is_available = is_available  # type: ignore[attr-defined]
+        return t.cast(tc.WrappedFunc, wrapper)
 
-    return inner
+    return decorator

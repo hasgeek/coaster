@@ -34,27 +34,27 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 """
 
 from collections.abc import Hashable
-from typing import Any, Dict
+import typing as t
 
-from sqlalchemy import event
 from sqlalchemy.orm import ColumnProperty, RelationshipProperty, SynonymProperty, mapper
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.schema import SchemaItem
+import sqlalchemy as sa
 
 from ..signals import coaster_signals
 
 try:  # SQLAlchemy >= 1.4
     from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4
+except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
     from sqlalchemy.orm.interfaces import MapperProperty
 
 __all__ = ['annotations_configured', 'annotation_wrapper']
 
 # Global dictionary for temporary storage of annotations until the
 # mapper_configured events
-__cache__: Dict[Any, list] = {}
+__cache__: t.Dict[t.Any, list] = {}
 
-# --- Signals -----------------------------------------------------------------
+# --- Signals --------------------------------------------------------------------------
 
 annotations_configured = coaster_signals.signal(
     'annotations-configured',
@@ -62,10 +62,10 @@ annotations_configured = coaster_signals.signal(
 )
 
 
-# --- SQLAlchemy signals for base class ---------------------------------------
+# --- SQLAlchemy signals for base class ------------------------------------------------
 
 
-@event.listens_for(mapper, 'mapper_configured')
+@sa.event.listens_for(mapper, 'mapper_configured')
 def _configure_annotations(mapper_, cls):
     """
     Extract annotations from attributes.
@@ -125,7 +125,7 @@ def _configure_annotations(mapper_, cls):
     annotations_configured.send(cls)
 
 
-# --- Helpers -----------------------------------------------------------------
+# --- Helpers --------------------------------------------------------------------------
 
 
 def annotation_wrapper(annotation, doc=None):

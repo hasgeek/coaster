@@ -4,23 +4,24 @@ Miscellaneous utilities
 """
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
+from collections import abc
 from datetime import datetime
-from email.header import decode_header
 from functools import wraps
 from random import SystemRandom
 from secrets import token_bytes
-from typing import Any, Callable, Optional, Tuple, TypeVar, Union
+from typing import overload
 from urllib.parse import urlparse
-import collections.abc as abc
 import email.utils
 import hashlib
 import re
 import time
+import typing as t
 import uuid
 
 from unidecode import unidecode
 import base58
 import tldextract
+import typing_extensions as te
 
 __all__ = [
     'base_domain_matches',
@@ -40,7 +41,6 @@ __all__ = [
     'nullint',
     'nullstr',
     'require_one_of',
-    'unicode_http_header',
     'uuid1mc',
     'uuid1mc_from_datetime',
     'uuid2buid',
@@ -53,9 +53,7 @@ __all__ = [
     'valid_username',
 ]
 
-T = TypeVar('T')
-
-# --- Common delimiters and punctuation ---------------------------------------
+# --- Common delimiters and punctuation ------------------------------------------------
 
 _strip_re = re.compile('[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
@@ -68,16 +66,33 @@ _ipv4_re = re.compile(
 )
 
 
-# --- Utilities ---------------------------------------------------------------
+# --- Utilities ------------------------------------------------------------------------
 
 
-def is_collection(item) -> bool:
+@overload
+def is_collection(item: t.Union[str, bytes, t.Dict]) -> te.Literal[False]:
+    ...
+
+
+@overload
+def is_collection(
+    item: t.Union[t.List, t.Tuple, t.Set, t.KeysView]
+) -> te.Literal[True]:
+    ...
+
+
+@overload
+def is_collection(item: t.Any) -> bool:
+    ...
+
+
+def is_collection(item: t.Any) -> bool:
     """
     Return True if the item is a collection class.
 
     List, tuple, set, frozenset or any other class that resembles one of these (using
-    abstract base classes). The `Collections` ABC is not suitable as it also matches
-    strings and dicts.
+    abstract base classes). ``collections.abc.Collection`` is not suitable as it also
+    matches strings and dicts.
 
     >>> is_collection(0)
     False
@@ -147,6 +162,7 @@ def uuid1mc() -> uuid.UUID:
     >>> isinstance(uuid1mc(), uuid.UUID)
     True
     """
+    # pylint: disable=protected-access
     return uuid.uuid1(node=uuid._random_getnode())  # type: ignore[attr-defined]
 
 
@@ -274,19 +290,24 @@ def newpin(digits: int = 4) -> str:
     5
     >>> newpin().isdigit()
     True
+    >>> newpin() != newpin()
+    True
+    >>> newpin(6) != newpin(6)
+    True
     """
     random = SystemRandom()
-    randnum = random.randint(0, 10**digits)  # noqa: S311 # nosec
-    while len(str(randnum)) > digits:
-        randnum = random.randint(0, 10**digits)  # noqa: S311 # nosec
-    return ('%%0%dd' % digits) % randnum
+    pin = '00' * digits
+    while len(pin) > digits:
+        randnum = random.randint(0, 10**digits)  # nosec
+        pin = str(randnum).zfill(digits)
+    return pin
 
 
 def make_name(
     text: str,
     delim: str = '-',
     maxlength: int = 50,
-    checkused: Optional[Callable[[str], bool]] = None,
+    checkused: t.Optional[t.Callable[[str], bool]] = None,
     counter: int = 2,
 ) -> str:
     r"""
@@ -398,7 +419,7 @@ def format_currency(value, decimals=2):
     Separates thousands with commas and includes up to two decimal points.
 
     .. deprecated:: 0.7.0
-       Use Babel for context-sensitive formatting.
+        Use Babel for context-sensitive formatting.
 
     >>> format_currency(1000)
     '1,000'
@@ -434,7 +455,7 @@ def format_currency(value, decimals=2):
         return ','.join(parts) + '.' + decimal
 
 
-def md5sum(data):
+def md5sum(data: str) -> str:
     """
     Return md5sum of data as a 32-character string.
 
@@ -445,12 +466,10 @@ def md5sum(data):
     >>> len(md5sum('random text'))
     32
     """
-    return hashlib.md5(  # noqa: S324  # skipcq: PTC-W1003 # nosec
-        data.encode('utf-8')
-    ).hexdigest()
+    return hashlib.md5(data.encode('utf-8')).hexdigest()  # nosec  # skipcq: PTC-W1003
 
 
-def getbool(value: Union[bool, int, str]):
+def getbool(value: t.Optional[t.Any]) -> t.Optional[bool]:
     """
     Return a boolean from any of a range of boolean-like values.
 
@@ -483,7 +502,7 @@ def getbool(value: Union[bool, int, str]):
     return None
 
 
-def nullint(value):
+def nullint(value: t.Optional[t.Any]) -> t.Optional[int]:
     """
     Return `int(value)` if `bool(value)` is not `False`. Return `None` otherwise.
 
@@ -497,7 +516,7 @@ def nullint(value):
     return int(value) if value else None
 
 
-def nullstr(value):
+def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
     """
     Return `str(value)` if `bool(value)` is not `False`. Return `None` otherwise.
 
@@ -514,9 +533,17 @@ def nullstr(value):
 nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
-# TODO: When `Literal`` becomes available in Python 3.8, re-specify the return type
-# using @overload decorators
-def require_one_of(_return=False, **kwargs) -> Optional[Tuple[str, Any]]:
+@overload
+def require_one_of(_return: te.Literal[False] = False, **kwargs: t.Any) -> None:
+    ...
+
+
+@overload
+def require_one_of(_return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
+    ...
+
+
+def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
 
@@ -571,32 +598,6 @@ def require_one_of(_return=False, **kwargs) -> Optional[Tuple[str, Any]]:
     return None
 
 
-def unicode_http_header(value):
-    r"""
-    Convert an ASCII HTTP header string into a unicode string.
-
-    Expects headers to be RFC 2047 compliant, and will decode from recognised encodings.
-
-    >>> unicode_http_header('=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
-    True
-    >>> unicode_http_header(b'=?iso-8859-1?q?p=F6stal?=') == 'p\xf6stal'
-    True
-    >>> unicode_http_header('p\xf6stal') == 'p\xf6stal'
-    True
-    """
-    # email.header.decode_header expects strings, not bytes. Your input data may be
-    # in bytes. Since these bytes are almost always ASCII, calling `.decode()` on
-    # it without specifying a charset should work fine.
-    if isinstance(value, bytes):
-        value = value.decode()
-    return ''.join(
-        str(_string, _encoding or 'iso-8859-1')
-        if not isinstance(_string, str)
-        else _string
-        for _string, _encoding in decode_header(value)
-    )
-
-
 def get_email_domain(emailaddr):
     """
     Return the domain component of an email address.
@@ -613,7 +614,7 @@ def get_email_domain(emailaddr):
     >>> get_email_domain('foobar@')
     >>> get_email_domain('@foobar')
     """
-    realname, address = email.utils.parseaddr(emailaddr)
+    _realname, address = email.utils.parseaddr(emailaddr)
     try:
         username, domain = address.split('@')
         if not username:
@@ -628,7 +629,7 @@ def valid_username(candidate):
     Check if a username is valid.
 
     .. deprecated:: 0.7.0
-       Coaster is too low level to specify rules for valid usernames.
+        Coaster is too low level to specify rules for valid usernames.
 
     >>> valid_username('example person')
     False
@@ -705,10 +706,20 @@ def domain_namespace_match(domain, namespace):
     >>> domain_namespace_match('peopleflow.local', 'local.peopleflow')
     True
     """
-    return base_domain_matches(domain, ".".join(namespace.split(".")[::-1]))
+    return base_domain_matches(domain, '.'.join(namespace.split('.')[::-1]))
 
 
-def nary_op(f, doc: Optional[str] = None):
+T = t.TypeVar('T')
+
+
+class _CallableSameArgs(te.Protocol):  # pylint: disable=too-few-public-methods
+    """Protocl for callable that accepts multiple arguments of the same type."""
+
+    def __call__(self, lhs: T, *others: T) -> T:
+        ...
+
+
+def nary_op(f: t.Callable, doc: t.Optional[str] = None) -> _CallableSameArgs:
     """
     Convert a binary operator function into a chained n-ary operator.
 

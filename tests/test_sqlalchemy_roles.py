@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import json
+import typing as t
 import unittest
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.orm import declarative_mixin
 from sqlalchemy.orm.collections import (
     attribute_mapped_collection,
     column_mapped_collection,
 )
+import sqlalchemy as sa
 
 from flask import Flask
 
@@ -31,25 +37,26 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
+@declarative_mixin
 class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
-    def mixed_in1(cls):
+    def mixed_in1(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
-    def mixed_in2(cls):
+    def mixed_in2(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
         return db.Column(db.Unicode(250))
 
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
-    def mixed_in3(cls):
+    def mixed_in3(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
         return db.Column(db.Unicode(250))
 
     # A regular column from the mixin
@@ -231,7 +238,7 @@ class RoleGrantSynonym(BaseMixin, db.Model):
     __tablename__ = 'role_grant_synonym'
 
     # Base column has roles defined
-    datacol = with_roles(db.Column(db.UnicodeText()), rw={'owner'})
+    datacol = with_roles(db.Column(db.Unicode()), rw={'owner'})
     # Synonym cannot have independent roles and will mirror the target
     altcol = db.synonym('datacol')
 
@@ -337,7 +344,7 @@ class MultiroleChild(BaseMixin, db.Model):
     )
 
 
-# --- Utilities ---------------------------------------------------------------
+# --- Utilities ------------------------------------------------------------------------
 
 
 class JsonTestEncoder(json.JSONEncoder):
@@ -358,7 +365,7 @@ class JsonProtocolEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestCoasterRoles(unittest.TestCase):
@@ -729,14 +736,11 @@ class TestCoasterRoles(unittest.TestCase):
         parent = RelationshipParent(title="Parent")
         self.session.add(parent)
         self.session.commit()
-        with self.assertRaises(KeyError) as cm:
+        with pytest.raises(KeyError, match='bogus'):
             json.dumps(
                 parent.access_for(roles={'all'}, datasets=('bogus',)),
                 cls=JsonTestEncoder,
             )
-        exc = str(cm.exception)
-        assert 'bogus' in exc
-        assert 'RelationshipParent' in exc
 
     def test_role_grant(self):
         m1 = RoleGrantMany()
@@ -1051,7 +1055,7 @@ class TestCoasterRoles(unittest.TestCase):
         membership = RoleMembership(doc=document, user=user)
         self.session.add_all([user, document, membership])
         roles = document.roles_for(user)
-        with self.assertRaises(TypeError):
+        with pytest.raises(TypeError):
             'incorrectly_specified_role' in roles
 
     def test_actors_from_granted_via(self):
@@ -1131,7 +1135,7 @@ class TestLazyRoleSet(unittest.TestCase):
         pass
 
     class Document(RoleMixin):
-        _user = None
+        _user: t.Optional[TestLazyRoleSet.User] = None
         _userlist = ()
         __roles__ = {'owner': {'granted_by': ['user', 'userlist']}}
 

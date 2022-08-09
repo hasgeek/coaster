@@ -5,11 +5,11 @@ Utility classes
 
 from collections import namedtuple
 from collections.abc import Set
-from typing import Generic, TypeVar
+import typing as t
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
-T = TypeVar('T')
+T = t.TypeVar('T')
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 
@@ -232,7 +232,7 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         return [(name, title) for name, title in cls.values()]
 
 
-class InspectableSet(Set, Generic[T]):
+class InspectableSet(Set, t.Generic[T]):
     """
     Provides attribute and dictionary access to test for an element present in a set.
 

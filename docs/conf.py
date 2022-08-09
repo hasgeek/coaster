@@ -11,9 +11,9 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-from typing import Dict
 import os
 import sys
+import typing as t
 
 sys.path.append(os.path.abspath('../coaster/'))
 from coaster import _version  # isort:skip
@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'coaster'
-copyright = '2012-21, Hasgeek'  # skipcq: PYL-W0622
+copyright = '2012-22, Hasgeek'  # pylint: disable=W0622
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -182,7 +182,7 @@ htmlhelp_basename = 'coasterdoc'
 
 # -- Options for LaTeX output --------------------------------------------------
 
-latex_elements: Dict[str, str] = {
+latex_elements: t.Dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #'papersize': 'letterpaper',
     # The font size ('10pt', '11pt' or '12pt').

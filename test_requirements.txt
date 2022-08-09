@@ -1,4 +1,11 @@
 coverage
 coveralls
+pylint
+pylint-flask-sqlalchemy
+pylint-pytest
 pytest>6
 pytest-cov
+pytest-env
+pytest-remotedata
+pytest-rerunfailures
+toml

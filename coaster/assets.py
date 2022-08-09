@@ -191,7 +191,7 @@ class UglipyJS(Filter):
     def setup(self):
         import uglipyjs
 
-        self.uglipyjs = uglipyjs  # skipcq: PYL-W0201
+        self.uglipyjs = uglipyjs  # pylint: disable=W0201
 
     def output(self, _in, out, **kw):
         out.write(str(self.uglipyjs.compile(_in.read()), 'utf-8'))

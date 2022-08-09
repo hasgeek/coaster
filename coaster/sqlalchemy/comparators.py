@@ -3,7 +3,7 @@ Enhanced query and custom comparators
 -------------------------------------
 """
 
-from typing import Optional
+import typing as t
 import uuid as uuid_
 
 from flask_sqlalchemy import BaseQuery
@@ -68,7 +68,7 @@ class SplitIndexComparator(Comparator):
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(
-        self, expression, splitindex: Optional[int] = None, separator: str = '-'
+        self, expression, splitindex: t.Optional[int] = None, separator: str = '-'
     ):
         super().__init__(expression)
         self.splitindex = splitindex

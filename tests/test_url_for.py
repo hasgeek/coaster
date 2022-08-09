@@ -9,7 +9,7 @@ from coaster.db import db
 
 from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument
 
-# --- Test setup --------------------------------------------------------------
+# --- Test setup -----------------------------------------------------------------------
 
 app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -81,7 +81,7 @@ def doc_per_app2(doc):
     return f'per_app {doc}'
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestUrlForBase(unittest.TestCase):

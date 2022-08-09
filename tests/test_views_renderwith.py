@@ -6,7 +6,7 @@ from jinja2 import TemplateNotFound
 
 from coaster.views import jsonp, render_with
 
-# --- Test setup --------------------------------------------------------------
+# --- Test setup -----------------------------------------------------------------------
 
 app = Flask(__name__)
 
@@ -66,7 +66,7 @@ def view_for_star():
     return {'data': 'value'}, 201
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestLoadModels(unittest.TestCase):

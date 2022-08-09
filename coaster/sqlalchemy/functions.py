@@ -3,12 +3,14 @@ Helper functions
 ----------------
 """
 
-from sqlalchemy import DDL, TIMESTAMP, Column, ForeignKey, Table, event, func, inspect
+import typing as t
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import ColumnProperty, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql import functions
+import sqlalchemy as sa
 
 __all__ = [
     'make_timestamp_columns',
@@ -17,8 +19,10 @@ __all__ = [
     'auto_init_default',
 ]
 
+T = t.TypeVar('T')
 
-# --- SQL functions -----------------------------------------------------------
+# --- SQL functions --------------------------------------------------------------------
+
 
 # Provide sqlalchemy.func.utcnow()
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
@@ -26,7 +30,7 @@ __all__ = [
 class UtcNow(functions.GenericFunction):
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
-    type = TIMESTAMP()  # noqa: A003
+    type = sa.TIMESTAMP()  # type: ignore  # noqa: A003
     identifier = 'utcnow'
     inherit_cache = True
 
@@ -46,29 +50,31 @@ def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 
-# --- Helper functions --------------------------------------------------------
+# --- Helper functions -----------------------------------------------------------------
 
 
-def make_timestamp_columns(timezone=False):
+def make_timestamp_columns(
+    timezone: bool = False,
+) -> t.Tuple[sa.Column[sa.TIMESTAMP], sa.Column[sa.TIMESTAMP]]:
     """Return two columns, `created_at` and `updated_at`, with appropriate defaults."""
     return (
-        Column(
+        sa.Column(
             'created_at',
-            TIMESTAMP(timezone=timezone),
-            default=func.utcnow(),
+            sa.TIMESTAMP(timezone=timezone),
+            default=sa.func.utcnow(),
             nullable=False,
         ),
-        Column(
+        sa.Column(
             'updated_at',
-            TIMESTAMP(timezone=timezone),
-            default=func.utcnow(),
-            onupdate=func.utcnow(),
+            sa.TIMESTAMP(timezone=timezone),
+            default=sa.func.utcnow(),
+            onupdate=sa.func.utcnow(),
             nullable=False,
         ),
     )
 
 
-def failsafe_add(_session, _instance, **filters):
+def failsafe_add(_session, _instance: T, **filters: t.Any) -> t.Optional[T]:
     """
     Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).
 
@@ -117,12 +123,13 @@ def failsafe_add(_session, _instance, **filters):
             try:
                 return _session.query(_instance.__class__).filter_by(**filters).one()
             except NoResultFound:  # Do not trap the other, MultipleResultsFound
-                raise e
+                raise e from e
+    return None
 
 
 def add_primary_relationship(
     parent, childrel: str, child, parentrel: str, parentcol: str
-) -> Table:
+) -> sa.Table:
     """
     Add support for the primary child of a parent, given a one-to-many relationship.
 
@@ -149,29 +156,28 @@ def add_primary_relationship(
         that refers back to the parent model
     :return: Secondary table that was created
     """
-
     parent_table_name = parent.__tablename__
     child_table_name = child.__tablename__
     primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
-    parent_id_columns = [c.name for c in inspect(parent).primary_key]
-    child_id_columns = [c.name for c in inspect(child).primary_key]
+    parent_id_columns = [c.name for c in sa.inspect(parent).primary_key]
+    child_id_columns = [c.name for c in sa.inspect(child).primary_key]
 
     primary_table_columns = (
         [
-            Column(
+            sa.Column(
                 parent_table_name + '_' + name,
                 None,
-                ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
+                sa.ForeignKey(parent_table_name + '.' + name, ondelete='CASCADE'),
                 primary_key=True,
                 nullable=False,
             )
             for name in parent_id_columns
         ]
         + [
-            Column(
+            sa.Column(
                 child_table_name + '_' + name,
                 None,
-                ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
+                sa.ForeignKey(child_table_name + '.' + name, ondelete='CASCADE'),
                 nullable=False,
             )
             for name in child_id_columns
@@ -179,20 +185,24 @@ def add_primary_relationship(
         + list(make_timestamp_columns(timezone=parent.__with_timezone__))
     )
 
-    primary_table = Table(primary_table_name, parent.metadata, *primary_table_columns)
-    rel = relationship(child, uselist=False, secondary=primary_table)
+    primary_table = sa.Table(
+        primary_table_name, parent.metadata, *primary_table_columns
+    )
+    rel = relationship(  # type: ignore[var-annotated]
+        child, uselist=False, secondary=primary_table
+    )
     setattr(parent, childrel, rel)
 
-    @event.listens_for(rel, 'set')
+    @sa.event.listens_for(rel, 'set')
     def _validate_child(target, value, oldvalue, initiator):
         if value and getattr(value, parentrel) != target:
             raise ValueError("The target is not affiliated with this parent")
 
     # XXX: To support multi-column primary keys, update this SQL function
-    event.listen(
+    sa.event.listen(
         primary_table,
         'after_create',
-        DDL(
+        sa.DDL(
             '''
             CREATE FUNCTION %(function)s() RETURNS TRIGGER AS $$
             DECLARE
@@ -226,10 +236,10 @@ def add_primary_relationship(
         ),
     )
 
-    event.listen(
+    sa.event.listen(
         primary_table,
         'before_drop',
-        DDL(
+        sa.DDL(
             '''
             DROP TRIGGER %(trigger)s ON %(table)s;
             DROP FUNCTION %(function)s();
@@ -264,7 +274,7 @@ def auto_init_default(column) -> None:
     else:
         default = column.default
 
-    @event.listens_for(column, 'init_scalar', retval=True, propagate=True)
+    @sa.event.listens_for(column, 'init_scalar', retval=True, propagate=True)
     def init_scalar(target, value, dict_):
         # A subclass may override the column and not provide a default. Watch out for
         # that.
@@ -279,3 +289,4 @@ def auto_init_default(column) -> None:
                 )
             dict_[column.key] = value
             return value
+        return None

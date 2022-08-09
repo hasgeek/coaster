@@ -1,6 +1,10 @@
 """Registry and RegistryMixin tests."""
 
 from types import SimpleNamespace
+import typing as t  # noqa: F401  # pylint: disable=unused-import
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
+
+import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 import pytest
 

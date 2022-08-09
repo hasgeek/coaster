@@ -5,9 +5,9 @@ Text processing utilities
 
 from functools import partial
 from html import unescape
-from typing import List, Mapping, Set
 import re
 import string
+import typing as t
 
 from bleach.linkifier import DEFAULT_CALLBACKS, LinkifyFilter
 from bleach.sanitizer import Cleaner
@@ -78,7 +78,7 @@ re_compress_spaces = re.compile(
     r'[\s' + unicode_format_whitespace + ']+', re.UNICODE | re.MULTILINE
 )
 
-VALID_TAGS: Mapping[str, List[str]] = {
+VALID_TAGS: t.Mapping[str, t.List[str]] = {
     'a': ['href', 'title', 'target', 'rel'],
     'abbr': ['title'],
     'b': [],
@@ -110,7 +110,7 @@ VALID_TAGS: Mapping[str, List[str]] = {
     'ul': [],
 }
 
-LINKIFY_SKIP_TAGS: List = ['pre', 'code', 'kbd', 'samp', 'var']
+LINKIFY_SKIP_TAGS: t.List = ['pre', 'code', 'kbd', 'samp', 'var']
 
 
 # Adapted from https://bleach.readthedocs.io/en/latest/linkify.html#preventing-links
@@ -152,7 +152,7 @@ def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
     return Markup(cleaner.clean(value))
 
 
-blockish_tags: Set[str] = {
+blockish_tags: t.Set[str] = {
     'address',
     'article',
     'aside',

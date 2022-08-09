@@ -14,7 +14,8 @@ to auto-render HTML from Markdown text.
 
 from copy import deepcopy
 from html import unescape
-from typing import Any, Dict, List, Mapping, Optional, Union, cast, overload
+from typing import overload
+import typing as t
 
 from bleach import linkify as linkify_processor
 from markdown import Markdown
@@ -43,7 +44,7 @@ __all__ = [
 # --- Constants ------------------------------------------------------------------------
 
 MARKDOWN_HTML_TAGS = deepcopy(VALID_TAGS)
-cast(Dict, MARKDOWN_HTML_TAGS).update(
+t.cast(t.Dict, MARKDOWN_HTML_TAGS).update(
     {
         # For tables:
         'table': ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width'],
@@ -102,7 +103,7 @@ class JavascriptProtocolExtension(Extension):
 # FIXME: Disable support for custom css classes as described here:
 # https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes
 
-default_markdown_extensions_html: List[Union[str, Extension]] = [
+default_markdown_extensions_html: t.List[t.Union[str, Extension]] = [
     'markdown.extensions.abbr',
     'markdown.extensions.footnotes',
     'markdown.extensions.tables',
@@ -128,7 +129,7 @@ default_markdown_extensions = default_markdown_extensions_html + [
 ]
 
 
-default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
+default_markdown_extension_configs: t.Mapping[str, t.Mapping[str, t.Any]] = {
     'pymdownx.highlight': {'css_class': 'highlight', 'guess_lang': False},
     'pymdownx.superfences': {
         'css_class': 'highlight',
@@ -158,9 +159,9 @@ def markdown(
     text: None,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
-    extensions: Optional[List[Union[str, Extension]]] = None,
-    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
+    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
 ) -> None:
     ...
 
@@ -170,21 +171,21 @@ def markdown(
     text: str,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
-    extensions: Optional[List[Union[str, Extension]]] = None,
-    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
+    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
 ) -> Markup:
     ...
 
 
 def markdown(
-    text: Optional[str],
+    text: t.Optional[str],
     html: bool = False,
     linkify: bool = True,
-    valid_tags: Optional[Union[List[str], Mapping[str, List]]] = None,
-    extensions: Optional[List[Union[str, Extension]]] = None,
-    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
-) -> Optional[Markup]:
+    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
+    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
+) -> t.Optional[Markup]:
     """
     Markdown parser with a number of sane defaults that resemble GFM.
 
@@ -217,7 +218,7 @@ def markdown(
                     output_format='html',
                     extensions=extensions,
                     extension_configs=extension_configs,
-                ).convert(cast(str, text)),
+                ).convert(t.cast(str, text)),
                 valid_tags=valid_tags,
                 linkify=linkify,
             )
@@ -227,7 +228,7 @@ def markdown(
             output_format='html',
             extensions=extensions,
             extension_configs=extension_configs,
-        ).convert(cast(str, text))
+        ).convert(t.cast(str, text))
         if linkify:
             output = linkify_processor(
                 output, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS

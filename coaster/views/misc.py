@@ -7,15 +7,18 @@ Helper functions for view handlers.
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
 
-from typing import Container
 from urllib.parse import urlsplit
+import asyncio
 import re
+import typing as t
 
 from flask import Response, current_app, json, request
 from flask import session as request_session
 from flask import url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect
+
+from .. import typing as tc  # pylint: disable=reimported
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -29,7 +32,7 @@ def _index_url():
 
 
 def _clean_external_url(
-    url: str, allowed_schemes: Container[str] = ('http', 'https')
+    url: str, allowed_schemes: t.Container[str] = ('http', 'https')
 ) -> str:
     """Allow external URLs if they match current request's hostname."""
     # Do the domains and ports match?
@@ -69,7 +72,11 @@ def get_current_url() -> str:
     ):
         return request.url
 
-    url = url_for(request.endpoint, **request.view_args)
+    url = (
+        url_for(request.endpoint, **request.view_args)
+        if request.endpoint is not None  # Will be None in a 404 handler
+        else request.url
+    )
     query = request.query_string
     if query:
         return url + '?' + query.decode()
@@ -120,9 +127,11 @@ def get_next_url(
 
 def jsonp(*args, **kw):
     """
-    Returns a JSON response with a callback wrapper, if asked for.
-    Consider using CORS instead, as JSONP makes the client app insecure.
-    See the :func:`~coaster.views.decorators.cors` decorator.
+    Return a JSON response with a callback wrapper, if asked for.
+
+    .. deprecated:: 0.7.0
+        Switch to CORS as JSONP makes the client app insecure. See the
+        :func:`~coaster.views.decorators.cors` decorator.
     """
     data = json.dumps(dict(*args, **kw), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))
@@ -134,11 +143,16 @@ def jsonp(*args, **kw):
     return Response(data, mimetype=mimetype)
 
 
-def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
+def endpoint_for(
+    url: str,
+    method: t.Optional[str] = None,
+    return_rule: bool = False,
+    follow_redirects: bool = True,
+) -> t.Tuple[t.Optional[str], t.Dict[str, t.Any]]:  # TODO: Union for rule in return
     """
-    Given an absolute URL, retrieve the matching endpoint name (or rule) and
-    view arguments. Requires a current request context to determine runtime
-    environment.
+    Retrieve endpoint or rule and view arguments given an absolute URL.
+
+    Requires a current request context to determine runtime environment.
 
     :param str method: HTTP method to use (defaults to GET)
     :param bool return_rule: Return the URL rule instead of the endpoint name
@@ -203,3 +217,16 @@ def endpoint_for(url, method=None, return_rule=False, follow_redirects=True):
         pass
     # If we got here, no endpoint was found.
     return None, {}
+
+
+def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
+    """Help use Flask's ensure_sync outside a request context."""
+    if current_app:
+        return current_app.ensure_sync(func)
+
+    if not asyncio.iscoroutinefunction(func):
+        return func
+
+    return lambda *args, **kwargs: (  # type: ignore[return-value]
+        asyncio.run(func(*args, **kwargs))
+    )

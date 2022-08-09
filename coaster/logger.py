@@ -12,12 +12,12 @@ from html import escape
 from io import StringIO
 from pprint import pprint
 from threading import Lock
-from typing import Any, Dict
 import logging
 import logging.handlers
 import re
 import textwrap
 import traceback
+import typing as t
 
 from flask import g, request, session
 from flask.config import Config
@@ -52,8 +52,8 @@ _filter_re = re.compile(
 )
 
 # global var as lazy in-memory cache
-error_throttle_timestamp_slack: Dict[str, datetime] = {}
-error_throttle_timestamp_telegram: Dict[str, datetime] = {}
+error_throttle_timestamp_slack: t.Dict[str, datetime] = {}
+error_throttle_timestamp_telegram: t.Dict[str, datetime] = {}
 
 
 class FilteredValueIndicator:
@@ -152,7 +152,7 @@ class LocalVarFormatter(logging.Formatter):
             # original __repr__ while this is still dumping.
             original_config_repr = Config.__repr__
             Config.__repr__ = lambda self: '<Config [FILTERED]>'  # type: ignore[assignment]
-            value_cache: Dict[Any, str] = {}
+            value_cache: t.Dict[t.Any, str] = {}
 
             print('\n----------\n', file=sio)  # noqa: T201
             # XXX: The following text is used as a signature in :meth:`format` above
@@ -173,7 +173,7 @@ class LocalVarFormatter(logging.Formatter):
                     print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T201
                     try:
                         print(repr(filtered_value(attr, value)), file=sio)  # noqa: T201
-                    except:  # noqa: B901, E722
+                    except Exception:  # noqa: B902  # pylint: disable=broad-except
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
                         print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
@@ -202,7 +202,7 @@ class LocalVarFormatter(logging.Formatter):
             }
             try:
                 pprint_with_indent(request_data, sio)
-            except:  # noqa: B901, E722
+            except Exception:  # noqa: B902  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if session:
@@ -210,7 +210,7 @@ class LocalVarFormatter(logging.Formatter):
             print("Session cookie contents:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(session, sio)
-            except:  # noqa: B901, E722
+            except Exception:  # noqa: B902  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if g:
@@ -218,7 +218,7 @@ class LocalVarFormatter(logging.Formatter):
             print("App context:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(vars(g), sio)
-            except:  # noqa: B901, E722
+            except Exception:  # noqa: B902  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         if current_auth:
@@ -226,7 +226,7 @@ class LocalVarFormatter(logging.Formatter):
             print("Current auth:", file=sio)  # noqa: T201
             try:
                 pprint_with_indent(vars(current_auth), sio)
-            except:  # noqa: B901, E722
+            except Exception:  # noqa: B902  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
         s = sio.getvalue()
@@ -306,7 +306,7 @@ class SlackHandler(logging.Handler):
                         json=payload,
                         headers={'Content-Type': 'application/json'},
                     )
-                except:  # NOQA  # nosec
+                except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
                     # We need a bare except clause because this is the exception
                     # handler. It can't have exceptions of its own.
                     pass
@@ -416,8 +416,8 @@ def init_app(app):
         logger.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
-        logging.handlers.SlackHandler = SlackHandler
-        slack_handler = logging.handlers.SlackHandler(
+        # logging.handlers.SlackHandler = SlackHandler
+        slack_handler = SlackHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
         )
@@ -428,8 +428,8 @@ def init_app(app):
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
     ):
-        logging.handlers.TelegramHandler = TelegramHandler
-        telegram_handler = logging.handlers.TelegramHandler(
+        # logging.handlers.TelegramHandler = TelegramHandler
+        telegram_handler = TelegramHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             chatid=app.config['TELEGRAM_ERROR_CHATID'],
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],

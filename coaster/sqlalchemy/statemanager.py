@@ -222,24 +222,10 @@ over direct state value changes:
 
 from __future__ import annotations
 
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
 import functools
+import typing as t
 
-from sqlalchemy import CheckConstraint, and_
-from sqlalchemy import column as column_constructor
-from sqlalchemy import or_
+import sqlalchemy as sa
 
 from werkzeug.exceptions import BadRequest
 
@@ -265,7 +251,7 @@ __all__ = [
 
 # --- Internal types -------------------------------------------------------------------
 
-T = TypeVar('T')
+T = t.TypeVar('T')
 
 
 # --- Signals --------------------------------------------------------------------------
@@ -329,11 +315,11 @@ class ManagedState:
         self,
         name: str,
         statemanager: StateManager,
-        value: Any,
-        label: Optional[str] = None,
-        validator: Callable[[Any], bool] = None,
-        class_validator: Optional[Callable[[Any], None]] = None,
-        cache_for: Union[None, int, Callable] = None,
+        value: t.Any,
+        label: t.Optional[str] = None,
+        validator: t.Callable[[t.Any], bool] = None,
+        class_validator: t.Optional[t.Callable[[t.Any], None]] = None,
+        cache_for: t.Union[None, int, t.Callable] = None,
     ):
         self.name = name
         self.statemanager = statemanager
@@ -389,7 +375,7 @@ class ManagedState:
         if cv is None:
             cv = self.validator
         if cv is not None:
-            return and_(valuematch, cv(cls))
+            return sa.and_(valuematch, cv(cls))
         return valuematch
 
     def __call__(self, obj, cls=None):
@@ -467,7 +453,7 @@ class ManagedStateGroup:
     def _eval(self, obj, cls=None):
         if obj is not None:  # We're being called with an instance
             return any(s(obj, cls) for s in self.states)
-        return or_(*(s(obj, cls) for s in self.states))
+        return sa.or_(*(s(obj, cls) for s in self.states))
 
     def __call__(self, obj, cls=None):
         """
@@ -761,7 +747,7 @@ class StateManager:
         return f'<StateManager {self.name}>'
 
     def __get__(
-        self, obj: Optional[T], cls: Optional[Type[T]] = None
+        self, obj: t.Optional[T], cls: t.Optional[t.Type[T]] = None
     ) -> StateManagerWrapper[T]:
         return StateManagerWrapper(self, obj, cls)
 
@@ -820,7 +806,7 @@ class StateManager:
         setattr(self, 'is_' + name.lower(), mstate)
 
     # Stub for mypy to recognise names added by _add_state_internal
-    def __getattr__(self, name: str) -> Union[ManagedState, ManagedStateGroup]:
+    def __getattr__(self, name: str) -> t.Union[ManagedState, ManagedStateGroup]:
         raise AttributeError(name)
 
     def add_state_group(self, name, *states):
@@ -850,10 +836,10 @@ class StateManager:
         self,
         name: str,
         state: ManagedState,
-        validator: Callable[[Any], bool],
-        class_validator: Optional[Callable[[Any], bool]] = None,
-        cache_for: Union[None, int, Callable] = None,
-        label: Union[None, str, Tuple[str, str]] = None,
+        validator: t.Callable[[t.Any], bool],
+        class_validator: t.Optional[t.Callable[[t.Any], bool]] = None,
+        cache_for: t.Union[None, int, t.Callable] = None,
+        label: t.Union[None, str, t.Tuple[str, str]] = None,
     ):
         """
         Add a conditional state (direct state + condition validator).
@@ -927,8 +913,8 @@ class StateManager:
 
     def requires(
         self,
-        from_: Union[ManagedState, ManagedStateGroup],
-        if_: Optional[Callable[[Any], bool]] = None,
+        from_: t.Union[ManagedState, ManagedStateGroup],
+        if_: t.Optional[t.Callable[[t.Any], bool]] = None,
         **data,
     ):
         """
@@ -981,9 +967,9 @@ class StateManager:
             retrieve valid values from
         :param kwargs: Additional options passed to CheckConstraint
         """
-        return CheckConstraint(
+        return sa.CheckConstraint(
             str(
-                column_constructor(column)
+                sa.column(column)
                 .in_(lenum.keys())
                 .compile(compile_kwargs={'literal_binds': True})
             ),
@@ -991,7 +977,7 @@ class StateManager:
         )
 
 
-class StateManagerWrapper(Generic[T]):
+class StateManagerWrapper(t.Generic[T]):
     """
     Wraps :class:`StateManager` with the context of the containing object.
 
@@ -999,7 +985,7 @@ class StateManagerWrapper(Generic[T]):
     class or an instance.
     """
 
-    def __init__(self, statemanager, obj: Optional[T], cls: Optional[Type[T]]):
+    def __init__(self, statemanager, obj: t.Optional[T], cls: t.Optional[t.Type[T]]):
         self.statemanager = statemanager  # StateManager
         # Instance we're being called on, None if called on the class instead
         self.obj = obj
@@ -1042,7 +1028,7 @@ class StateManagerWrapper(Generic[T]):
                 if mstate(self.obj, self.cls)
             }
 
-    def transitions(self, current=True) -> Dict[str, StateTransitionWrapper]:
+    def transitions(self, current=True) -> t.Dict[str, StateTransitionWrapper]:
         """
         Return available transitions for the current state.
 
@@ -1064,7 +1050,7 @@ class StateManagerWrapper(Generic[T]):
 
     def transitions_for(
         self, roles=None, actor=None, anchors=()
-    ) -> Dict[str, StateTransitionWrapper]:
+    ) -> t.Dict[str, StateTransitionWrapper]:
         """
         Return currently available transitions for the given actor or roles.
 
@@ -1082,8 +1068,8 @@ class StateManagerWrapper(Generic[T]):
         }
 
     def group(
-        self, items: Iterable[T], keep_empty=False
-    ) -> Dict[ManagedState, List[T]]:
+        self, items: t.Iterable[T], keep_empty=False
+    ) -> t.Dict[ManagedState, t.List[T]]:
         """
         Given an iterable of instances, groups them by state.
 
@@ -1096,7 +1082,7 @@ class StateManagerWrapper(Generic[T]):
         cls = (
             self.cls if self.cls is not None else type(self.obj)
         )  # Class of the item being managed
-        groups: Dict[ManagedState, List[T]] = {}
+        groups: t.Dict[ManagedState, t.List[T]] = {}
         for mstate in self.statemanager.states_by_value.values():
             # Ensure we sort groups using the order of states in the source LabeledEnum.
             # We'll discard the unused states later.
