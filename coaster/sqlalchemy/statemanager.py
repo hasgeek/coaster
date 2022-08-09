@@ -835,7 +835,7 @@ class StateManager:
     def add_conditional_state(
         self,
         name: str,
-        state: ManagedState,
+        state: t.Union[ManagedState, ManagedStateGroup],
         validator: t.Callable[[t.Any], bool],
         class_validator: t.Optional[t.Callable[[t.Any], bool]] = None,
         cache_for: t.Union[None, int, t.Callable] = None,
