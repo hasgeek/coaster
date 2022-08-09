@@ -416,8 +416,8 @@ def init_app(app):
         logger.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
-        # logging.handlers.SlackHandler = SlackHandler
-        slack_handler = SlackHandler(
+        logging.handlers.SlackHandler = SlackHandler
+        slack_handler = logging.handlers.SlackHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
         )
@@ -428,8 +428,8 @@ def init_app(app):
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
     ):
-        # logging.handlers.TelegramHandler = TelegramHandler
-        telegram_handler = TelegramHandler(
+        logging.handlers.TelegramHandler = TelegramHandler
+        telegram_handler = logging.handlers.TelegramHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             chatid=app.config['TELEGRAM_ERROR_CHATID'],
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],
