@@ -182,9 +182,7 @@ class VersionedAssets(defaultdict):
 
 
 class UglipyJS(Filter):
-    """
-    Minifies Javascript using UgliPyJS, the Python wrapper for UglifyJS.
-    """
+    """Minifies Javascript using UgliPyJS, the Python wrapper for UglifyJS."""
 
     name = 'uglipyjs'
 

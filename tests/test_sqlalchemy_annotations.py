@@ -367,9 +367,7 @@ class TestCoasterAnnotations(unittest.TestCase):
             child.also_immutable = 'yy'
 
     def test_synonym_annotation(self):
-        """
-        The immutable annotation can be bypassed via synonyms
-        """
+        """The immutable annotation can be bypassed via synonyms"""
         sa = SynonymAnnotation(col_regular='a', col_immutable='b')
         # The columns behave as expected:
         assert sa.col_regular == 'a'

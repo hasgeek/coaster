@@ -75,9 +75,7 @@ class TestLoadModels(unittest.TestCase):
         self.app = app.test_client()
 
     def test_render(self):
-        """
-        Test rendered views.
-        """
+        """Test rendered views."""
         # For this test to pass, the render_view decorator must call render_template
         # with the correct template name. Since the templates don't actually exist,
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the

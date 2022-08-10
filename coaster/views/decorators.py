@@ -398,8 +398,7 @@ def load_models(*chain, **kwargs):
                 abort(403)
             if kwargs.get('kwargs'):
                 return ensure_sync(f)(*args, kwargs=kw, **result)
-            else:
-                return ensure_sync(f)(*args, **result)
+            return ensure_sync(f)(*args, **result)
 
         return decorated_function
 
@@ -610,8 +609,7 @@ def render_with(template=None, json=False, jsonp=False):  # pylint: disable=W062
                         else use_mimetype,
                     )
                 return rendered
-            else:
-                return result
+            return result
 
         return decorated_function
 

@@ -101,17 +101,13 @@ class TestUrlForBase(unittest.TestCase):
 
 class TestUrlFor(TestUrlForBase):
     def test_class_has_url_for(self):
-        """
-        Test that is_url_for declarations on one class are distinct from those on another class.
-        """
+        """Test that is_url_for declarations on one class are distinct from those on another class."""
         assert (
             NamedDocument.url_for_endpoints is not ScopedNamedDocument.url_for_endpoints
         )
 
     def test_url_for(self):
-        """
-        Test that is_url_for declarations are saved and used by the url_for method.
-        """
+        """Test that is_url_for declarations are saved and used by the url_for method."""
         # Make two documents
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -140,9 +136,7 @@ class TestUrlFor(TestUrlForBase):
         )
 
     def test_absolute_url(self):
-        """
-        The .absolute_url property is the same as .url_for(_external=True)
-        """
+        """The .absolute_url property is the same as .url_for(_external=True)"""
         # Make two documents
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -158,16 +152,12 @@ class TestUrlFor(TestUrlForBase):
         assert doc2.absolute_url != doc2.url_for(_external=False)
 
     def test_absolute_url_missing(self):
-        """
-        The .absolute_url property exists on all UrlForMixin-models, even if there is no view
-        """
+        """The .absolute_url property exists on all UrlForMixin-models, even if there is no view"""
         c1 = Container()
         assert c1.absolute_url is None
 
     def test_absolute_url_in_access_proxy(self):
-        """
-        The .absolute_url property does not have a default access role
-        """
+        """The .absolute_url property does not have a default access role"""
         c1 = Container()
         d = c1.access_for(roles={'all'})
         assert 'absolute_url' not in d
