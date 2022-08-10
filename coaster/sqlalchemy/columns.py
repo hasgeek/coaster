@@ -5,11 +5,11 @@ SQLAlchemy column types
 
 import json
 
-from sqlalchemy import UnicodeText
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
 from sqlalchemy_utils.types import URLType as UrlTypeBase
 from sqlalchemy_utils.types import UUIDType
+import sqlalchemy as sa
 
 from furl import furl
 
@@ -118,7 +118,7 @@ class UrlType(UrlTypeBase):
         ``file`` schemes)
     """
 
-    impl = UnicodeText
+    impl = sa.Unicode
     url_parser = furl
     cache_ok = True
 

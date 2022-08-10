@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
+import typing as t  # pylint: disable=unused-import  # noqa: F401
 import unittest
+import uuid as uuid_  # pylint: disable=unused-import  # noqa: F401
 
 from flask_sqlalchemy import SQLAlchemy
+import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401
 
 from flask import Flask
 
@@ -24,7 +27,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
@@ -157,7 +160,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
         return roles
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestStateManager(unittest.TestCase):
@@ -181,9 +184,7 @@ class TestStateManager(unittest.TestCase):
         self.ctx.pop()
 
     def test_state_already_exists(self):
-        """
-        Adding a conditional state with the name of an existing state will raise an error
-        """
+        """Conditional state with the name of an existing state will raise an error."""
         state = MyPost.__dict__['state']
         with pytest.raises(AttributeError):
             state.add_conditional_state('PENDING', state.DRAFT, lambda post: True)
@@ -272,7 +273,8 @@ class TestStateManager(unittest.TestCase):
         """
         state = MyPost.__dict__['state']
         with pytest.raises(ValueError):
-            # We'd never call this outside a test; it's only to test the validator within
+            # We'd never call this outside a test; it's only to test the validator
+            # within
             state._set(self.post, 100)
 
     def test_is_state(self):

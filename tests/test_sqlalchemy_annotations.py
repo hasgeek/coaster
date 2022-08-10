@@ -1,8 +1,10 @@
+import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 import warnings
 
-from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
+import sqlalchemy as sa
 import sqlalchemy.exc
 
 from flask import Flask
@@ -24,7 +26,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
 class ReferralTarget(BaseMixin, db.Model):
@@ -108,14 +110,14 @@ warnings.resetwarnings()
 
 class SynonymAnnotation(BaseMixin, db.Model):
     __tablename__ = 'synonym_annotation'
-    col_regular = db.Column(db.UnicodeText())
-    col_immutable = immutable(db.Column(db.UnicodeText()))
+    col_regular = db.Column(db.Unicode())
+    col_immutable = immutable(db.Column(db.Unicode()))
 
     # Synonyms cannot have annotations. They mirror the underlying attribute
     syn_to_immutable = db.synonym('col_immutable')
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestCoasterAnnotations(unittest.TestCase):
@@ -281,9 +283,9 @@ class TestCoasterAnnotations(unittest.TestCase):
         pi3 = UuidOnly.query.options(db.load_only('id')).filter_by(id=id3).one()
 
         # Confirm there is no value for is_immutable
-        assert inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
-        assert inspect(pi2).attrs.is_immutable.loaded_value is NO_VALUE
-        assert inspect(pi3).attrs.is_immutable.loaded_value is NO_VALUE
+        assert sa.inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
+        assert sa.inspect(pi2).attrs.is_immutable.loaded_value is NO_VALUE
+        assert sa.inspect(pi3).attrs.is_immutable.loaded_value is NO_VALUE
 
         # Immutable columns are immutable even if not loaded
         with pytest.raises(ImmutableColumnError):
@@ -365,9 +367,7 @@ class TestCoasterAnnotations(unittest.TestCase):
             child.also_immutable = 'yy'
 
     def test_synonym_annotation(self):
-        """
-        The immutable annotation can be bypassed via synonyms
-        """
+        """The immutable annotation can be bypassed via synonyms"""
         sa = SynonymAnnotation(col_regular='a', col_immutable='b')
         # The columns behave as expected:
         assert sa.col_regular == 'a'

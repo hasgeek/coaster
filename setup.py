@@ -6,11 +6,11 @@ import re
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(here, 'README.rst')) as f:
+with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     README = f.read()
-with open(os.path.join(here, 'CHANGES.rst')) as f:
+with open(os.path.join(here, 'CHANGES.rst'), encoding='utf-8') as f:
     CHANGES = f.read()
-with open(os.path.join(here, 'coaster', '_version.py')) as f:
+with open(os.path.join(here, 'coaster', '_version.py'), encoding='utf-8') as f:
     versionfile = f.read()
 
 mo = re.search(r"^__version__\s*=\s*['\"]([^'\"]*)['\"]", versionfile, re.M)
@@ -22,14 +22,13 @@ else:
 requires = [
     'aniso8601',
     'base58>=2.0.0',
-    'bcrypt',
     'bleach',
     'blinker',
     'Flask-Assets',
     'Flask-Migrate',
     'Flask-Script',
     'Flask-SQLAlchemy',
-    'Flask>=1.0',
+    'Flask>=2.0',
     'furl',
     'html2text>2019.8.11',
     'html5lib>=0.999999999',

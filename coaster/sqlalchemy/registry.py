@@ -33,9 +33,9 @@ for ``new`` and ``edit`` actions could use those names instead.
 
 from functools import partial
 from threading import Lock
-from typing import Optional, Set
+import typing as t
 
-from sqlalchemy.ext.declarative import declared_attr
+from ._compat import Mapped, declarative_mixin, declared_attr
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
@@ -45,19 +45,19 @@ _marker = object()
 class Registry:
     """Container for items registered to a model."""
 
-    _param: Optional[str]
-    _name: Optional[str]
+    _param: t.Optional[str]
+    _name: t.Optional[str]
     _lock: Lock
     _default_property: bool
     _default_cached_property: bool
-    _members: Set[str]
-    _properties: Set[str]
-    _cached_properties: Set[str]
+    _members: t.Set[str]
+    _properties: t.Set[str]
+    _cached_properties: t.Set[str]
 
     def __init__(
         self,
-        param: Optional[str] = None,
-        property: bool = False,  # noqa: A002
+        param: t.Optional[str] = None,
+        property: bool = False,  # noqa: A002  # pylint: disable=redefined-builtin
         cached_property: bool = False,
     ):
         """Initialize with config."""
@@ -93,7 +93,9 @@ class Registry:
         self._members.add(name)
         object.__setattr__(self, name, value)
 
-    def __call__(self, name=None, property=None, cached_property=None):  # noqa: A002
+    def __call__(  # pylint: disable=redefined-builtin
+        self, name=None, property=None, cached_property=None  # noqa: A002
+    ):
         """Return decorator to aid class or function registration."""
         use_property = self._default_property if property is None else property
         use_cached_property = (
@@ -202,6 +204,7 @@ class InstanceRegistry:
             return bool(self.__obj.__dict__.pop(self.__registry.name, False))
 
 
+@declarative_mixin
 class RegistryMixin:
     """
     Adds common registries to a model.
@@ -216,22 +219,23 @@ class RegistryMixin:
     parameter. The other registries pass it as the first positional parameter.
     """
 
+    # pylint: disable=no-self-argument
     @declared_attr
-    def forms(cls):
+    def forms(cls) -> Mapped[Registry]:
         """Registry for forms."""
         r = Registry('obj')
         r.__set_name__(cls, 'forms')
         return r
 
     @declared_attr
-    def views(cls):
+    def views(cls) -> Mapped[Registry]:
         """Registry for views."""
         r = Registry()
         r.__set_name__(cls, 'views')
         return r
 
     @declared_attr
-    def features(cls):
+    def features(cls) -> Mapped[Registry]:
         """Registry for feature tests."""
         r = Registry()
         r.__set_name__(cls, 'features')

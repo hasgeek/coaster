@@ -1,8 +1,8 @@
-from typing import Any, Callable, Dict, Optional, Union
+import typing as t
 
-from sqlalchemy import Column, UnicodeText
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import composite
+import sqlalchemy as sa
 
 from markupsafe import Markup
 
@@ -18,9 +18,11 @@ class MarkdownComposite(MutableComposite):
     #: or the markdown processor will receive `self` as first parameter
     markdown = staticmethod(markdown_processor)
     #: Markdown options. Subclasses can override this
-    options: Union[
-        Dict[str, Any],  # Options may be a dictionary of string keys,
-        Callable[[], Dict[str, Any]],  # or a callable that returns such a dictionary
+    options: t.Union[
+        # Options may be a dictionary of string keys,
+        t.Dict[str, t.Any],
+        # or a callable that returns such a dictionary
+        t.Callable[[], t.Dict[str, t.Any]],
     ] = {}
 
     def __init__(self, text, html=None):
@@ -66,7 +68,7 @@ class MarkdownComposite(MutableComposite):
         )
         self.changed()
 
-    def __json__(self) -> Dict[str, Optional[str]]:
+    def __json__(self) -> t.Dict[str, t.Optional[str]]:
         """Return JSON-compatible rendering of composite."""
         return {'text': self._text, 'html': self._html}
 
@@ -109,9 +111,9 @@ class MarkdownComposite(MutableComposite):
 def markdown_column(
     name: str,
     deferred: bool = False,
-    group: Optional[str] = None,
-    markdown: Optional[Callable] = None,
-    options: Optional[dict] = None,
+    group: t.Optional[str] = None,
+    markdown: t.Optional[t.Callable] = None,
+    options: t.Optional[dict] = None,
     **kwargs,
 ) -> composite:
     """
@@ -143,8 +145,8 @@ def markdown_column(
         CustomMarkdownComposite
         if (markdown is not None or options is not None)
         else MarkdownComposite,
-        Column(name + '_text', UnicodeText, **kwargs),
-        Column(name + '_html', UnicodeText, **kwargs),
+        sa.Column(name + '_text', sa.UnicodeText, **kwargs),
+        sa.Column(name + '_html', sa.UnicodeText, **kwargs),
         deferred=deferred,
         group=group or name,
     )

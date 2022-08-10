@@ -1,7 +1,11 @@
-import unittest
+"""Test @load_models view helper."""
 
-from sqlalchemy import Column, ForeignKey
+import typing as t  # noqa: F401  # pylint: disable=unused-import
+import unittest
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
+
 from sqlalchemy.orm import relationship
+import sqlalchemy as sa
 
 from flask import Flask, g
 from werkzeug.exceptions import Forbidden, NotFound
@@ -25,7 +29,7 @@ from .test_sqlalchemy_models import (
     login_manager,
 )
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
 class MiddleContainer(BaseMixin, db.Model):
@@ -34,8 +38,8 @@ class MiddleContainer(BaseMixin, db.Model):
 
 class ParentDocument(BaseNameMixin, db.Model):
     __tablename__ = 'parent_document'
-    middle_id = Column(  # type: ignore[call-overload]
-        None, ForeignKey('middle_container.id')
+    middle_id = sa.Column(  # type: ignore[call-overload]
+        sa.Integer, sa.ForeignKey('middle_container.id')
     )
     middle = relationship(MiddleContainer, uselist=False)
 
@@ -54,10 +58,10 @@ class ParentDocument(BaseNameMixin, db.Model):
 
 class ChildDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'child_document'
-    parent_id = Column(  # type: ignore[call-overload]
-        None, ForeignKey('middle_container.id')
+    parent_id = sa.Column(  # type: ignore[call-overload]
+        sa.Integer, sa.ForeignKey('middle_container.id')
     )
-    parent = relationship(MiddleContainer, backref='children')
+    parent: MiddleContainer = relationship(MiddleContainer, backref='children')
 
     def permissions(self, actor, inherited=None):
         if inherited is None:
@@ -71,15 +75,15 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
 
 class RedirectDocument(BaseNameMixin, db.Model):
     __tablename__ = 'redirect_document'
-    container_id = Column(  # type: ignore[call-overload]
-        None, ForeignKey('container.id')
+    container_id = sa.Column(  # type: ignore[call-overload]
+        sa.Integer, sa.ForeignKey('container.id')
     )
-    container = relationship(Container)
+    container: Container = relationship(Container)
 
-    target_id = Column(  # type: ignore[call-overload]
-        None, ForeignKey('named_document.id')
+    target_id = sa.Column(  # type: ignore[call-overload]
+        sa.Integer, sa.ForeignKey('named_document.id')
     )
-    target = relationship(NamedDocument)
+    target: NamedDocument = relationship(NamedDocument)
 
     def redirect_view_args(self):
         return {'document': self.target.name}
@@ -89,7 +93,7 @@ def return_siteadmin_perms():
     return {'siteadmin'}
 
 
-# --- load_models decorators --------------------------------------------------
+# --- load_models decorators -----------------------------------------------------------
 
 
 @load_model(
@@ -219,7 +223,7 @@ def t_dotted_document_delete(document, child):
     return child
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestLoadModels(unittest.TestCase):

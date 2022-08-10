@@ -1,27 +1,22 @@
+"""Test SQLAlchemy model mixins."""
+
 from datetime import datetime, timedelta
 from time import sleep
+import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid
+import uuid as uuid_
 
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    Unicode,
-    UnicodeText,
-    UniqueConstraint,
-    func,
-    inspect,
-)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import relationship, synonym
 from sqlalchemy.orm.exc import MultipleResultsFound
+import sqlalchemy as sa
 
 from flask import Flask
 from werkzeug.routing import BuildError
 
 from pytz import utc
+import pytest
 
 from coaster.db import db
 from coaster.sqlalchemy import (
@@ -55,7 +50,7 @@ login_manager = LoginManager(app1)
 LoginManager(app2)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
 class TimestampNaive(BaseMixin, db.Model):
@@ -70,76 +65,76 @@ class TimestampAware(BaseMixin, db.Model):
 
 class Container(BaseMixin, db.Model):
     __tablename__ = 'container'
-    name = Column(Unicode(80), nullable=True)
-    title = Column(Unicode(80), nullable=True)
+    name = sa.Column(sa.Unicode(80), nullable=True)
+    title = sa.Column(sa.Unicode(80), nullable=True)
 
-    content = Column(Unicode(250))
+    content = sa.Column(sa.Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, db.Model):
     __tablename__ = 'unnamed_document'
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
 
-    content = Column(Unicode(250))
+    content = sa.Column(sa.Unicode(250))
 
 
 class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
     reserved_names = ['new']
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
 
-    content = Column(Unicode(250))
+    content = sa.Column(sa.Unicode(250))
 
 
 class NamedDocumentBlank(BaseNameMixin, db.Model):
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
     reserved_names = ['new']
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
 
-    content = Column(Unicode(250))
+    content = sa.Column(sa.Unicode(250))
 
 
 class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
+    parent: Container = synonym('container')
 
-    content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('container_id', 'name'),)
+    content = sa.Column(sa.Unicode(250))
+    __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
 
 class IdNamedDocument(BaseIdNameMixin, db.Model):
     __tablename__ = 'id_named_document'
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
 
-    content = Column(Unicode(250))
+    content = sa.Column(sa.Unicode(250))
 
 
 class ScopedIdDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'scoped_id_document'
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
+    parent: Container = synonym('container')
 
-    content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
+    content = sa.Column(sa.Unicode(250))
+    __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
     __tablename__ = 'scoped_id_named_document'
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
+    parent: Container = synonym('container')
 
-    content = Column(Unicode(250))
-    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
+    content = sa.Column(sa.Unicode(250))
+    __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
 class UnlimitedName(BaseNameMixin, db.Model):
@@ -154,10 +149,10 @@ class UnlimitedName(BaseNameMixin, db.Model):
 class UnlimitedScopedName(BaseScopedNameMixin, db.Model):
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
-    __table_args__ = (UniqueConstraint('container_id', 'name'),)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
+    parent: Container = synonym('container')
+    __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
     def title_for_name(self):
@@ -176,10 +171,10 @@ class UnlimitedIdName(BaseIdNameMixin, db.Model):
 class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
     __tablename__ = 'unlimited_scoped_id_name'
     __name_length__ = __title_length__ = None
-    container_id = Column(Integer, ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
-    __table_args__ = (UniqueConstraint('container_id', 'url_id'),)
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
+    container: Container = relationship(Container)
+    parent: Container = synonym('container')
+    __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
     @property
     def title_for_name(self):
@@ -188,28 +183,28 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
 
 class User(BaseMixin, db.Model):
     __tablename__ = 'user'
-    username = Column(Unicode(80), nullable=False)
+    username = sa.Column(sa.Unicode(80), nullable=False)
 
 
 class MyData(db.Model):
     __tablename__ = 'my_data'
-    id = Column(Integer, primary_key=True)  # noqa: A003
-    data = Column(JsonDict)
+    id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
+    data = sa.Column(JsonDict)
 
 
 class MyUrlModel(db.Model):
     __tablename__ = 'my_url'
-    id = Column(Integer, primary_key=True)  # noqa: A003
-    url = Column(UrlType)  # type: ignore[var-annotated]
-    url_all_scheme = Column(UrlType(schemes=None))  # type: ignore[var-annotated]
-    url_custom_scheme = Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
-    url_optional_scheme = Column(  # type: ignore[var-annotated]
+    id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
+    url = sa.Column(UrlType)  # type: ignore[var-annotated]
+    url_all_scheme = sa.Column(UrlType(schemes=None))  # type: ignore[var-annotated]
+    url_custom_scheme = sa.Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
+    url_optional_scheme = sa.Column(  # type: ignore[var-annotated]
         UrlType(optional_scheme=True)
     )
-    url_optional_host = Column(  # type: ignore[var-annotated]
+    url_optional_host = sa.Column(  # type: ignore[var-annotated]
         UrlType(schemes=('mailto', 'file'), optional_host=True)
     )
-    url_optional_scheme_host = Column(  # type: ignore[var-annotated]
+    url_optional_scheme_host = sa.Column(  # type: ignore[var-annotated]
         UrlType(optional_scheme=True, optional_host=True)
     )
 
@@ -233,15 +228,15 @@ class UuidKeyNoDefault(BaseMixin, db.Model):
 class UuidForeignKey1(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
-    uuidkey = relationship(UuidKey)
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
+    uuidkey: UuidKey = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id = Column(None, ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
-    uuidkey = relationship(UuidKey)
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
+    uuidkey: UuidKey = relationship(UuidKey)
 
 
 class UuidIdName(BaseIdNameMixin, db.Model):
@@ -275,8 +270,8 @@ class ParentForPrimary(BaseMixin, db.Model):
 
 class ChildForPrimary(BaseMixin, db.Model):
     __tablename__ = 'child_for_primary'
-    parent_for_primary_id = Column(  # type: ignore[call-overload]
-        None, ForeignKey('parent_for_primary.id'), nullable=False
+    parent_for_primary_id = sa.Column(  # type: ignore[call-overload]
+        sa.Integer, sa.ForeignKey('parent_for_primary.id'), nullable=False
     )
     parent_for_primary = db.relationship(ParentForPrimary)
     parent = db.synonym('parent_for_primary')
@@ -304,7 +299,7 @@ class DefaultValue(BaseMixin, db.Model):
 auto_init_default(DefaultValue.value)
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestCoasterModels(unittest.TestCase):
@@ -335,7 +330,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(c.id, 1)
 
     def test_timestamp(self):
-        now1 = self.session.query(func.utcnow()).scalar()
+        now1 = self.session.query(sa.func.utcnow()).scalar()
         # Start a new transaction so that NOW() returns a new value
         self.session.commit()
         # The db may not store microsecond precision, so sleep at least 1 second
@@ -345,11 +340,12 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         u = c.updated_at
         sleep(1)
-        now2 = self.session.query(func.utcnow()).scalar()
+        now2 = self.session.query(sa.func.utcnow()).scalar()
         self.session.commit()
         # Convert timestamps to naive before testing because they may be mismatched:
         # 1. utcnow will have timezone in PostgreSQL, but not in SQLite
-        # 2. columns will have timezone iff PostgreSQL and the model has __with_timezone__ = True
+        # 2. columns will have timezone iff PostgreSQL and the model has
+        #    __with_timezone__ = True
         self.assertNotEqual(
             now1.replace(tzinfo=None), c.created_at.replace(tzinfo=None)
         )
@@ -401,20 +397,18 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d4_persisted, d4)
         self.assertEqual(d4_persisted.content, 'hello4')
 
-        with self.assertRaises(TypeError) as insert_error:
+        with pytest.raises(TypeError):
             NamedDocument.upsert(
                 'invalid1', title='Invalid1', non_existent_field="I don't belong here."
             )
-        self.assertEqual(TypeError, insert_error.expected)
 
-        with self.assertRaises(TypeError) as update_error:
+        with pytest.raises(TypeError):
             NamedDocument.upsert('valid1', title='Valid1')
             self.session.commit()
             NamedDocument.upsert(
                 'valid1', title='Invalid1', non_existent_field="I don't belong here."
             )
             self.session.commit()
-        self.assertEqual(TypeError, update_error.expected)
 
     # TODO: Versions of this test are required for BaseNameMixin,
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
@@ -482,18 +476,17 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(d5_persisted, d5)
         self.assertEqual(d5_persisted.content, 'scoped named doc')
 
-        with self.assertRaises(TypeError) as insert_error:
+        with pytest.raises(TypeError):
             ScopedNamedDocument.upsert(
                 c1,
                 'invalid1',
                 title='Invalid1',
                 non_existent_field="I don't belong here.",
             )
-        self.assertEqual(TypeError, insert_error.expected)
 
         ScopedNamedDocument.upsert(c1, 'valid1', title='Valid1')
         self.session.commit()
-        with self.assertRaises(TypeError) as update_error:
+        with pytest.raises(TypeError):
             ScopedNamedDocument.upsert(
                 c1,
                 'valid1',
@@ -501,7 +494,6 @@ class TestCoasterModels(unittest.TestCase):
                 non_existent_field="I don't belong here.",
             )
             self.session.commit()
-        self.assertEqual(TypeError, update_error.expected)
 
     def test_scoped_named_short_title(self):
         """Test the short_title method of BaseScopedNameMixin."""
@@ -690,26 +682,6 @@ class TestCoasterModels(unittest.TestCase):
         assert d1.url_id == 1
         assert d2.url_id == 1
 
-    def test_unlimited_name_title(self):
-        """The four name mixins will switch from Unicode to UnicodeText if length is None"""
-        for model in (
-            NamedDocument,
-            ScopedNamedDocument,
-            IdNamedDocument,
-            ScopedIdNamedDocument,
-        ):
-            assert isinstance(inspect(model.name).type, Unicode)
-            assert isinstance(inspect(model.title).type, Unicode)
-
-        for model in (
-            UnlimitedName,
-            UnlimitedScopedName,
-            UnlimitedIdName,
-            UnlimitedScopedIdName,
-        ):
-            assert isinstance(inspect(model.name).type, UnicodeText)
-            assert isinstance(inspect(model.title).type, UnicodeText)
-
     def test_title_for_name(self):
         """Models can customise how their names are generated"""
         c1 = self.make_container()
@@ -757,7 +729,7 @@ class TestCoasterModels(unittest.TestCase):
 
     def test_url_for_fail(self):
         d = UnnamedDocument(content="hello")
-        with self.assertRaises(BuildError):
+        with pytest.raises(BuildError):
             d.url_for()
 
     def test_jsondict(self):
@@ -784,19 +756,19 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_custom_scheme) == "ftp://example.com"
 
     def test_urltype_invalid(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url="example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_without_scheme(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url="//example.com")
             self.session.add(m2)
             self.session.commit()
 
     def test_urltype_invalid_without_host(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url="https:///test")
             self.session.add(m2)
             self.session.commit()
@@ -810,13 +782,13 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_custom_scheme) == ""
 
     def test_urltype_invalid_scheme_default(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self):
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
@@ -826,7 +798,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(m1)
         self.session.commit()
 
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url_optional_scheme="example.com/test")
             self.session.add(m2)
             self.session.commit()
@@ -836,7 +808,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(m1)
         self.session.commit()
 
-        with self.assertRaises(StatementError):
+        with pytest.raises(StatementError):
             m2 = MyUrlModel(url_optional_host="https:///test")
             self.session.add(m2)
             self.session.commit()
@@ -910,8 +882,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(u1)
         self.session.add(u2)
         self.session.commit()
-        assert isinstance(u1.id, uuid.UUID)
-        assert isinstance(u2.id, uuid.UUID)
+        assert isinstance(u1.id, uuid_.UUID)
+        assert isinstance(u2.id, uuid_.UUID)
         self.assertNotEqual(u1.id, u2.id)
 
         fk1 = UuidForeignKey1(uuidkey=u1)
@@ -922,8 +894,8 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertIs(fk1.uuidkey, u1)
         self.assertIs(fk2.uuidkey, u2)
-        assert isinstance(fk1.uuidkey_id, uuid.UUID)
-        assert isinstance(fk2.uuidkey_id, uuid.UUID)
+        assert isinstance(fk1.uuidkey_id, uuid_.UUID)
+        assert isinstance(fk2.uuidkey_id, uuid_.UUID)
         self.assertEqual(fk1.uuidkey_id, u1.id)
         self.assertEqual(fk2.uuidkey_id, u2.id)
 
@@ -954,17 +926,17 @@ class TestCoasterModels(unittest.TestCase):
 
         self.assertEqual(u1.url_id, str(i1))
 
-        self.assertIsInstance(i2, uuid.UUID)
+        self.assertIsInstance(i2, uuid_.UUID)
         self.assertEqual(u2.url_id, i2.hex)
         self.assertEqual(len(u2.url_id), 32)  # This is a 32-byte hex representation
         assert '-' not in u2.url_id  # Without dashes
 
-        self.assertIsInstance(i3, uuid.UUID)
+        self.assertIsInstance(i3, uuid_.UUID)
         self.assertEqual(u3.uuid_hex, i3.hex)
         self.assertEqual(len(u3.uuid_hex), 32)  # This is a 32-byte hex representation
         assert '-' not in u3.uuid_hex  # Without dashes
 
-        self.assertIsInstance(i4, uuid.UUID)
+        self.assertIsInstance(i4, uuid_.UUID)
         self.assertEqual(u4.uuid_hex, i4.hex)
         self.assertEqual(len(u4.uuid_hex), 32)  # This is a 32-byte hex representation
         assert '-' not in u4.uuid_hex  # Without dashes
@@ -1029,7 +1001,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(
             str(
                 (
-                    UuidKey.url_id == uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
+                    UuidKey.url_id == uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
@@ -1043,7 +1015,7 @@ class TestCoasterModels(unittest.TestCase):
                     UuidKey.url_id.in_(
                         [
                             '74d588574a7611e78c27c38403d0935c',
-                            uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+                            uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
                             'garbage!',
                         ]
                     )
@@ -1130,8 +1102,8 @@ class TestCoasterModels(unittest.TestCase):
         db.session.commit()
 
         # The `uuid` column contains a UUID
-        self.assertIsInstance(u1.uuid, uuid.UUID)
-        self.assertIsInstance(u2.uuid, uuid.UUID)
+        self.assertIsInstance(u1.uuid, uuid_.UUID)
+        self.assertIsInstance(u2.uuid, uuid_.UUID)
 
         # Test readbility of `buid` attribute
         self.assertEqual(u1.buid, uuid_to_base64(u1.uuid))
@@ -1242,17 +1214,17 @@ class TestCoasterModels(unittest.TestCase):
         The url_id_name and url_name_uuid_b58 fields should be queryable as well.
         """
         u1 = UuidIdName(
-            id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            id=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
         u2 = UuidIdNameMixin(
-            id=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            id=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
         u3 = UuidIdNameSecondary(
-            uuid=uuid.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            uuid=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
@@ -1262,7 +1234,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(u1.url_id, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u1.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
         # No uuid_b58 without UuidMixin
-        with self.assertRaises(AttributeError):
+        with pytest.raises(AttributeError):
             self.assertEqual(u1.url_name_uuid_b58, 'test-FRn1p6EnzbhydnssMnHqFZ')
         self.assertEqual(u2.uuid_hex, '74d588574a7611e78c27c38403d0935c')
         self.assertEqual(u2.url_id_name, '74d588574a7611e78c27c38403d0935c-test')
@@ -1308,7 +1280,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertIsNone(u1)
         # However, UUID keys are generated even before adding to session
         u2 = uuid_yes.id
-        self.assertIsInstance(u2, uuid.UUID)
+        self.assertIsInstance(u2, uuid_.UUID)
         # Once generated, the key remains stable
         u3 = uuid_yes.id
         self.assertEqual(u2, u3)
@@ -1319,9 +1291,9 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin works likewise
         um1 = uuidm_no.uuid
-        self.assertIsInstance(um1, uuid.UUID)
+        self.assertIsInstance(um1, uuid_.UUID)
         um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
-        self.assertIsInstance(um2, uuid.UUID)
+        self.assertIsInstance(um2, uuid_.UUID)
         self.assertEqual(uuidm_yes.id, uuidm_yes.uuid)
 
     def test_parent_child_primary(self):
@@ -1342,7 +1314,9 @@ class TestCoasterModels(unittest.TestCase):
         self.assertIsNone(parent2.primary_child)
 
         self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
+            self.session.query(sa.func.count())
+            .select_from(parent_child_primary)
+            .scalar(),
             0,
         )
 
@@ -1353,7 +1327,9 @@ class TestCoasterModels(unittest.TestCase):
 
         # The change has been committed to the database
         self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
+            self.session.query(sa.func.count())
+            .select_from(parent_child_primary)
+            .scalar(),
             2,
         )
         qparent1 = ParentForPrimary.query.get(parent1.id)
@@ -1363,7 +1339,7 @@ class TestCoasterModels(unittest.TestCase):
         self.assertEqual(qparent2.primary_child, child2a)
 
         # # A parent can't have a default that is another's child
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             parent1.primary_child = child2b
 
         # The default hasn't changed despite the validation error
@@ -1374,7 +1350,9 @@ class TestCoasterModels(unittest.TestCase):
         parent1.primary_child = None
         self.session.commit()
         self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
+            self.session.query(sa.func.count())
+            .select_from(parent_child_primary)
+            .scalar(),
             1,
         )
         self.assertIsNotNone(ChildForPrimary.query.get(child1a.id))
@@ -1384,7 +1362,9 @@ class TestCoasterModels(unittest.TestCase):
         self.session.delete(child2a)
         self.session.commit()
         self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
+            self.session.query(sa.func.count())
+            .select_from(parent_child_primary)
+            .scalar(),
             0,
         )
         self.assertEqual(ParentForPrimary.query.count(), 2)
@@ -1442,7 +1422,9 @@ class TestCoasterModelsPG(TestCoasterModels):
 
         # The change has been committed to the database
         self.assertEqual(
-            self.session.query(func.count()).select_from(parent_child_primary).scalar(),
+            self.session.query(sa.func.count())
+            .select_from(parent_child_primary)
+            .scalar(),
             1,
         )
         # Attempting a direct write to the db works for valid children and fails for invalid children
@@ -1451,7 +1433,7 @@ class TestCoasterModelsPG(TestCoasterModels):
             .where(parent_child_primary.c.parent_for_primary_id == parent1.id)
             .values({'child_for_primary_id': child1b.id})
         )
-        with self.assertRaises(IntegrityError):
+        with pytest.raises(IntegrityError):
             self.session.execute(
                 parent_child_primary.update()
                 .where(parent_child_primary.c.parent_for_primary_id == parent1.id)

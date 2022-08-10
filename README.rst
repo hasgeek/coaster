@@ -21,17 +21,11 @@ Testing also requires additional dependencies. Install them with::
 
     $ pip install -r test_requirements.txt
 
-To run a single test::
+To run tests::
 
-    $ nosetests tests.<test_filename>
-    $ # Example: nosetests tests.test_render_with
+    $ pytest
 
-To run all tests in one go::
-
-    $ ./runtests.sh
-
-Some tests are in the form of doctests within each function, and only
-accessible by running all tests via ``runtests.sh``.
+Some tests are in the form of doctests within each function.
 
 
 .. |docs| image:: https://readthedocs.org/projects/coaster/badge/?version=latest

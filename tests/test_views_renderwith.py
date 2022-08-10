@@ -6,7 +6,7 @@ from jinja2 import TemplateNotFound
 
 from coaster.views import jsonp, render_with
 
-# --- Test setup --------------------------------------------------------------
+# --- Test setup -----------------------------------------------------------------------
 
 app = Flask(__name__)
 
@@ -66,7 +66,7 @@ def view_for_star():
     return {'data': 'value'}, 201
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestLoadModels(unittest.TestCase):
@@ -75,9 +75,7 @@ class TestLoadModels(unittest.TestCase):
         self.app = app.test_client()
 
     def test_render(self):
-        """
-        Test rendered views.
-        """
+        """Test rendered views."""
         # For this test to pass, the render_view decorator must call render_template
         # with the correct template name. Since the templates don't actually exist,
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the

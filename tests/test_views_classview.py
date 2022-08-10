@@ -1,5 +1,11 @@
-import collections.abc as abc
+"""Test classviews."""
+
+from collections import abc
+import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
+
+import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from flask import Flask, json
 from werkzeug.exceptions import Forbidden
@@ -42,7 +48,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
 class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
@@ -90,7 +96,7 @@ class RenameableDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-define
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
 
-# --- Views -------------------------------------------------------------------
+# --- Views ----------------------------------------------------------------------------
 
 
 @route('/')
@@ -214,12 +220,12 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
-        if access_token == 'owner-admin-secret':  # noqa: S105 # nosec
+        if access_token == 'owner-admin-secret':  # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute(
                 'user', 'this-is-the-owner'
             )  # See ViewDocument.permissions
-        if access_token == 'owner-secret':  # noqa: S105 # nosec
+        if access_token == 'owner-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-the-owner'
             )  # See ViewDocument.permissions
@@ -252,7 +258,7 @@ ScopedDocumentView.init_app(app)
 
 
 @route('/rename/<document>')
-class RenameableDocumentView(UrlChangeCheck, InstanceLoader, ModelView):
+class RenameableDocumentView(UrlChangeCheck, UrlForView, InstanceLoader, ModelView):
     model = RenameableDocument
     route_model_map = {'document': 'url_name'}
 
@@ -292,15 +298,15 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
 
     @requestargs('access_token')
     def before_request(self, access_token=None):
-        if access_token == 'owner-secret':  # noqa: S105 # nosec
+        if access_token == 'owner-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-the-owner'
             )  # See ViewDocument.permissions
-        if access_token == 'editor-secret':  # noqa: S105 # nosec
+        if access_token == 'editor-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-the-editor'
             )  # See ViewDocument.permissions
-        if access_token == 'another-owner-secret':  # noqa: S105 # nosec
+        if access_token == 'another-owner-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-another-owner'
             )  # See ViewDocument.permissions
@@ -333,7 +339,7 @@ ViewDocument.views.gated = GatedDocumentView
 GatedDocumentView.init_app(app)
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestClassView(unittest.TestCase):

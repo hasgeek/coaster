@@ -4,7 +4,7 @@ Date, time and timezone utilities
 """
 
 from datetime import datetime, tzinfo
-from typing import Union
+import typing as t
 
 from aniso8601 import parse_datetime, parse_duration
 from aniso8601.exceptions import ISOFormatError as ParseError
@@ -21,7 +21,7 @@ __all__ = [
     'ParseError',
 ]
 
-# --- Thread safety fix -------------------------------------------------------
+# --- Thread safety fix ----------------------------------------------------------------
 
 # Force import of strptime. This was previously used in :func:`parse_isoformat`,
 # but we have left this in because it could break elsewhere.
@@ -55,7 +55,7 @@ def parse_isoformat(text, naive=True, delimiter='T'):
 
 
 def isoweek_datetime(
-    year: int, week: int, timezone: Union[tzinfo, str] = 'UTC', naive=False
+    year: int, week: int, timezone: t.Union[tzinfo, str] = 'UTC', naive=False
 ) -> datetime:
     """
     Return a datetime matching the starting point of a specified ISO week.

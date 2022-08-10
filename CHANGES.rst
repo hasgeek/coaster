@@ -20,6 +20,9 @@
   repeat already logged values
 * Dropped deprecated declared_attr_roles and set_roles
 * Added ``__json__`` protocol in ``RoleMixin``
+* Remove unicode_http_header
+* ``loader`` and ``after_loader`` are deprecated in ``coaster.views.ModelView``
+  in favour of a unified ``load`` method
 
 0.6.1 - 2021-01-06
 ------------------

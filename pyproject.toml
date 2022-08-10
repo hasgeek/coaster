@@ -50,11 +50,32 @@ default_section = 'THIRDPARTY'
 sections = ['FUTURE', 'STDLIB', 'SQLALCHEMY', 'FLASK', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
 
 [tool.pytest.ini_options]
+required_plugins = [
+  'pytest-env',
+  'pytest-rerunfailures',
+  'pytest-remotedata',
+]
 minversion = "6.0"
 addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
 filterwarnings = ['ignore::DeprecationWarning', 'ignore::UserWarning']
 mocked-sessions = 'coaster.db.db.session'
+env = ['FLASK_ENV=testing']
+remote_data_strict = true
+
+[tool.pylint.master]
+load-plugins = ['pylint_pytest', 'pylint_flask_sqlalchemy']
+max-parents = 10
+init-hook = """
+import os, astroid.bases, pathlib
+# Tell Pylint where to find packages from within tests
+for path in pathlib.Path.cwd().parents:
+    if (path / 'pyproject.toml').is_file():
+      sys.path.append(str(path))
+# Tell Pylint hybrid_property and cached_property are property-types
+astroid.bases.POSSIBLE_PROPERTIES.add('hybrid_property')
+astroid.bases.POSSIBLE_PROPERTIES.add('cached_property')
+"""
 
 [tool.pylint.message_control]
 max-line-length = 88
@@ -69,12 +90,14 @@ disable = [
 [tool.mypy]
 files = '**/*.py'
 exclude = 'node_modules'
+# plugins = ['sqlalchemy.ext.mypy.plugin']
+plugins = ['sqlmypy']
 ignore_missing_imports = true
 show_error_codes = true
 warn_unreachable = true
-# Unsafe with pre-commit, see https://github.com/python/mypy/issues/2960
-warn_unused_ignores = false
-plugins = ['sqlmypy']
+warn_unused_ignores = true
+warn_redundant_casts = false
+check_untyped_defs = false
 
 [tool.bandit]
 exclude_dirs = ['node_modules', 'build/lib']

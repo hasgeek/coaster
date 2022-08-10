@@ -18,27 +18,16 @@ your Flask app::
 Mixin classes must always appear *before* ``db.Model`` in your model's base classes.
 """
 
-from collections import namedtuple
+from collections import abc, namedtuple
+from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Set, Tuple
-import collections.abc as abc
+import typing as t
 import uuid as uuid_
 
-from sqlalchemy import (
-    TIMESTAMP,
-    CheckConstraint,
-    Column,
-    Integer,
-    Numeric,
-    Unicode,
-    UnicodeText,
-    event,
-    inspect,
-)
-from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import synonym
 from sqlalchemy.sql import func, select
 from sqlalchemy_utils.types import UUIDType
+import sqlalchemy as sa
 
 from flask import Flask, current_app, url_for
 from werkzeug.routing import BuildError
@@ -53,6 +42,7 @@ from ..utils import (
     uuid_to_base64,
 )
 from ..utils.misc import _punctuation_re
+from ._compat import Mapped, declarative_mixin, declared_attr, hybrid_property
 from .comparators import (
     Query,
     SqlSplitIdComparator,
@@ -64,15 +54,6 @@ from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
-
-if TYPE_CHECKING:
-    # mypy doesn't understand hybrid_property, so this is a hack telling it to assume
-    # hybrid_property is just an alias for property, but only when type checking.
-    # Fix pending in https://github.com/dropbox/sqlalchemy-stubs/issues/98
-    hybrid_property = property
-else:
-    from sqlalchemy.ext.hybrid import hybrid_property
-
 
 __all__ = [
     'IdMixin',
@@ -94,6 +75,7 @@ __all__ = [
 ]
 
 
+@declarative_mixin
 class IdMixin:
     """
     Provides the :attr:`id` primary key column.
@@ -114,21 +96,25 @@ class IdMixin:
     __uuid_primary_key__ = False
 
     @declared_attr
-    def id(cls):  # noqa: A003
+    def id(  # noqa: A003  # pylint: disable=no-self-argument
+        cls,
+    ) -> Mapped[t.Union[sa.Integer, uuid_.UUID]]:
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return immutable(
-                Column(
+                sa.Column(
                     UUIDType(binary=False),
                     default=uuid_.uuid4,
                     primary_key=True,
                     nullable=False,
                 )
             )
-        return immutable(Column(Integer, primary_key=True, nullable=False))
+        return immutable(sa.Column(sa.Integer, primary_key=True, nullable=False))
 
     @declared_attr
-    def url_id(cls):
+    def url_id(  # pylint: disable=no-self-argument
+        cls,
+    ) -> Mapped[t.Union[int, uuid_.UUID]]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
@@ -142,10 +128,12 @@ class IdMixin:
 
             url_id_func.__name__ = 'url_id'
             url_id_property = hybrid_property(url_id_func)
-            url_id_property = url_id_property.comparator(url_id_is)
+            url_id_property = url_id_property.comparator(  # type: ignore[attr-defined]
+                url_id_is
+            )
             return url_id_property
 
-        def url_id_func(self):
+        def url_id_func(self):  # type: ignore  # pylint: disable=function-redefined
             """URL-safe representation of the integer id as a string."""
             return str(self.id)
 
@@ -155,13 +143,16 @@ class IdMixin:
 
         url_id_func.__name__ = 'url_id'
         url_id_property = hybrid_property(url_id_func)
-        url_id_property = url_id_property.expression(url_id_expression)
+        url_id_property = url_id_property.expression(  # type: ignore[attr-defined]
+            url_id_expression
+        )
         return url_id_property
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.id}>'
 
 
+@declarative_mixin
 class UuidMixin:
     """
     Provides a :attr:`uuid` attribute.
@@ -182,12 +173,17 @@ class UuidMixin:
 
     @with_roles(read={'all'})
     @declared_attr
-    def uuid(cls):
+    def uuid(  # pylint: disable=no-self-argument
+        cls,
+    ) -> Mapped[uuid_.UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
-        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
+        if (
+            hasattr(cls, '__uuid_primary_key__')
+            and cls.__uuid_primary_key__  # type: ignore[attr-defined]
+        ):
             return synonym('id')
         return immutable(
-            Column(
+            sa.Column(
                 UUIDType(binary=False),
                 default=uuid_.uuid4,
                 unique=True,
@@ -200,8 +196,9 @@ class UuidMixin:
         """URL-friendly UUID representation as a hex string."""
         return self.uuid.hex
 
-    @uuid_hex.comparator
-    def uuid_hex(cls):
+    @uuid_hex.comparator  # type: ignore[no-redef]
+    def uuid_hex(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for UUID in hex format."""
         # For some reason the test fails if we use `cls.uuid` here
         # but works fine in the `uuid_b64` and `uuid_b58` comparators below
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -213,12 +210,14 @@ class UuidMixin:
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)."""
         return uuid_to_base64(self.uuid)
 
-    @uuid_b64.setter
+    @uuid_b64.setter  # type: ignore[no-redef]
     def uuid_b64(self, value):
+        """Set UUID in Base64 format."""
         self.uuid = uuid_from_base64(value)
 
-    @uuid_b64.comparator
-    def uuid_b64(cls):
+    @uuid_b64.comparator  # type: ignore[no-redef]
+    def uuid_b64(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for UUID in Base64 format."""
         return SqlUuidB64Comparator(cls.uuid)
 
     #: Retain `buid` as a public attribute for backward compatibility
@@ -233,18 +232,20 @@ class UuidMixin:
         """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet."""
         return uuid_to_base58(self.uuid)
 
-    @uuid_b58.setter
-    def uuid_b58(self, value):
+    @uuid_b58.setter  # type: ignore[no-redef]  # pylint: disable=no-self-argument
+    def uuid_b58(self, value):  # pylint: disable=no-self-argument
         self.uuid = uuid_from_base58(value)
 
-    @uuid_b58.comparator
-    def uuid_b58(cls):
+    @uuid_b58.comparator  # type: ignore[no-redef]
+    def uuid_b58(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid)
 
     with_roles(uuid_b58, read={'all'})
 
 
 # Also see functions.make_timestamp_columns
+@declarative_mixin
 class TimestampMixin:
     """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
@@ -254,25 +255,26 @@ class TimestampMixin:
 
     @immutable
     @declared_attr
-    def created_at(cls):
+    def created_at(cls) -> sa.Column[datetime]:  # pylint: disable=no-self-argument
         """Timestamp for when this instance was created, in UTC."""
-        return Column(
-            TIMESTAMP(timezone=cls.__with_timezone__),
+        return sa.Column(
+            sa.TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
             nullable=False,
         )
 
     @declared_attr
-    def updated_at(cls):
+    def updated_at(cls) -> sa.Column[datetime]:  # pylint: disable=no-self-argument
         """Timestamp for when this instance was last updated (via the app), in UTC."""
-        return Column(
-            TIMESTAMP(timezone=cls.__with_timezone__),
+        return sa.Column(
+            sa.TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
             onupdate=func.utcnow(),
             nullable=False,
         )
 
 
+@declarative_mixin
 class PermissionMixin:
     """
     Provides the :meth:`permissions` method.
@@ -281,7 +283,9 @@ class PermissionMixin:
     should use the role granting mechanism in :class:`RoleMixin`.
     """
 
-    def permissions(self, actor, inherited: Optional[Set[str]] = None) -> Set[str]:
+    def permissions(
+        self, actor, inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         """Return permissions available to the given user on this object."""
         if inherited is not None:
             return set(inherited)
@@ -335,8 +339,8 @@ class UrlDict(abc.Mapping):
     def __getitem__(self, key):
         try:
             return self.obj.url_for(key, _external=True)
-        except BuildError:
-            raise KeyError(key)
+        except BuildError as exc:
+            raise KeyError(key) from exc
 
     def __len__(self):
         return len(self.obj.url_for_endpoints[None]) + (
@@ -362,6 +366,7 @@ class UrlDict(abc.Mapping):
                         yield action
 
 
+@declarative_mixin
 class UrlForMixin:
     """Provides a :meth:`url_for` method used by BaseMixin-derived classes."""
 
@@ -369,11 +374,11 @@ class UrlForMixin:
     #: strings. The same action can point to different endpoints in different apps. The
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
-    url_for_endpoints: Dict[Optional[Flask], Dict[str, Dict[str, Tuple[str, str]]]] = {
-        None: {}
-    }
+    url_for_endpoints: t.Dict[
+        t.Optional[Flask], t.Dict[str, t.Dict[str, t.Tuple[str, str]]]
+    ] = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
-    view_for_endpoints: Dict[Flask, Dict[str, Tuple[Any, str]]] = {}
+    view_for_endpoints: t.Dict[Flask, t.Dict[str, t.Tuple[t.Any, str]]] = {}
 
     #: Dictionary of URLs available on this object
     urls = UrlDictStub()
@@ -386,8 +391,8 @@ class UrlForMixin:
         else:
             try:
                 epdata = self.url_for_endpoints[None][action]
-            except KeyError:
-                raise BuildError(action, kwargs, 'GET')
+            except KeyError as exc:
+                raise BuildError(action, kwargs, 'GET') from exc
         params = {}
         for param, attr in list(epdata.paramattrs.items()):
             if isinstance(attr, tuple):
@@ -512,15 +517,13 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
     """
 
     def _set_fields(self, fields):
-        """Helper method for :meth:`upsert` in the various subclasses."""
+        """Set field values."""
         for f in fields:
             if hasattr(self, f):
                 setattr(self, f, fields[f])
             else:
                 raise TypeError(
-                    "'{arg}' is an invalid argument for {instance_type}".format(
-                        arg=f, instance_type=self.__class__.__name__
-                    )
+                    f"'{f}' is an invalid argument for {self.__class__.__name__}"
                 )
 
 
@@ -551,34 +554,34 @@ class BaseNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: Collection[str] = []
+    reserved_names: t.Collection[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: Optional[int] = 250
-    __title_length__: Optional[int] = 250
+    __name_length__: t.Optional[int] = 250
+    __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls):
+    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__name_length__)
+            column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return Column(column_type, nullable=False, unique=True)
-        return Column(
-            column_type, CheckConstraint("name <> ''"), nullable=False, unique=True
+            return sa.Column(column_type, nullable=False, unique=True)
+        return sa.Column(
+            column_type, sa.CheckConstraint("name <> ''"), nullable=False, unique=True
         )
 
     @declared_attr
-    def title(cls):
+    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for title of this object."""
         if cls.__title_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__title_length__)
-        return Column(column_type, nullable=False)
+            column_type = sa.Unicode(cls.__title_length__)
+        return sa.Column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -613,7 +616,7 @@ class BaseNameMixin(BaseMixin):
             instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
-    def make_name(self, reserved: Collection = ()):
+    def make_name(self, reserved: t.Collection[str] = ()):
         """
         Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
 
@@ -625,7 +628,7 @@ class BaseNameMixin(BaseMixin):
             :attr:`reserved_names` collection.
         """
         if self.title:
-            if inspect(self).has_identity:
+            if sa.inspect(self).has_identity:
 
                 def checkused(c):
                     return bool(
@@ -687,32 +690,32 @@ class BaseScopedNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: Collection[str] = []
+    reserved_names: t.Collection[str] = []
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: Optional[int] = 250
-    __title_length__: Optional[int] = 250
+    __name_length__: t.Optional[int] = 250
+    __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls):
+    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for URL name of this object, unique within a parent container."""
         if cls.__name_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__name_length__)
+            column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return Column(column_type, nullable=False)
-        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+            return sa.Column(column_type, nullable=False)
+        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls):
+    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for title of this object."""
         if cls.__title_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__title_length__)
-        return Column(column_type, nullable=False)
+            column_type = sa.Unicode(cls.__title_length__)
+        return sa.Column(column_type, nullable=False)
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -720,11 +723,8 @@ class BaseScopedNameMixin(BaseMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<{} {} "{}" of {}>'.format(
-            self.__class__.__name__,
-            self.name,
-            self.title,
-            repr(self.parent)[1:-1] if self.parent else None,
+        return (
+            f'<{self.__class__.__name__} {self.name} "{self.title}" of {self.parent!r}>'
         )
 
     @classmethod
@@ -745,7 +745,7 @@ class BaseScopedNameMixin(BaseMixin):
             )
         return instance
 
-    def make_name(self, reserved=()):
+    def make_name(self, reserved: t.Collection[str] = ()):
         """
         Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
 
@@ -754,7 +754,7 @@ class BaseScopedNameMixin(BaseMixin):
         found.
         """
         if self.title:
-            if inspect(self).has_identity:
+            if sa.inspect(self).has_identity:
 
                 def checkused(c):
                     return bool(
@@ -779,7 +779,7 @@ class BaseScopedNameMixin(BaseMixin):
             with self.__class__.query.session.no_autoflush:
                 self.name = make_name(
                     self.title_for_name,
-                    maxlength=self.__name_length__,
+                    maxlength=self.__name_length__ or 250,
                     checkused=checkused,
                 )
 
@@ -844,28 +844,28 @@ class BaseIdNameMixin(BaseMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: Optional[int] = 250
-    __title_length__: Optional[int] = 250
+    __name_length__: t.Optional[int] = 250
+    __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls):
+    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for the URL name of this object, non-unique."""
         if cls.__name_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__name_length__)
+            column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return Column(column_type, nullable=False)
-        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+            return sa.Column(column_type, nullable=False)
+        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls):
+    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for the title of this object."""
         if cls.__title_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__title_length__)
-        return Column(column_type, nullable=False)
+            column_type = sa.Unicode(cls.__title_length__)
+        return sa.Column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -887,15 +887,18 @@ class BaseIdNameMixin(BaseMixin):
     def make_name(self):
         """Autogenerate a :attr:`name` from :attr:`title_for_name`."""
         if self.title:
-            self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
+            self.name = make_name(
+                self.title_for_name, maxlength=self.__name_length__ or 250
+            )
 
     @hybrid_property
     def url_id_name(self):
         """Id and name in ``id-name`` format for use in URLs."""
         return f'{self.url_id}-{self.name}'
 
-    @url_id_name.comparator
-    def url_id_name(cls):
+    @url_id_name.comparator  # type: ignore[no-redef]
+    def url_id_name(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for id and name."""
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
         return SqlSplitIdComparator(cls.id, splitindex=0)
@@ -912,8 +915,9 @@ class BaseIdNameMixin(BaseMixin):
         """
         return f'{self.name}-{self.uuid_b58}'
 
-    @url_name_uuid_b58.comparator
-    def url_name_uuid_b58(cls):
+    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
+    def url_name_uuid_b58(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
 
@@ -937,9 +941,9 @@ class BaseScopedIdMixin(BaseMixin):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
-    def url_id(cls):
+    def url_id(cls) -> sa.Column[int]:  # pylint: disable=no-self-argument
         """Column for an id number that is unique within the parent container."""
-        return Column(Integer, nullable=False)
+        return sa.Column(sa.Integer, nullable=False)
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -947,11 +951,7 @@ class BaseScopedIdMixin(BaseMixin):
             self.make_id()
 
     def __repr__(self):
-        return '<{} {} of {}>'.format(
-            self.__class__.__name__,
-            self.url_id,
-            repr(self.parent)[1:-1] if self.parent else None,
-        )
+        return f'<{self.__class__.__name__} {self.url_id} of {self.parent!r}>'
 
     @classmethod
     def get(cls, parent, url_id):
@@ -1011,28 +1011,28 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     #: Allow blank names after all?
     __name_blank_allowed__ = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: Optional[int] = 250
-    __title_length__: Optional[int] = 250
+    __name_length__: t.Optional[int] = 250
+    __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls):
+    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for the URL name of this instance, non-unique."""
         if cls.__name_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__name_length__)
+            column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return Column(column_type, nullable=False)
-        return Column(column_type, CheckConstraint("name <> ''"), nullable=False)
+            return sa.Column(column_type, nullable=False)
+        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls):
+    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
         """Column for the title of this instance."""
         if cls.__title_length__ is None:
-            column_type = UnicodeText()
+            column_type = sa.Unicode()
         else:
-            column_type = Unicode(cls.__title_length__)
-        return Column(column_type, nullable=False)
+            column_type = sa.Unicode(cls.__title_length__)
+        return sa.Column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -1051,11 +1051,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             self.make_name()
 
     def __repr__(self):
-        return '<{} {} "{}" of {}>'.format(
-            self.__class__.__name__,
-            self.url_id_name,
-            self.title,
-            repr(self.parent)[1:-1] if self.parent else None,
+        return (
+            f'<{self.__class__.__name__} {self.url_id_name} "{self.title}"'
+            ' of {self.parent!r}>'
         )
 
     @classmethod
@@ -1066,15 +1064,18 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     def make_name(self):
         """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
         if self.title:
-            self.name = make_name(self.title_for_name, maxlength=self.__name_length__)
+            self.name = make_name(
+                self.title_for_name, maxlength=self.__name_length__ or 250
+            )
 
     @hybrid_property
     def url_id_name(self):
         """Combine :attr:`url_id` and :attr:`name` in ``id-name`` syntax for URLs."""
         return f'{self.url_id}-{self.name}'
 
-    @url_id_name.comparator
-    def url_id_name(cls):
+    @url_id_name.comparator  # type: ignore[no-redef]
+    def url_id_name(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for id and name."""
         return SqlSplitIdComparator(cls.url_id, splitindex=0)
 
     url_name = url_id_name  # Legacy name
@@ -1089,20 +1090,23 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """
         return f'{self.name}-{self.uuid_b58}'
 
-    @url_name_uuid_b58.comparator
-    def url_name_uuid_b58(cls):
+    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
+    def url_name_uuid_b58(cls):  # pylint: disable=no-self-argument
+        """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
 
+@declarative_mixin
 class CoordinatesMixin:
     """
     Mixin for models that store location coordinates.
 
-    Adds :attr:`latitude` and :attr:`longitude` columns, and a :attr:`coordinates` tuple property.
+    Adds :attr:`latitude` and :attr:`longitude` columns, and a :attr:`coordinates` tuple
+    property.
     """
 
-    latitude = Column(Numeric)
-    longitude = Column(Numeric)
+    latitude = sa.Column(sa.Numeric)
+    longitude = sa.Column(sa.Numeric)
 
     @property
     def has_coordinates(self):
@@ -1115,16 +1119,22 @@ class CoordinatesMixin:
         return self.latitude is None or self.longitude is None
 
     @property
-    def coordinates(self) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+    def coordinates(
+        self,
+    ) -> t.Tuple[t.Union[float, Decimal, None], t.Union[float, Decimal, None]]:
         """Tuple of (latitude, longitude)."""
         return self.latitude, self.longitude
 
     @coordinates.setter
-    def coordinates(self, value: Tuple[Optional[Decimal], Optional[Decimal]]):
-        self.latitude, self.longitude = value
+    def coordinates(
+        self,
+        value: t.Tuple[t.Union[float, Decimal, None], t.Union[float, Decimal, None]],
+    ):
+        """Set coordinates."""
+        self.latitude, self.longitude = value  # type: ignore[assignment]
 
 
-# --- Auto-populate columns ---------------------------------------------------
+# --- Auto-populate columns ------------------------------------------------------------
 
 # Setup listeners for UUID-based subclasses
 def _configure_id_listener(mapper, class_):
@@ -1140,8 +1150,10 @@ def _configure_uuid_listener(mapper, class_):
     auto_init_default(mapper.column_attrs.uuid)
 
 
-event.listen(IdMixin, 'mapper_configured', _configure_id_listener, propagate=True)
-event.listen(UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate=True)
+sa.event.listen(IdMixin, 'mapper_configured', _configure_id_listener, propagate=True)
+sa.event.listen(
+    UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate=True
+)
 
 
 # Populate name and url_id columns
@@ -1160,9 +1172,9 @@ def _make_scoped_id(mapper, connection, target):
         target.make_id()
 
 
-event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)
-event.listen(BaseIdNameMixin, 'before_insert', _make_name, propagate=True)
-event.listen(BaseScopedIdMixin, 'before_insert', _make_scoped_id, propagate=True)
-event.listen(BaseScopedNameMixin, 'before_insert', _make_scoped_name, propagate=True)
-event.listen(BaseScopedIdNameMixin, 'before_insert', _make_scoped_id, propagate=True)
-event.listen(BaseScopedIdNameMixin, 'before_insert', _make_name, propagate=True)
+sa.event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)
+sa.event.listen(BaseIdNameMixin, 'before_insert', _make_name, propagate=True)
+sa.event.listen(BaseScopedIdMixin, 'before_insert', _make_scoped_id, propagate=True)
+sa.event.listen(BaseScopedNameMixin, 'before_insert', _make_scoped_name, propagate=True)
+sa.event.listen(BaseScopedIdNameMixin, 'before_insert', _make_scoped_id, propagate=True)
+sa.event.listen(BaseScopedIdNameMixin, 'before_insert', _make_name, propagate=True)

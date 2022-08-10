@@ -1,4 +1,4 @@
-from typing import Optional
+import typing as t
 import unittest
 
 from flask import Flask
@@ -11,7 +11,7 @@ def view():
 
 
 class TestScaffolding(unittest.TestCase):
-    server_name: Optional[str] = None
+    server_name: t.Optional[str] = None
 
     def setUp(self):
         self.app = Flask(__name__, subdomain_matching=bool(self.server_name))

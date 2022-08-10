@@ -16,6 +16,8 @@ For compatibility with Flask-Login, a user object loaded at
 :obj:`current_auth`.
 """
 
+import typing as t
+
 # mypy can't find _request_ctx_stack in flask
 from flask import (  # type: ignore[attr-defined]
     _request_ctx_stack,
@@ -126,6 +128,10 @@ class CurrentAuth:
     Additional attributes provided by your login manager are also available as
     direct attributes of :obj:`current_auth`.
     """
+
+    user: t.Any
+    actor: t.Any
+    permissions: InspectableSet
 
     def __init__(self, user):
         object.__setattr__(self, 'user', user)

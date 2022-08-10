@@ -1,6 +1,9 @@
+import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
+import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from flask_sqlalchemy import SQLAlchemy
+import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from flask import (  # type: ignore[attr-defined]
     Flask,
@@ -18,7 +21,7 @@ from coaster.auth import (
 )
 from coaster.sqlalchemy import BaseMixin
 
-# --- App context -------------------------------------------------------------
+# --- App context ----------------------------------------------------------------------
 
 db = SQLAlchemy()
 
@@ -40,7 +43,7 @@ class LoginManager:
                 add_auth_attribute('username', self.user.username)
 
 
-# --- Models ------------------------------------------------------------------
+# --- Models ---------------------------------------------------------------------------
 
 
 class User(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -60,7 +63,7 @@ class Client(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'client'
 
 
-# --- Tests -------------------------------------------------------------------
+# --- Tests ----------------------------------------------------------------------------
 
 
 class TestCurrentUserNoRequest(unittest.TestCase):
@@ -231,5 +234,5 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
         """request_has_auth indicates if current_auth was invoked during a request"""
         assert not request_has_auth()
         # Invoke current_auth
-        current_auth.is_anonymous  # skipcq: PYL-W0104
+        current_auth.is_anonymous  # pylint: disable=W0104
         assert request_has_auth()
