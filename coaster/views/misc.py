@@ -18,6 +18,11 @@ from flask import url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect
 
+try:
+    from asgiref.sync import async_to_sync
+except ImportError:  # pragma: no cover
+    async_to_sync = None  # type: ignore[assignment, misc]
+
 from .. import typing as tc  # pylint: disable=reimported
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
@@ -227,6 +232,9 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
     if not asyncio.iscoroutinefunction(func):
         return func
 
-    return lambda *args, **kwargs: (  # type: ignore[return-value]
+    if async_to_sync is not None:
+        return async_to_sync(func)  # type: ignore[return-value]
+
+    return lambda *args, **kwargs: (  # type: ignore[return-value,unreachable]
         asyncio.run(func(*args, **kwargs))
     )
