@@ -6,7 +6,7 @@ import unittest
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_mixin
+from sqlalchemy.orm import declarative_mixin  # type: ignore[attr-defined]
 from sqlalchemy.orm.collections import (
     attribute_mapped_collection,
     column_mapped_collection,

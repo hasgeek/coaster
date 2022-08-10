@@ -60,13 +60,13 @@ def make_timestamp_columns(
     return (
         sa.Column(
             'created_at',
-            sa.TIMESTAMP(timezone=timezone),
+            sa.TIMESTAMP(timezone=timezone),  # type: ignore[arg-type]
             default=sa.func.utcnow(),
             nullable=False,
         ),
         sa.Column(
             'updated_at',
-            sa.TIMESTAMP(timezone=timezone),
+            sa.TIMESTAMP(timezone=timezone),  # type: ignore[arg-type]
             default=sa.func.utcnow(),
             onupdate=sa.func.utcnow(),
             nullable=False,

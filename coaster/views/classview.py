@@ -7,7 +7,9 @@ Group related views into a class for easier management.
 
 from __future__ import annotations
 
-from functools import update_wrapper, wraps
+from functools import partial, update_wrapper, wraps
+from types import SimpleNamespace
+import asyncio
 import typing as t
 
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -27,12 +29,15 @@ from flask import (  # type: ignore[attr-defined]
     redirect,
     request,
 )
+from flask.blueprints import BlueprintSetupState
 from flask.typing import ResponseReturnValue
 from werkzeug.local import LocalProxy
-from werkzeug.routing import parse_rule
+from werkzeug.routing import Map as WzMap
+from werkzeug.routing import Rule as WzRule
 from werkzeug.wrappers import Response as BaseResponse
 
 from furl import furl
+import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
@@ -42,23 +47,42 @@ from ..utils import InspectableSet
 from .misc import ensure_sync
 
 __all__ = [
+    # Functions
     'rulejoin',
-    'current_view',  # Functions
+    'current_view',
+    # View base classes
     'ClassView',
-    'ModelView',  # View base classes
+    'ModelView',
+    # View decorators
     'route',
     'viewdata',
+    # Mixin classes
     'url_change_check',
-    'requires_roles',  # View decorators
+    'requires_roles',
     'UrlChangeCheck',
     'UrlForView',
-    'InstanceLoader',  # Mixin classes
+    'InstanceLoader',
 ]
 
 # --- Types and protocols --------------------------------------------------------------
 
 #: Type for URL rules in classviews
 RouteRuleOptions = t.Dict[str, t.Any]
+ViewHandlerType = t.TypeVar('ViewHandlerType', bound='ViewHandler')
+
+
+class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
+    """Protocl for callable that gets a callback from ClassView.init_app."""
+
+    def __call__(
+        self,
+        app: t.Union[Flask, Blueprint],
+        rule: str,
+        endpoint: str,
+        view_func: t.Callable,
+        **options,
+    ):
+        ...
 
 
 # --- Class views and utilities --------------------------------------------------------
@@ -75,8 +99,17 @@ current_view = LocalProxy(
 )
 
 
+def _get_arguments_from_rule(
+    rule: str, endpoint: str, options: t.Dict[str, t.Any], url_map: WzMap
+) -> t.List[str]:
+    """Get arguments from a URL rule."""
+    obj = WzRule(rule, endpoint=endpoint, **options)
+    obj.bind(SimpleNamespace(**url_map.__dict__))
+    return list(obj.arguments)
+
+
 # :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
-def route(rule: str, **options) -> ViewHandler:
+def route(rule: str, **options) -> ViewHandlerType:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
@@ -86,7 +119,7 @@ def route(rule: str, **options) -> ViewHandler:
     return ViewHandler(rule, rule_options=options)
 
 
-def viewdata(**kwargs) -> ViewHandler:
+def viewdata(**kwargs) -> ViewHandlerType:
     """
     Decorate view to add additional data alongside :func:`route`.
 
@@ -150,7 +183,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self.requires_roles = requires_roles or {}
         self.endpoints = set()
 
-    def reroute(self, f):
+    def reroute(self: ViewHandlerType, f: t.Callable) -> ViewHandlerType:
         """Replace a view handler in a subclass while keeping its URL route rules."""
         # Use type(self) instead of ViewHandler so this works for (future) subclasses
         # of ViewHandler
@@ -159,7 +192,8 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         r.data = self.data
         return r(f)
 
-    def copy_for_subclass(self):
+    def copy_for_subclass(self: ViewHandlerType) -> ViewHandlerType:
+        """Make a copy of this ViewHandler, for use in a subclass."""
         # Like reroute, but just a copy
         r = type(self)(None)
         r.routes = self.routes
@@ -172,7 +206,10 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         r.endpoints = set()
         return r
 
-    def __call__(self, decorated):
+    def __call__(
+        self: ViewHandlerType, decorated: t.Union[t.Callable, ViewHandlerType]
+    ) -> ViewHandlerType:
+        """Decorate a view handler."""
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
         if isinstance(decorated, type) and issubclass(decorated, ClassView):
             if '__routes__' not in decorated.__dict__:
@@ -210,7 +247,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self,
         app: t.Union[Flask, Blueprint],
         cls: t.Type[ClassView],
-        callback: t.Callable = None,
+        callback: t.Optional[InitAppCallback] = None,
     ) -> None:
         """
         Register routes for a given app and :class:`ClassView` class.
@@ -296,7 +333,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
                 use_rule = rulejoin(class_rule, method_rule)
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
                 if callback:
-                    callback(use_rule, endpoint, view_func, **use_options)
+                    callback(app, use_rule, endpoint, view_func, **use_options)
 
 
 class ViewHandlerWrapper:
@@ -524,13 +561,15 @@ class ClassView:
 
     @classmethod
     def init_app(
-        cls, app: t.Union[Flask, Blueprint], callback: t.Callable = None
+        cls,
+        app: t.Union[Flask, Blueprint],
+        callback: t.Optional[InitAppCallback] = None,
     ) -> None:
         """
         Register views on an app.
 
         If :attr:`callback` is specified, it will be called after
-        ``app.``:meth:`~flask.Flask.add_url_rule`, with the same parameters.
+        ``app.``:meth:`~flask.Flask.add_url_rule`, with app and the same parameters.
         """
         processed = set()
         cls.__views__ = set()
@@ -707,16 +746,25 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
                 return f.is_available(context)
             return result
 
+        def validate(obj):
+            add_auth_attribute('login_required', True)
+            if not is_available_here(obj):
+                abort(403)
+
         @wraps(f)
         def wrapper(self, *args, **kwargs):
-            add_auth_attribute('login_required', True)
-            if not is_available_here(self):
-                abort(403)
-            return ensure_sync(f)(self, *args, **kwargs)
+            validate(self)
+            return f(self, *args, **kwargs)
 
-        wrapper.requires_roles = roles  # type: ignore[attr-defined]
-        wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return t.cast(tc.WrappedFunc, wrapper)
+        @wraps(f)
+        async def async_wrapper(self, *args, **kwargs):
+            validate(self)
+            return await f(self, *args, **kwargs)
+
+        use_wrapper = async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
+        use_wrapper.requires_roles = roles  # type: ignore[attr-defined]
+        use_wrapper.is_available = is_available  # type: ignore[attr-defined]
+        return t.cast(tc.WrappedFunc, use_wrapper)
 
     return decorator
 
@@ -733,54 +781,77 @@ class UrlForView:  # pylint: disable=too-few-public-methods
     def init_app(
         cls,
         app: t.Union[Flask, Blueprint],
-        callback: t.Callable = None,
+        callback: t.Optional[InitAppCallback] = None,
     ) -> None:
         """Register view on an app."""
 
-        def register_view_on_model(
-            rule: str, endpoint: str, view_func: t.Callable, **options
+        def register_view_on_model(  # pylint: disable=too-many-arguments
+            cls: ClassView,
+            callback: t.Optional[InitAppCallback],
+            app: t.Union[Flask, Blueprint],
+            rule: str,
+            endpoint: str,
+            view_func: t.Callable,
+            **options: t.Dict[str, t.Any],
         ) -> None:
-            # Only pass in the attrs that are included in the rule.
-            # 1. Extract list of variables from the rule
-            rulevars = [v for c, a, v in parse_rule(rule)]
-            if options.get('host'):
-                rulevars.extend(v for c, a, v in parse_rule(options['host']))
-            if options.get('subdomain'):
-                rulevars.extend(v for c, a, v in parse_rule(options['subdomain']))
-            # Make a subset of cls.route_model_map with the required variables
-            params = {
-                v: t.cast(ModelView, cls).route_model_map[v]
-                for v in rulevars
-                if v in t.cast(ModelView, cls).route_model_map
-            }
-            # Register endpoint with the view function's name, endpoint name and
-            # parameters. Register the view for a specific app, unless we're in a
-            # Blueprint, in which case it's not an app.
-            # FIXME: The behaviour of a Blueprint + multi-app combo is unknown and needs
-            # tests.
-            if isinstance(app, Blueprint):
-                prefix = app.name + '.'
-                reg_app = None
-            else:
-                prefix = ''
-                reg_app = app
-            t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_endpoint(
-                action=view_func.__name__,
-                endpoint=prefix + endpoint,
-                app=reg_app,
-                roles=getattr(view_func, 'requires_roles', None),
-                paramattrs=params,
-            )
-            t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_view_for(
-                app=reg_app,
-                action=view_func.__name__,
-                classview=cls,
-                attr=view_func.__name__,
-            )
-            if callback:  # pragma: no cover
-                callback(rule, endpoint, view_func, **options)
+            def register_paths_from_app(
+                reg_app: Flask, reg_rule: str, reg_endpoint: str, reg_options
+            ) -> None:
+                # Only pass in the attrs that are included in the rule.
+                # 1. Extract list of variables from the rule
+                rulevars = _get_arguments_from_rule(
+                    reg_rule, reg_endpoint, reg_options, reg_app.url_map
+                )
+                # Make a subset of cls.route_model_map with the required variables
+                params = {
+                    v: t.cast(ModelView, cls).route_model_map[v]
+                    for v in rulevars
+                    if v in t.cast(ModelView, cls).route_model_map
+                }
+                # Register endpoint with the view function's name, endpoint name and
+                # parameters
+                t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_endpoint(
+                    action=view_func.__name__,
+                    endpoint=reg_endpoint,
+                    app=reg_app,
+                    roles=getattr(view_func, 'requires_roles', None),
+                    paramattrs=params,
+                )
+                t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_view_for(
+                    app=reg_app,
+                    action=view_func.__name__,
+                    classview=cls,
+                    attr=view_func.__name__,
+                )
 
-        super().init_app(app, callback=register_view_on_model)  # type: ignore[misc]
+            def blueprint_postprocess(state: BlueprintSetupState) -> None:
+                if state.url_prefix is not None:
+                    reg_rule = '/'.join(
+                        (state.url_prefix.rstrip('/'), rule.lstrip('/'))
+                    )
+                else:
+                    reg_rule = rule
+                if state.subdomain:
+                    reg_options = dict(options)
+                    reg_options.setdefault('subdomain', state.subdomain)
+                else:
+                    reg_options = options
+                reg_endpoint = (
+                    f'{state.name_prefix}.{state.name}'  # type: ignore[attr-defined]
+                    f'.{endpoint}'.lstrip('.')
+                )
+                register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
+
+            if isinstance(app, Flask):
+                register_paths_from_app(app, rule, endpoint, options)
+            elif isinstance(app, Blueprint):
+                app.record(blueprint_postprocess)
+            else:
+                raise TypeError(f"App must be Flask or Blueprint {app!r}")
+            if callback:  # pragma: no cover
+                callback(app, rule, endpoint, view_func, **options)
+
+        super().init_app(app, callback=partial(register_view_on_model, cls, callback))
 
 
 def url_change_check(f: WrappedFunc) -> WrappedFunc:
@@ -815,10 +886,9 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     (``#target_id``) is not available to the server and will be lost.
     """
 
-    @wraps(f)
-    def wrapper(self, *args, **kwargs) -> t.Any:
-        if request.method == 'GET' and self.obj is not None:
-            correct_url = furl(self.obj.url_for(f.__name__, _external=True))
+    def validate(context) -> t.Optional[ResponseReturnValue]:
+        if request.method == 'GET' and context.obj is not None:
+            correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = furl(correct_url).remove(
                 username=True, password=True, port=True, query=True, fragment=True
             )
@@ -833,9 +903,25 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
                 return redirect(
                     str(correct_url.set(query=request.query_string.decode()))
                 )
-        return ensure_sync(f)(self, *args, **kwargs)
+        return None
 
-    return t.cast(tc.WrappedFunc, wrapper)
+    @wraps(f)
+    def wrapper(self, *args, **kwargs) -> t.Any:
+        retval = validate(self)
+        if retval is not None:
+            return retval
+        return f(self, *args, **kwargs)
+
+    @wraps(f)
+    async def async_wrapper(self, *args, **kwargs) -> t.Any:
+        retval = validate(self)
+        if retval is not None:
+            return retval
+        return await f(self, *args, **kwargs)
+
+    return t.cast(
+        tc.WrappedFunc, async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
+    )
 
 
 class UrlChangeCheck:  # pylint: disable=too-few-public-methods

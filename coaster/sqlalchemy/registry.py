@@ -35,8 +35,7 @@ from functools import partial
 from threading import Lock
 import typing as t
 
-from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import Mapped, declarative_mixin
+from ._compat import Mapped, declarative_mixin, declared_attr
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 

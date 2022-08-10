@@ -129,13 +129,7 @@ import operator
 import typing as t
 
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import (
-    ColumnProperty,
-    Query,
-    RelationshipProperty,
-    SynonymProperty,
-    declarative_mixin,
-)
+from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
 
 try:  # SQLAlchemy >= 1.4
     from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
@@ -159,6 +153,7 @@ from flask import _request_ctx_stack  # type: ignore[attr-defined]
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
+from ._compat import declarative_mixin
 
 __all__ = [
     'RoleGrantABC',

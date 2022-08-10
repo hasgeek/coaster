@@ -90,7 +90,8 @@ disable = [
 [tool.mypy]
 files = '**/*.py'
 exclude = 'node_modules'
-plugins = ['sqlalchemy.ext.mypy.plugin']
+# plugins = ['sqlalchemy.ext.mypy.plugin']
+plugins = ['sqlmypy']
 ignore_missing_imports = true
 show_error_codes = true
 warn_unreachable = true

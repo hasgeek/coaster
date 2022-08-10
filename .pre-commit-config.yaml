@@ -56,7 +56,7 @@ repos:
         args: ['--no-warn-unused-ignores', '--ignore-missing-imports']
         additional_dependencies:
           - lxml-stubs
-          - sqlalchemy[mypy]
+          - sqlalchemy-stubs
           - toml
           - types-all
           - typing-extensions
