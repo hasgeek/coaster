@@ -150,9 +150,7 @@ def sorted_timezones():
     timezones = [
         (pytz.timezone(tzname).utcoffset(now, is_dst=False), tzname)
         for tzname in pytz.common_timezones
-        if not tzname.startswith('US/')
-        and not tzname.startswith('Canada/')
-        and tzname not in ('GMT', 'UTC')
+        if not tzname.startswith(('US/', 'Canada/')) and tzname not in ('GMT', 'UTC')
     ]
     # Sort timezones by offset from UTC and their human-readable name
     presorted = [

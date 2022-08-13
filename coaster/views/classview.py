@@ -18,12 +18,11 @@ from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
 from sqlalchemy.orm.query import Query
 
-# mypy can't find _request_ctx_stack in flask
-from flask import (  # type: ignore[attr-defined]
+from flask import (
     Blueprint,
     Flask,
-    _request_ctx_stack,
     abort,
+    g,
     has_request_context,
     make_response,
     redirect,
@@ -72,7 +71,7 @@ ViewHandlerType = t.TypeVar('ViewHandlerType', bound='ViewHandler')
 
 
 class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
-    """Protocl for callable that gets a callback from ClassView.init_app."""
+    """Protocol for callable that gets a callback from ClassView.init_app."""
 
     def __call__(
         self,
@@ -93,9 +92,7 @@ class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
 #: class is named :attr:`~current_view.current_handler`, so to examine it, use
 #: :attr:`current_view.current_handler`.
 current_view = LocalProxy(
-    lambda: getattr(_request_ctx_stack.top, 'current_view', None)
-    if has_request_context()
-    else None
+    lambda: getattr(g, '_current_view', None) if has_request_context() else None
 )
 
 
@@ -281,7 +278,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
             viewinst.view_args = view_args
             # Place the view instance on the request stack for :obj:`current_view` to
             # discover
-            _request_ctx_stack.top.current_view = viewinst
+            g._current_view = viewinst
             # Call the view instance's dispatch method. View classes can customise this
             # for desired behaviour.
             return viewinst.dispatch_request(view_func.wrapped_func, view_args)
