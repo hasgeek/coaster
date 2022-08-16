@@ -5,11 +5,7 @@ import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
-from flask import (  # type: ignore[attr-defined]
-    Flask,
-    _request_ctx_stack,
-    has_request_context,
-)
+from flask import Flask, g, has_request_context
 
 import pytest
 
@@ -148,7 +144,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
     def test_current_auth_with_flask_login_user(self):
         user = User(username='foo', fullname='Mr Foo')
-        _request_ctx_stack.top.user = user
+        g._login_user = user  # pylint: disable=protected-access
 
         assert not current_auth.is_anonymous
         assert current_auth.is_authenticated
@@ -176,18 +172,13 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
 
     def test_anonymous_user(self):
         assert current_auth.is_anonymous
-        assert not current_auth.not_anonymous
         assert not current_auth.is_authenticated
-        assert current_auth.not_authenticated
         assert not current_auth
         assert current_auth.user is None
 
         user = AnonymousUser()
         self.login_manager.set_user_for_testing(user, load=True)
 
-        # is_anonymous == True, but current_auth.user is not None
-        assert current_auth.is_anonymous
-        assert current_auth.user is not None
         # is_authenticated == True, since there is an actor
         assert current_auth.is_authenticated  # type: ignore[unreachable]
         assert current_auth
@@ -200,9 +191,7 @@ class TestCurrentUserWithLoginManager(unittest.TestCase):
             'actor',
             'anchors',
             'is_anonymous',
-            'not_anonymous',
             'is_authenticated',
-            'not_authenticated',
         ):
             with pytest.raises(AttributeError):
                 add_auth_attribute(attr, None)

@@ -83,7 +83,7 @@ class JavascriptProtocolProcessor(Treeprocessor):
     def run(self, root):
         for anchor in root.iter('a'):
             href = anchor.attrib.get('href')
-            if href and unescape(href).lower().startswith('javascript:'):
+            if href and unescape(href).lower().startswith(('javascript:', 'vbscript:')):
                 del anchor.attrib['href']
 
 
@@ -130,6 +130,7 @@ default_markdown_extensions = default_markdown_extensions_html + [
 
 
 default_markdown_extension_configs: t.Mapping[str, t.Mapping[str, t.Any]] = {
+    'markdown.extensions.tables': {'use_align_attribute': True},
     'pymdownx.highlight': {'css_class': 'highlight', 'guess_lang': False},
     'pymdownx.superfences': {
         'css_class': 'highlight',

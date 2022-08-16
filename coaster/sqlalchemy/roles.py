@@ -148,8 +148,7 @@ from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
-# mypy can't find _request_ctx_stack in flask
-from flask import _request_ctx_stack  # type: ignore[attr-defined]
+from flask import g
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
@@ -309,6 +308,7 @@ class LazyRoleSet(abc.MutableSet):
             if role not in self.obj.__roles__:
                 self._not_present.add(role)
                 return False
+
             # granted_via says a role may be granted by a secondary object that sits
             # in a relationship between the current object and the actor. The secondary
             # could be a direct attribute of the current object, or could be inside a
@@ -317,6 +317,8 @@ class LazyRoleSet(abc.MutableSet):
             # 1. By its mere existence (default).
             # 2. By offering roles via an `offered_roles` property (see `RoleGrantABC`).
             # 3. By being a `RoleMixin` instance that has a `roles_for` method.
+
+            # pylint: disable=protected-access
             if 'granted_via' in self.obj.__roles__[role]:
                 for relattr, actor_attr in self.obj.__roles__[role][
                     'granted_via'
@@ -947,10 +949,10 @@ class RoleMixin:
             :meth:`roles_for` instead, or use `current_roles` only after roles are
             changed.
         """
-        cache = getattr(_request_ctx_stack.top, '_role_cache', None)
+        cache = getattr(g, '_coaster_role_cache', None)
         if cache is None:
             cache = {}
-            _request_ctx_stack.top._role_cache = cache
+            g._coaster_role_cache = cache  # pylint: disable=protected-access
         cache_key = (self, current_auth.actor, current_auth.anchors)
         if cache_key not in cache:
             cache[cache_key] = InspectableSet(

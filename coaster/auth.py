@@ -11,19 +11,14 @@ is invoked for the first time in a request. Login managers can call
 :func:`add_auth_attribute` to load the actor (typically the authenticated user)
 and any other relevant authentication attributes.
 
-For compatibility with Flask-Login, a user object loaded at
-``_request_ctx_stack.top.user`` will be recognised and made available via
-:obj:`current_auth`.
+For compatibility with Flask-Login, a user object loaded at ``g._login_user`` will be
+recognised and made available via :obj:`current_auth`.
 """
+# pylint: disable=protected-access
 
 import typing as t
 
-# mypy can't find _request_ctx_stack in flask
-from flask import (  # type: ignore[attr-defined]
-    _request_ctx_stack,
-    current_app,
-    has_request_context,
-)
+from flask import current_app, g, has_request_context, request
 from werkzeug.local import LocalProxy
 
 from .utils import InspectableSet
@@ -37,27 +32,24 @@ def add_auth_attribute(attr, value, actor=False):
 
     :param str attr: Name of the attribute
     :param value: Value of the attribute
-    :param bool actor: Whether this attribute is an actor
-       (user or client app accessing own data)
+    :param bool actor: Whether this attribute is an actor (user or client app accessing
+       own data)
 
-    If the attribute is an actor and :obj:`current_auth` does not currently
-    have an actor, the attribute is also made available as
-    ``current_auth.actor``, which in turn is used by
-    ``current_auth.is_authenticated``.
+    If the attribute is an actor and :obj:`current_auth` does not currently have an
+    actor, the attribute is also made available as ``current_auth.actor``, which in turn
+    is used by ``current_auth.is_authenticated``.
 
     The attribute name ``user`` is special-cased:
 
     1. ``user`` is always treated as an actor
-    2. ``user`` is also made available as ``_request_ctx_stack.top.user`` for
-       compatibility with Flask-Login
+    2. ``user`` is also made available as ``g._login_user`` for compatibility with
+       Flask-Login
     """
     if attr in (
         'actor',
         'anchors',
         'is_anonymous',
-        'not_anonymous',
         'is_authenticated',
-        'not_authenticated',
     ):
         raise AttributeError(f"Attribute name {attr} is reserved by current_auth")
 
@@ -70,7 +62,7 @@ def add_auth_attribute(attr, value, actor=False):
 
     if attr == 'user':
         # Special-case 'user' for compatibility with Flask-Login
-        _request_ctx_stack.top.user = value
+        g._login_user = value
         # A user is always an actor
         actor = True
 
@@ -79,10 +71,7 @@ def add_auth_attribute(attr, value, actor=False):
 
 
 def add_auth_anchor(anchor):
-    """
-    Helper function for login managers and view handlers to add a new auth anchor.
-    This is a placeholder until anchors are properly specified.
-    """
+    """Add an anchor to current auth (placeholder pending a spec for anchors)."""
     existing = set(current_auth.anchors)
     existing.add(anchor)
     ca = current_auth._get_current_object()
@@ -91,32 +80,34 @@ def add_auth_anchor(anchor):
 
 def request_has_auth():
     """
+    Check if request accessed auth.
+
     Helper function that returns True if :obj:`current_auth` was invoked during
     the current request. A login manager can use this during request teardown
     to set cookies or perform other housekeeping functions.
     """
-    return hasattr(_request_ctx_stack.top, 'current_auth')
+    return hasattr(request, '_current_auth')
 
 
 class CurrentAuth:
     """
     Holding class for current authenticated objects such as user accounts.
+
     This class is constructed by :obj:`current_auth`. Typical uses:
 
-    Check if you have a valid actor in the current request::
+    1. Check if you have a valid actor in the current request::
 
         if current_auth:
+            ...
 
     which is equivalent to::
 
         if current_auth.is_authenticated:
+            ...
+        if not current_auth.is_anonymous:
+            ...
 
-    Reverse check, for anonymous user. Your login manager may or may not
-    treat these as special database objects::
-
-        if current_auth.is_anonymous:
-
-    Access the underlying user object via the :attr:`user` attribute::
+    2. Access the underlying user object via the :attr:`user` attribute::
 
         if document.user == current_auth.user:
             other_document.user = current_auth.user
@@ -141,71 +132,45 @@ class CurrentAuth:
             self, 'anchors', frozenset()
         )
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: t.Any):
         raise AttributeError('CurrentAuth is read-only')
 
     def __repr__(self):  # pragma: no cover
         return f'CurrentAuth({self.actor!r})'
 
-    def __bool__(self):
-        """
-        Returns ``True`` if user is authenticated, ``False`` if not.
-        """
-        return self.is_authenticated
-
-    @property
-    def is_anonymous(self):
-        """
-        Property that returns ``True`` if an actor is not present, or if an
-        actor is present but has an ``is_anonymous`` attribute
-        set to ``True``.
-        """
-        if self.actor is not None:
-            return getattr(self.actor, 'is_anonymous', False)
-        return True
-
-    @property
-    def not_anonymous(self):
-        """
-        Shortcut for ```if not current_auth.is_anonymous:```.
-        """
-        return not self.is_anonymous
-
-    @property
-    def is_authenticated(self):
-        """
-        Property that returns ``True`` if an actor is present.
-        """
+    def __bool__(self) -> bool:
+        """Return ``True`` if user is authenticated, ``False`` if not."""
         return self.actor is not None
 
     @property
-    def not_authenticated(self):
-        """
-        Shortcut for ```if not current_auth.is_authenticated:```.
-        """
-        return not self.is_authenticated
+    def is_anonymous(self):
+        """Explicit version of ``not bool(current_auth)``."""
+        return not bool(self)
+
+    @property
+    def is_authenticated(self):
+        """Explicit version of ``bool(current_auth)``."""
+        return bool(self)
 
 
 def _get_current_auth():
     # 1. Do we have a request?
     if has_request_context():
         # 2. Does this request already have current_auth? If so, return it
-        if hasattr(_request_ctx_stack.top, 'current_auth'):
-            return _request_ctx_stack.top.current_auth
+        if hasattr(request, '_current_auth'):
+            return request._current_auth
 
         # 3. If not, does it have a known user (Flask-Login protocol)? If so, construct
         # current_auth
-        if hasattr(_request_ctx_stack.top, 'user'):
-            _request_ctx_stack.top.current_auth = CurrentAuth(
-                _request_ctx_stack.top.user
-            )
+        if hasattr(g, '_login_user'):
+            request._current_auth = CurrentAuth(g._login_user)
         # 4. If none of these, construct a blank one and probe for content
         else:
             ca = CurrentAuth(None)
             # If the login manager below calls :func:`add_auth_attribute`,
             # we'll have a recursive entry into :func:`_get_current_auth`, so make sure
             # the stack has an empty :class:`CurrentAuth` on it
-            _request_ctx_stack.top.current_auth = ca
+            request._current_auth = ca
             # 4.1. Now check for a login manager and call it
             # Flask-Login, Flask-Lastuser or equivalent must add a login_manager
             if hasattr(current_app, 'login_manager') and hasattr(
@@ -215,12 +180,10 @@ def _get_current_auth():
             # 4.2. In case the login manager did not call :func:`add_auth_attribute`,
             # we'll need to do it
             if ca.user is None:
-                add_auth_attribute(
-                    'user', getattr(_request_ctx_stack.top, 'user', None)
-                )
+                add_auth_attribute('user', getattr(g, '_login_user', None))
 
         # Return the newly constructed current_auth
-        return _request_ctx_stack.top.current_auth
+        return request._current_auth
     # Fallback if there is no request context. Return a blank current_auth
     # so that ``current_auth.is_authenticated`` remains valid for checking status
     return CurrentAuth(None)  # Make this work even when there's no request
