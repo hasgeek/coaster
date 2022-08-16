@@ -260,14 +260,14 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
 
-        def view_func(**view_args):
+        def view_func(**view_args) -> BaseResponse:
             # view_func does not make any reference to variables from init_app to avoid
             # creating a closure. Instead, the code further below sticks all relevant
             # variables into view_func's namespace.
 
             # Instantiate the view class. We depend on its __init__ requiring no
             # parameters
-            viewinst = view_func.view_class()
+            viewinst: ViewHandler = view_func.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
             viewinst.current_handler = ViewHandlerWrapper(
@@ -278,7 +278,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
             viewinst.view_args = view_args
             # Place the view instance on the request stack for :obj:`current_view` to
             # discover
-            g._current_view = viewinst
+            g._current_view = viewinst  # pylint: disable=protected-access
             # Call the view instance's dispatch method. View classes can customise this
             # for desired behaviour.
             return viewinst.dispatch_request(view_func.wrapped_func, view_args)
@@ -453,8 +453,8 @@ class ClassView:
         return type(other) is type(self)
 
     def dispatch_request(
-        self, view: ViewHandler, view_args: t.Dict[str, t.Any]
-    ) -> ResponseReturnValue:
+        self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
+    ) -> BaseResponse:
         """
         View dispatcher that calls before_request, the view, and then after_request.
 
@@ -466,11 +466,13 @@ class ClassView:
         :param dict view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
-        resp = self.before_request()  # pylint: disable=assignment-from-none
+        resp = ensure_sync(self.before_request)()
         if resp:
-            return self.after_request(make_response(resp))
+            return ensure_sync(self.after_request)(make_response(resp))
         # Call the view handler method, then pass the response to :meth:`after_response`
-        return self.after_request(make_response(view(self, **view_args)))
+        return ensure_sync(self.after_request)(
+            make_response(ensure_sync(view)(self, **view_args))
+        )
 
     def before_request(self) -> t.Optional[ResponseReturnValue]:
         """
@@ -645,7 +647,7 @@ class ModelView(ClassView):
         return type(other) is type(self) and other.obj == self.obj
 
     def dispatch_request(
-        self, view: ViewHandler, view_args: t.Dict[str, t.Any]
+        self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
     ) -> ResponseReturnValue:
         """
         Dispatch a view.
