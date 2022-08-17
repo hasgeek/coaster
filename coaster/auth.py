@@ -19,8 +19,9 @@ recognised and made available via :obj:`current_auth`.
 from threading import Lock, RLock
 import typing as t
 
-from flask import current_app, g, request
+from flask import after_this_request, current_app, g, request
 from werkzeug.local import LocalProxy
+from werkzeug.wrappers import Response as BaseResponse
 
 from .utils import InspectableSet
 
@@ -179,11 +180,18 @@ class CurrentAuth:
         return bool(self)
 
 
+def _del_current_auth(response: BaseResponse) -> BaseResponse:
+    """Remove current_auth after a request."""
+    if '_current_auth' in g:
+        del g._current_auth
+    return response
+
+
 def _get_current_auth() -> CurrentAuth:
     """Provide current_auth for the request context."""
     # pylint: disable=too-many-nested-blocks
-    # 1. Do we have an app context?
-    if g:
+    # 1. Do we have a request context?
+    if request:
         with _get_lock:
             # 2. Does this app context already have current_auth? If so, return it
             ca = g.get('_current_auth', None)
@@ -191,6 +199,9 @@ def _get_current_auth() -> CurrentAuth:
                 # 3. If not, does it have a known user (Flask-Login protocol)? If so,
                 # construct current_auth with it
                 g._current_auth = ca = CurrentAuth(g.get('_login_user', None))
+                # Delete current_auth on request teardown so that it's not carried into
+                # a second request context in the same app context (typical in testing)
+                after_this_request(_del_current_auth)
                 # 4. If no existing user, look for a login manager
                 if ca.user is None:
                     # 4.1. Check for a login manager and call it. Flask-Login,
@@ -236,4 +247,4 @@ def _get_current_auth() -> CurrentAuth:
 #:             return "We have a user"
 #:         else:
 #:             return "User not logged in"
-current_auth: CurrentAuth = LocalProxy(_get_current_auth)
+current_auth: CurrentAuth = t.cast(CurrentAuth, LocalProxy(_get_current_auth))
