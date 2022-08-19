@@ -19,9 +19,8 @@ recognised and made available via :obj:`current_auth`.
 from threading import Lock, RLock
 import typing as t
 
-from flask import after_this_request, current_app, g, request
+from flask import current_app, g, request
 from werkzeug.local import LocalProxy
-from werkzeug.wrappers import Response as BaseResponse
 
 from .utils import InspectableSet
 
@@ -53,6 +52,7 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
        Flask-Login
     """
     if attr in (
+        'is_placeholder',
         'actor',
         'anchors',
         'is_anonymous',
@@ -60,9 +60,11 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
     ):
         raise AttributeError(f"Attribute name {attr} is reserved by current_auth")
 
-    # Invoking current_auth will also create it on the local stack. We can
-    # then proceed to set attributes on it.
+    # Invoking current_auth will also create it on the local stack. We can then proceed
+    # to set attributes on it.
     ca = current_auth._get_current_object()
+    if ca.is_placeholder:
+        raise RuntimeError("current_auth is a placeholder without a request context")
     # Since :class:`CurrentAuth` overrides ``__setattr__``, we need to use
     # :class:`object`'s.
     with _add_lock:
@@ -95,7 +97,7 @@ def request_has_auth():
     the current request. A login manager can use this during request teardown
     to set cookies or perform other housekeeping functions.
     """
-    return bool(g) and hasattr(g, '_current_auth')
+    return bool(request) and hasattr(request, '_current_auth')
 
 
 class CurrentAuth:
@@ -133,7 +135,8 @@ class CurrentAuth:
     actor: t.Any
     permissions: InspectableSet
 
-    def __init__(self, user) -> None:
+    def __init__(self, user: t.Any, is_placeholder: bool = False) -> None:
+        object.__setattr__(self, 'is_placeholder', is_placeholder)
         object.__setattr__(self, 'user', user)
         object.__setattr__(self, 'actor', user)
         object.__setattr__(self, 'permissions', InspectableSet())
@@ -180,13 +183,6 @@ class CurrentAuth:
         return bool(self)
 
 
-def _del_current_auth(response: BaseResponse) -> BaseResponse:
-    """Remove current_auth after a request."""
-    if '_current_auth' in g:
-        del g._current_auth
-    return response
-
-
 def _get_current_auth() -> CurrentAuth:
     """Provide current_auth for the request context."""
     # pylint: disable=too-many-nested-blocks
@@ -194,14 +190,13 @@ def _get_current_auth() -> CurrentAuth:
     if request:
         with _get_lock:
             # 2. Does this app context already have current_auth? If so, return it
-            ca = g.get('_current_auth', None)
+            ca = getattr(request, '_current_auth', None)
             if ca is None:
                 # 3. If not, does it have a known user (Flask-Login protocol)? If so,
                 # construct current_auth with it
-                g._current_auth = ca = CurrentAuth(g.get('_login_user', None))
-                # Delete current_auth on request teardown so that it's not carried into
-                # a second request context in the same app context (typical in testing)
-                after_this_request(_del_current_auth)
+                request._current_auth = ca = CurrentAuth(  # type: ignore[attr-defined]
+                    g.get('_login_user', None)
+                )
                 # 4. If no existing user, look for a login manager
                 if ca.user is None:
                     # 4.1. Check for a login manager and call it. Flask-Login,
@@ -232,7 +227,8 @@ def _get_current_auth() -> CurrentAuth:
 
     # 6. Fallback if there is no request context. Return a blank current_auth
     # so that ``current_auth.is_authenticated`` remains valid for checking status
-    return CurrentAuth(None)  # Make this work even when there's no request
+    # Make this work even when there's no request
+    return CurrentAuth(None, is_placeholder=True)
 
 
 #: A proxy object that hosts state for user authentication, attempting to load
@@ -243,7 +239,7 @@ def _get_current_auth() -> CurrentAuth:
 #:
 #:     @app.route('/')
 #:     def user_check():
-#:         if current_auth.is_authenticated:
+#:         if current_auth:
 #:             return "We have a user"
 #:         else:
 #:             return "User not logged in"
