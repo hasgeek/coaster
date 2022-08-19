@@ -209,7 +209,7 @@ def _get_current_auth() -> CurrentAuth:
                         # This call may invoke `current_auth` and result in one
                         # recursive another call to `_get_current_auth`. To make this
                         # work, we use a recursive lock in `_get_lock`, and ensure
-                        # `g._current_auth` already exists as a stub
+                        # `request._current_auth` already exists as a stub
                         current_app.login_manager._load_user()
                     # 4.2. In case the login manager did not call
                     # :func:`add_auth_attribute`, we'll need to do it
