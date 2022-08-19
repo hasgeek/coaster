@@ -665,7 +665,7 @@ class TestClassView(unittest.TestCase):
         with pytest.raises(Forbidden):
             doc.view_for('edit')()
 
-    def test_requires_roles_layered1(self):
+    def test_requires_roles_layered(self):
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -680,11 +680,6 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 403
         rv = self.client.get('/gated/test1/role-perm')
         assert rv.status_code == 403
-
-    def test_requires_roles_layered2(self):
-        doc = ViewDocument(name='test1', title="Test")
-        self.session.add(doc)
-        self.session.commit()
 
         # All four gates grant access if we have 'owner' role
         # with 'edit' permission
@@ -701,11 +696,6 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
         assert rv.data == b'role-perm-called'
 
-    def test_requires_roles_layered3(self):
-        doc = ViewDocument(name='test1', title="Test")
-        self.session.add(doc)
-        self.session.commit()
-
         # Now we are 'owner' but without 'edit' permission
         # Only one goes through
         rv = self.client.get('/gated/test1/perm?access_token=another-owner-secret')
@@ -717,11 +707,6 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 403
         rv = self.client.get('/gated/test1/role-perm?access_token=another-owner-secret')
         assert rv.status_code == 403
-
-    def test_requires_roles_layered4(self):
-        doc = ViewDocument(name='test1', title="Test")
-        self.session.add(doc)
-        self.session.commit()
 
         # Finally, we have 'edit' permission but without 'owner' role
         rv = self.client.get('/gated/test1/perm?access_token=editor-secret')

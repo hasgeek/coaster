@@ -23,7 +23,7 @@ from flask import (
     Flask,
     abort,
     g,
-    has_app_context,
+    has_request_context,
     make_response,
     redirect,
     request,
@@ -92,7 +92,7 @@ class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
 #: class is named :attr:`~current_view.current_handler`, so to examine it, use
 #: :attr:`current_view.current_handler`.
 current_view = LocalProxy(
-    lambda: getattr(g, '_current_view', None) if has_app_context() else None
+    lambda: getattr(g, '_current_view', None) if has_request_context() else None
 )
 
 
@@ -278,8 +278,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
             viewinst.view_args = view_args
             # Place the view instance on the request stack for :obj:`current_view` to
             # discover
-            if g:
-                g._current_view = viewinst  # pylint: disable=protected-access
+            g._current_view = viewinst  # pylint: disable=protected-access
             # Call the view instance's dispatch method. View classes can customise this
             # for desired behaviour.
             return viewinst.dispatch_request(view_func.wrapped_func, view_args)
