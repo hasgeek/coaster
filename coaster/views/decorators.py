@@ -747,8 +747,8 @@ def requires_permission(
             if not current_auth.permissions:
                 return False
             if is_collection(permission):
-                return bool(current_auth.permissions & permission)
-            return permission in current_auth.permissions
+                return bool(current_auth.permissions & permission)  # type: ignore
+            return permission in current_auth.permissions  # type: ignore[unreachable]
 
         def is_available(context=None) -> bool:
             result = is_available_here()

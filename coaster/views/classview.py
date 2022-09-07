@@ -84,6 +84,15 @@ class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
         ...
 
 
+class ViewFuncProtocol(te.Protocol):  # pylint: disable=too-few-public-methods
+    """Protocol for view functions that store context in the function's namespace."""
+
+    wrapped_func: t.Callable
+    view_class: t.Type[ClassView]
+    view: ViewHandler
+    __call__: t.Callable
+
+
 # --- Class views and utilities --------------------------------------------------------
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
@@ -106,7 +115,7 @@ def _get_arguments_from_rule(
 
 
 # :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
-def route(rule: str, **options) -> ViewHandlerType:
+def route(rule: str, **options) -> ViewHandler:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
@@ -116,7 +125,7 @@ def route(rule: str, **options) -> ViewHandlerType:
     return ViewHandler(rule, rule_options=options)
 
 
-def viewdata(**kwargs) -> ViewHandlerType:
+def viewdata(**kwargs) -> ViewHandler:
     """
     Decorate view to add additional data alongside :func:`route`.
 
@@ -180,6 +189,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self.requires_roles = requires_roles or {}
         self.endpoints = set()
 
+    @t.no_type_check
     def reroute(self: ViewHandlerType, f: t.Callable) -> ViewHandlerType:
         """Replace a view handler in a subclass while keeping its URL route rules."""
         # Use type(self) instead of ViewHandler so this works for (future) subclasses
@@ -203,6 +213,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         r.endpoints = set()
         return r
 
+    @t.no_type_check
     def __call__(
         self: ViewHandlerType, decorated: t.Union[t.Callable, ViewHandlerType]
     ) -> ViewHandlerType:
@@ -261,17 +272,18 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         """
 
         def view_func(**view_args) -> BaseResponse:
+            this = t.cast(ViewFuncProtocol, view_func)
             # view_func does not make any reference to variables from init_app to avoid
             # creating a closure. Instead, the code further below sticks all relevant
             # variables into view_func's namespace.
 
             # Instantiate the view class. We depend on its __init__ requiring no
             # parameters
-            viewinst: ViewHandler = view_func.view_class()
+            viewinst = this.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
             viewinst.current_handler = ViewHandlerWrapper(
-                view_func.view, viewinst, view_func.view_class
+                this.view, viewinst, this.view_class
             )
             # Place view arguments in the instance, in case they are needed outside the
             # dispatch process
@@ -282,7 +294,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
                 g._current_view = viewinst  # pylint: disable=protected-access
             # Call the view instance's dispatch method. View classes can customise this
             # for desired behaviour.
-            return viewinst.dispatch_request(view_func.wrapped_func, view_args)
+            return viewinst.dispatch_request(this.wrapped_func, view_args)
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be
@@ -851,7 +863,9 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             if callback:  # pragma: no cover
                 callback(app, rule, endpoint, view_func, **options)
 
-        super().init_app(app, callback=partial(register_view_on_model, cls, callback))
+        super().init_app(  # type: ignore[misc]
+            app, callback=partial(register_view_on_model, cls, callback)
+        )
 
 
 def url_change_check(f: WrappedFunc) -> WrappedFunc:

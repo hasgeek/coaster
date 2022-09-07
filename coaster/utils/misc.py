@@ -69,30 +69,13 @@ _ipv4_re = re.compile(
 # --- Utilities ------------------------------------------------------------------------
 
 
-@overload
-def is_collection(item: t.Union[str, bytes, t.Dict]) -> te.Literal[False]:
-    ...
-
-
-@overload
-def is_collection(
-    item: t.Union[t.List, t.Tuple, t.Set, t.KeysView]
-) -> te.Literal[True]:
-    ...
-
-
-@overload
-def is_collection(item: t.Any) -> bool:
-    ...
-
-
 def is_collection(item: t.Any) -> bool:
     """
-    Return True if the item is a collection class.
+    Return True if the item is a collection class but not a string or dict.
 
     List, tuple, set, frozenset or any other class that resembles one of these (using
-    abstract base classes). ``collections.abc.Collection`` is not suitable as it also
-    matches strings and dicts.
+    abstract base classes). Using ``collections.abc.Collection`` directly is not
+    suitable as it also matches strings and dicts.
 
     >>> is_collection(0)
     False
@@ -118,9 +101,7 @@ def is_collection(item: t.Any) -> bool:
     >>> is_collection(InspectableSet({1, 2}))
     True
     """
-    return not isinstance(item, (str, bytes)) and isinstance(
-        item, (abc.Set, abc.Sequence)
-    )
+    return not isinstance(item, (str, bytes, dict)) and isinstance(item, abc.Collection)
 
 
 def uuid_b64() -> str:
