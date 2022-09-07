@@ -1,3 +1,5 @@
+"""Test current_auth."""
+
 import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
