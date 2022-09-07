@@ -74,7 +74,7 @@ class Container(BaseMixin, db.Model):
 class UnnamedDocument(BaseMixin, db.Model):
     __tablename__ = 'unnamed_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
+    container = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -83,7 +83,7 @@ class NamedDocument(BaseNameMixin, db.Model):
     __tablename__ = 'named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
+    container = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -93,7 +93,7 @@ class NamedDocumentBlank(BaseNameMixin, db.Model):
     __name_blank_allowed__ = True
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
+    container = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -102,8 +102,8 @@ class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
-    parent: Container = synonym('container')
+    container = relationship(Container)
+    parent = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
@@ -112,7 +112,7 @@ class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
 class IdNamedDocument(BaseIdNameMixin, db.Model):
     __tablename__ = 'id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
+    container = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -120,8 +120,8 @@ class IdNamedDocument(BaseIdNameMixin, db.Model):
 class ScopedIdDocument(BaseScopedIdMixin, db.Model):
     __tablename__ = 'scoped_id_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
-    parent: Container = synonym('container')
+    container = relationship(Container)
+    parent = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
@@ -130,8 +130,8 @@ class ScopedIdDocument(BaseScopedIdMixin, db.Model):
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
     __tablename__ = 'scoped_id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
-    parent: Container = synonym('container')
+    container = relationship(Container)
+    parent = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
@@ -143,6 +143,7 @@ class UnlimitedName(BaseNameMixin, db.Model):
 
     @property
     def title_for_name(self):
+        """Return title for make_name."""
         return "Custom1: " + self.title
 
 
@@ -150,12 +151,13 @@ class UnlimitedScopedName(BaseScopedNameMixin, db.Model):
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
-    parent: Container = synonym('container')
+    container = relationship(Container)
+    parent = synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
     def title_for_name(self):
+        """Return title for make_name."""
         return "Custom2: " + self.title
 
 
@@ -165,6 +167,7 @@ class UnlimitedIdName(BaseIdNameMixin, db.Model):
 
     @property
     def title_for_name(self):
+        """Return title for make_name."""
         return "Custom3: " + self.title
 
 
@@ -172,12 +175,13 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
     __tablename__ = 'unlimited_scoped_id_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container: Container = relationship(Container)
-    parent: Container = synonym('container')
+    container = relationship(Container)
+    parent = synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
     @property
     def title_for_name(self):
+        """Return title for make_name."""
         return "Custom4: " + self.title
 
 
@@ -228,15 +232,19 @@ class UuidKeyNoDefault(BaseMixin, db.Model):
 class UuidForeignKey1(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
-    uuidkey: UuidKey = relationship(UuidKey)
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
+        None, sa.ForeignKey('uuid_key.id')
+    )
+    uuidkey = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))  # type: ignore[call-overload]
-    uuidkey: UuidKey = relationship(UuidKey)
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
+        None, sa.ForeignKey('uuid_key.id')
+    )
+    uuidkey = relationship(UuidKey)
 
 
 class UuidIdName(BaseIdNameMixin, db.Model):
@@ -327,7 +335,7 @@ class TestCoasterModels(unittest.TestCase):
         c = self.make_container()
         assert c.id is None
         self.session.commit()
-        self.assertEqual(c.id, 1)
+        assert c.id == 1
 
     def test_timestamp(self):
         now1 = self.session.query(sa.func.utcnow()).scalar()
@@ -346,15 +354,13 @@ class TestCoasterModels(unittest.TestCase):
         # 1. utcnow will have timezone in PostgreSQL, but not in SQLite
         # 2. columns will have timezone iff PostgreSQL and the model has
         #    __with_timezone__ = True
-        self.assertNotEqual(
-            now1.replace(tzinfo=None), c.created_at.replace(tzinfo=None)
-        )
+        assert now1.replace(tzinfo=None) != c.created_at.replace(tzinfo=None)
         assert now1.replace(tzinfo=None) < c.created_at.replace(tzinfo=None)
         assert now2.replace(tzinfo=None) > c.created_at.replace(tzinfo=None)
         sleep(1)
         c.content = "updated"
         self.session.commit()
-        self.assertNotEqual(c.updated_at, u)
+        assert c.updated_at != u
         assert c.updated_at.replace(tzinfo=None) > now2.replace(tzinfo=None)
         assert c.updated_at > c.created_at
         assert c.updated_at > u
@@ -364,8 +370,8 @@ class TestCoasterModels(unittest.TestCase):
         d = UnnamedDocument(content="hello", container=c)
         self.session.add(d)
         self.session.commit()
-        self.assertEqual(c.id, 1)
-        self.assertEqual(d.id, 1)
+        assert c.id == 1
+        assert d.id == 1
 
     def test_named(self):
         """Named documents have globally unique names."""
