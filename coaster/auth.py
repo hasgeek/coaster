@@ -147,6 +147,9 @@ class CurrentAuth:
         object.__setattr__(self, 'is_placeholder', is_placeholder)
         object.__setattr__(self, 'permissions', InspectableSet())
         object.__setattr__(self, 'anchors', frozenset())
+        if is_placeholder:
+            object.__setattr__(self, 'actor', None)
+            object.__setattr__(self, 'user', None)
 
     def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
         raise AttributeError('CurrentAuth is read-only')
@@ -154,24 +157,31 @@ class CurrentAuth:
     def __delattr__(self, attr: str) -> t.NoReturn:
         raise AttributeError('CurrentAuth is read-only')
 
-    # For mypy to recognise CurrentAuth as a bag of attributes
-    def __getattr__(self, attr: str) -> t.Any:
-        try:
-            return self.__dict__[attr]
-        except KeyError:
-            raise AttributeError(attr) from None
-
     def __contains__(self, attr: str) -> bool:
         """Check for presence of an attribute."""
         return attr in self.__dict__
 
     def get(self, attr: str, default: t.Any = None) -> t.Any:
         """Get an attribute."""
-        return self.__dict__.get(attr, default)
+        return getattr(self, attr, default)
 
     def __repr__(self) -> str:  # pragma: no cover
         is_placeholder = self.is_placeholder
         return f'CurrentAuth({is_placeholder=})'
+
+    def __getattr__(self, attr: str) -> t.Any:
+        """Init CurrentAuth on first attribute access."""
+        with _prop_lock:
+            if 'actor' in self.__dict__:
+                # CurrentAuth already initialized
+                raise AttributeError(attr)
+            self.__dict__['actor'] = None
+            self.__dict__.setdefault('user', None)
+            self._call_login_manager()
+            try:
+                return self.__dict__[attr]
+            except KeyError:
+                raise AttributeError(attr) from None
 
     def _call_login_manager(self):
         """Call the app's login manager on first access of user or actor (internal)."""
@@ -201,36 +211,6 @@ class CurrentAuth:
                 # Set actor=user only if the login manager did not add another actor
                 if self.__dict__.get('actor') is None:
                     self.__dict__['actor'] = user
-
-    @property
-    def actor(self) -> t.Any:
-        """Load and return an actor from auth cookie."""
-        actor = self.__dict__.get('actor', _NOT_FOUND)
-        if actor is not _NOT_FOUND:
-            return actor
-        with _prop_lock:
-            # Check for value being set while waiting for lock
-            actor = self.__dict__.get('actor', _NOT_FOUND)
-            if actor is not _NOT_FOUND:
-                return actor
-            self.__dict__['actor'] = None
-            self._call_login_manager()
-            return self.__dict__['actor']
-
-    @property
-    def user(self) -> t.Any:
-        """Load and return a user from auth cookie."""
-        user = self.__dict__.get('user', _NOT_FOUND)
-        if user is not _NOT_FOUND:
-            return user
-        with _prop_lock:
-            # Check for value being set while waiting for lock
-            user = self.__dict__.get('user', _NOT_FOUND)
-            if user is not _NOT_FOUND:
-                return user
-            self.__dict__['user'] = None
-            self._call_login_manager()
-            return self.__dict__['user']
 
     def __bool__(self) -> bool:
         """Return ``True`` if an actor is present, ``False`` if not."""
