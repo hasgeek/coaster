@@ -49,6 +49,7 @@ jobs:
       - name: Install project
         run: |
           python setup.py develop
+          pip install -r test_requirements.txt
       - name: Install pytest-github-actions-annotate-failures
         run: pip install pytest-github-actions-annotate-failures
       - name: Create PostgreSQL databases
