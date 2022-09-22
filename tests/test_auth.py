@@ -288,13 +288,16 @@ def test_jinja2_no_auth(app):
 def test_jinja2_auth(app, models, login_manager):
     """Test that current_auth is available in Jinja2."""
     app.jinja_env.globals['current_auth'] = current_auth
-    user = models.AnonymousUser()
-    login_manager.set_user_for_testing(user, load=True)
+    user = models.User(username='user', fullname="User")
+    login_manager.set_user_for_testing(user)
+    assert not request_has_auth()
     assert render_template_string("{% if config %}Yes{% else %}No{% endif %}") == 'Yes'
+    assert not request_has_auth()
     assert (
         render_template_string('{% if current_auth %}Yes{% else %}No{% endif %}')
         == 'Yes'
     )
+    assert request_has_auth()
     assert (
         render_template_string(
             '{% if current_auth.is_authenticated %}Yes{% else %}No{% endif %}'
@@ -302,3 +305,4 @@ def test_jinja2_auth(app, models, login_manager):
         == 'Yes'
     )
     assert request_has_auth()
+    assert render_template_string('{{ current_auth.user.username }}') == 'user'
