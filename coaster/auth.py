@@ -168,8 +168,7 @@ class CurrentAuth:
         return getattr(self, attr, default)
 
     def __repr__(self) -> str:  # pragma: no cover
-        is_placeholder = self.is_placeholder
-        return f'CurrentAuth({is_placeholder=})'
+        return f'CurrentAuth(is_placeholder={self.is_placeholder})'
 
     def __getattr__(self, attr: str) -> t.Any:
         """Init CurrentAuth on first attribute access."""
