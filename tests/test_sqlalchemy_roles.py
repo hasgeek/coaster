@@ -337,7 +337,7 @@ class MultiroleChild(BaseMixin, db.Model):
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
                 # Map role2 and role3, but explicitly ignore role1.
                 # Demonstrate mapping to multiple roles
-                'role2': ('parent_role2', 'parent_role2b', 'parent_role_shared'),
+                'role2': {'parent_role2', 'parent_role2b', 'parent_role_shared'},
                 'role3': {'parent_role3', 'parent_role3b', 'parent_role_shared'},
             },
         },

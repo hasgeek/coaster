@@ -61,7 +61,7 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
     parent_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('middle_container.id')
     )
-    parent: MiddleContainer = relationship(MiddleContainer, backref='children')
+    parent = relationship(MiddleContainer, backref='children')
 
     def permissions(self, actor, inherited=None):
         if inherited is None:
@@ -78,12 +78,12 @@ class RedirectDocument(BaseNameMixin, db.Model):
     container_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('container.id')
     )
-    container: Container = relationship(Container)
+    container = relationship(Container)
 
     target_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('named_document.id')
     )
-    target: NamedDocument = relationship(NamedDocument)
+    target = relationship(NamedDocument)
 
     def redirect_view_args(self):
         return {'document': self.target.name}

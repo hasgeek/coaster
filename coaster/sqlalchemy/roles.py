@@ -170,15 +170,15 @@ __all__ = [
 __cache__: t.Dict[t.Any, t.Dict[str, set]] = {}
 
 
-class RoleAttrs(te.TypedDict):
+class RoleAttrs(te.TypedDict, total=False):
     """Type definition for values in :attr:`RoleMixin.__roles__`."""
 
-    rw: te.NotRequired[t.Set[str]]
-    read: te.NotRequired[t.Set[str]]
-    write: te.NotRequired[t.Set[str]]
-    grants: te.NotRequired[t.Set[str]]
-    granted_by: te.NotRequired[t.List[str]]
-    granted_via: te.NotRequired[t.Dict[str, t.Union[str, QueryableAttribute]]]
+    rw: t.Set[str]
+    read: t.Set[str]
+    write: t.Set[str]
+    grants: t.Set[str]
+    granted_by: t.List[str]
+    granted_via: t.Dict[str, t.Union[None, str, QueryableAttribute]]
 
 
 def _attrs_equal(lhs, rhs):
