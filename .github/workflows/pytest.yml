@@ -61,7 +61,7 @@ jobs:
           psql -h localhost -U postgres -c "grant all privileges on database coaster_test to $(whoami);"
       - name: Test with pytest
         run: |
-          pytest --showlocals --cov=coaster
+          pytest --ignore-flaky --showlocals --cov=coaster
       - name: Prepare coverage report
         run: |
           mkdir -p coverage

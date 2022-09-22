@@ -6,6 +6,7 @@ pylint-pytest
 pytest>6
 pytest-cov
 pytest-env
+pytest-ignore-flaky
 pytest-remotedata
 pytest-rerunfailures
 toml

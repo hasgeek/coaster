@@ -298,6 +298,7 @@ class TestLoadModels(unittest.TestCase):
         db.drop_all()
         self.ctx.pop()
 
+    @pytest.mark.flaky()
     def test_container(self):
         with self.app.test_request_context():
             login_manager.set_user_for_testing(User(username='test'), load=True)
@@ -310,6 +311,7 @@ class TestLoadModels(unittest.TestCase):
             == self.nd2
         )
 
+    @pytest.mark.flaky()
     def test_redirect_document(self):
         with self.app.test_request_context('/c/named-document'):
             assert (
@@ -342,6 +344,7 @@ class TestLoadModels(unittest.TestCase):
             == self.snd2
         )
 
+    @pytest.mark.flaky()
     def test_id_named_document(self):
         assert (
             t_id_named_document(container='c', document='1-id-named-document')
@@ -368,6 +371,7 @@ class TestLoadModels(unittest.TestCase):
         assert t_scoped_id_document(container='c', document=1) == self.sid1
         assert t_scoped_id_document(container='c', document=2) == self.sid2
 
+    @pytest.mark.flaky()
     def test_scoped_id_named_document(self):
         assert (
             t_scoped_id_named_document(
@@ -423,6 +427,7 @@ class TestLoadModels(unittest.TestCase):
         assert self.pc.permissions(user, inherited=inherited) == {'add-video', 'view'}
         assert inherited == {'add-video'}
 
+    @pytest.mark.flaky()
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():
             login_manager.set_user_for_testing(User(username='foo'), load=True)
@@ -431,6 +436,7 @@ class TestLoadModels(unittest.TestCase):
             with pytest.raises(Forbidden):
                 t_dotted_document_delete(document='parent', child=1)
 
+    @pytest.mark.flaky()
     def test_load_user_to_g(self):
         with self.app.test_request_context():
             user = User(username='baz')
@@ -441,6 +447,7 @@ class TestLoadModels(unittest.TestCase):
             with pytest.raises(NotFound):
                 t_load_user_to_g(username='boo')
 
+    @pytest.mark.flaky()
     def test_single_model_in_loadmodels(self):
         with self.app.test_request_context():
             user = User(username='user1')
