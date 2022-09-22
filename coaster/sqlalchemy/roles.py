@@ -173,12 +173,12 @@ __cache__: t.Dict[t.Any, t.Dict[str, set]] = {}
 class RoleAttrs(te.TypedDict):
     """Type definition for values in :attr:`RoleMixin.__roles__`."""
 
-    rw: t.Set[str]
-    read: t.Set[str]
-    write: t.Set[str]
-    grants: t.Set[str]
-    granted_by: t.List[str]
-    granted_via: t.Dict[str, str]
+    rw: te.NotRequired[t.Set[str]]
+    read: te.NotRequired[t.Set[str]]
+    write: te.NotRequired[t.Set[str]]
+    grants: te.NotRequired[t.Set[str]]
+    granted_by: te.NotRequired[t.List[str]]
+    granted_via: te.NotRequired[t.Dict[str, t.Union[str, QueryableAttribute]]]
 
 
 def _attrs_equal(lhs, rhs):
@@ -714,13 +714,16 @@ class RoleAccessProxy(abc.Mapping):
 def with_roles(
     obj=None,
     *,
-    rw=None,
-    call=None,
-    read=None,
-    write=None,
-    grants=None,
-    grants_via=None,
-    datasets=None,
+    rw: t.Optional[t.Set[str]] = None,
+    call: t.Optional[t.Set[str]] = None,
+    read: t.Optional[t.Set[str]] = None,
+    write: t.Optional[t.Set[str]] = None,
+    grants: t.Optional[t.Set[str]] = None,
+    grants_via: t.Dict[
+        t.Union[None, str, QueryableAttribute],
+        t.Union[t.Set[str], t.Dict[str, t.Union[str, t.Set[str]]]],
+    ] = None,
+    datasets: t.Optional[t.Set[str]] = None,
 ):
     """
     Define roles on an attribute and return the attribute.
@@ -826,7 +829,7 @@ def with_roles(
     if not grants_via:
         grants_via = {}
     if not datasets:
-        datasets = {}
+        datasets = set()
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)

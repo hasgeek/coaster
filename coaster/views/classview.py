@@ -661,7 +661,7 @@ class ModelView(ClassView):
 
     def dispatch_request(
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
-    ) -> ResponseReturnValue:
+    ) -> BaseResponse:
         """
         Dispatch a view.
 
