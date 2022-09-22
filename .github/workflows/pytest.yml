@@ -1,0 +1,85 @@
+name: Pytest
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+    paths:
+      - '**.py'
+      - '**.js'
+      - '**.jinja2'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.7', '3.10']
+
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        options: --entrypoint redis-server
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install project
+        run: |
+          python setup.py develop
+      - name: Install pytest-github-actions-annotate-failures
+        run: pip install pytest-github-actions-annotate-failures
+      - name: Create PostgreSQL databases
+        run: |
+          sudo apt-get install postgresql-client -y
+          psql -h localhost -U postgres -c "create user $(whoami);"
+          psql -h localhost -U postgres -c "create database coaster_test;"
+          psql -h localhost -U postgres -c "grant all privileges on database coaster_test to $(whoami);"
+      - name: Test with pytest
+        run: |
+          pytest --showlocals --cov=coaster
+      - name: Prepare coverage report
+        run: |
+          mkdir -p coverage
+          coverage lcov -o coverage/coaster.lcov
+      - name: Upload coverage report to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.github_token }}
+          path-to-lcov: ./coverage/coaster.lcov
+          flag-name: python-${{ matrix.python-version }}
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.github_token }}
+          path-to-lcov: ./coverage/coaster.lcov
+          parallel-finished: true
