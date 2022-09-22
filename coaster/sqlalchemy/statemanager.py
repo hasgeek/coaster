@@ -296,7 +296,7 @@ class AbortTransition(Exception):  # noqa: N818
     :param result: Value to return to the transition's caller
     """
 
-    def __init__(self, result=None):  # pylint:disable=useless-super-delegation
+    def __init__(self, result=None):  # pylint: disable=useless-super-delegation
         super().__init__(result)
 
 

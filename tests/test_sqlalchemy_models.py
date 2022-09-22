@@ -43,7 +43,7 @@ app1 = Flask(__name__)
 app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
 app1.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app2 = Flask(__name__)
-app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql:///coaster_test'
+app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://localhost/coaster_test'
 app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app1)
 db.init_app(app2)
@@ -424,9 +424,8 @@ class TestCoasterModels(unittest.TestCase):
     def test_named_blank_disallowed(self):
         c1 = self.make_container()
         d1 = NamedDocument(title="Index", name="", container=c1)
-        d1.name = (
-            ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
-        )
+        # BaseNameMixin will always try to set a name. Explicitly blank it.
+        d1.name = ""
         self.session.add(d1)
         with pytest.raises(IntegrityError):
             self.session.commit()
@@ -434,9 +433,8 @@ class TestCoasterModels(unittest.TestCase):
     def test_named_blank_allowed(self):
         c1 = self.make_container()
         d1 = NamedDocumentBlank(title="Index", name="", container=c1)
-        d1.name = (
-            ""  # BaseNameMixin will always try to set a name. Explicitly blank it.
-        )
+        # BaseNameMixin will always try to set a name. Explicitly blank it.
+        d1.name = ""
         self.session.add(d1)
         assert d1.name == ""
 
