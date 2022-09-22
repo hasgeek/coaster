@@ -163,6 +163,8 @@ class CurrentAuth:
 
     def get(self, attr: str, default: t.Any = None) -> t.Any:
         """Get an attribute."""
+        # This uses :func:`getattr` instead of looking in :attr:`__dict__` because it
+        # needs to trigger the first-use activity that happens in :meth:`__getattr__`
         return getattr(self, attr, default)
 
     def __repr__(self) -> str:  # pragma: no cover

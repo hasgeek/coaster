@@ -357,6 +357,7 @@ class ManagedState:
 
     def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
+        # pylint: disable=protected-access
         if obj is not None:  # We're being called with an instance
             if is_collection(self.value):
                 valuematch = self.statemanager._value(obj, cls) in self.value

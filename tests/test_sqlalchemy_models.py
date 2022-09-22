@@ -1,4 +1,5 @@
 """Test SQLAlchemy model mixins."""
+# pylint: disable=too-many-lines
 
 from datetime import datetime, timedelta
 from time import sleep

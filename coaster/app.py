@@ -29,7 +29,7 @@ __all__ = [
 class ConfigLoader(NamedTuple):
     """Configuration loader registry entry."""
 
-    extn: str
+    extn: t.Optional[str]
     loader: t.Optional[t.Callable]
 
 
@@ -51,7 +51,7 @@ _config_loaders: t.Dict[str, ConfigLoader] = {
 }
 
 
-class KeyRotationWrapper:
+class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -76,14 +76,14 @@ class KeyRotationWrapper:
 
     def _make_wrapper(self, attr):
         def wrapper(*args, **kwargs):
-            last = len(self._engines) - 1
-            for counter, engine in enumerate(self._engines):
+            saved_exc = None
+            for engine in self._engines:
                 try:
                     return getattr(engine, attr)(*args, **kwargs)
-                except itsdangerous.BadSignature:
-                    if counter == last:
-                        # We've run out of engines. Raise error to caller
-                        raise
+                except itsdangerous.BadSignature as exc:
+                    saved_exc = exc
+            # We've run out of engines.
+            raise saved_exc
 
         return wrapper
 
@@ -138,7 +138,7 @@ def init_app(app: Flask, config: t.List[str] = None, init_logging: bool = True) 
     :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
     """
     if not config:
-        config = ['py']
+        config = ['env', 'py']
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
@@ -148,27 +148,30 @@ def init_app(app: Flask, config: t.List[str] = None, init_logging: bool = True) 
     app.config.setdefault('SQLALCHEMY_TRACK_MODIFICATIONS', False)
     # Load config from the app's settings[.py]
     for config_option in config:
-        if config_option not in _config_loaders:
+        if config_option == 'env':
+            app.config.from_prefixed_env()  # type: ignore[attr-defined]
+        elif config_option not in _config_loaders:
             raise ValueError(f"{config_option} is not a recognized type of config")
-        load_config_from_file(
-            app,
-            'settings' + _config_loaders[config_option].extn,
-            load=_config_loaders[config_option].loader,
-        )
-
-    # Load additional settings from the app's environment-specific config file(s):
-    # Flask sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
-    # variable. So we can directly get it from ``app.config['ENV']``.
-    # Lowercase because that's how flask defines it.
-    # ref: https://flask.palletsprojects.com/en/1.1.x/config/#environment-and-debug-features
-    additional = _additional_config.get(app.config['ENV'].lower())
-    if additional:
-        for config_option in config:
+        else:
             load_config_from_file(
                 app,
-                additional + _config_loaders[config_option].extn,
+                'settings' + t.cast(str, _config_loaders[config_option].extn),
                 load=_config_loaders[config_option].loader,
             )
+
+    # Load additional settings from the app's environment-specific config file(s):
+    # Flask <2.3 sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
+    # variable. FLASK_ENV is deprecated in Flask 2.2 and will be removed in 2.3. Apps
+    # must be updated to prefer config from env.
+    additional = _additional_config.get(app.config.get('ENV', '').lower())
+    if additional:
+        for config_option in config:
+            if config_option != 'env':
+                load_config_from_file(
+                    app,
+                    additional + t.cast(str, _config_loaders[config_option].extn),
+                    load=_config_loaders[config_option].loader,
+                )
 
     if init_logging:
         logger.init_app(app)
