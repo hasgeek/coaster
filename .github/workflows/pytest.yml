@@ -46,7 +46,6 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
       - name: Install project
         run: |
           python setup.py develop
