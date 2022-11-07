@@ -176,6 +176,7 @@ class RoleAttrs(te.TypedDict, total=False):
     rw: t.Set[str]
     read: t.Set[str]
     write: t.Set[str]
+    call: t.Set[str]
     grants: t.Set[str]
     granted_by: t.List[str]
     granted_via: t.Dict[str, t.Union[None, str, QueryableAttribute]]
@@ -721,7 +722,7 @@ def with_roles(
     grants: t.Optional[t.Set[str]] = None,
     grants_via: t.Dict[
         t.Union[None, str, QueryableAttribute],
-        t.Union[t.Set[str], t.Dict[str, t.Union[str, t.Set[str]]]],
+        t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
 ):
