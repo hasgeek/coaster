@@ -188,14 +188,19 @@ class CurrentAuth:
         """Call the app's login manager on first access of user or actor (internal)."""
         # Check for an existing user from Flask-Login
         if not g:
-            # There's no app or request context
+            # There's no app or request context for a login manager to operate on
             return
-        user = g.get('_login_user')
-        if user is not None:
-            self.__dict__['user'] = user
-            if self.__dict__.get('actor') is None:
-                self.__dict__['actor'] = user
-            return
+        if not request:
+            # Look for ``g._login_user``, but only when there's no request. The app
+            # context is sometimes reused between requests in a test environment. We may
+            # have a stale ``g`` that was populated in a previous request and have to
+            # call the login manager all over again to get fresh data
+            user = g.get('_login_user')
+            if user is not None:
+                self.__dict__['user'] = user
+                if self.__dict__.get('actor') is None:
+                    self.__dict__['actor'] = user
+                return
         # If there's no existing user, look for a login manager
         if (
             request
