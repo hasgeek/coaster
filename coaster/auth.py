@@ -28,7 +28,6 @@ from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
 
-_NOT_FOUND = object()
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
 _add_lock = Lock()  # Used by `add_auth_attribute`
