@@ -317,7 +317,7 @@ class ManagedState:
         statemanager: StateManager,
         value: t.Any,
         label: t.Optional[str] = None,
-        validator: t.Callable[[t.Any], bool] = None,
+        validator: t.Optional[t.Callable[[t.Any], bool]] = None,
         class_validator: t.Optional[t.Callable[[t.Any], None]] = None,
         cache_for: t.Union[None, int, t.Callable] = None,
     ):

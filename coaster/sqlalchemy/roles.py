@@ -720,9 +720,11 @@ def with_roles(
     read: t.Optional[t.Set[str]] = None,
     write: t.Optional[t.Set[str]] = None,
     grants: t.Optional[t.Set[str]] = None,
-    grants_via: t.Dict[
-        t.Union[None, str, QueryableAttribute],
-        t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+    grants_via: t.Optional[
+        t.Dict[
+            t.Union[None, str, QueryableAttribute],
+            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+        ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
 ):
