@@ -2,17 +2,18 @@
 Authentication management
 =========================
 
-Coaster provides a :obj:`current_auth` for handling authentication. Login
-managers must comply with its API for Coaster's view handlers to work.
+Coaster provides a :obj:`current_auth` for handling authentication. Login managers must
+comply with its API for Coaster's view handlers to work.
 
-If a login manager installs itself as ``current_app.login_manager`` and
-provides a ``_load_user()`` method, it will be called when :obj:`current_auth`
-is invoked for the first time in a request. Login managers can call
-:func:`add_auth_attribute` to load the actor (typically the authenticated user)
-and any other relevant authentication attributes.
-
-For compatibility with Flask-Login, a user object loaded at ``g._login_user`` will be
-recognised and made available via :obj:`current_auth`.
+If a login manager installs itself as ``current_app.login_manager`` and provides a
+``_load_user()`` method, it will be called when :obj:`current_auth` is invoked for the
+first time in a request. Login managers can call :func:`add_auth_attribute` to load the
+actor (typically the authenticated user) and any other relevant authentication
+attributes. For compatibility with Flask-Login, if the login manager fails to call
+:func:`add_auth_attribute`, :obj:`current_auth` will attempt to load a user from
+``g._login_user``. However, this value will not be trusted unless a login manager is
+called, as the app context may be re-used between requests if it was created prior to
+request processing.
 """
 # pylint: disable=protected-access
 
