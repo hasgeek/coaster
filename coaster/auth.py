@@ -187,20 +187,9 @@ class CurrentAuth:
     def _call_login_manager(self):
         """Call the app's login manager on first access of user or actor (internal)."""
         # Check for an existing user from Flask-Login
-        if not g:
-            # There's no app or request context for a login manager to operate on
-            return
         if not request:
-            # Look for ``g._login_user``, but only when there's no request. The app
-            # context is sometimes reused between requests in a test environment. We may
-            # have a stale ``g`` that was populated in a previous request and have to
-            # call the login manager all over again to get fresh data
-            user = g.get('_login_user')
-            if user is not None:
-                self.__dict__['user'] = user
-                if self.__dict__.get('actor') is None:
-                    self.__dict__['actor'] = user
-                return
+            # There's no request context for a login manager to operate on
+            return
         # If there's no existing user, look for a login manager
         if (
             request
@@ -208,15 +197,15 @@ class CurrentAuth:
             and hasattr(current_app.login_manager, '_load_user')
         ):
             current_app.login_manager._load_user()
-        # In case the login manager did not call :func:`add_auth_attribute`, we'll need
-        # to do it
-        if self.__dict__.get('user') is None:
-            user = g.get('_login_user')
-            if user is not None:
-                self.__dict__['user'] = user
-                # Set actor=user only if the login manager did not add another actor
-                if self.__dict__.get('actor') is None:
-                    self.__dict__['actor'] = user
+            # In case the login manager did not call :func:`add_auth_attribute`, we'll
+            # need to do it
+            if self.__dict__.get('user') is None:
+                user = g.get('_login_user')
+                if user is not None:
+                    self.__dict__['user'] = user
+                    # Set actor=user only if the login manager did not add another actor
+                    if self.__dict__.get('actor') is None:
+                        self.__dict__['actor'] = user
 
     def __bool__(self) -> bool:
         """Return ``True`` if an actor is present, ``False`` if not."""
@@ -269,9 +258,8 @@ def _get_current_auth() -> CurrentAuth:
         # 4. Return current_auth
         return ca
 
-    # 5. Fallback if there is no request context. Return a blank current_auth
+    # 5. Fallback if there is no request context. Return a placeholder current_auth
     # so that ``current_auth.is_authenticated`` remains valid for checking status
-    # Make this work even when there's no request
     return CurrentAuth(is_placeholder=True)
 
 
