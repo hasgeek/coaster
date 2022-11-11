@@ -25,6 +25,8 @@
   in favour of a unified ``load`` method
 * ``coaster.db`` is deprecated as Flask-SQLAlchemy 3.0 has changed architecture
   to recommend metadata isolation between bind keys even within the same app
+* App config from ``FLASK_*`` env vars is now preferred over config files, and
+  support for the ``FLASK_ENV`` var for custom environments is deprecated
 
 0.6.1 - 2021-01-06
 ------------------
