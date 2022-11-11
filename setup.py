@@ -27,7 +27,7 @@ requires = [
     'Flask-Assets',
     'Flask-Migrate',
     'Flask-Script',
-    'Flask-SQLAlchemy',
+    'Flask-SQLAlchemy>=3.0',
     'Flask>=2.0',
     'furl',
     'html2text>2019.8.11',
