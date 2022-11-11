@@ -727,9 +727,7 @@ def cors(
     return decorator
 
 
-def requires_permission(
-    permission: t.Union[str, t.Collection[str]]
-) -> tc.ReturnDecorator:
+def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecorator:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.
 
