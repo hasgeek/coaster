@@ -30,9 +30,9 @@ __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current
 
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
-_add_lock = Lock()  # Used by `add_auth_attribute`
-_get_lock = Lock()  # Used by `_get_current_auth``
-_prop_lock = Lock()  # Used by CurrentAuth's `user` and `actor` properties
+_add_lock = Lock()  # Used by :func:`add_auth_attribute`
+_get_lock = Lock()  # Used by :func:`_get_current_auth``
+_prop_lock = Lock()  # Used by :meth:`CurrentAuth.__getattr__`
 
 _internal_attrs = {
     'is_placeholder',
