@@ -7,6 +7,7 @@ import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
 import uuid as uuid_
 
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import relationship, synonym
@@ -19,7 +20,6 @@ from werkzeug.routing import BuildError
 from pytz import utc
 import pytest
 
-from coaster.db import db
 from coaster.sqlalchemy import (
     BaseIdNameMixin,
     BaseMixin,
@@ -45,26 +45,27 @@ app1.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app2 = Flask(__name__)
 app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://localhost/coaster_test'
 app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy()
 db.init_app(app1)
 db.init_app(app2)
-login_manager = LoginManager(app1)
+LoginManager(app1)
 LoginManager(app2)
 
 
 # --- Models ---------------------------------------------------------------------------
 
 
-class TimestampNaive(BaseMixin, db.Model):
+class TimestampNaive(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'timestamp_naive'
     __with_timezone__ = False
 
 
-class TimestampAware(BaseMixin, db.Model):
+class TimestampAware(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'timestamp_aware'
     __with_timezone__ = True
 
 
-class Container(BaseMixin, db.Model):
+class Container(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'container'
     name = sa.Column(sa.Unicode(80), nullable=True)
     title = sa.Column(sa.Unicode(80), nullable=True)
@@ -72,7 +73,7 @@ class Container(BaseMixin, db.Model):
     content = sa.Column(sa.Unicode(250))
 
 
-class UnnamedDocument(BaseMixin, db.Model):
+class UnnamedDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unnamed_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
     container = relationship(Container)
@@ -80,7 +81,7 @@ class UnnamedDocument(BaseMixin, db.Model):
     content = sa.Column(sa.Unicode(250))
 
 
-class NamedDocument(BaseNameMixin, db.Model):
+class NamedDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
@@ -89,7 +90,7 @@ class NamedDocument(BaseNameMixin, db.Model):
     content = sa.Column(sa.Unicode(250))
 
 
-class NamedDocumentBlank(BaseNameMixin, db.Model):
+class NamedDocumentBlank(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
     reserved_names = ['new']
@@ -99,7 +100,7 @@ class NamedDocumentBlank(BaseNameMixin, db.Model):
     content = sa.Column(sa.Unicode(250))
 
 
-class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
+class ScopedNamedDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
@@ -110,7 +111,7 @@ class ScopedNamedDocument(BaseScopedNameMixin, db.Model):
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
 
-class IdNamedDocument(BaseIdNameMixin, db.Model):
+class IdNamedDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
     container = relationship(Container)
@@ -118,7 +119,7 @@ class IdNamedDocument(BaseIdNameMixin, db.Model):
     content = sa.Column(sa.Unicode(250))
 
 
-class ScopedIdDocument(BaseScopedIdMixin, db.Model):
+class ScopedIdDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_id_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
     container = relationship(Container)
@@ -128,7 +129,7 @@ class ScopedIdDocument(BaseScopedIdMixin, db.Model):
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
-class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
+class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
     container = relationship(Container)
@@ -138,7 +139,7 @@ class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
-class UnlimitedName(BaseNameMixin, db.Model):
+class UnlimitedName(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unlimited_name'
     __name_length__ = __title_length__ = None
 
@@ -148,7 +149,7 @@ class UnlimitedName(BaseNameMixin, db.Model):
         return "Custom1: " + self.title
 
 
-class UnlimitedScopedName(BaseScopedNameMixin, db.Model):
+class UnlimitedScopedName(BaseScopedNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
@@ -162,7 +163,7 @@ class UnlimitedScopedName(BaseScopedNameMixin, db.Model):
         return "Custom2: " + self.title
 
 
-class UnlimitedIdName(BaseIdNameMixin, db.Model):
+class UnlimitedIdName(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unlimited_id_name'
     __name_length__ = __title_length__ = None
 
@@ -172,7 +173,7 @@ class UnlimitedIdName(BaseIdNameMixin, db.Model):
         return "Custom3: " + self.title
 
 
-class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
+class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unlimited_scoped_id_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
@@ -186,18 +187,18 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):
         return "Custom4: " + self.title
 
 
-class User(BaseMixin, db.Model):
+class User(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'user'
     username = sa.Column(sa.Unicode(80), nullable=False)
 
 
-class MyData(db.Model):
+class MyData(db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_data'
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
     data = sa.Column(JsonDict)
 
 
-class MyUrlModel(db.Model):
+class MyUrlModel(db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_url'
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
     url = sa.Column(UrlType)  # type: ignore[var-annotated]
@@ -214,23 +215,23 @@ class MyUrlModel(db.Model):
     )
 
 
-class NonUuidKey(BaseMixin, db.Model):
+class NonUuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'non_uuid_key'
     __uuid_primary_key__ = False
 
 
-class UuidKey(BaseMixin, db.Model):
+class UuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key'
     __uuid_primary_key__ = True
 
 
-class UuidKeyNoDefault(BaseMixin, db.Model):
+class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
     id = db.Column(UUIDType(binary=False), primary_key=True)  # noqa: A003
 
 
-class UuidForeignKey1(BaseMixin, db.Model):
+class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
     uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
@@ -239,7 +240,7 @@ class UuidForeignKey1(BaseMixin, db.Model):
     uuidkey = relationship(UuidKey)
 
 
-class UuidForeignKey2(BaseMixin, db.Model):
+class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
     uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
@@ -248,36 +249,36 @@ class UuidForeignKey2(BaseMixin, db.Model):
     uuidkey = relationship(UuidKey)
 
 
-class UuidIdName(BaseIdNameMixin, db.Model):
+class UuidIdName(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_id_name'
     __uuid_primary_key__ = True
 
 
-class UuidIdNameMixin(UuidMixin, BaseIdNameMixin, db.Model):
+class UuidIdNameMixin(UuidMixin, BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_id_name_mixin'
     __uuid_primary_key__ = True
 
 
-class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin, db.Model):
+class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_id_name_secondary'
     __uuid_primary_key__ = False
 
 
-class NonUuidMixinKey(UuidMixin, BaseMixin, db.Model):
+class NonUuidMixinKey(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'non_uuid_mixin_key'
     __uuid_primary_key__ = False
 
 
-class UuidMixinKey(UuidMixin, BaseMixin, db.Model):
+class UuidMixinKey(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_mixin_key'
     __uuid_primary_key__ = True
 
 
-class ParentForPrimary(BaseMixin, db.Model):
+class ParentForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'parent_for_primary'
 
 
-class ChildForPrimary(BaseMixin, db.Model):
+class ChildForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'child_for_primary'
     parent_for_primary_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('parent_for_primary.id'), nullable=False
@@ -300,7 +301,7 @@ parent_child_primary = db.Model.metadata.tables[
 ]
 
 
-class DefaultValue(BaseMixin, db.Model):
+class DefaultValue(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'default_value'
     value = db.Column(db.Unicode(100), default='default')
 

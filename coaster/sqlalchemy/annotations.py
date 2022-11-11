@@ -12,10 +12,11 @@ This module's exports may be imported via :mod:`coaster.sqlalchemy`.
 
 Sample usage::
 
-    from coaster.db import db
+    from flask_sqlalchemy import SQLAlchemy
     from coaster.sqlalchemy import annotation_wrapper, immutable
 
     natural_key = annotation_wrapper('natural_key', "Natural key for this model")
+    db = SQLAlchemy()
 
     class MyModel(db.Model):
         __tablename__ = 'my_model'

@@ -13,7 +13,6 @@ from werkzeug.exceptions import Forbidden
 import pytest
 
 from coaster.auth import add_auth_attribute
-from coaster.db import SQLAlchemy
 from coaster.sqlalchemy import BaseIdNameMixin, BaseNameMixin, BaseScopedNameMixin
 from coaster.utils import InspectableSet
 from coaster.views import (
@@ -32,6 +31,8 @@ from coaster.views import (
     viewdata,
 )
 
+from .test_sqlalchemy_models import db
+
 
 class JsonEncoder(json.JSONEncoder):
     def default(self, o):
@@ -45,7 +46,7 @@ app.json_encoder = JsonEncoder
 app.testing = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+db.init_app(app)
 
 
 # --- Models ---------------------------------------------------------------------------

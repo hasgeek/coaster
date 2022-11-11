@@ -6,13 +6,12 @@ import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
-from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-from .test_sqlalchemy_models import app2
+from .test_sqlalchemy_models import app2, db
 
 
-class CoordinatesData(BaseMixin, CoordinatesMixin, db.Model):
+class CoordinatesData(BaseMixin, CoordinatesMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'coordinates_data'
 
 

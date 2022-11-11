@@ -109,7 +109,9 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
-def init_app(app: Flask, config: t.List[str] = None, init_logging: bool = True) -> None:
+def init_app(
+    app: Flask, config: t.Optional[t.List[str]] = None, init_logging: bool = True
+) -> None:
     """
     Configure an app depending on the environment.
 

@@ -23,6 +23,8 @@
 * Remove unicode_http_header
 * ``loader`` and ``after_loader`` are deprecated in ``coaster.views.ModelView``
   in favour of a unified ``load`` method
+* ``coaster.db`` is deprecated as Flask-SQLAlchemy 3.0 has changed architecture
+  to recommend metadata isolation between bind keys even within the same app
 
 0.6.1 - 2021-01-06
 ------------------

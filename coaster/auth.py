@@ -85,7 +85,7 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
             ca.__dict__['actor'] = value
 
 
-def add_auth_anchor(anchor):
+def add_auth_anchor(anchor) -> None:
     """Add an anchor to current auth (placeholder pending a spec for anchors)."""
     existing = set(current_auth.anchors)
     existing.add(anchor)
@@ -93,9 +93,9 @@ def add_auth_anchor(anchor):
     object.__setattr__(ca, 'anchors', frozenset(existing))
 
 
-def request_has_auth():
+def request_has_auth() -> bool:
     """
-    Check if request accessed auth.
+    Check if :obj:`current_auth` was accessed for an actor in the current request.
 
     Helper function that returns True if :obj:`current_auth` was invoked during
     the current request. A login manager can use this during request teardown

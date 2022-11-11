@@ -12,10 +12,10 @@ from werkzeug.exceptions import Forbidden, NotFound
 
 import pytest
 
-from coaster.db import db
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.views import load_model, load_models
 
+from .test_auth import LoginManager
 from .test_sqlalchemy_models import (
     Container,
     IdNamedDocument,
@@ -26,17 +26,17 @@ from .test_sqlalchemy_models import (
     User,
     app1,
     app2,
-    login_manager,
+    db,
 )
 
 # --- Models ---------------------------------------------------------------------------
 
 
-class MiddleContainer(BaseMixin, db.Model):
+class MiddleContainer(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'middle_container'
 
 
-class ParentDocument(BaseNameMixin, db.Model):
+class ParentDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'parent_document'
     middle_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('middle_container.id')
@@ -56,7 +56,7 @@ class ParentDocument(BaseNameMixin, db.Model):
         return perms
 
 
-class ChildDocument(BaseScopedIdMixin, db.Model):
+class ChildDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'child_document'
     parent_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('middle_container.id')
@@ -73,7 +73,7 @@ class ChildDocument(BaseScopedIdMixin, db.Model):
         return perms
 
 
-class RedirectDocument(BaseNameMixin, db.Model):
+class RedirectDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'redirect_document'
     container_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('container.id')
@@ -227,7 +227,14 @@ def t_dotted_document_delete(document, child):
 
 
 class TestLoadModels(unittest.TestCase):
-    app = app1
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = app1.config['SQLALCHEMY_DATABASE_URI']
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    LoginManager(app)
+    app.add_url_rule(
+        '/<container>/<document>', 'redirect_document', t_redirect_document
+    )
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
@@ -288,10 +295,6 @@ class TestLoadModels(unittest.TestCase):
         self.child2 = ChildDocument(parent=self.pc.middle)
         self.session.add(self.child2)
         self.session.commit()
-        self.app = Flask(__name__)
-        self.app.add_url_rule(
-            '/<container>/<document>', 'redirect_document', t_redirect_document
-        )
 
     def tearDown(self):
         self.session.rollback()
@@ -300,8 +303,11 @@ class TestLoadModels(unittest.TestCase):
 
     @pytest.mark.flaky()
     def test_container(self):
+        assert self.app.login_manager is not None
         with self.app.test_request_context():
-            login_manager.set_user_for_testing(User(username='test'), load=True)
+            self.app.login_manager.set_user_for_testing(
+                User(username='test'), load=True
+            )
             assert t_container(container='c') == self.container
 
     def test_named_document(self):
@@ -430,7 +436,7 @@ class TestLoadModels(unittest.TestCase):
     @pytest.mark.flaky()
     def test_loadmodel_permissions(self):
         with self.app.test_request_context():
-            login_manager.set_user_for_testing(User(username='foo'), load=True)
+            self.app.login_manager.set_user_for_testing(User(username='foo'), load=True)
             assert t_dotted_document_view(document='parent', child=1) == self.child1
             assert t_dotted_document_edit(document='parent', child=1) == self.child1
             with pytest.raises(Forbidden):
@@ -457,4 +463,11 @@ class TestLoadModels(unittest.TestCase):
 
 
 class TestLoadModels2(TestLoadModels):
-    app = app2
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = app2.config['SQLALCHEMY_DATABASE_URI']
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    LoginManager(app)
+    app.add_url_rule(
+        '/<container>/<document>', 'redirect_document', t_redirect_document
+    )

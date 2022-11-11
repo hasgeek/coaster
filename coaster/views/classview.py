@@ -350,7 +350,10 @@ class ViewHandlerWrapper:
     """Wrapper for a view at runtime."""
 
     def __init__(
-        self, viewh: ViewHandler, obj: ClassView, cls: t.Type[ClassView] = None
+        self,
+        viewh: ViewHandler,
+        obj: ClassView,
+        cls: t.Optional[t.Type[ClassView]] = None,
     ):
         # obj is the ClassView instance
         self._viewh = viewh
