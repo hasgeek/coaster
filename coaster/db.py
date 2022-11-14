@@ -1,3 +1,12 @@
+"""
+Flask-SQLAlchemy instance
+-------------------------
+
+.. deprecated:: 0.7.0
+   Coaster provides a global instance of Flask-SQLAlchemy for convenience, but this is
+   deprecated as of Flask-SQLAlchemy 3.0 as it now applies metadata isolation between
+   binds even within the same app.
+"""
 from sqlite3 import Connection as SQLite3Connection
 
 from flask_sqlalchemy import SQLAlchemy
@@ -15,9 +24,7 @@ db = SQLAlchemy()
 # be issued once per connection.
 @event.listens_for(Engine, 'connect')
 def _set_sqlite_pragma(dbapi_connection, connection_record):
-    if isinstance(  # pragma: no cover
-        dbapi_connection, (SQLite3Connection, SQLite3Connection)
-    ):
+    if isinstance(dbapi_connection, SQLite3Connection):  # pragma: no cover
         cursor = dbapi_connection.cursor()
         cursor.execute('PRAGMA foreign_keys=ON;')
         cursor.close()

@@ -6,19 +6,18 @@ import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
-from coaster.db import db
 from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
 
-from .test_sqlalchemy_models import app1, app2
+from .test_sqlalchemy_models import app1, app2, db
 
 
-class MarkdownData(BaseMixin, db.Model):
+class MarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'md_data'
     value = MarkdownColumn('value', nullable=False)
 
 
-class MarkdownHtmlData(BaseMixin, db.Model):
+class MarkdownHtmlData(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'md_html_data'
     value = MarkdownColumn('value', nullable=False, options={'html': True})
 
@@ -27,7 +26,7 @@ def fake_markdown(text):
     return 'fake-markdown'
 
 
-class FakeMarkdownData(BaseMixin, db.Model):
+class FakeMarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'fake_md_data'
     value = MarkdownColumn('value', nullable=False, markdown=fake_markdown)
 

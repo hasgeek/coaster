@@ -17,7 +17,6 @@ from flask import Flask
 
 import pytest
 
-from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
     BaseNameMixin,
@@ -30,6 +29,8 @@ from coaster.sqlalchemy import (
     with_roles,
 )
 from coaster.utils import InspectableSet
+
+from .test_sqlalchemy_models import db
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -64,7 +65,7 @@ class DeclaredAttrMixin:
     mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
-class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
+class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'role_model'
 
     # Approach one, declare roles in advance.
@@ -109,7 +110,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):
         return roles
 
 
-class AutoRoleModel(RoleMixin, db.Model):
+class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'auto_role_model'
 
     # This model doesn't specify __roles__. It only uses with_roles.
@@ -124,15 +125,15 @@ class AutoRoleModel(RoleMixin, db.Model):
     __json_datasets__ = ('default',)
 
 
-class BaseModel(BaseMixin, db.Model):
+class BaseModel(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'base_model'
 
 
-class UuidModel(UuidMixin, BaseMixin, db.Model):
+class UuidModel(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_model'
 
 
-class RelationshipChild(BaseNameMixin, db.Model):
+class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'relationship_child'
 
     parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
@@ -144,7 +145,7 @@ class RelationshipChild(BaseNameMixin, db.Model):
     }
 
 
-class RelationshipParent(BaseNameMixin, db.Model):
+class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'relationship_parent'
 
     children_list = db.relationship(RelationshipChild, backref='parent')
@@ -196,7 +197,7 @@ RelationshipParent.children_names = DynamicAssociationProxy(
 )
 
 
-class RoleGrantMany(BaseMixin, db.Model):
+class RoleGrantMany(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model for granting roles to users in many-to-one and many-to-many relationships"""
 
     __tablename__ = 'role_grant_many'
@@ -207,7 +208,7 @@ class RoleGrantMany(BaseMixin, db.Model):
     }
 
 
-class RoleUser(BaseMixin, db.Model):
+class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model to represent a user who has roles"""
 
     __tablename__ = 'role_user'
@@ -223,7 +224,7 @@ class RoleUser(BaseMixin, db.Model):
     )
 
 
-class RoleGrantOne(BaseMixin, db.Model):
+class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model for granting roles to users in a one-to-many relationship"""
 
     __tablename__ = 'role_grant_one'
@@ -232,7 +233,7 @@ class RoleGrantOne(BaseMixin, db.Model):
     user = with_roles(db.relationship(RoleUser), grants={'creator'})
 
 
-class RoleGrantSynonym(BaseMixin, db.Model):
+class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model for granting roles to synonyms"""
 
     __tablename__ = 'role_grant_synonym'
@@ -243,7 +244,7 @@ class RoleGrantSynonym(BaseMixin, db.Model):
     altcol = db.synonym('datacol')
 
 
-class RoleMembership(BaseMixin, db.Model):
+class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model that grants multiple roles"""
 
     __tablename__ = 'role_membership'
@@ -270,7 +271,7 @@ class RoleMembership(BaseMixin, db.Model):
         return roles
 
 
-class MultiroleParent(BaseMixin, db.Model):
+class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model to serve as a role granter to the child model"""
 
     __tablename__ = 'multirole_parent'
@@ -278,7 +279,7 @@ class MultiroleParent(BaseMixin, db.Model):
     user = with_roles(db.relationship(RoleUser), grants={'prole1', 'prole2'})
 
 
-class MultiroleDocument(BaseMixin, db.Model):
+class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model that grants multiple roles via RoleMembership"""
 
     __tablename__ = 'multirole_document'
@@ -325,7 +326,7 @@ class MultiroleDocument(BaseMixin, db.Model):
     # The only way to make an entry there is via with_roles.
 
 
-class MultiroleChild(BaseMixin, db.Model):
+class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Model that inherits roles from its parent"""
 
     __tablename__ = 'multirole_child'
@@ -337,7 +338,7 @@ class MultiroleChild(BaseMixin, db.Model):
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
                 # Map role2 and role3, but explicitly ignore role1.
                 # Demonstrate mapping to multiple roles
-                'role2': ('parent_role2', 'parent_role2b', 'parent_role_shared'),
+                'role2': {'parent_role2', 'parent_role2b', 'parent_role_shared'},
                 'role3': {'parent_role3', 'parent_role3b', 'parent_role_shared'},
             },
         },

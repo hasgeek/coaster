@@ -727,9 +727,7 @@ def cors(
     return decorator
 
 
-def requires_permission(
-    permission: t.Union[str, t.Collection[str]]
-) -> tc.ReturnDecorator:
+def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecorator:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.
 
@@ -746,9 +744,9 @@ def requires_permission(
         def is_available_here() -> bool:
             if not current_auth.permissions:
                 return False
-            if is_collection(permission):
-                return bool(current_auth.permissions & permission)
-            return permission in current_auth.permissions
+            if isinstance(permission, (set, frozenset)):
+                return bool(current_auth.permissions & permission)  # type: ignore
+            return permission in current_auth.permissions  # type: ignore[unreachable]
 
         def is_available(context=None) -> bool:
             result = is_available_here()

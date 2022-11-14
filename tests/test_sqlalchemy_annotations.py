@@ -11,7 +11,6 @@ from flask import Flask
 
 import pytest
 
-from coaster.db import db
 from coaster.sqlalchemy import (
     BaseMixin,
     ImmutableColumnError,
@@ -19,6 +18,8 @@ from coaster.sqlalchemy import (
     cached,
     immutable,
 )
+
+from .test_sqlalchemy_models import db
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
@@ -29,11 +30,11 @@ db.init_app(app)
 # --- Models ---------------------------------------------------------------------------
 
 
-class ReferralTarget(BaseMixin, db.Model):
+class ReferralTarget(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'referral_target'
 
 
-class IdOnly(BaseMixin, db.Model):
+class IdOnly(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'id_only'
     __uuid_primary_key__ = False
 
@@ -48,7 +49,7 @@ class IdOnly(BaseMixin, db.Model):
     referral_target = db.relationship(ReferralTarget)
 
 
-class IdUuid(UuidMixin, BaseMixin, db.Model):
+class IdUuid(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'id_uuid'
     __uuid_primary_key__ = False
 
@@ -63,7 +64,7 @@ class IdUuid(UuidMixin, BaseMixin, db.Model):
     referral_target = immutable(db.relationship(ReferralTarget))
 
 
-class UuidOnly(UuidMixin, BaseMixin, db.Model):
+class UuidOnly(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_only'
     __uuid_primary_key__ = True
 
@@ -78,7 +79,7 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):
     referral_target = immutable(db.relationship(ReferralTarget))
 
 
-class PolymorphicParent(BaseMixin, db.Model):
+class PolymorphicParent(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'polymorphic_parent'
     ptype = immutable(db.Column('type', db.Unicode(30), index=True))
     is_immutable = immutable(db.Column(db.Unicode(250), default='my_default'))
@@ -108,7 +109,7 @@ class PolymorphicChild(PolymorphicParent):
 warnings.resetwarnings()
 
 
-class SynonymAnnotation(BaseMixin, db.Model):
+class SynonymAnnotation(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'synonym_annotation'
     col_regular = db.Column(db.Unicode())
     col_immutable = immutable(db.Column(db.Unicode()))

@@ -296,7 +296,7 @@ class AbortTransition(Exception):  # noqa: N818
     :param result: Value to return to the transition's caller
     """
 
-    def __init__(self, result=None):  # pylint:disable=useless-super-delegation
+    def __init__(self, result=None):  # pylint: disable=useless-super-delegation
         super().__init__(result)
 
 
@@ -317,7 +317,7 @@ class ManagedState:
         statemanager: StateManager,
         value: t.Any,
         label: t.Optional[str] = None,
-        validator: t.Callable[[t.Any], bool] = None,
+        validator: t.Optional[t.Callable[[t.Any], bool]] = None,
         class_validator: t.Optional[t.Callable[[t.Any], None]] = None,
         cache_for: t.Union[None, int, t.Callable] = None,
     ):
@@ -357,6 +357,7 @@ class ManagedState:
 
     def _eval(self, obj, cls=None):
         # TODO: Respect cache as specified in `cache_for`
+        # pylint: disable=protected-access
         if obj is not None:  # We're being called with an instance
             if is_collection(self.value):
                 valuematch = self.statemanager._value(obj, cls) in self.value

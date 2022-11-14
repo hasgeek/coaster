@@ -9,4 +9,4 @@ MAIL_PORT = 587
 MAIL_USERNAME = 'username'
 MAIL_PASSWORD = 'PASSWORD'  # nosec
 SECRET_KEY = 'd vldvnvnvjn'  # nosec
-SQLALCHEMY_DATABASE_URI = 'postgresql:///coaster_test'
+SQLALCHEMY_DATABASE_URI = 'postgresql://localhost/coaster_test'

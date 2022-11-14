@@ -1,3 +1,5 @@
+"""Tests for app."""
+
 from os import environ
 import sys
 import unittest
@@ -23,27 +25,33 @@ class TestCoasterApp(unittest.TestCase):
     """Test coaster.app."""
 
     def setUp(self):
+        """Initialize unit tests."""
         self.app = Flask(__name__)
         self.another_app = Flask(__name__)
 
     def test_load_config_from_file(self):
+        """Test for config loaded from Python file."""
         load_config_from_file(self.app, 'settings.py')
         assert self.app.config['SETTINGS_KEY'] == "settings"
 
     def test_load_config_from_file_json(self):
+        """Test for config loaded from JSON file."""
         load_config_from_file(self.app, 'settings.json', _config_loaders['json'].loader)
         assert self.app.config['SETTINGS_KEY'] == "settings_json"
 
     def test_load_config_from_file_toml(self):
+        """Test for config loaded from TOML file."""
         load_config_from_file(self.app, 'settings.toml', _config_loaders['toml'].loader)
         assert self.app.config['SETTINGS_KEY'] == "settings_toml"
 
     def test_load_config_from_file_yaml(self):
+        """Test for config loaded from YAML file."""
         load_config_from_file(self.app, 'settings.yaml', _config_loaders['yaml'].loader)
         assert self.app.config['SETTINGS_KEY'] == "settings_yaml"
 
     def test_additional_settings_from_file(self):
-        env = 'COASTER_ENV'
+        """Test for config loaded against ENV var."""
+        env = 'FLASK_ENV'
         environ[env] = "gibberish"
         assert _additional_config.get(environ[env]) is None
         for k, v in _additional_config.items():
@@ -51,22 +59,50 @@ class TestCoasterApp(unittest.TestCase):
             assert _additional_config.get(environ[env]) == v
 
     def test_init_app(self):
+        """Test that init_app loads settings.py by default."""
         environ['FLASK_ENV'] = 'testing'
         init_app(self.app)
         assert self.app.config['SETTINGS_KEY'] == 'settings'
         assert self.app.config['TEST_KEY'] == 'test'
 
     def test_init_app_config_py_toml(self):
+        """Test that init_app loads from TOML file if asked to."""
         environ['FLASK_ENV'] = 'testing'
         init_app(self.app, ['py', 'toml'])
         assert self.app.config['SETTINGS_KEY'] == 'settings_toml'
 
     def test_init_app_config_toml_py(self):
+        """Test that init_app respects loading order for settings files."""
         environ['FLASK_ENV'] = 'testing'
         init_app(self.app, ['toml', 'py'])
         assert self.app.config['SETTINGS_KEY'] == 'settings'
 
+    def test_init_app_config_env(self):
+        """Test for config loaded from environment vars."""
+        environ['FLASK_SETTINGS_STR'] = "env-var"
+        environ['FLASK_SETTINGS_QSTR'] = '"qenv-var"'
+        environ['FLASK_SETTINGS_INT'] = "2"
+        environ['FLASK_SETTINGS_FLOAT'] = "3.1"
+        environ['FLASK_SETTINGS_BOOL'] = "false"
+        environ['FLASK_SETTINGS_NONE'] = "null"
+        environ['FLASK_SETTINGS_DICT'] = '{"json": "dict"}'
+        environ['FLASK_SETTINGS_DICT__str'] = "string-in-dict"
+        environ['FLASK_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
+        init_app(self.app, ['env'])
+        assert self.app.config['SETTINGS_STR'] == "env-var"
+        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_INT'] == 2
+        assert self.app.config['SETTINGS_FLOAT'] == 3.1
+        assert self.app.config['SETTINGS_BOOL'] is False
+        assert self.app.config['SETTINGS_NONE'] is None
+        assert self.app.config['SETTINGS_DICT'] == {
+            "json": "dict",
+            "str": "string-in-dict",
+            "list": ["list", "in", "dict"],
+        }
+
     def test_logging_handler(self):
+        """Test that a logging handler is installed."""
         load_config_from_file(self.another_app, 'testing.py')
         logger_init_app(self.another_app)
         for handler in self.another_app.logger.handlers:
@@ -78,6 +114,7 @@ class TestCoasterApp(unittest.TestCase):
                     formatter.formatException(sys.exc_info())
 
     def test_load_config_from_file_ioerror(self):
+        """Test that load_config_from_file returns False if file is not found."""
         app = Flask(__name__)
         assert not load_config_from_file(app, 'notfound.py')
         assert not load_config_from_file(
@@ -91,6 +128,7 @@ class TestCoasterApp(unittest.TestCase):
         )
 
     def test_current_auth(self):
+        """Test that current_auth is available in Jinja2."""
         environ['FLASK_ENV'] = 'testing'
         init_app(self.app)
         with self.app.test_request_context():
@@ -103,6 +141,7 @@ class TestCoasterApp(unittest.TestCase):
 
 
 def test_key_rotation_wrapper():
+    """Test key rotation wrapper."""
     payload = {'test': 'value'}
 
     secret_keys1 = ['key1', 'key2', 'key3']
@@ -143,11 +182,12 @@ def test_key_rotation_wrapper():
         serializer2b.loads(out1)
 
     # The KeyRotationWrapper has a safety catch for when a string secret is provided
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Secret keys must be a list"):
         KeyRotationWrapper(itsdangerous.URLSafeSerializer, 'secret_key')
 
 
 def test_app_key_rotation():
+    """Test key rotation."""
     app = Flask(__name__)
     app.session_interface = RotatingKeySecureCookieSessionInterface()
 

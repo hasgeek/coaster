@@ -125,11 +125,14 @@ from abc import ABCMeta
 from collections import abc
 from copy import deepcopy
 from itertools import chain
+from typing import overload
 import operator
 import typing as t
 
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
+
+import typing_extensions as te
 
 try:  # SQLAlchemy >= 1.4
     from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
@@ -165,6 +168,18 @@ __all__ = [
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
 __cache__: t.Dict[t.Any, t.Dict[str, set]] = {}
+
+
+class RoleAttrs(te.TypedDict, total=False):
+    """Type definition for values in :attr:`RoleMixin.__roles__`."""
+
+    rw: t.Set[str]
+    read: t.Set[str]
+    write: t.Set[str]
+    call: t.Set[str]
+    grants: t.Set[str]
+    granted_by: t.List[str]
+    granted_via: t.Dict[str, t.Union[None, str, QueryableAttribute]]
 
 
 def _attrs_equal(lhs, rhs):
@@ -699,13 +714,19 @@ class RoleAccessProxy(abc.Mapping):
 
 def with_roles(
     obj=None,
-    rw=None,
-    call=None,
-    read=None,
-    write=None,
-    grants=None,
-    grants_via=None,
-    datasets=None,
+    *,
+    rw: t.Optional[t.Set[str]] = None,
+    call: t.Optional[t.Set[str]] = None,
+    read: t.Optional[t.Set[str]] = None,
+    write: t.Optional[t.Set[str]] = None,
+    grants: t.Optional[t.Set[str]] = None,
+    grants_via: t.Optional[
+        t.Dict[
+            t.Union[None, str, QueryableAttribute],
+            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+        ]
+    ] = None,
+    datasets: t.Optional[t.Set[str]] = None,
 ):
     """
     Define roles on an attribute and return the attribute.
@@ -801,6 +822,7 @@ def with_roles(
             }}
         )
     """
+    # pylint: disable=protected-access
     # Convert lists and None values to sets
     rw = set(rw) if rw else set()
     call = set(call) if call else set()
@@ -810,7 +832,7 @@ def with_roles(
     if not grants_via:
         grants_via = {}
     if not datasets:
-        datasets = {}
+        datasets = set()
     # `rw` is shorthand for read+write
     read.update(rw)
     write.update(rw)
@@ -848,9 +870,6 @@ def with_roles(
                 pass
         return attr
 
-    if is_collection(obj):
-        # Protect against accidental specification of roles instead of an object
-        raise TypeError('Roles must be specified as named parameters')
     if obj is not None:
         return inner(obj)
     return inner
@@ -882,9 +901,7 @@ class RoleMixin:
     """
 
     # This empty dictionary is necessary for the configure step below to work
-    __roles__: t.Dict[
-        str, t.Dict[str, t.Union[t.Set[str], t.List[str], t.Dict[str, t.Optional[str]]]]
-    ] = {}
+    __roles__: t.Dict[str, RoleAttrs] = {}
     # Datasets for limited access to attributes
     __datasets__: t.Dict[str, t.Set[str]] = {}
     # Datasets to use when rendering to JSON
@@ -892,7 +909,7 @@ class RoleMixin:
     # Relationship role offer map (used by LazyRoleSet)
     __relationship_role_offer_map__: t.Dict[str, t.Set[str]] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__: t.Dict[str, t.Set[str]] = {}
+    __relationship_reversed_role_offer_map__: t.Dict[str, t.Dict[str, t.Set[str]]] = {}
 
     def roles_for(
         self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
@@ -972,7 +989,21 @@ class RoleMixin:
             relationship = getattr(self, relattr)
         return relationship
 
-    def actors_with(self, roles, with_role=False):
+    @overload
+    def actors_with(
+        self, roles: t.AbstractSet[str], with_role: te.Literal[False] = False
+    ) -> t.Any:
+        ...
+
+    @overload
+    def actors_with(
+        self, roles: t.AbstractSet[str], with_role: te.Literal[True] = True
+    ) -> t.Tuple[t.Any, str]:
+        ...
+
+    def actors_with(
+        self, roles: t.AbstractSet[str], with_role: bool = False
+    ) -> t.Union[t.Any, t.Tuple[str, t.Any]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
 
@@ -1013,7 +1044,9 @@ class RoleMixin:
 
         for role in roles:
             # Scan granted_by declarations
-            for relattr in self.__roles__.get(role, {}).get('granted_by', []):
+            for relattr in self.__roles__.get(  # type: ignore[call-overload]
+                role, {}
+            ).get('granted_by', []):
                 relationship = getattr(self, relattr)
                 if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
                     for actor in relationship:
@@ -1023,7 +1056,9 @@ class RoleMixin:
                     yield (relationship, role) if with_role else relationship
             # Scan granted_via declarations
             for relattr, actor_attr in (
-                self.__roles__.get(role, {}).get('granted_via', {}).items()
+                self.__roles__.get(role, {})  # type: ignore[call-overload]
+                .get('granted_via', {})
+                .items()
             ):
                 reverse_offer_map = self.__relationship_reversed_role_offer_map__.get(
                     relattr

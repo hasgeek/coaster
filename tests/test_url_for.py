@@ -5,9 +5,7 @@ from werkzeug.routing import BuildError
 
 import pytest
 
-from coaster.db import db
-
-from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument
+from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument, db
 
 # --- Test setup -----------------------------------------------------------------------
 
