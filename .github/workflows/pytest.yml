@@ -56,6 +56,7 @@ jobs:
       - name: Create PostgreSQL databases
         run: |
           sudo apt-get install postgresql-client -y
+          echo "Granting database privileges to user $(whoami)"
           psql -h localhost -U postgres -c "create user $(whoami);"
           psql -h localhost -U postgres -c "create database coaster_test;"
           psql -h localhost -U postgres -c "grant all privileges on database coaster_test to $(whoami);"
