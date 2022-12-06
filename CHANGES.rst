@@ -27,6 +27,8 @@
   to recommend metadata isolation between bind keys even within the same app
 * App config from ``FLASK_*`` env vars is now preferred over config files, and
   support for the ``FLASK_ENV`` var for custom environments is deprecated
+* Coaster now uses ``src`` folder layout and has project metadata defined in
+  ``pyproject.toml`` as per PEP 660, requiring setuptools>=61
 
 0.6.1 - 2021-01-06
 ------------------

@@ -49,16 +49,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install project
         run: |
-          python setup.py develop
+          pip install -e .
           pip install -r test_requirements.txt
       - name: Install pytest-github-actions-annotate-failures
         run: pip install pytest-github-actions-annotate-failures
       - name: Create PostgreSQL databases
         run: |
           sudo apt-get install postgresql-client -y
+          echo "Granting database privileges to user $(whoami)"
           psql -h localhost -U postgres -c "create user $(whoami);"
           psql -h localhost -U postgres -c "create database coaster_test;"
           psql -h localhost -U postgres -c "grant all privileges on database coaster_test to $(whoami);"
+          psql -h localhost -U postgres coaster_test -c "grant usage on schema public to $(whoami);"
       - name: Test with pytest
         run: |
           pytest --ignore-flaky --showlocals --cov=coaster

@@ -15,7 +15,7 @@ import os
 import sys
 import typing as t
 
-sys.path.append(os.path.abspath('../coaster/'))
+sys.path.insert(0, os.path.abspath('../src'))
 from coaster import _version  # isort:skip
 
 # If extensions (or modules to document with autodoc) are in another directory,
