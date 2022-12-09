@@ -871,6 +871,8 @@ def with_roles(
         return attr
 
     if obj is not None:
+        if isinstance(obj, (str, bytes, int, float, bool, tuple)):
+            raise TypeError(f"with_roles needs an object as parameter, not {type(obj)}")
         return inner(obj)
     return inner
 
