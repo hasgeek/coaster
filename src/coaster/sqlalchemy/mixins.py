@@ -962,10 +962,13 @@ class BaseScopedIdMixin(BaseMixin):
     def make_id(self):
         """Create a new URL id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
-            self.url_id = select(
-                [func.coalesce(func.max(self.__class__.url_id + 1), 1)],
-                self.__class__.parent == self.parent,
-            ).as_scalar()
+            self.url_id = (
+                select(func.coalesce(func.max(self.__class__.url_id + 1), 1))
+                .where(
+                    self.__class__.parent == self.parent,
+                )
+                .as_scalar()
+            )
 
     def permissions(self, actor, inherited=None):
         """Permissions for this model, plus permissions inherited from the parent."""

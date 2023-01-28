@@ -279,9 +279,9 @@ class TestCoasterAnnotations(unittest.TestCase):
 
         # Using `query.get` appears to ignore the `load_only` option,
         # so we use `query.filter_by`
-        pi1 = IdOnly.query.options(db.load_only('id')).filter_by(id=id1).one()
-        pi2 = IdUuid.query.options(db.load_only('id')).filter_by(id=id2).one()
-        pi3 = UuidOnly.query.options(db.load_only('id')).filter_by(id=id3).one()
+        pi1 = IdOnly.query.options(db.load_only(IdOnly.id)).filter_by(id=id1).one()
+        pi2 = IdUuid.query.options(db.load_only(IdUuid.id)).filter_by(id=id2).one()
+        pi3 = UuidOnly.query.options(db.load_only(UuidOnly.id)).filter_by(id=id3).one()
 
         # Confirm there is no value for is_immutable
         assert sa.inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
