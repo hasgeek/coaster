@@ -56,6 +56,7 @@ from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
 __all__ = [
+    'Mapped',
     'IdMixin',
     'TimestampMixin',
     'PermissionMixin',
@@ -255,7 +256,7 @@ class TimestampMixin:
 
     @immutable
     @declared_attr
-    def created_at(cls) -> sa.Column[datetime]:  # pylint: disable=no-self-argument
+    def created_at(cls) -> Mapped[datetime]:  # pylint: disable=no-self-argument
         """Timestamp for when this instance was created, in UTC."""
         return sa.Column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
@@ -264,7 +265,7 @@ class TimestampMixin:
         )
 
     @declared_attr
-    def updated_at(cls) -> sa.Column[datetime]:  # pylint: disable=no-self-argument
+    def updated_at(cls) -> Mapped[datetime]:  # pylint: disable=no-self-argument
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.Column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
@@ -562,7 +563,7 @@ class BaseNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def name(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -575,7 +576,7 @@ class BaseNameMixin(BaseMixin):
         )
 
     @declared_attr
-    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def title(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
@@ -698,7 +699,7 @@ class BaseScopedNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def name(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for URL name of this object, unique within a parent container."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -709,7 +710,7 @@ class BaseScopedNameMixin(BaseMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def title(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
@@ -848,7 +849,7 @@ class BaseIdNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def name(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for the URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -859,7 +860,7 @@ class BaseIdNameMixin(BaseMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def title(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for the title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
@@ -941,7 +942,7 @@ class BaseScopedIdMixin(BaseMixin):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
-    def url_id(cls) -> sa.Column[int]:  # pylint: disable=no-self-argument
+    def url_id(cls) -> Mapped[int]:  # pylint: disable=no-self-argument
         """Column for an id number that is unique within the parent container."""
         return sa.Column(sa.Integer, nullable=False)
 
@@ -1015,7 +1016,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    def name(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def name(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for the URL name of this instance, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -1026,7 +1027,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    def title(cls) -> sa.Column[str]:  # pylint: disable=no-self-argument
+    def title(cls) -> Mapped[str]:  # pylint: disable=no-self-argument
         """Column for the title of this instance."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()

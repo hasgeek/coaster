@@ -22,6 +22,7 @@ from coaster.sqlalchemy import (
     BaseNameMixin,
     DynamicAssociationProxy,
     LazyRoleSet,
+    Mapped,
     RoleAccessProxy,
     RoleGrantABC,
     RoleMixin,
@@ -45,19 +46,19 @@ db.init_app(app)
 class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
-    def mixed_in1(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
+    def mixed_in1(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
-    def mixed_in2(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
+    def mixed_in2(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
         return db.Column(db.Unicode(250))
 
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
-    def mixed_in3(cls) -> sa.Column[sa.Unicode]:  # pylint: disable=no-self-argument
+    def mixed_in3(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
         return db.Column(db.Unicode(250))
 
     # A regular column from the mixin
