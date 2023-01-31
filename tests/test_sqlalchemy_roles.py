@@ -20,7 +20,6 @@ from coaster.sqlalchemy import (
     BaseNameMixin,
     DynamicAssociationProxy,
     LazyRoleSet,
-    Mapped,
     RoleAccessProxy,
     RoleGrantABC,
     RoleMixin,
@@ -47,7 +46,7 @@ class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
     @classmethod
-    def mixed_in1(cls) -> Mapped[sa.Unicode]:
+    def mixed_in1(cls) -> sa.Column[sa.Unicode]:
         """Test using `with_roles` inside a `declared_attr`."""
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
@@ -55,7 +54,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
     @classmethod
-    def mixed_in2(cls) -> Mapped[sa.Unicode]:
+    def mixed_in2(cls) -> sa.Column[sa.Unicode]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 
@@ -63,7 +62,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner'})
     @declared_attr
     @classmethod
-    def mixed_in3(cls) -> Mapped[sa.Unicode]:
+    def mixed_in3(cls) -> sa.Column[sa.Unicode]:
         """Test using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 
@@ -170,15 +169,26 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'relationship_parent'
 
     children_list = db.relationship(RelationshipChild, backref='parent')
-    children_list_lazy = db.relationship(RelationshipChild, lazy='dynamic')
-    children_set = db.relationship(RelationshipChild, collection_class=set)
+    children_list_lazy = db.relationship(
+        RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
+    )
+    children_set = db.relationship(
+        RelationshipChild,
+        collection_class=set,
+        overlaps='children_list,children_list_lazy,parent',
+    )
     children_dict_attr = db.relationship(
-        RelationshipChild, collection_class=attribute_keyed_dict('name')
+        RelationshipChild,
+        collection_class=attribute_keyed_dict('name'),
+        overlaps='children_list,children_list_lazy,children_set,parent',
     )
     children_dict_column = db.relationship(
         RelationshipChild,
         collection_class=column_keyed_dict(
             RelationshipChild.name  # type: ignore[arg-type]
+        ),
+        overlaps=(
+            'children_dict_attr,children_list,children_list_lazy,children_set,parent'
         ),
     )
 
@@ -335,12 +345,13 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     # Grant via a query relationship
     rel_lazy = with_roles(
-        db.relationship(RoleMembership, lazy='dynamic'),
+        db.relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
         grants_via={RoleMembership.user: {'role2'}},
     )
     # Grant via a list-like relationship
     rel_list = with_roles(
-        db.relationship(RoleMembership), grants_via={'user': {'role3'}}
+        db.relationship(RoleMembership, overlaps='doc,rel_lazy'),
+        grants_via={'user': {'role3'}},
     )
 
     # Role grants can be specified via:

@@ -3,7 +3,7 @@
 
 from datetime import datetime, timedelta
 from time import sleep
-import typing as t  # noqa: F401  # pylint: disable=unused-import
+import typing as t
 import unittest
 import uuid as uuid_
 
@@ -195,7 +195,7 @@ class User(BaseMixin, db.Model):  # type: ignore[name-defined]
 class MyData(db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_data'
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
-    data = sa.Column(JsonDict)
+    data: sa.Column[t.Optional[dict]] = sa.Column(JsonDict)
 
 
 class MyUrlModel(db.Model):  # type: ignore[name-defined]

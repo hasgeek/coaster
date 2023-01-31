@@ -129,7 +129,8 @@ class TestCoasterAnnotations(unittest.TestCase):
         self.ctx.push()
         db.create_all()
         self.session = db.session
-        # SQLAlchemy doesn't fire mapper_configured events until the first time a mapping is used
+        # SQLAlchemy doesn't fire mapper_configured events until the first time a
+        # mapping is used
         IdOnly()
 
     def tearDown(self):
