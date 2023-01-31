@@ -114,13 +114,13 @@ def registrymixin_models():
     # in the base RegistryMixin class.
 
     # Sample model 1
-    class RegistryTest1(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class RegistryTest1(BaseMixin, db.Model):
         """Registry test model 1."""
 
         __tablename__ = 'registry_test1'
 
     # Sample model 2
-    class RegistryTest2(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class RegistryTest2(BaseMixin, db.Model):
         """Registry test model 2."""
 
         __tablename__ = 'registry_test2'

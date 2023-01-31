@@ -241,7 +241,7 @@ def test_current_auth_with_user_loaded(models, login_manager):
     assert current_auth.is_authenticated
     assert current_auth
     assert current_auth.user is not None
-    assert current_auth.user == user  # type: ignore[unreachable]
+    assert current_auth.user == user
     assert current_auth.actor == user
 
 
@@ -257,7 +257,7 @@ def test_anonymous_user(models, login_manager):
     login_manager.set_user_for_testing(user, load=True)
 
     # is_authenticated == True, since there is an actor
-    assert current_auth.is_authenticated  # type: ignore[unreachable]
+    assert current_auth.is_authenticated
     assert current_auth
     assert current_auth.actor is not None
     assert current_auth.user == user

@@ -1046,9 +1046,7 @@ class RoleMixin:
 
         for role in roles:
             # Scan granted_by declarations
-            for relattr in self.__roles__.get(  # type: ignore[call-overload]
-                role, {}
-            ).get('granted_by', []):
+            for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 relationship = getattr(self, relattr)
                 if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
                     for actor in relationship:
@@ -1058,9 +1056,7 @@ class RoleMixin:
                     yield (relationship, role) if with_role else relationship
             # Scan granted_via declarations
             for relattr, actor_attr in (
-                self.__roles__.get(role, {})  # type: ignore[call-overload]
-                .get('granted_via', {})
-                .items()
+                self.__roles__.get(role, {}).get('granted_via', {}).items()
             ):
                 reverse_offer_map = self.__relationship_reversed_role_offer_map__.get(
                     relattr

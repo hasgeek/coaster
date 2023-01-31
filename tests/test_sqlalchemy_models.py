@@ -234,7 +234,7 @@ class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(
         None, sa.ForeignKey('uuid_key.id')
     )
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
@@ -243,7 +243,7 @@ class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
+    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(
         None, sa.ForeignKey('uuid_key.id')
     )
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
@@ -280,7 +280,7 @@ class ParentForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 class ChildForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'child_for_primary'
-    parent_for_primary_id = sa.Column(  # type: ignore[call-overload]
+    parent_for_primary_id = sa.Column(
         sa.Integer, sa.ForeignKey('parent_for_primary.id'), nullable=False
     )
     parent_for_primary = db.relationship(ParentForPrimary)

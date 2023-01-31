@@ -171,10 +171,7 @@ class UuidMixin:
     @classmethod
     def uuid(cls) -> Mapped[uuid_.UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
-        if (
-            hasattr(cls, '__uuid_primary_key__')
-            and cls.__uuid_primary_key__  # type: ignore[attr-defined]
-        ):
+        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         return immutable(
             sa.Column(

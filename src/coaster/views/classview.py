@@ -740,7 +740,7 @@ class ModelView(ClassView):
                 perms = InspectableSet(perms or set())
             elif hasattr(self.obj, 'current_permissions'):
                 # current_permissions always returns an InspectableSet
-                perms = self.obj.current_permissions  # type: ignore[union-attr]
+                perms = self.obj.current_permissions
             else:
                 perms = InspectableSet()
             add_auth_attribute('permissions', perms)

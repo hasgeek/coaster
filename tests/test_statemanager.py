@@ -80,7 +80,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state(
         'RECENT',
-        state.PUBLISHED,  # type: ignore[arg-type]
+        state.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
         label=('recent', "Recently published"),
     )

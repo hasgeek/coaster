@@ -71,14 +71,10 @@ class ChildDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
 
 class RedirectDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'redirect_document'
-    container_id = sa.Column(  # type: ignore[call-overload]
-        sa.Integer, sa.ForeignKey('container.id')
-    )
+    container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
     container: Mapped[Container] = relationship(Container)
 
-    target_id = sa.Column(  # type: ignore[call-overload]
-        sa.Integer, sa.ForeignKey('named_document.id')
-    )
+    target_id = sa.Column(sa.Integer, sa.ForeignKey('named_document.id'))
     target: Mapped[NamedDocument] = relationship(NamedDocument)
 
     def redirect_view_args(self):
