@@ -3,9 +3,9 @@
 
 from datetime import datetime, timedelta
 from time import sleep
+from uuid import UUID
 import typing as t
 import unittest
-import uuid as uuid_
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import postgresql
@@ -892,8 +892,8 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(u1)
         self.session.add(u2)
         self.session.commit()
-        assert isinstance(u1.id, uuid_.UUID)
-        assert isinstance(u2.id, uuid_.UUID)
+        assert isinstance(u1.id, UUID)
+        assert isinstance(u2.id, UUID)
         assert u1.id != u2.id
 
         fk1 = UuidForeignKey1(uuidkey=u1)
@@ -904,8 +904,8 @@ class TestCoasterModels(unittest.TestCase):
 
         assert fk1.uuidkey is u1
         assert fk2.uuidkey is u2
-        assert isinstance(fk1.uuidkey_id, uuid_.UUID)
-        assert isinstance(fk2.uuidkey_id, uuid_.UUID)
+        assert isinstance(fk1.uuidkey_id, UUID)
+        assert isinstance(fk2.uuidkey_id, UUID)
         assert fk1.uuidkey_id == u1.id
         assert fk2.uuidkey_id == u2.id
 
@@ -936,17 +936,17 @@ class TestCoasterModels(unittest.TestCase):
 
         assert u1.url_id == str(i1)
 
-        assert isinstance(i2, uuid_.UUID)
+        assert isinstance(i2, UUID)
         assert u2.url_id == i2.hex
         assert len(u2.url_id) == 32  # This is a 32-byte hex representation
         assert '-' not in u2.url_id  # Without dashes
 
-        assert isinstance(i3, uuid_.UUID)
+        assert isinstance(i3, UUID)
         assert u3.uuid_hex == i3.hex
         assert len(u3.uuid_hex) == 32  # This is a 32-byte hex representation
         assert '-' not in u3.uuid_hex  # Without dashes
 
-        assert isinstance(i4, uuid_.UUID)
+        assert isinstance(i4, UUID)
         assert u4.uuid_hex == i4.hex
         assert len(u4.uuid_hex) == 32  # This is a 32-byte hex representation
         assert '-' not in u4.uuid_hex  # Without dashes
@@ -1011,7 +1011,7 @@ class TestCoasterModels(unittest.TestCase):
         assert (
             str(
                 (
-                    UuidKey.url_id == uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
+                    UuidKey.url_id == UUID('74d58857-4a76-11e7-8c27-c38403d0935c')
                 ).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
@@ -1025,7 +1025,7 @@ class TestCoasterModels(unittest.TestCase):
                     UuidKey.url_id.in_(
                         [
                             '74d588574a7611e78c27c38403d0935c',
-                            uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+                            UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
                             'garbage!',
                         ]
                     )
@@ -1112,8 +1112,8 @@ class TestCoasterModels(unittest.TestCase):
         db.session.commit()
 
         # The `uuid` column contains a UUID
-        assert isinstance(u1.uuid, uuid_.UUID)
-        assert isinstance(u2.uuid, uuid_.UUID)
+        assert isinstance(u1.uuid, UUID)
+        assert isinstance(u2.uuid, UUID)
 
         # Test readbility of `buid` attribute
         assert u1.buid == uuid_to_base64(u1.uuid)
@@ -1224,17 +1224,17 @@ class TestCoasterModels(unittest.TestCase):
         The url_id_name and url_name_uuid_b58 fields should be queryable as well.
         """
         u1 = UuidIdName(
-            id=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            id=UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
         u2 = UuidIdNameMixin(
-            id=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            id=UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
         u3 = UuidIdNameSecondary(
-            uuid=uuid_.UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
+            uuid=UUID('74d58857-4a76-11e7-8c27-c38403d0935c'),
             name='test',
             title='Test',
         )
@@ -1290,7 +1290,7 @@ class TestCoasterModels(unittest.TestCase):
         assert u1 is None
         # However, UUID keys are generated even before adding to session
         u2 = uuid_yes.id
-        assert isinstance(u2, uuid_.UUID)
+        assert isinstance(u2, UUID)
         # Once generated, the key remains stable
         u3 = uuid_yes.id
         assert u2 == u3
@@ -1301,9 +1301,9 @@ class TestCoasterModels(unittest.TestCase):
 
         # UuidMixin works likewise
         um1 = uuidm_no.uuid
-        assert isinstance(um1, uuid_.UUID)
+        assert isinstance(um1, UUID)
         um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
-        assert isinstance(um2, uuid_.UUID)
+        assert isinstance(um2, UUID)
         assert uuidm_yes.id == uuidm_yes.uuid
 
     def test_parent_child_primary(self):

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import json
 import typing as t
 import unittest
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict, declarative_mixin

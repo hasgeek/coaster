@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
-import typing as t  # pylint: disable=unused-import  # noqa: F401
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid as uuid_  # pylint: disable=unused-import  # noqa: F401
 
 from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401

@@ -39,10 +39,10 @@ import typing as t
 
 from sqlalchemy.orm import (
     ColumnProperty,
+    Mapper,
     MapperProperty,
     RelationshipProperty,
     SynonymProperty,
-    mapper,
 )
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.schema import SchemaItem
@@ -67,7 +67,7 @@ annotations_configured = coaster_signals.signal(
 # --- SQLAlchemy signals for base class ------------------------------------------------
 
 
-@sa.event.listens_for(mapper, 'mapper_configured')
+@sa.event.listens_for(Mapper, 'mapper_configured')
 def _configure_annotations(mapper_, cls):
     """
     Extract annotations from attributes.

@@ -1,8 +1,7 @@
 """Test @load_models view helper."""
 
-import typing as t  # noqa: F401  # pylint: disable=unused-import
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from sqlalchemy.orm import Mapped, relationship
 import sqlalchemy as sa

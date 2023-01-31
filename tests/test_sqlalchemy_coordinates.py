@@ -1,10 +1,7 @@
 """Test CoordinatesMixin class."""
 
-import typing as t  # noqa: F401  # pylint: disable=unused-import
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
-
-import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 

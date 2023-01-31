@@ -18,11 +18,13 @@ your Flask app::
 Mixin classes must always appear *before* ``db.Model`` in your model's base classes.
 """
 
+from __future__ import annotations
+
 from collections import abc, namedtuple
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID, uuid4
 import typing as t
-import uuid as uuid_
 
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
@@ -98,13 +100,13 @@ class IdMixin:
 
     @declared_attr
     @classmethod
-    def id(cls) -> Mapped[t.Union[sa.Integer, uuid_.UUID]]:  # noqa: A003
+    def id(cls) -> Mapped[int | UUID]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return immutable(
                 sa.Column(
                     UUIDType(binary=False),
-                    default=uuid_.uuid4,
+                    default=uuid4,
                     primary_key=True,
                     nullable=False,
                 )
@@ -113,7 +115,7 @@ class IdMixin:
 
     @declared_attr
     @classmethod
-    def url_id(cls) -> Mapped[t.Union[int, uuid_.UUID]]:
+    def url_id(cls) -> Mapped[int | UUID]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
@@ -169,14 +171,14 @@ class UuidMixin:
     @with_roles(read={'all'})
     @declared_attr
     @classmethod
-    def uuid(cls) -> Mapped[uuid_.UUID]:
+    def uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         return immutable(
             sa.Column(
                 UUIDType(binary=False),
-                default=uuid_.uuid4,
+                default=uuid4,
                 unique=True,
                 nullable=False,
             )
@@ -359,7 +361,6 @@ class UrlDict(abc.Mapping):
                         yield action
 
 
-@declarative_mixin
 class UrlForMixin:
     """Provides a :meth:`url_for` method used by BaseMixin-derived classes."""
 
@@ -367,16 +368,16 @@ class UrlForMixin:
     #: strings. The same action can point to different endpoints in different apps. The
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
-    url_for_endpoints: t.Dict[
-        t.Optional[Flask], t.Dict[str, t.Dict[str, t.Tuple[str, str]]]
-    ] = {None: {}}
+    url_for_endpoints: t.Dict[t.Optional[Flask], t.Dict[str, UrlEndpointData]] = {
+        None: {}
+    }
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints: t.Dict[Flask, t.Dict[str, t.Tuple[t.Any, str]]] = {}
 
     #: Dictionary of URLs available on this object
     urls = UrlDictStub()
 
-    def url_for(self, action='view', **kwargs):
+    def url_for(self, action='view', **kwargs) -> str:
         """Return public URL to this instance for a given action (default 'view')."""
         app = current_app._get_current_object() if current_app else None
         if app is not None and action in self.url_for_endpoints.get(app, {}):
@@ -412,12 +413,12 @@ class UrlForMixin:
         return url_for(epdata.endpoint, **params)
 
     @property
-    def absolute_url(self):
+    def absolute_url(self) -> t.Optional[str]:
         """Absolute URL to this object."""
         try:
             return self.url_for(_external=True)
         except BuildError:
-            pass
+            return None
 
     @classmethod
     def is_url_for(
@@ -501,6 +502,7 @@ class UrlForMixin:
         return self.view_for_endpoints[app][action][0](self)
 
 
+@declarative_mixin
 class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
     """
     Mixin that combines all mixin classes except :class:`IdMixin`.
@@ -520,10 +522,12 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
                 )
 
 
+@declarative_mixin
 class BaseMixin(IdMixin, NoIdMixin):
     """Base mixin class for all tables that have an id column."""
 
 
+@declarative_mixin
 class BaseNameMixin(BaseMixin):
     """
     Base mixin class for named objects.
@@ -653,6 +657,7 @@ class BaseNameMixin(BaseMixin):
                 )
 
 
+@declarative_mixin
 class BaseScopedNameMixin(BaseMixin):
     """
     Base mixin class for named objects within containers.
@@ -820,6 +825,7 @@ class BaseScopedNameMixin(BaseMixin):
         return super().permissions(actor)
 
 
+@declarative_mixin
 class BaseIdNameMixin(BaseMixin):
     """
     Base mixin class for named objects with an id tag.
@@ -924,6 +930,7 @@ class BaseIdNameMixin(BaseMixin):
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
 
+@declarative_mixin
 class BaseScopedIdMixin(BaseMixin):
     """
     Base mixin class for objects with an id that is unique within a parent.
@@ -982,6 +989,7 @@ class BaseScopedIdMixin(BaseMixin):
         return super().permissions(actor)
 
 
+@declarative_mixin
 class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
     Base mixin class for named objects with an id tag that is unique within a parent.
