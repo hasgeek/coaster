@@ -3,6 +3,8 @@ Helper functions
 ----------------
 """
 
+from __future__ import annotations
+
 import typing as t
 
 from sqlalchemy.exc import IntegrityError

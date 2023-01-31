@@ -3,6 +3,8 @@ Immutable annotation
 --------------------
 """
 
+from __future__ import annotations
+
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 import sqlalchemy as sa
 

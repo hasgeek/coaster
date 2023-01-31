@@ -7,6 +7,8 @@ Coaster can help your application log errors at run-time. Initialize with
 this is done automatically for you.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from html import escape
 from io import StringIO

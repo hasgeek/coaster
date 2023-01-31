@@ -3,6 +3,8 @@ Enhanced query and custom comparators
 -------------------------------------
 """
 
+from __future__ import annotations
+
 import typing as t
 import uuid as uuid_
 

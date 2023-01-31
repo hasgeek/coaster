@@ -1,5 +1,7 @@
 """Markdown composite columns."""
 
+from __future__ import annotations
+
 import typing as t
 
 from sqlalchemy.ext.mutable import MutableComposite

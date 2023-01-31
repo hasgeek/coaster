@@ -31,6 +31,8 @@ The name ``main`` is a recommended default, but an app that has separate forms
 for ``new`` and ``edit`` actions could use those names instead.
 """
 
+from __future__ import annotations
+
 from functools import partial
 from threading import Lock
 import typing as t

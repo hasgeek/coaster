@@ -8,8 +8,12 @@ import typing as t
 import unittest
 
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict, declarative_mixin
-import sqlalchemy as sa
+from sqlalchemy.orm import (
+    Mapped,
+    attribute_keyed_dict,
+    column_keyed_dict,
+    declarative_mixin,
+)
 
 from flask import Flask
 
@@ -46,7 +50,7 @@ class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
     @classmethod
-    def mixed_in1(cls) -> sa.Column[sa.Unicode]:
+    def mixed_in1(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` inside a `declared_attr`."""
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
@@ -54,7 +58,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
     @classmethod
-    def mixed_in2(cls) -> sa.Column[sa.Unicode]:
+    def mixed_in2(cls) -> Mapped[t.Optional[str]]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 
@@ -62,7 +66,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner'})
     @declared_attr
     @classmethod
-    def mixed_in3(cls) -> sa.Column[sa.Unicode]:
+    def mixed_in3(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 

@@ -3,6 +3,8 @@ PostgreSQL query processor
 --------------------------
 """
 
+from __future__ import annotations
+
 import re
 
 __all__ = ['for_tsquery']

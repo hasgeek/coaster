@@ -12,6 +12,8 @@ This Markdown processor is used by :func:`~coaster.sqlalchemy.columns.MarkdownCo
 to auto-render HTML from Markdown text.
 """
 
+from __future__ import annotations
+
 from copy import deepcopy
 from html import unescape
 from typing import overload

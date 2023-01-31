@@ -17,6 +17,8 @@ request processing.
 """
 # pylint: disable=protected-access
 
+from __future__ import annotations
+
 from threading import Lock
 import typing as t
 
