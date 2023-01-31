@@ -45,7 +45,7 @@ def _make_immutable(cls):
         def immutable_column_set_listener(target, value, old_value, initiator):
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in
-            # SQLAlchemy 1.4 it appears to also be used in place of NO_VALUE.
+            # SQLAlchemy >= 1.4 it appears to also be used in place of NO_VALUE.
             # NO_VALUE is for columns that have no value (either never set, or not
             # loaded). Because of this ambiguity, we pair it with a
             # has_identity test.

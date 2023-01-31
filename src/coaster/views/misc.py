@@ -235,6 +235,7 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
     if async_to_sync is not None:
         return async_to_sync(func)  # type: ignore[return-value]
 
-    return lambda *args, **kwargs: (  # type: ignore[return-value,unreachable]
-        asyncio.run(func(*args, **kwargs))
+    return t.cast(  # type: ignore[unreachable]
+        tc.WrappedFunc,
+        lambda *args, **kwargs: (asyncio.run(func(*args, **kwargs))),
     )

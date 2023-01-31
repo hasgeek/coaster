@@ -130,21 +130,20 @@ import operator
 import typing as t
 
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
-
-import typing_extensions as te
-
-try:  # SQLAlchemy >= 1.4
-    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
-    from sqlalchemy.orm.interfaces import MapperProperty
-
+from sqlalchemy.orm import (
+    ColumnProperty,
+    MappedCollection,
+    MapperProperty,
+    Query,
+    RelationshipProperty,
+    SynonymProperty,
+    declarative_mixin,
+)
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
     InstrumentedList,
     InstrumentedSet,
-    MappedCollection,
 )
 from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
@@ -153,9 +152,10 @@ import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
 from flask import g
 
+import typing_extensions as te
+
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
-from ._compat import declarative_mixin
 
 __all__ = [
     'RoleGrantABC',
@@ -722,7 +722,7 @@ def with_roles(
     grants: t.Optional[t.Set[str]] = None,
     grants_via: t.Optional[
         t.Dict[
-            t.Union[None, str, QueryableAttribute],
+            t.Union[None, str, QueryableAttribute, RelationshipProperty],
             t.Union[t.Set[str], t.Dict[str, t.Union[str, t.Set[str]]]],
         ]
     ] = None,

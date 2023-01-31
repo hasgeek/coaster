@@ -10,7 +10,7 @@ import uuid as uuid_
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
-from sqlalchemy.orm import relationship, synonym
+from sqlalchemy.orm import Mapped, relationship, synonym
 from sqlalchemy.orm.exc import MultipleResultsFound
 import sqlalchemy as sa
 
@@ -76,7 +76,7 @@ class Container(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UnnamedDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'unnamed_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
+    container: Mapped[Container] = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -85,7 +85,7 @@ class NamedDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
+    container: Mapped[Container] = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -95,7 +95,7 @@ class NamedDocumentBlank(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __name_blank_allowed__ = True
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
+    container: Mapped[Container] = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -104,8 +104,8 @@ class ScopedNamedDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-d
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container: Mapped[Container] = relationship(Container)
+    parent: Mapped[Container] = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
@@ -114,7 +114,7 @@ class ScopedNamedDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-d
 class IdNamedDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
+    container: Mapped[Container] = relationship(Container)
 
     content = sa.Column(sa.Unicode(250))
 
@@ -122,8 +122,8 @@ class IdNamedDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
 class ScopedIdDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_id_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container: Mapped[Container] = relationship(Container)
+    parent: Mapped[Container] = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
@@ -132,8 +132,8 @@ class ScopedIdDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-define
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_id_named_document'
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container: Mapped[Container] = relationship(Container)
+    parent: Mapped[Container] = synonym('container')
 
     content = sa.Column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
@@ -153,8 +153,8 @@ class UnlimitedScopedName(BaseScopedNameMixin, db.Model):  # type: ignore[name-d
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container: Mapped[Container] = relationship(Container)
+    parent: Mapped[Container] = synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
@@ -177,8 +177,8 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):  # type: ignore[na
     __tablename__ = 'unlimited_scoped_id_name'
     __name_length__ = __title_length__ = None
     container_id = sa.Column(sa.Integer, sa.ForeignKey('container.id'))
-    container = relationship(Container)
-    parent = synonym('container')
+    container: Mapped[Container] = relationship(Container)
+    parent: Mapped[Container] = synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
     @property
@@ -237,7 +237,7 @@ class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
         None, sa.ForeignKey('uuid_key.id')
     )
-    uuidkey = relationship(UuidKey)
+    uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -246,7 +246,7 @@ class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(  # type: ignore[call-overload]
         None, sa.ForeignKey('uuid_key.id')
     )
-    uuidkey = relationship(UuidKey)
+    uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
 class UuidIdName(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]

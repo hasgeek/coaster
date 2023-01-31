@@ -35,7 +35,7 @@ from functools import partial
 from threading import Lock
 import typing as t
 
-from ._compat import Mapped, declarative_mixin, declared_attr
+from sqlalchemy.orm import declarative_mixin
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
@@ -219,24 +219,15 @@ class RegistryMixin:
     parameter. The other registries pass it as the first positional parameter.
     """
 
-    # pylint: disable=no-self-argument
-    @declared_attr
-    def forms(cls) -> Mapped[Registry]:
-        """Registry for forms."""
-        r = Registry('obj')
-        r.__set_name__(cls, 'forms')
-        return r
+    forms: t.ClassVar[Registry]
+    views: t.ClassVar[Registry]
+    features: t.ClassVar[Registry]
 
-    @declared_attr
-    def views(cls) -> Mapped[Registry]:
-        """Registry for views."""
-        r = Registry()
-        r.__set_name__(cls, 'views')
-        return r
-
-    @declared_attr
-    def features(cls) -> Mapped[Registry]:
-        """Registry for feature tests."""
-        r = Registry()
-        r.__set_name__(cls, 'features')
-        return r
+    def __init_subclass__(cls, *args, **kwargs) -> None:
+        cls.forms = Registry('obj')
+        cls.forms.__set_name__(cls, 'forms')
+        cls.views = Registry()
+        cls.views.__set_name__(cls, 'views')
+        cls.features = Registry()
+        cls.features.__set_name__(cls, 'features')
+        return super().__init_subclass__(*args, **kwargs)

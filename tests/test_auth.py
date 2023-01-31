@@ -18,7 +18,16 @@ from coaster.auth import (
     current_auth,
     request_has_auth,
 )
-from coaster.sqlalchemy import BaseMixin
+from coaster.sqlalchemy import (  # noqa: F401  # pylint: disable=unused-import
+    BaseMixin,
+    IdMixin,
+    NoIdMixin,
+    PermissionMixin,
+    RegistryMixin,
+    RoleMixin,
+    TimestampMixin,
+    UrlForMixin,
+)
 
 # --- App context ----------------------------------------------------------------------
 

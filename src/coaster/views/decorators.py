@@ -745,14 +745,14 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
             if not current_auth.permissions:
                 return False
             if isinstance(permission, (set, frozenset)):
-                return bool(current_auth.permissions & permission)  # type: ignore
-            return permission in current_auth.permissions  # type: ignore[unreachable]
+                return bool(current_auth.permissions & permission)
+            return permission in current_auth.permissions
 
         def is_available(context=None) -> bool:
             result = is_available_here()
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well
-                return f.is_available(context)  # type: ignore[attr-defined]
+                return f.is_available(context)
             return result
 
         @wraps(f)

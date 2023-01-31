@@ -37,17 +37,18 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 from collections.abc import Hashable
 import typing as t
 
-from sqlalchemy.orm import ColumnProperty, RelationshipProperty, SynonymProperty, mapper
+from sqlalchemy.orm import (
+    ColumnProperty,
+    MapperProperty,
+    RelationshipProperty,
+    SynonymProperty,
+    mapper,
+)
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 
 from ..signals import coaster_signals
-
-try:  # SQLAlchemy >= 1.4
-    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
-    from sqlalchemy.orm.interfaces import MapperProperty
 
 __all__ = ['annotations_configured', 'annotation_wrapper']
 

@@ -4,7 +4,7 @@ import typing as t  # noqa: F401  # pylint: disable=unused-import
 import unittest
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, relationship
 import sqlalchemy as sa
 
 from flask import Flask, g
@@ -38,10 +38,8 @@ class MiddleContainer(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 class ParentDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'parent_document'
-    middle_id = sa.Column(  # type: ignore[call-overload]
-        sa.Integer, sa.ForeignKey('middle_container.id')
-    )
-    middle = relationship(MiddleContainer, uselist=False)
+    middle_id = sa.Column(sa.Integer, sa.ForeignKey('middle_container.id'))
+    middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -58,10 +56,8 @@ class ParentDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
 class ChildDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'child_document'
-    parent_id = sa.Column(  # type: ignore[call-overload]
-        sa.Integer, sa.ForeignKey('middle_container.id')
-    )
-    parent = relationship(MiddleContainer, backref='children')
+    parent_id = sa.Column(sa.Integer, sa.ForeignKey('middle_container.id'))
+    parent: Mapped[MiddleContainer] = relationship(MiddleContainer, backref='children')
 
     def permissions(self, actor, inherited=None):
         if inherited is None:
@@ -78,12 +74,12 @@ class RedirectDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     container_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('container.id')
     )
-    container = relationship(Container)
+    container: Mapped[Container] = relationship(Container)
 
     target_id = sa.Column(  # type: ignore[call-overload]
         sa.Integer, sa.ForeignKey('named_document.id')
     )
-    target = relationship(NamedDocument)
+    target: Mapped[NamedDocument] = relationship(NamedDocument)
 
     def redirect_view_args(self):
         return {'document': self.target.name}

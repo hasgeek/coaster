@@ -1,3 +1,5 @@
+"""Tests for `RoleMixin`."""
+
 from __future__ import annotations
 
 import json
@@ -6,11 +8,7 @@ import unittest
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_mixin  # type: ignore[attr-defined]
-from sqlalchemy.orm.collections import (
-    attribute_mapped_collection,
-    column_mapped_collection,
-)
+from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict, declarative_mixin
 import sqlalchemy as sa
 
 from flask import Flask
@@ -44,21 +42,29 @@ db.init_app(app)
 
 @declarative_mixin
 class DeclaredAttrMixin:
+    """Provide `declared_attr` attrs paired with `with_roles`."""
+
     # with_roles can be used within a declared attr
     @declared_attr
-    def mixed_in1(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
+    @classmethod
+    def mixed_in1(cls) -> Mapped[sa.Unicode]:
+        """Test using `with_roles` inside a `declared_attr`."""
         return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
 
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
-    def mixed_in2(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
+    @classmethod
+    def mixed_in2(cls) -> Mapped[sa.Unicode]:
+        """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
-    def mixed_in3(cls) -> Mapped[sa.Unicode]:  # pylint: disable=no-self-argument
+    @classmethod
+    def mixed_in3(cls) -> Mapped[sa.Unicode]:
+        """Test using `with_roles` to wrap a `declared_attr`."""
         return db.Column(db.Unicode(250))
 
     # A regular column from the mixin
@@ -67,6 +73,8 @@ class DeclaredAttrMixin:
 
 
 class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-defined]
+    """Test model for role definitions."""
+
     __tablename__ = 'role_model'
 
     # Approach one, declare roles in advance.
@@ -95,6 +103,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
 
     @with_roles(call={'all'})  # 'call' grants call access to the decorated method
     def hello(self):
+        """Sample method decorated with `with_roles`."""
         return "Hello!"
 
     # RoleMixin provides a `roles_for` that automatically grants roles from
@@ -104,6 +113,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
     # anchors is not specified by RoleMixin.
 
     def roles_for(self, actor=None, anchors=()):
+        """Find roles for a given actor."""
         # Calling super gives us a set with the standard roles
         roles = super().roles_for(actor, anchors)
         if 'owner-secret' in anchors:
@@ -112,6 +122,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
 
 
 class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
+    """Test model for automatic enumeration of roles using only `with_roles`."""
+
     __tablename__ = 'auto_role_model'
 
     # This model doesn't specify __roles__. It only uses with_roles.
@@ -127,14 +139,20 @@ class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
 
 
 class BaseModel(BaseMixin, db.Model):  # type: ignore[name-defined]
+    """Test model using `BaseMixin`."""
+
     __tablename__ = 'base_model'
 
 
 class UuidModel(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
+    """Test model using `UuidMixin`."""
+
     __tablename__ = 'uuid_model'
 
 
 class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
+    """Test model for a relationship child."""
+
     __tablename__ = 'relationship_child'
 
     parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
@@ -147,17 +165,21 @@ class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
 
 class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
+    """Test model for a relationship parent."""
+
     __tablename__ = 'relationship_parent'
 
     children_list = db.relationship(RelationshipChild, backref='parent')
     children_list_lazy = db.relationship(RelationshipChild, lazy='dynamic')
     children_set = db.relationship(RelationshipChild, collection_class=set)
     children_dict_attr = db.relationship(
-        RelationshipChild, collection_class=attribute_mapped_collection('name')
+        RelationshipChild, collection_class=attribute_keyed_dict('name')
     )
     children_dict_column = db.relationship(
         RelationshipChild,
-        collection_class=column_mapped_collection(RelationshipChild.name),
+        collection_class=column_keyed_dict(
+            RelationshipChild.name  # type: ignore[arg-type]
+        ),
     )
 
     __roles__ = {
@@ -199,7 +221,7 @@ RelationshipParent.children_names = DynamicAssociationProxy(
 
 
 class RoleGrantMany(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model for granting roles to users in many-to-one and many-to-many relationships"""
+    """Test model for granting roles to users in via SQLAlchemy relationships."""
 
     __tablename__ = 'role_grant_many'
 
@@ -210,7 +232,7 @@ class RoleGrantMany(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model to represent a user who has roles"""
+    """Test model to represent a user who has roles."""
 
     __tablename__ = 'role_user'
 
@@ -226,7 +248,7 @@ class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model for granting roles to users in a one-to-many relationship"""
+    """Test model for granting roles to users in a one-to-many relationship."""
 
     __tablename__ = 'role_grant_one'
 
@@ -235,7 +257,7 @@ class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model for granting roles to synonyms"""
+    """Test model for granting roles to synonyms."""
 
     __tablename__ = 'role_grant_synonym'
 
@@ -246,7 +268,7 @@ class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model that grants multiple roles"""
+    """Test model that grants multiple roles."""
 
     __tablename__ = 'role_membership'
 
@@ -262,6 +284,7 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     @property
     def offered_roles(self):
+        """Return roles offered by this object."""
         roles = set()
         if self.role1:
             roles.add('role1')
@@ -273,7 +296,7 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model to serve as a role granter to the child model"""
+    """Test model to serve as a role granter to the child model."""
 
     __tablename__ = 'multirole_parent'
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
@@ -281,7 +304,7 @@ class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Test model that grants multiple roles via RoleMembership"""
+    """Test model that grants multiple roles via RoleMembership."""
 
     __tablename__ = 'multirole_document'
 
@@ -328,7 +351,7 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 
 class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
-    """Model that inherits roles from its parent"""
+    """Model that inherits roles from its parent."""
 
     __tablename__ = 'multirole_child'
     parent_id = db.Column(None, db.ForeignKey('multirole_document.id'))
