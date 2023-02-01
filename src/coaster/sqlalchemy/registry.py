@@ -225,11 +225,11 @@ class RegistryMixin:
     views: t.ClassVar[Registry]
     features: t.ClassVar[Registry]
 
-    def __init_subclass__(cls, *args, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs) -> None:
         cls.forms = Registry('obj')
         cls.forms.__set_name__(cls, 'forms')
         cls.views = Registry()
         cls.views.__set_name__(cls, 'views')
         cls.features = Registry()
         cls.features.__set_name__(cls, 'features')
-        return super().__init_subclass__(*args, **kwargs)
+        return super().__init_subclass__(**kwargs)
