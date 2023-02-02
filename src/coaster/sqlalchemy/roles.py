@@ -132,7 +132,6 @@ import typing as t
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
-    MappedCollection,
     MapperProperty,
     Query,
     RelationshipProperty,
@@ -149,6 +148,13 @@ from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
+
+try:  # pragma: no cover
+    from sqlalchemy.orm import KeyFuncDict  # New name in SQLAlchemy 2.0
+except ImportError:  # type: ignore[unreachable]
+    from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
+        MappedCollection as KeyFuncDict,
+    )
 
 from flask import g
 
@@ -650,7 +656,7 @@ class RoleAccessProxy(abc.Mapping):
             return attr.access_for(
                 actor=self._actor, anchors=self._anchors, datasets=self._datasets
             )
-        if isinstance(attr, (InstrumentedDict, MappedCollection)):
+        if isinstance(attr, (InstrumentedDict, KeyFuncDict)):
             return {
                 k: v.access_for(
                     actor=self._actor, anchors=self._anchors, datasets=self._datasets

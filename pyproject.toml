@@ -62,7 +62,7 @@ dependencies = [
   'PyYAML',
   'semantic_version>=2.8.0',
   'sqlalchemy-utils',
-  'SQLAlchemy>=2.0',
+  'SQLAlchemy>=1.4',
   'tldextract',
   'toml',
   'typing_extensions',

@@ -18,6 +18,8 @@ your Flask app::
 Mixin classes must always appear *before* ``db.Model`` in your model's base classes.
 """
 
+# pylint: disable=too-few-public-methods,no-self-argument
+
 from __future__ import annotations
 
 from collections import abc, namedtuple
@@ -99,7 +101,6 @@ class IdMixin:
     __uuid_primary_key__ = False
 
     @declared_attr
-    @classmethod
     def id(cls) -> Mapped[int | UUID]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
@@ -114,7 +115,6 @@ class IdMixin:
         return immutable(sa.Column(sa.Integer, primary_key=True, nullable=False))
 
     @declared_attr
-    @classmethod
     def url_id(cls) -> Mapped[int | UUID]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
@@ -170,7 +170,6 @@ class UuidMixin:
 
     @with_roles(read={'all'})
     @declared_attr
-    @classmethod
     def uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -190,7 +189,7 @@ class UuidMixin:
         return self.uuid.hex
 
     @uuid_hex.comparator  # type: ignore[no-redef]
-    def uuid_hex(cls):  # pylint: disable=no-self-argument
+    def uuid_hex(cls):
         """Return SQL comparator for UUID in hex format."""
         # For some reason the test fails if we use `cls.uuid` here
         # but works fine in the `uuid_b64` and `uuid_b58` comparators below
@@ -209,7 +208,7 @@ class UuidMixin:
         self.uuid = uuid_from_base64(value)
 
     @uuid_b64.comparator  # type: ignore[no-redef]
-    def uuid_b64(cls):  # pylint: disable=no-self-argument
+    def uuid_b64(cls):
         """Return SQL comparator for UUID in Base64 format."""
         return SqlUuidB64Comparator(cls.uuid)
 
@@ -225,12 +224,12 @@ class UuidMixin:
         """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet."""
         return uuid_to_base58(self.uuid)
 
-    @uuid_b58.setter  # type: ignore[no-redef]  # pylint: disable=no-self-argument
-    def uuid_b58(self, value):  # pylint: disable=no-self-argument
+    @uuid_b58.setter  # type: ignore[no-redef]
+    def uuid_b58(self, value):
         self.uuid = uuid_from_base58(value)
 
     @uuid_b58.comparator  # type: ignore[no-redef]
-    def uuid_b58(cls):  # pylint: disable=no-self-argument
+    def uuid_b58(cls):
         """Return SQL comparator for UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid)
 
@@ -248,7 +247,6 @@ class TimestampMixin:
 
     @immutable
     @declared_attr
-    @classmethod
     def created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
         return sa.Column(
@@ -258,7 +256,6 @@ class TimestampMixin:
         )
 
     @declared_attr
-    @classmethod
     def updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.Column(
@@ -559,7 +556,6 @@ class BaseNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
@@ -573,7 +569,6 @@ class BaseNameMixin(BaseMixin):
         )
 
     @declared_attr
-    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for title of this object."""
         if cls.__title_length__ is None:
@@ -700,7 +695,6 @@ class BaseScopedNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for URL name of this object, unique within a parent container."""
         if cls.__name_length__ is None:
@@ -712,7 +706,6 @@ class BaseScopedNameMixin(BaseMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for title of this object."""
         if cls.__title_length__ is None:
@@ -855,7 +848,6 @@ class BaseIdNameMixin(BaseMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for the URL name of this object, non-unique."""
         if cls.__name_length__ is None:
@@ -867,7 +859,6 @@ class BaseIdNameMixin(BaseMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for the title of this object."""
         if cls.__title_length__ is None:
@@ -906,7 +897,7 @@ class BaseIdNameMixin(BaseMixin):
         return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator  # type: ignore[no-redef]
-    def url_id_name(cls):  # pylint: disable=no-self-argument
+    def url_id_name(cls):
         """Return SQL comparator for id and name."""
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
@@ -925,7 +916,7 @@ class BaseIdNameMixin(BaseMixin):
         return f'{self.name}-{self.uuid_b58}'
 
     @url_name_uuid_b58.comparator  # type: ignore[no-redef]
-    def url_name_uuid_b58(cls):  # pylint: disable=no-self-argument
+    def url_name_uuid_b58(cls):
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
@@ -951,7 +942,6 @@ class BaseScopedIdMixin(BaseMixin):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
-    @classmethod
     def url_id(cls) -> Mapped[int]:
         """Column for an id number that is unique within the parent container."""
         return sa.Column(sa.Integer, nullable=False)
@@ -1030,7 +1020,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     __title_length__: t.Optional[int] = 250
 
     @declared_attr
-    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for the URL name of this instance, non-unique."""
         if cls.__name_length__ is None:
@@ -1042,7 +1031,6 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
 
     @declared_attr
-    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for the title of this instance."""
         if cls.__title_length__ is None:
@@ -1091,7 +1079,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return f'{self.url_id}-{self.name}'
 
     @url_id_name.comparator  # type: ignore[no-redef]
-    def url_id_name(cls):  # pylint: disable=no-self-argument
+    def url_id_name(cls):
         """Return SQL comparator for id and name."""
         return SqlSplitIdComparator(cls.url_id, splitindex=0)
 
@@ -1108,7 +1096,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return f'{self.name}-{self.uuid_b58}'
 
     @url_name_uuid_b58.comparator  # type: ignore[no-redef]
-    def url_name_uuid_b58(cls):  # pylint: disable=no-self-argument
+    def url_name_uuid_b58(cls):
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
