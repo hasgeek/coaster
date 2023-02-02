@@ -134,7 +134,6 @@ def flask_login_manager(app):
 @pytest.fixture()
 def request_ctx(app, db):
     """Request context with database models."""
-    db.init_app(app)
     ctx = app.test_request_context()
     ctx.push()
     db.create_all()
