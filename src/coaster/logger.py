@@ -7,6 +7,8 @@ Coaster can help your application log errors at run-time. Initialize with
 this is done automatically for you.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 from html import escape
 from io import StringIO
@@ -252,7 +254,6 @@ class SlackHandler(logging.Handler):
             (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key])
             > timedelta(minutes=5)
         ):
-
             # Sanity check:
             # If we're not going to be reporting this, don't bother to format payload
             if record.levelname not in [

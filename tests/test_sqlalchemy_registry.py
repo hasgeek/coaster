@@ -1,10 +1,7 @@
 """Registry and RegistryMixin tests."""
 
 from types import SimpleNamespace
-import typing as t  # noqa: F401  # pylint: disable=unused-import
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
-
-import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 
 import pytest
 
@@ -114,13 +111,13 @@ def registrymixin_models():
     # in the base RegistryMixin class.
 
     # Sample model 1
-    class RegistryTest1(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class RegistryTest1(BaseMixin, db.Model):
         """Registry test model 1."""
 
         __tablename__ = 'registry_test1'
 
     # Sample model 2
-    class RegistryTest2(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class RegistryTest2(BaseMixin, db.Model):
         """Registry test model 2."""
 
         __tablename__ = 'registry_test2'
@@ -447,6 +444,7 @@ def test_cached_properties_are_cached(
     CachedPropertyParamRegistry,
 ):
     """Cached properties are truly cached."""
+
     # Register registry member
     @PropertyRegistry.registry()
     @CachedPropertyRegistry.registry()

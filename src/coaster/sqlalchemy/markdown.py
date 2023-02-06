@@ -1,7 +1,11 @@
+"""Markdown composite columns."""
+
+from __future__ import annotations
+
 import typing as t
 
 from sqlalchemy.ext.mutable import MutableComposite
-from sqlalchemy.orm import composite
+from sqlalchemy.orm import CompositeProperty, composite
 import sqlalchemy as sa
 
 from markupsafe import Markup
@@ -115,7 +119,7 @@ def markdown_column(
     markdown: t.Optional[t.Callable] = None,
     options: t.Optional[dict] = None,
     **kwargs,
-) -> composite:
+) -> CompositeProperty:
     """
     Create a composite column that autogenerates HTML from Markdown text.
 
@@ -128,11 +132,12 @@ def markdown_column(
     :param options: Additional options for the Markdown processor
     :param kwargs: Additional column options, passed to SQLAlchemy's column constructor
     """
+
     # Construct a custom subclass of MarkdownComposite and set the markdown processor
     # and processor options on it. We'll pass this class to SQLAlchemy's composite
     # constructor.
     class CustomMarkdownComposite(MarkdownComposite):
-        pass
+        """Customised markdown composite."""
 
     CustomMarkdownComposite.options = options if options is not None else {}
     CustomMarkdownComposite.markdown = staticmethod(

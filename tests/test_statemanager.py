@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
-import typing as t  # pylint: disable=unused-import  # noqa: F401
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid as uuid_  # pylint: disable=unused-import  # noqa: F401
 
 from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401
@@ -28,6 +27,7 @@ db = SQLAlchemy(app)
 
 
 # --- Models ---------------------------------------------------------------------------
+
 
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
@@ -80,7 +80,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state(
         'RECENT',
-        state.PUBLISHED,  # type: ignore[arg-type]
+        state.PUBLISHED,
         lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
         label=('recent', "Recently published"),
     )

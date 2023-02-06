@@ -3,6 +3,8 @@ Text processing utilities
 -------------------------
 """
 
+from __future__ import annotations
+
 from functools import partial
 from html import unescape
 import re

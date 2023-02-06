@@ -61,7 +61,7 @@ It has a newline break here.</p>
 <p>Here is some <strong>bold text</strong> and some <em>emphasized text</em>. It also works with <strong>bold text</strong> and <em>emphasized text</em>.</p>
 <p>In addition, we support <ins>insertions</ins>, <del>deletions</del> and <mark>markers</mark>.</p>
 <p>Innocuous HTML tags are allowed when <code>html=True</code> is used: &lt;b&gt;Hello!&lt;/b&gt;</p>
-<p>Dangerous tags are always removed: &lt;script&gt;window.alert(‘Hello!’)&lt;/script&gt;</p>
+<p>Dangerous tags are always removed: &lt;script&gt;window.alert(&lsquo;Hello!&rsquo;)&lt;/script&gt;</p>
 <p>#This is not a header</p>
 <h1>This is a header in text-only mode</h1>
 <h3>This is a header in HTML and text mode</h3>
@@ -72,14 +72,14 @@ It has a newline break here.</p>
 <li>Water is H<sub>2</sub>O</li>
 <li>😄</li>
 <li>Symbols (ignored): (tm) (c) (r) c/o</li>
-<li>Symbols (converted): ± → ← ↔ ≠ ½ ¼ 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
+<li>Symbols (converted): &plusmn; &rarr; &larr; &harr; &ne; &frac12; &frac14; 1<sup>st</sup> 2<sup>nd</sup> 3<sup>rd</sup> 4<sup>th</sup> 42<sup>nd</sup></li>
 </ol>
 <p>An <a href="https://www.example.com/" rel="nofollow">inline link</a></p>
 <p>A naked link: <a href="https://www.example.com/" rel="nofollow">https://www.example.com/</a></p>
 <p>Un-prefixed naked links: <a href="http://hasgeek.in" rel="nofollow">hasgeek.in</a> python.py</p>
 <p>Python/Paraguay link, prefixed: <a href="http://python.py" rel="nofollow">http://python.py</a></p>
 <div class="highlight"><pre><span></span><code><span class="hll"><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span>
-</span>    <span class="k">return</span> <span class="s1">'https://www.example.com/'</span>
+</span>    <span class="k">return</span> <span class="s1">&amp;#39;https://www.example.com/&amp;#39;</span>
 </code></pre></div>
 <table>
 <thead>

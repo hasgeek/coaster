@@ -3,10 +3,12 @@ Enhanced query and custom comparators
 -------------------------------------
 """
 
+from __future__ import annotations
+
 import typing as t
 import uuid as uuid_
 
-from flask_sqlalchemy import BaseQuery
+from flask_sqlalchemy.query import Query as BaseQuery
 from sqlalchemy.ext.hybrid import Comparator
 
 from flask import abort
@@ -27,7 +29,7 @@ _marker = object()
 
 
 class Query(BaseQuery):
-    """Extends flask_sqlalchemy.BaseQuery to add additional helper methods."""
+    """Extends flask_sqlalchemy.query.Query to add additional helper methods."""
 
     def notempty(self):
         """
@@ -55,7 +57,7 @@ class Query(BaseQuery):
 
         Extends :meth:`~sqlalchemy.orm.query.Query.one_or_none` to raise a 404
         if no result is found. This method offers a safety net over
-        :meth:`~flask_sqlalchemy.BaseQuery.first_or_404` as it helps identify
+        :meth:`~flask_sqlalchemy.query.Query.first_or_404` as it helps identify
         poorly specified queries that could have returned more than one result.
         """
         result = self.one_or_none()

@@ -11,6 +11,8 @@ be careful about assumptions you make around them.
 .. _webassets: http://elsdoerfer.name/docs/webassets/
 """
 
+from __future__ import annotations
+
 from collections import defaultdict
 import re
 

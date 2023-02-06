@@ -1,10 +1,7 @@
 """Test CoordinatesMixin class."""
 
-import typing as t  # noqa: F401  # pylint: disable=unused-import
+from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
-
-import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
@@ -55,7 +52,7 @@ class TestCoordinatesColumn(unittest.TestCase):
         assert data.has_missing_coordinates is True
         data.coordinates = (12, 73)
         assert data.has_coordinates is True
-        assert data.has_missing_coordinates is False  # type: ignore[unreachable]
+        assert data.has_missing_coordinates is False
 
     def test_column_set_value(self):
         data = CoordinatesData()

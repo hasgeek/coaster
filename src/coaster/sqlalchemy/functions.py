@@ -3,6 +3,8 @@ Helper functions
 ----------------
 """
 
+from __future__ import annotations
+
 import typing as t
 
 from sqlalchemy.exc import IntegrityError
@@ -30,7 +32,7 @@ T = t.TypeVar('T')
 class UtcNow(functions.GenericFunction):
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
-    type = sa.TIMESTAMP()  # type: ignore  # noqa: A003
+    type = sa.TIMESTAMP()  # noqa: A003
     identifier = 'utcnow'
     inherit_cache = True
 
@@ -162,7 +164,7 @@ def add_primary_relationship(
     parent_id_columns = [c.name for c in sa.inspect(parent).primary_key]
     child_id_columns = [c.name for c in sa.inspect(child).primary_key]
 
-    primary_table_columns = (
+    primary_table_columns: t.List[sa.Column] = (
         [
             sa.Column(
                 parent_table_name + '_' + name,
@@ -188,9 +190,7 @@ def add_primary_relationship(
     primary_table = sa.Table(
         primary_table_name, parent.metadata, *primary_table_columns
     )
-    rel = relationship(  # type: ignore[var-annotated]
-        child, uselist=False, secondary=primary_table
-    )
+    rel = relationship(child, uselist=False, secondary=primary_table)
     setattr(parent, childrel, rel)
 
     @sa.event.listens_for(rel, 'set')
@@ -231,9 +231,7 @@ def add_primary_relationship(
                 'lhs': f'{parent_table_name}_{parent_id_columns[0]}',
                 'rhs': f'{child_table_name}_{child_id_columns[0]}',
             },
-        ).execute_if(
-            dialect='postgresql'  # type: ignore[arg-type]
-        ),
+        ).execute_if(dialect='postgresql'),
     )
 
     sa.event.listen(
@@ -249,9 +247,7 @@ def add_primary_relationship(
                 'trigger': f'{primary_table_name}_trigger',
                 'function': f'{primary_table_name}_validate',
             },
-        ).execute_if(
-            dialect='postgresql'  # type: ignore[arg-type]
-        ),
+        ).execute_if(dialect='postgresql'),
     )
     return primary_table
 

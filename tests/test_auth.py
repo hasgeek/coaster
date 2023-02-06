@@ -18,7 +18,16 @@ from coaster.auth import (
     current_auth,
     request_has_auth,
 )
-from coaster.sqlalchemy import BaseMixin
+from coaster.sqlalchemy import (  # noqa: F401  # pylint: disable=unused-import
+    BaseMixin,
+    IdMixin,
+    NoIdMixin,
+    PermissionMixin,
+    RegistryMixin,
+    RoleMixin,
+    TimestampMixin,
+    UrlForMixin,
+)
 
 # --- App context ----------------------------------------------------------------------
 
@@ -125,7 +134,6 @@ def flask_login_manager(app):
 @pytest.fixture()
 def request_ctx(app, db):
     """Request context with database models."""
-    db.init_app(app)
     ctx = app.test_request_context()
     ctx.push()
     db.create_all()
@@ -232,7 +240,7 @@ def test_current_auth_with_user_loaded(models, login_manager):
     assert current_auth.is_authenticated
     assert current_auth
     assert current_auth.user is not None
-    assert current_auth.user == user  # type: ignore[unreachable]
+    assert current_auth.user == user
     assert current_auth.actor == user
 
 
@@ -248,7 +256,7 @@ def test_anonymous_user(models, login_manager):
     login_manager.set_user_for_testing(user, load=True)
 
     # is_authenticated == True, since there is an actor
-    assert current_auth.is_authenticated  # type: ignore[unreachable]
+    assert current_auth.is_authenticated
     assert current_auth
     assert current_auth.actor is not None
     assert current_auth.user == user

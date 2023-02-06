@@ -3,6 +3,8 @@ Immutable annotation
 --------------------
 """
 
+from __future__ import annotations
+
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 import sqlalchemy as sa
 
@@ -41,19 +43,18 @@ class ImmutableColumnError(AttributeError):
 @annotations_configured.connect
 def _make_immutable(cls):
     def add_immutable_event(attr, col):
-        @sa.event.listens_for(col, 'set')
+        @sa.event.listens_for(col, 'set', raw=True)
         def immutable_column_set_listener(target, value, old_value, initiator):
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in
-            # SQLAlchemy 1.4 it appears to also be used in place of NO_VALUE.
+            # SQLAlchemy >= 1.4 it appears to also be used in place of NO_VALUE.
             # NO_VALUE is for columns that have no value (either never set, or not
-            # loaded). Because of this ambiguity, we pair it with a
-            # has_identity test.
+            # loaded). Because of this ambiguity, we pair it with a test for persistence
             if old_value == value:
                 pass
-            elif (old_value is NEVER_SET or old_value is NO_VALUE) and sa.inspect(
-                target
-            ).has_identity is False:
+            elif (
+                old_value is NEVER_SET or old_value is NO_VALUE
+            ) and target.persistent is False:
                 pass
             else:
                 raise ImmutableColumnError(cls.__name__, attr, old_value, value)

@@ -3,6 +3,8 @@ App configuration
 =================
 """
 
+from __future__ import annotations
+
 from typing import NamedTuple
 import json
 import typing as t

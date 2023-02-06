@@ -3,6 +3,8 @@ Utility classes
 ---------------
 """
 
+from __future__ import annotations
+
 from collections import namedtuple
 from collections.abc import Set
 import typing as t

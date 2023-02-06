@@ -12,6 +12,8 @@ Provides a wrapper around NLTK to extract named entities from HTML text::
     entities = extract_named_entities(textlist)
 """
 
+from __future__ import annotations
+
 import nltk
 
 

@@ -3,6 +3,8 @@ SQLAlchemy column types
 -----------------------
 """
 
+from __future__ import annotations
+
 import json
 
 from sqlalchemy.ext.mutable import Mutable

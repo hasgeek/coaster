@@ -2,6 +2,9 @@
 Coaster types
 -------------
 """
+
+from __future__ import annotations
+
 import typing as t
 
 #: Type used for functions and methods wrapped in a decorator

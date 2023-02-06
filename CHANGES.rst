@@ -8,7 +8,7 @@
 * Removed deprecated ``make_password`` and ``check_password`` functions
 * Added ``compress_whitespace`` to mimic browser compression of whitespace
 * Removed unused and untested ``word_count`` function
-* Added SQLAlchemy 1.4 support and dropped support for annotations and roles
+* Added SQLAlchemy 2.0 support and dropped support for annotations and roles
   on synonyms
 * Registries now support property-like access and caching
 * Removed SandboxedFlask as it is unused and adds maintenance overhead

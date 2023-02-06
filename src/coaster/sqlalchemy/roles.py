@@ -130,32 +130,38 @@ import operator
 import typing as t
 
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import ColumnProperty, Query, RelationshipProperty, SynonymProperty
-
-import typing_extensions as te
-
-try:  # SQLAlchemy >= 1.4
-    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
-    from sqlalchemy.orm.interfaces import MapperProperty
-
+from sqlalchemy.orm import (
+    ColumnProperty,
+    MapperProperty,
+    Query,
+    RelationshipProperty,
+    SynonymProperty,
+    declarative_mixin,
+)
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
     InstrumentedList,
     InstrumentedSet,
-    MappedCollection,
 )
 from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
+try:  # pragma: no cover
+    from sqlalchemy.orm import KeyFuncDict  # New name in SQLAlchemy 2.0
+except ImportError:  # type: ignore[unreachable]
+    from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
+        MappedCollection as KeyFuncDict,
+    )
+
 from flask import g
+
+import typing_extensions as te
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
-from ._compat import declarative_mixin
 
 __all__ = [
     'RoleGrantABC',
@@ -650,7 +656,7 @@ class RoleAccessProxy(abc.Mapping):
             return attr.access_for(
                 actor=self._actor, anchors=self._anchors, datasets=self._datasets
             )
-        if isinstance(attr, (InstrumentedDict, MappedCollection)):
+        if isinstance(attr, (InstrumentedDict, KeyFuncDict)):
             return {
                 k: v.access_for(
                     actor=self._actor, anchors=self._anchors, datasets=self._datasets
@@ -722,8 +728,8 @@ def with_roles(
     grants: t.Optional[t.Set[str]] = None,
     grants_via: t.Optional[
         t.Dict[
-            t.Union[None, str, QueryableAttribute],
-            t.Union[t.Set[str], t.Dict[str, t.Union[str, t.Set[str]]]],
+            t.Union[None, str, QueryableAttribute, RelationshipProperty],
+            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
@@ -1046,9 +1052,7 @@ class RoleMixin:
 
         for role in roles:
             # Scan granted_by declarations
-            for relattr in self.__roles__.get(  # type: ignore[call-overload]
-                role, {}
-            ).get('granted_by', []):
+            for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 relationship = getattr(self, relattr)
                 if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
                     for actor in relationship:
@@ -1058,9 +1062,7 @@ class RoleMixin:
                     yield (relationship, role) if with_role else relationship
             # Scan granted_via declarations
             for relattr, actor_attr in (
-                self.__roles__.get(role, {})  # type: ignore[call-overload]
-                .get('granted_via', {})
-                .items()
+                self.__roles__.get(role, {}).get('granted_via', {}).items()
             ):
                 reverse_offer_map = self.__relationship_reversed_role_offer_map__.get(
                     relattr

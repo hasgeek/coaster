@@ -34,20 +34,23 @@ dictionary, mapping annotation names to a list of attribute names, and to a
 reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
 """
 
+from __future__ import annotations
+
 from collections.abc import Hashable
 import typing as t
 
-from sqlalchemy.orm import ColumnProperty, RelationshipProperty, SynonymProperty, mapper
+from sqlalchemy.orm import (
+    ColumnProperty,
+    Mapper,
+    MapperProperty,
+    RelationshipProperty,
+    SynonymProperty,
+)
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 
 from ..signals import coaster_signals
-
-try:  # SQLAlchemy >= 1.4
-    from sqlalchemy.orm import MapperProperty  # type: ignore[attr-defined]
-except ImportError:  # SQLAlchemy < 1.4 and sqlalchemy-stubs (by Dropbox)
-    from sqlalchemy.orm.interfaces import MapperProperty
 
 __all__ = ['annotations_configured', 'annotation_wrapper']
 
@@ -66,7 +69,7 @@ annotations_configured = coaster_signals.signal(
 # --- SQLAlchemy signals for base class ------------------------------------------------
 
 
-@sa.event.listens_for(mapper, 'mapper_configured')
+@sa.event.listens_for(Mapper, 'mapper_configured')
 def _configure_annotations(mapper_, cls):
     """
     Extract annotations from attributes.

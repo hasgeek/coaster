@@ -3,6 +3,8 @@ Miscellaneous utilities
 -----------------------
 """
 
+from __future__ import annotations
+
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import abc
 from datetime import datetime
@@ -187,7 +189,7 @@ def uuid1mc_from_datetime(dt) -> uuid.UUID:
     fields[1] = time_mid
     fields[2] = time_hi_version
 
-    return uuid.UUID(fields=tuple(fields))  # type:ignore[arg-type]
+    return uuid.UUID(fields=tuple(fields))
 
 
 def uuid_to_base64(value: uuid.UUID) -> str:
