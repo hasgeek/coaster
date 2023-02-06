@@ -729,7 +729,7 @@ def with_roles(
     grants_via: t.Optional[
         t.Dict[
             t.Union[None, str, QueryableAttribute, RelationshipProperty],
-            t.Union[t.Set[str], t.Dict[str, t.Union[str, t.Set[str]]]],
+            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
