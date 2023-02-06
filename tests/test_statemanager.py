@@ -28,6 +28,7 @@ db = SQLAlchemy(app)
 
 # --- Models ---------------------------------------------------------------------------
 
+
 # This enum makes mixed use of 2-tuples and 3-tuples. Never do this in real
 # code for your own sanity. We're doing this here only to test that
 # StateManager is agnostic to which syntax you use.

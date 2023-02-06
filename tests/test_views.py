@@ -195,7 +195,6 @@ class TestCoasterViews(unittest.TestCase):
 
     def test_requires_permission(self):
         with self.app.test_request_context():
-
             assert permission1.is_available() is False
             assert permission2.is_available() is False
 

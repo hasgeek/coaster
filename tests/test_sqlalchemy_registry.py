@@ -444,6 +444,7 @@ def test_cached_properties_are_cached(
     CachedPropertyParamRegistry,
 ):
     """Cached properties are truly cached."""
+
     # Register registry member
     @PropertyRegistry.registry()
     @CachedPropertyRegistry.registry()

@@ -1141,6 +1141,7 @@ class CoordinatesMixin:
 
 # --- Auto-populate columns ------------------------------------------------------------
 
+
 # Setup listeners for UUID-based subclasses
 def _configure_id_listener(mapper, class_):
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
