@@ -17,7 +17,7 @@ try:  # pragma: no cover
     import tomllib  # Python >= 3.11
 except ModuleNotFoundError:  # type: ignore[unreachable]
     try:
-        import toml as tomllib
+        import toml as tomllib  # type: ignore[no-redef]
     except ModuleNotFoundError:
         tomllib = None  # type: ignore[assignment]
     # tomli is not supported as it requires files to be opened in binary mode, but

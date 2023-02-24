@@ -1,9 +1,10 @@
 coverage
 coveralls
+psycopg2
 pylint
 pylint-flask-sqlalchemy
 pylint-pytest
-pytest>6
+pytest
 pytest-cov
 pytest-env
 pytest-ignore-flaky
