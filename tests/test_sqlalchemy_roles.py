@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, declarative_mixin
 
 try:  # pragma: no cover
     from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict  # SQLAlchemy 2.0
-except ImportError:  # type: ignore[unreachable]
+except ModuleNotFoundError:  # type: ignore[unreachable]
     from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
         attribute_mapped_collection as attribute_keyed_dict,
         column_mapped_collection as column_keyed_dict,

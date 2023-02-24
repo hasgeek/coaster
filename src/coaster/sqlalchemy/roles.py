@@ -151,7 +151,7 @@ import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
 try:  # pragma: no cover
     from sqlalchemy.orm import KeyFuncDict  # New name in SQLAlchemy 2.0
-except ImportError:  # type: ignore[unreachable]
+except ModuleNotFoundError:  # type: ignore[unreachable]
     from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
         MappedCollection as KeyFuncDict,
     )
