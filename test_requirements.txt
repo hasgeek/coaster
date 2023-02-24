@@ -1,12 +1,15 @@
 coverage
 coveralls
+psycopg2
+Pygments
 pylint
 pylint-flask-sqlalchemy
 pylint-pytest
-pytest>6
+pytest
 pytest-cov
 pytest-env
 pytest-ignore-flaky
 pytest-remotedata
 pytest-rerunfailures
+pyyaml
 toml

@@ -13,8 +13,22 @@ from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
 
-import toml
-import yaml
+try:  # pragma: no cover
+    import tomllib  # Python >= 3.11
+except ModuleNotFoundError:  # type: ignore[unreachable]
+    try:
+        import toml as tomllib  # type: ignore[no-redef]
+    except ModuleNotFoundError:
+        tomllib = None  # type: ignore[assignment]
+    # tomli is not supported as it requires files to be opened in binary mode, but
+    # Flask's ``app.config.from_file(path, loader)`` gives the loader a file opened in
+    # text mode
+
+
+try:  # pragma: no cover
+    import yaml
+except ModuleNotFoundError:  # type: ignore[unreachable]
+    yaml = None  # type: ignore[assignment]
 
 from . import logger
 from .auth import current_auth
@@ -47,10 +61,13 @@ _additional_config = {
 _config_loaders: t.Dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
-    'toml': ConfigLoader(extn='.toml', loader=toml.load),
-    'yaml': ConfigLoader(extn='.yaml', loader=yaml.safe_load),
-    'yml': ConfigLoader(extn='.yml', loader=yaml.safe_load),
 }
+if tomllib is not None:
+    _config_loaders['toml'] = ConfigLoader(extn='.toml', loader=tomllib.load)
+
+if yaml is not None:
+    _config_loaders['yaml'] = ConfigLoader(extn='.yaml', loader=yaml.safe_load)
+    _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=yaml.safe_load)
 
 
 class KeyRotationWrapper:  # pylint: disable=too-few-public-methods

@@ -20,9 +20,9 @@ from flask import url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect
 
-try:
+try:  # pragma: no cover
     from asgiref.sync import async_to_sync
-except ImportError:  # pragma: no cover
+except ModuleNotFoundError:
     async_to_sync = None  # type: ignore[assignment, misc]
 
 from .. import typing as tc  # pylint: disable=reimported
