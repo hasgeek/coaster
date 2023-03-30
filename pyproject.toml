@@ -135,7 +135,7 @@ env = ['FLASK_ENV=testing']
 remote_data_strict = true
 
 [tool.pylint.master]
-load-plugins = ['pylint_pytest', 'pylint_flask_sqlalchemy']
+load-plugins = ['pylint_pytest']
 max-parents = 10
 init-hook = '''
 import os, astroid.bases, pathlib

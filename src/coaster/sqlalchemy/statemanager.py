@@ -231,7 +231,7 @@ from werkzeug.exceptions import BadRequest
 
 from ..signals import coaster_signals
 from ..utils import NameTitle, is_collection
-from .roles import RoleMixin
+from .roles import RoleAccessProxy, RoleMixin
 
 __all__ = [
     'StateManager',
@@ -1036,6 +1036,7 @@ class StateManagerWrapper(t.Generic[T]):
         :param bool current: Limit to transitions available in ``obj.``
            :meth:`~coaster.sqlalchemy.mixins.RoleMixin.current_access`
         """
+        proxy: t.Union[dict, RoleAccessProxy]
         if current and isinstance(self.obj, RoleMixin):
             proxy = self.obj.current_access()
         else:
