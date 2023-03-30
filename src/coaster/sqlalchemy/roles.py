@@ -189,7 +189,9 @@ class RoleAttrs(te.TypedDict, total=False):
     granted_via: t.Dict[str, t.Union[None, str, QueryableAttribute]]
 
 
-def _attrs_equal(lhs, rhs):
+def _attrs_equal(
+    lhs: t.Union[str, QueryableAttribute], rhs: t.Union[str, QueryableAttribute]
+) -> bool:
     """
     Compare two strings or two QueryableAttributes.
 
@@ -202,7 +204,7 @@ def _attrs_equal(lhs, rhs):
     return lhs is rhs
 
 
-def _actor_in_relationship(actor, relationship):
+def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
@@ -288,7 +290,7 @@ class RoleGrantABC(metaclass=ABCMeta):
         return ()
 
     @classmethod
-    def __subclasshook__(cls, c):
+    def __subclasshook__(cls, c) -> bool:
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             if any('offered_roles' in b.__dict__ for b in c.__mro__):
@@ -300,18 +302,19 @@ class RoleGrantABC(metaclass=ABCMeta):
 class LazyRoleSet(abc.MutableSet):
     """Set that provides lazy evaluations for whether a role is present."""
 
-    def __init__(self, obj, actor, initial=()):
+    def __init__(self, obj, actor, initial=()) -> None:
         self.obj = obj
         self.actor = actor
         #: Roles that the actor has (make a copy of initial set as it will be mutated)
-        self._present = set(initial)
+        self._present: t.Set[t.Any] = set(initial)
         #: Roles the actor does not have
-        self._not_present = set()
+        self._not_present: t.Set[t.Any] = set()
         # Relationships that have been scanned already
-        self._scanned_granted_via = set()  # Contains (relattr, actor_attr)
-        self._scanned_granted_by = set()  # Contains relattr
+        # Contains (relattr, actor_attr)
+        self._scanned_granted_via: t.Set[t.Tuple[str, str]] = set()
+        self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
 
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return f'LazyRoleSet({self.obj}, {self.actor})'
 
     def _from_iterable(self, it) -> LazyRoleSet:  # pylint: disable=arguments-differ
@@ -320,7 +323,7 @@ class LazyRoleSet(abc.MutableSet):
         # self.obj and self.actor. Pylint doesn't like it and must be silenced
         return LazyRoleSet(self.obj, self.actor, it)
 
-    def _role_is_present(self, role):
+    def _role_is_present(self, role) -> bool:
         """Test whether a role has been granted to the bound actor."""
         if role in self._present:
             return True
@@ -1143,7 +1146,7 @@ class RoleMixin:
         actor=None,
         anchors=(),
         datasets: t.Optional[t.Sequence[str]] = None,
-    ):
+    ) -> RoleAccessProxy:
         """
         Return an access control proxy for this instance.
 
@@ -1193,7 +1196,7 @@ class RoleMixin:
             self, roles=roles, actor=actor, anchors=anchors, datasets=datasets
         )
 
-    def current_access(self, datasets=None):
+    def current_access(self, datasets=None) -> RoleAccessProxy:
         """
         Return an access control proxy for this instance for the current actor.
 
