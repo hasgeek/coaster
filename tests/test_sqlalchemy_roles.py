@@ -8,7 +8,7 @@ import typing as t
 import unittest
 
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import Mapped, declarative_mixin
+from sqlalchemy.orm import Mapped, declarative_mixin, mapped_column
 
 try:  # pragma: no cover
     from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict  # SQLAlchemy 2.0
@@ -98,8 +98,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
         db.Column(db.Unicode(250)), rw={'owner'}
     )  # Specify read+write access
 
-    title = with_roles(
-        db.Column(db.Unicode(250)),
+    title: Mapped[str] = with_roles(
+        mapped_column(db.Unicode(250)),
         write={'owner', 'editor'},
         datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
     )  # Grant 'owner' and 'editor' write but not read access

@@ -44,7 +44,7 @@ repos:
         additional_dependencies:
           - toml
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 23.3.0
     hooks:
       - id: black
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -78,7 +78,7 @@ repos:
         language_version: python3
         args: ["-c", "pyproject.toml"]
         additional_dependencies:
-          - toml
+          - bandit[toml]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:

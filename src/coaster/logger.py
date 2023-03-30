@@ -306,6 +306,7 @@ class SlackHandler(logging.Handler):
                         webhook['url'],
                         json=payload,
                         headers={'Content-Type': 'application/json'},
+                        timeout=30,
                     )
                 except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
                     # We need a bare except clause because this is the exception
@@ -368,6 +369,7 @@ class TelegramHandler(logging.Handler):
                     'text': text,
                     'disable_preview': True,
                 },
+                timeout=30,
             )
             error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
 

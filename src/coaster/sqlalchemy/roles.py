@@ -132,6 +132,7 @@ import typing as t
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
+    MappedColumn,
     MapperProperty,
     Query,
     RelationshipProperty,
@@ -859,7 +860,11 @@ def with_roles(
         if attr in __cache__:
             raise TypeError("Duplicate use of with_roles for this attribute")
         __cache__[attr] = data
-        if isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
+        if isinstance(attr, MappedColumn):
+            if hasattr(attr.column, '_coaster_roles'):
+                raise TypeError("Duplicate use of with_roles for this attribute")
+            attr.column._coaster_roles = data
+        elif isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
             if '_coaster_roles' in attr.info:
                 raise TypeError("Duplicate use of with_roles for this attribute")
             attr.info['_coaster_roles'] = data
