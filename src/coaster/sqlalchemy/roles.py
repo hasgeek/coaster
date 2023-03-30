@@ -863,7 +863,7 @@ def with_roles(
         if isinstance(attr, MappedColumn):
             if hasattr(attr.column, '_coaster_roles'):
                 raise TypeError("Duplicate use of with_roles for this attribute")
-            attr.column._coaster_roles = data
+            attr.column._coaster_roles = data  # pylint: disable=protected-access
         elif isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
             if '_coaster_roles' in attr.info:
                 raise TypeError("Duplicate use of with_roles for this attribute")
@@ -872,7 +872,7 @@ def with_roles(
             try:
                 if hasattr(attr, '_coaster_roles'):
                     raise TypeError("Duplicate use of with_roles for this attribute")
-                attr._coaster_roles = data
+                attr._coaster_roles = data  # pylint: disable=protected-access
                 # If the attr has a restrictive __slots__, we'll get an attribute error.
                 # Unfortunately, because of the way SQLAlchemy works, by copying objects
                 # into subclasses, the cache alone is not a reliable mechanism. We need
@@ -957,7 +957,7 @@ class RoleMixin:
         return result
 
     @property
-    def current_roles(self):
+    def current_roles(self) -> InspectableSet[str]:
         """
         Roles currently available on this object.
 
@@ -990,13 +990,13 @@ class RoleMixin:
             )
         return cache[cache_key]
 
-    def _get_relationship(self, relattr):
+    def _get_relationship(self, relattr: str) -> t.Optional[t.Any]:
         if '.' in relattr:
             # Did we get a 'relationship.attr'? Find the referred item
-            relationship = self
+            relationship: t.Any = self
             for part in relattr.split('.'):
                 if relationship is None:
-                    return
+                    return None
                 relationship = getattr(relationship, part)
         else:
             relationship = getattr(self, relattr)
@@ -1247,6 +1247,7 @@ def _configure_roles(mapper_, cls):
     # Loop through all attributes in this and base classes, looking for role annotations
     for base in cls.__mro__:
         for name, attr in base.__dict__.items():
+            # pylint: disable=protected-access
             if name in processed or name.startswith('__'):
                 continue
 
