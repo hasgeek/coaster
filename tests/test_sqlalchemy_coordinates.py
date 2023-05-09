@@ -3,21 +3,27 @@
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
+import pytest
+
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-from .test_sqlalchemy_models import app2, db
+from .conftest import db
 
 
-class CoordinatesData(BaseMixin, CoordinatesMixin, db.Model):  # type: ignore[name-defined]
+class CoordinatesData(
+    BaseMixin, CoordinatesMixin, db.Model  # type: ignore[name-defined]
+):
+    """Test model for coordinates data."""
+
     __tablename__ = 'coordinates_data'
 
 
 # -- Tests --------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestCoordinatesColumn(unittest.TestCase):
-    # Restrict tests to PostgreSQL as SQLite3 doesn't have a Decimal type
-    app = app2
+    """Test for coordinates column."""
 
     def setUp(self):
         self.ctx = self.app.test_request_context()
@@ -63,4 +69,5 @@ class TestCoordinatesColumn(unittest.TestCase):
         db.session.commit()
 
         readdata = CoordinatesData.query.first()
+        assert readdata.coordinates == (12, 73)
         assert readdata.coordinates == (12, 73)

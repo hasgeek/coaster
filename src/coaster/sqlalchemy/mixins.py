@@ -28,10 +28,10 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 import typing as t
 
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
-from sqlalchemy_utils.types import UUIDType
 import sqlalchemy as sa
 
 from flask import Flask, current_app, url_for
@@ -106,10 +106,7 @@ class IdMixin:
         if cls.__uuid_primary_key__:
             return immutable(
                 sa.Column(
-                    UUIDType(binary=False),
-                    default=uuid4,
-                    primary_key=True,
-                    nullable=False,
+                    postgresql.UUID, default=uuid4, primary_key=True, nullable=False
                 )
             )
         return immutable(sa.Column(sa.Integer, primary_key=True, nullable=False))
@@ -175,12 +172,7 @@ class UuidMixin:
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         return immutable(
-            sa.Column(
-                UUIDType(binary=False),
-                default=uuid4,
-                unique=True,
-                nullable=False,
-            )
+            sa.Column(postgresql.UUID, default=uuid4, unique=True, nullable=False)
         )
 
     @hybrid_property

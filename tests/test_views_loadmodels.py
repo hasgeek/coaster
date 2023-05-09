@@ -6,7 +6,7 @@ import unittest
 from sqlalchemy.orm import Mapped, relationship
 import sqlalchemy as sa
 
-from flask import Flask, g
+from flask import g
 from werkzeug.exceptions import Forbidden, NotFound
 
 import pytest
@@ -23,8 +23,6 @@ from .test_sqlalchemy_models import (
     ScopedIdNamedDocument,
     ScopedNamedDocument,
     User,
-    app1,
-    app2,
     db,
 )
 
@@ -217,16 +215,16 @@ def t_dotted_document_delete(document, child):
 # --- Tests ----------------------------------------------------------------------------
 
 
-class TestLoadModels(unittest.TestCase):
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = app1.config['SQLALCHEMY_DATABASE_URI']
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db.init_app(app)
+@pytest.fixture(scope='module', autouse=True)
+def _app_extra(app):
     LoginManager(app)
     app.add_url_rule(
         '/<container>/<document>', 'redirect_document', t_redirect_document
     )
 
+
+@pytest.mark.usefixtures('clsapp')
+class TestLoadModels(unittest.TestCase):
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
@@ -451,14 +449,3 @@ class TestLoadModels(unittest.TestCase):
             self.session.add(user)
             self.session.commit()
             assert t_single_model_in_loadmodels(username='user1') == g.user
-
-
-class TestLoadModels2(TestLoadModels):
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = app2.config['SQLALCHEMY_DATABASE_URI']
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db.init_app(app)
-    LoginManager(app)
-    app.add_url_rule(
-        '/<container>/<document>', 'redirect_document', t_redirect_document
-    )

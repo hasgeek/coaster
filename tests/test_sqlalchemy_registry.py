@@ -8,7 +8,7 @@ import pytest
 from coaster.sqlalchemy import BaseMixin
 from coaster.sqlalchemy.registry import Registry
 
-from .test_sqlalchemy_models import db
+from .conftest import db
 
 # --- Fixtures -------------------------------------------------------------------------
 

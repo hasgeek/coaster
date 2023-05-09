@@ -5,10 +5,9 @@ from types import SimpleNamespace
 import typing as t  # noqa: F401  # pylint: disable=unused-import
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
-from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
-from flask import Flask, g, has_request_context, render_template_string
+from flask import g, has_request_context, render_template_string
 
 import pytest
 
@@ -28,6 +27,8 @@ from coaster.sqlalchemy import (  # noqa: F401  # pylint: disable=unused-import
     TimestampMixin,
     UrlForMixin,
 )
+
+from .conftest import db
 
 # --- App context ----------------------------------------------------------------------
 
@@ -65,7 +66,7 @@ class FlaskLoginManager(LoginManager):  # pylint: disable=too-few-public-methods
 
 
 @pytest.fixture(scope='module')
-def models(db) -> SimpleNamespace:
+def models() -> SimpleNamespace:
     """Model fixtures."""
     # pylint: disable=possibly-unused-variable
 
@@ -101,22 +102,6 @@ def models(db) -> SimpleNamespace:
 # --- Fixtures -------------------------------------------------------------------------
 
 
-@pytest.fixture(scope='module')
-def app() -> Flask:
-    """App fixture."""
-    _app = Flask(__name__)
-    _app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-    _app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    return _app
-
-
-@pytest.fixture(scope='module')
-def db(app) -> SQLAlchemy:
-    """Database fixture."""
-    _db = SQLAlchemy(app)
-    return _db
-
-
 @pytest.fixture()
 def login_manager(app):
     """Login manager fixture."""
@@ -132,7 +117,7 @@ def flask_login_manager(app):
 
 
 @pytest.fixture()
-def request_ctx(app, db):
+def request_ctx(app):
     """Request context with database models."""
     ctx = app.test_request_context()
     ctx.push()

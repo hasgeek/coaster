@@ -6,8 +6,6 @@ from sqlalchemy.orm.attributes import NO_VALUE
 import sqlalchemy as sa
 import sqlalchemy.exc
 
-from flask import Flask
-
 import pytest
 
 from coaster.sqlalchemy import (
@@ -18,13 +16,7 @@ from coaster.sqlalchemy import (
     immutable,
 )
 
-from .test_sqlalchemy_models import db
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
-
+from .conftest import db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -120,9 +112,8 @@ class SynonymAnnotation(BaseMixin, db.Model):  # type: ignore[name-defined]
 # --- Tests ----------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestCoasterAnnotations(unittest.TestCase):
-    app = app
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
