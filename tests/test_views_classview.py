@@ -28,7 +28,7 @@ from coaster.views import (
     viewdata,
 )
 
-from .test_sqlalchemy_models import db
+from .conftest import db, sqlalchemy_uri
 
 
 class JsonEncoder(json.JSONEncoder):
@@ -41,7 +41,7 @@ class JsonEncoder(json.JSONEncoder):
 app = Flask(__name__)
 app.json_encoder = JsonEncoder
 app.testing = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+app.config['SQLALCHEMY_DATABASE_URI'] = sqlalchemy_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 

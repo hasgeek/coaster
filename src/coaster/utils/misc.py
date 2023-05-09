@@ -628,7 +628,7 @@ def valid_username(candidate):
     ...   valid_username('-ab'))
     False
     """
-    return not _username_valid_re.search(candidate) is None
+    return _username_valid_re.search(candidate) is not None
 
 
 def namespace_from_url(url):

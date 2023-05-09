@@ -5,17 +5,18 @@ from werkzeug.routing import BuildError
 
 import pytest
 
+from .conftest import sqlalchemy_uri
 from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument, db
 
 # --- Test setup -----------------------------------------------------------------------
 
 app1 = Flask(__name__)
-app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+app1.config['SQLALCHEMY_DATABASE_URI'] = sqlalchemy_uri()
 app1.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app1)
 
 app2 = Flask(__name__)
-app2.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+app2.config['SQLALCHEMY_DATABASE_URI'] = sqlalchemy_uri()
 app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app2)
 

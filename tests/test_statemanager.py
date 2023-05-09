@@ -2,10 +2,7 @@ from datetime import datetime, timedelta
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
-from flask_sqlalchemy import SQLAlchemy
 import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401
-
-from flask import Flask
 
 import pytest
 
@@ -20,11 +17,7 @@ from coaster.sqlalchemy import (
 from coaster.sqlalchemy.statemanager import ManagedStateWrapper
 from coaster.utils import LabeledEnum
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
+from .conftest import db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -163,11 +156,8 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
 # --- Tests ----------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestStateManager(unittest.TestCase):
-    """SQLite tests"""
-
-    app = app
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()

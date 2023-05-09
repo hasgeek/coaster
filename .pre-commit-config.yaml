@@ -3,6 +3,12 @@
 ci:
   skip: ["yesqa", "no-commit-to-branch"]
 repos:
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.0.265
+    hooks:
+      - id: ruff
+        args: ['--fix', '--exit-non-zero-on-fix']
+        # Extra args, only after removing flake8 and yesqa: '--extend-select', 'RUF100'
   - repo: https://github.com/lucasmbrown/mirrors-autoflake
     rev: v1.3
     hooks:

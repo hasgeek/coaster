@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from sqlite3 import Connection as SQLite3Connection
 
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
+
+from flask_sqlalchemy import SQLAlchemy
 
 try:
     from psycopg2.extensions import connection as PostgresConnection  # noqa: N812

@@ -18,8 +18,6 @@ except ModuleNotFoundError:  # type: ignore[unreachable]
         column_mapped_collection as column_keyed_dict,
     )
 
-from flask import Flask
-
 import pytest
 
 from coaster.sqlalchemy import (
@@ -35,13 +33,7 @@ from coaster.sqlalchemy import (
 )
 from coaster.utils import InspectableSet
 
-from .test_sqlalchemy_models import db
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
-
+from .conftest import db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -410,9 +402,8 @@ class JsonProtocolEncoder(json.JSONEncoder):
 # --- Tests ----------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestCoasterRoles(unittest.TestCase):
-    app = app
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()

@@ -7,14 +7,12 @@ from uuid import UUID
 import typing as t
 import unittest
 
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Mapped, relationship, synonym
 from sqlalchemy.orm.exc import MultipleResultsFound
 import sqlalchemy as sa
 
-from flask import Flask
 from werkzeug.routing import BuildError
 
 from pytz import utc
@@ -30,27 +28,13 @@ from coaster.sqlalchemy import (
     JsonDict,
     UrlType,
     UuidMixin,
-    UUIDType,
     add_primary_relationship,
     auto_init_default,
     failsafe_add,
 )
 from coaster.utils import uuid_to_base58, uuid_to_base64
 
-from .test_auth import LoginManager
-
-app1 = Flask(__name__)
-app1.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-app1.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app2 = Flask(__name__)
-app2.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://localhost/coaster_test'
-app2.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy()
-db.init_app(app1)
-db.init_app(app2)
-LoginManager(app1)
-LoginManager(app2)
-
+from .conftest import db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -195,7 +179,7 @@ class User(BaseMixin, db.Model):  # type: ignore[name-defined]
 class MyData(db.Model):  # type: ignore[name-defined]
     __tablename__ = 'my_data'
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
-    data: sa.Column[t.Optional[dict]] = sa.Column(JsonDict)
+    data: Mapped[t.Optional[dict]] = sa.Column(JsonDict)  # type: ignore[assignment]
 
 
 class MyUrlModel(db.Model):  # type: ignore[name-defined]
@@ -228,24 +212,20 @@ class UuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(UUIDType(binary=False), primary_key=True)  # noqa: A003
+    id = db.Column(postgresql.UUID, primary_key=True)  # noqa: A003
 
 
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(
-        None, sa.ForeignKey('uuid_key.id')
-    )
+    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id: sa.Column[postgresql.UUID] = sa.Column(
-        None, sa.ForeignKey('uuid_key.id')
-    )
+    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
@@ -312,11 +292,8 @@ auto_init_default(DefaultValue.value)
 # --- Tests ----------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestCoasterModels(unittest.TestCase):
-    """SQLite tests"""
-
-    app = app1
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
@@ -1410,12 +1387,6 @@ class TestCoasterModels(unittest.TestCase):
                 assert d.value == 'not-default'
             elif d.id in (d3.id, d4.id):
                 assert d.value == 'changed'
-
-
-class TestCoasterModelsPG(TestCoasterModels):
-    """PostgreSQL tests"""
-
-    app = app2
 
     def test_parent_child_primary_sql_validator(self):
         parent1 = ParentForPrimary()

@@ -3,10 +3,12 @@
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
+import pytest
+
 from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
 
-from .test_sqlalchemy_models import app1, app2, db
+from .conftest import db
 
 
 class MarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -31,9 +33,8 @@ class FakeMarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
 # -- Tests --------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures('clsapp')
 class TestMarkdownColumn(unittest.TestCase):
-    app = app1
-
     def setUp(self):
         self.ctx = self.app.test_request_context()
         self.ctx.push()
@@ -136,7 +137,3 @@ class TestMarkdownColumn(unittest.TestCase):
         doc = FakeMarkdownData(value="This is some text")
         assert doc.value.text == "This is some text"
         assert doc.value.html == 'fake-markdown'
-
-
-class TestMarkdownColumn2(TestMarkdownColumn):
-    app = app2

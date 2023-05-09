@@ -10,12 +10,11 @@ import json
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
 from sqlalchemy_utils.types import URLType as UrlTypeBase
-from sqlalchemy_utils.types import UUIDType
 import sqlalchemy as sa
 
 from furl import furl
 
-__all__ = ['JsonDict', 'UUIDType', 'UrlType']
+__all__ = ['JsonDict', 'UrlType']
 
 
 class JsonType(UserDefinedType):
