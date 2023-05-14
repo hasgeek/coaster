@@ -5,11 +5,9 @@ from types import SimpleNamespace
 import typing as t  # noqa: F401  # pylint: disable=unused-import
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
 
-import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
-
 from flask import g, has_request_context, render_template_string
-
 import pytest
+import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from coaster.auth import (
     add_auth_anchor,

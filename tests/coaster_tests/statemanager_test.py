@@ -2,9 +2,8 @@ from datetime import datetime, timedelta
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
-import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401
-
 import pytest
+import sqlalchemy as sa  # pylint: disable=unused-import  # noqa: F401
 
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (

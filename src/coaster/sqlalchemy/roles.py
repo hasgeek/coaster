@@ -158,7 +158,6 @@ except ModuleNotFoundError:  # type: ignore[unreachable]
     )
 
 from flask import g
-
 import typing_extensions as te
 
 from ..auth import current_auth

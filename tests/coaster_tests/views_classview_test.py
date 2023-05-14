@@ -5,7 +5,6 @@ import unittest
 
 from flask import Flask, json
 from werkzeug.exceptions import Forbidden
-
 import pytest
 
 from coaster.app import JSONProvider

@@ -28,14 +28,13 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 import typing as t
 
+from flask import Flask, current_app, url_for
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
-import sqlalchemy as sa
-
-from flask import Flask, current_app, url_for
 from werkzeug.routing import BuildError
+import sqlalchemy as sa
 
 from ..auth import current_auth
 from ..utils import (

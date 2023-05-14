@@ -23,7 +23,6 @@ import typing as t
 
 from flask import g, request, session
 from flask.config import Config
-
 import requests
 
 from .auth import current_auth

@@ -27,7 +27,6 @@ from flask import (
 from werkzeug.datastructures import Headers
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
-
 import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported

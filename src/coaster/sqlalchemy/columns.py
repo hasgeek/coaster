@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import json
 
+from furl import furl
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
 from sqlalchemy_utils.types import URLType as UrlTypeBase
 import sqlalchemy as sa
-
-from furl import furl
 
 __all__ = ['JsonDict', 'UrlType']
 

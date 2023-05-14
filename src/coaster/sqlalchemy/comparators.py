@@ -8,10 +8,9 @@ from __future__ import annotations
 import typing as t
 import uuid as uuid_
 
-from sqlalchemy.ext.hybrid import Comparator
-
 from flask import abort
 from flask_sqlalchemy.query import Query as BaseQuery
+from sqlalchemy.ext.hybrid import Comparator
 
 from ..utils import uuid_from_base58, uuid_from_base64
 
