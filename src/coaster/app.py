@@ -140,7 +140,7 @@ class JSONProvider(DefaultJSONProvider):
             return o.__json__()
         if isinstance(o, abc.Mapping):
             return dict(o)
-        return super().default(o)
+        return DefaultJSONProvider.default(o)
 
 
 def init_app(
