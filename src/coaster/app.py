@@ -179,6 +179,7 @@ def init_app(
     if app.json_provider_class is DefaultJSONProvider:
         app.json_provider_class = JSONProvider
         app.json = JSONProvider(app)
+        app.jinja_env.policies['json.dumps_function'] = app.json.dumps
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
