@@ -1,6 +1,6 @@
 """Test current_auth."""
+# pylint: disable=redefined-outer-name
 
-# These unused imports are present to mitigate a bug in sqlalchemy2-stubs for mypy
 from types import SimpleNamespace
 import typing as t  # noqa: F401  # pylint: disable=unused-import
 import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
@@ -27,6 +27,8 @@ from coaster.sqlalchemy import (  # noqa: F401  # pylint: disable=unused-import
 )
 
 from .conftest import db
+
+# The unused imports above are present to mitigate a bug in sqlalchemy2-stubs for mypy
 
 # --- App context ----------------------------------------------------------------------
 

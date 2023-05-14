@@ -216,14 +216,14 @@ class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
+    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
+    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 

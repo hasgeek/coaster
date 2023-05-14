@@ -1,4 +1,5 @@
 """Reusable fixtures for Coaster tests."""
+# pylint: disable=redefined-outer-name
 
 from os import environ
 

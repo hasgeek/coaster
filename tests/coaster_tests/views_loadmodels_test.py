@@ -1,4 +1,5 @@
 """Test @load_models view helper."""
+# pylint: disable=redefined-outer-name
 
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
