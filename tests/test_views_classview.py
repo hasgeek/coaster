@@ -1,6 +1,5 @@
 """Test classviews."""
 
-from collections import abc
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
@@ -9,6 +8,7 @@ from werkzeug.exceptions import Forbidden
 
 import pytest
 
+from coaster.app import JSONProvider
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import BaseIdNameMixin, BaseNameMixin, BaseScopedNameMixin
 from coaster.utils import InspectableSet
@@ -30,16 +30,8 @@ from coaster.views import (
 
 from .conftest import db, sqlalchemy_uri
 
-
-class JsonEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, abc.Mapping):
-            return dict(o)
-        return super().default(o)
-
-
 app = Flask(__name__)
-app.json_encoder = JsonEncoder
+app.json = JSONProvider(app)
 app.testing = True
 app.config['SQLALCHEMY_DATABASE_URI'] = sqlalchemy_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

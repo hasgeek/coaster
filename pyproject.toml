@@ -44,7 +44,7 @@ dependencies = [
   'Flask-Assets',
   'Flask-Migrate',
   'Flask-SQLAlchemy',
-  'Flask>=2.0',
+  'Flask>=2.2',
   'furl',
   'html5lib>=0.999999999',
   'isoweek',
@@ -136,7 +136,6 @@ env = ['FLASK_ENV=testing']
 remote_data_strict = true
 
 [tool.pylint.master]
-load-plugins = ['pylint_pytest']
 max-parents = 10
 init-hook = '''
 import os, astroid.bases, pathlib

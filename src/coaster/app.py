@@ -5,11 +5,13 @@ App configuration
 
 from __future__ import annotations
 
+from collections import abc
 from typing import NamedTuple
 import json
 import typing as t
 
 from flask import Flask
+from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
 
@@ -37,7 +39,7 @@ from .views import current_view
 __all__ = [
     'KeyRotationWrapper',
     'RotatingKeySecureCookieSessionInterface',
-    'Flask',
+    'JSONProvider',
     'init_app',
 ]
 
@@ -128,6 +130,19 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
+class JSONProvider(DefaultJSONProvider):
+    """Expand Flask's JSON provider to support the ``__json__`` protocol."""
+
+    @staticmethod
+    def default(o):
+        """Expand default support to check for `__json__`."""
+        if hasattr(o, '__json__'):
+            return o.__json__()
+        if isinstance(o, abc.Mapping):
+            return dict(o)
+        return super().default(o)
+
+
 def init_app(
     app: Flask, config: t.Optional[t.List[str]] = None, init_logging: bool = True
 ) -> None:
@@ -160,6 +175,10 @@ def init_app(
     """
     if not config:
         config = ['env', 'py']
+    # Replace the default JSON provider if it isn't a custom one
+    if app.json_provider_class is DefaultJSONProvider:
+        app.json_provider_class = JSONProvider
+        app.json = JSONProvider(app)
     # Make current_auth available to app templates
     app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
