@@ -1,0 +1,7 @@
+{
+  "SETTINGS_KEY": "settings_json",
+  "ADMINS": ["test@example.com"],
+  "DEFAULT_MAIL_SENDER": ["Hasgeek", "test@example.com"],
+  "MAIL_SERVER": "mail.example.com",
+  "MAIL_PORT": 587
+}

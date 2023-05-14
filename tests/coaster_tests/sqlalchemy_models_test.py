@@ -7,16 +7,14 @@ from uuid import UUID
 import typing as t
 import unittest
 
+from pytz import utc
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Mapped, relationship, synonym
 from sqlalchemy.orm.exc import MultipleResultsFound
-import sqlalchemy as sa
-
 from werkzeug.routing import BuildError
-
-from pytz import utc
 import pytest
+import sqlalchemy as sa
 
 from coaster.sqlalchemy import (
     BaseIdNameMixin,
@@ -218,14 +216,14 @@ class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key1'
     __uuid_primary_key__ = False
-    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
+    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
 class UuidForeignKey2(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_foreign_key2'
     __uuid_primary_key__ = True
-    uuidkey_id: Mapped[UUID] = sa.Column(None, sa.ForeignKey('uuid_key.id'))
+    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 

@@ -1,4 +1,5 @@
 """Registry and RegistryMixin tests."""
+# pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import

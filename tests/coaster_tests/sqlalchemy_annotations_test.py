@@ -3,10 +3,9 @@ import unittest
 import warnings
 
 from sqlalchemy.orm.attributes import NO_VALUE
+import pytest
 import sqlalchemy as sa
 import sqlalchemy.exc
-
-import pytest
 
 from coaster.sqlalchemy import (
     BaseMixin,

@@ -17,13 +17,12 @@ from collections import defaultdict
 import re
 
 from flask_assets import Bundle
-from webassets.filter import Filter, register_filter
-
-# Version is not used here but is made available for others to import from
 from semantic_version import SimpleSpec, Version
+from webassets.filter import Filter, register_filter
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
+# Version is not used here but is made available for others to import from
 __all__ = ['Version', 'SimpleSpec', 'VersionedAssets', 'AssetNotFound']
 
 

@@ -1,7 +1,6 @@
 import unittest
 
 from flask import Flask, Response
-
 from jinja2 import TemplateNotFound
 
 from coaster.views import jsonp, render_with

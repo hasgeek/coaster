@@ -6,7 +6,6 @@ import unittest
 
 from flask import Flask, render_template_string, session
 import itsdangerous
-
 import pytest
 
 from coaster.app import (

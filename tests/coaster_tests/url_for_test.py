@@ -2,11 +2,10 @@ import unittest
 
 from flask import Flask
 from werkzeug.routing import BuildError
-
 import pytest
 
 from .conftest import sqlalchemy_uri
-from .test_sqlalchemy_models import Container, NamedDocument, ScopedNamedDocument, db
+from .sqlalchemy_models_test import Container, NamedDocument, ScopedNamedDocument, db
 
 # --- Test setup -----------------------------------------------------------------------
 

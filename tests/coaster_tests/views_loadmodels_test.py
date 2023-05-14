@@ -1,21 +1,20 @@
 """Test @load_models view helper."""
+# pylint: disable=redefined-outer-name
 
 from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import unittest
 
-from sqlalchemy.orm import Mapped, relationship
-import sqlalchemy as sa
-
 from flask import g
+from sqlalchemy.orm import Mapped, relationship
 from werkzeug.exceptions import Forbidden, NotFound
-
 import pytest
+import sqlalchemy as sa
 
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.views import load_model, load_models
 
-from .test_auth import LoginManager
-from .test_sqlalchemy_models import (
+from .auth_test import LoginManager
+from .sqlalchemy_models_test import (
     Container,
     IdNamedDocument,
     NamedDocument,

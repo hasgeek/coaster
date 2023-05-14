@@ -44,7 +44,7 @@ dependencies = [
   'Flask-Assets',
   'Flask-Migrate',
   'Flask-SQLAlchemy',
-  'Flask>=2.0',
+  'Flask>=2.2',
   'furl',
   'html5lib>=0.999999999',
   'isoweek',
@@ -103,22 +103,8 @@ use_parentheses = true
 from_first = true
 known_future_library = ['__future__']
 known_first_party = ['coaster']
-known_sqlalchemy = ['alembic', 'sqlalchemy', 'sqlalchemy_utils', 'flask_sqlalchemy']
-known_flask = [
-  'flask',
-  'werkzeug',
-  'itsdangerous',
-  'wtforms',
-  'webassets',
-  'flask_assets',
-  'flask_flatpages',
-  'flask_mail',
-  'flask_migrate',
-  'flask_rq2',
-  'flask_sqlalchemy'
-]
 default_section = 'THIRDPARTY'
-sections = ['FUTURE', 'STDLIB', 'SQLALCHEMY', 'FLASK', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
+sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
 
 [tool.pytest.ini_options]
 pythonpath = 'src'
@@ -131,12 +117,10 @@ minversion = '6.0'
 addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
 filterwarnings = ['ignore::DeprecationWarning', 'ignore::UserWarning']
-mocked-sessions = 'coaster.db.db.session'
 env = ['FLASK_ENV=testing']
 remote_data_strict = true
 
 [tool.pylint.master]
-load-plugins = ['pylint_pytest']
 max-parents = 10
 init-hook = '''
 import os, astroid.bases, pathlib

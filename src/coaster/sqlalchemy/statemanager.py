@@ -225,9 +225,8 @@ from __future__ import annotations
 import functools
 import typing as t
 
-import sqlalchemy as sa
-
 from werkzeug.exceptions import BadRequest
+import sqlalchemy as sa
 
 from ..signals import coaster_signals
 from ..utils import NameTitle, is_collection

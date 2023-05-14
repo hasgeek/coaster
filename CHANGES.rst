@@ -29,6 +29,8 @@
   support for the ``FLASK_ENV`` var for custom environments is deprecated
 * Coaster now uses ``src`` folder layout and has project metadata defined in
   ``pyproject.toml`` as per PEP 660, requiring setuptools>=61
+* Added ``coaster.app.JSONProvider`` that supports the ``__json__`` protocol
+* Now compatible with Flask 2.2 and 2.3
 
 0.6.1 - 2021-01-06
 ------------------

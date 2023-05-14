@@ -2,7 +2,6 @@ import unittest
 
 from flask import Flask, json, session
 from werkzeug.exceptions import BadRequest, Forbidden
-
 import pytest
 
 from coaster.app import load_config_from_file

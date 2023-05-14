@@ -12,12 +12,6 @@ from types import SimpleNamespace
 import asyncio
 import typing as t
 
-from sqlalchemy.orm.attributes import InstrumentedAttribute
-from sqlalchemy.orm.descriptor_props import SynonymProperty
-from sqlalchemy.orm.mapper import Mapper
-from sqlalchemy.orm.properties import RelationshipProperty
-from sqlalchemy.orm.query import Query
-
 from flask import (
     Blueprint,
     Flask,
@@ -30,12 +24,16 @@ from flask import (
 )
 from flask.blueprints import BlueprintSetupState
 from flask.typing import ResponseReturnValue
+from furl import furl
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.descriptor_props import SynonymProperty
+from sqlalchemy.orm.mapper import Mapper
+from sqlalchemy.orm.properties import RelationshipProperty
+from sqlalchemy.orm.query import Query
 from werkzeug.local import LocalProxy
 from werkzeug.routing import Map as WzMap
 from werkzeug.routing import Rule as WzRule
 from werkzeug.wrappers import Response as BaseResponse
-
-from furl import furl
 import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
