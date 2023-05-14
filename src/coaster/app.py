@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import abc
 from typing import NamedTuple
 import json
+import os
 import typing as t
 
 from flask import Flask
@@ -200,11 +201,13 @@ def init_app(
                 load=_config_loaders[config_option].loader,
             )
 
-    # Load additional settings from the app's environment-specific config file(s):
-    # Flask <2.3 sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
-    # variable. FLASK_ENV is deprecated in Flask 2.2 and will be removed in 2.3. Apps
-    # must be updated to prefer config from env.
-    additional = _additional_config.get(app.config.get('ENV', '').lower())
+    # Load additional settings from the app's environment-specific config file(s): Flask
+    # <2.3 sets ``ENV`` configuration variable based on ``FLASK_ENV`` environment
+    # variable. FLASK_ENV is deprecated in Flask 2.2 and removed in 2.3, but Coaster
+    # will fallback to reading ``FLASK_ENV`` from the environment.
+    additional = _additional_config.get(
+        (app.config.get('ENV', '') or os.environ.get('FLASK_ENV', '')).lower()
+    )
     if additional:
         for config_option in config:
             if config_option != 'env':
