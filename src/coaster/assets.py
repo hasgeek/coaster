@@ -18,7 +18,6 @@ import re
 
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version
-from webassets.filter import Filter, register_filter
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
@@ -180,20 +179,3 @@ class VersionedAssets(defaultdict):
                 if name not in blacklist
             )
         )
-
-
-class UglipyJS(Filter):
-    """Minifies Javascript using UgliPyJS, the Python wrapper for UglifyJS."""
-
-    name = 'uglipyjs'
-
-    def setup(self):
-        import uglipyjs
-
-        self.uglipyjs = uglipyjs  # pylint: disable=W0201
-
-    def output(self, _in, out, **kw):
-        out.write(str(self.uglipyjs.compile(_in.read()), 'utf-8'))
-
-
-register_filter(UglipyJS)

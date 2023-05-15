@@ -1,9 +1,8 @@
-from io import StringIO
 import unittest
 
 import pytest
 
-from coaster.assets import AssetNotFound, UglipyJS, Version, VersionedAssets
+from coaster.assets import AssetNotFound, Version, VersionedAssets
 
 
 class TestAssets(unittest.TestCase):
@@ -74,18 +73,3 @@ class TestAssets(unittest.TestCase):
         assert bundle.contents == ('jquery.form-2.96.js',)
         bundle = self.assets.require('jquery.form.js', '!jquery.js')
         assert bundle.contents == ('jquery.form-2.96.js',)
-
-    def test_uglipyjs(self):
-        """Test the UglipyJS filter"""
-        infile = StringIO(
-            """
-            function test() {
-              alert("Hello, world!");
-            };
-            """
-        )
-        outfile = StringIO()
-        afilter = UglipyJS()
-        afilter.setup()
-        afilter.output(infile, outfile)
-        assert outfile.getvalue() == 'function test(){alert("Hello, world!")};'
