@@ -20,9 +20,9 @@ try:  # pragma: no cover
     import tomllib  # Python >= 3.11
 except ModuleNotFoundError:
     try:
-        import toml as tomllib
+        import toml as tomllib  # type: ignore[no-redef]
     except ModuleNotFoundError:
-        tomllib = None
+        tomllib = None  # type: ignore[assignment]
     # tomli is not supported as it requires files to be opened in binary mode, but
     # Flask's ``app.config.from_file(path, loader)`` gives the loader a file opened in
     # text mode
