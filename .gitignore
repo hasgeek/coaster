@@ -17,3 +17,4 @@ __pycache__
 .cache
 .vscode
 coverage/
+monkeytype.sqlite3

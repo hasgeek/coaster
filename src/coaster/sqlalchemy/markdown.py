@@ -6,7 +6,7 @@ import typing as t
 
 from markupsafe import Markup
 from sqlalchemy.ext.mutable import MutableComposite
-from sqlalchemy.orm import CompositeProperty, composite
+from sqlalchemy.orm import Composite, composite
 import sqlalchemy as sa
 
 from ..utils import markdown as markdown_processor
@@ -118,7 +118,7 @@ def markdown_column(
     markdown: t.Optional[t.Callable] = None,
     options: t.Optional[dict] = None,
     **kwargs,
-) -> CompositeProperty:
+) -> Composite[MarkdownComposite]:
     """
     Create a composite column that autogenerates HTML from Markdown text.
 

@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
+import typing as t
 
 import pytest
 
@@ -49,7 +49,7 @@ def CallableParamRegistry():  # noqa: N802
     """Callable registry with a keyword parameter."""
 
     class CallableParamRegistry:
-        registry = Registry('kwparam')
+        registry = Registry(kwarg='kwparam')
 
     return CallableParamRegistry
 
@@ -59,7 +59,7 @@ def PropertyParamRegistry():  # noqa: N802
     """Registry with property and a keyword parameter."""
 
     class PropertyParamRegistry:
-        registry = Registry('kwparam', property=True)
+        registry = Registry(kwarg='kwparam', property=True)
 
     return PropertyParamRegistry
 
@@ -69,7 +69,7 @@ def CachedPropertyParamRegistry():  # noqa: N802
     """Registry with cached property and a keyword parameter."""
 
     class CachedPropertyParamRegistry:
-        registry = Registry('kwparam', cached_property=True)
+        registry = Registry(kwarg='kwparam', cached_property=True)
 
     return CachedPropertyParamRegistry
 
@@ -157,31 +157,32 @@ def registrymixin_models():
 # --- Creating a registry
 
 
-def test_registry_set_name():
+def test_registry_set_name() -> None:
     """Registry's __set_name__ gets called."""
     # Registry has no name unless added to a class
     assert Registry()._name is None
 
     class RegistryUser:
-        reg1 = Registry()
-        reg2 = Registry()
+        reg1: Registry = Registry()
+        reg2: Registry = Registry()
 
     assert RegistryUser.reg1._name == 'reg1'
     assert RegistryUser.reg2._name == 'reg2'
 
 
-def test_registry_reuse_error():
+def test_registry_reuse_error() -> None:
     """Registries cannot be reused under different names."""
-    # Registry raises TypeError from __set_name__, but Python recasts as RuntimeError
+    # Registry raises AttributeError from __set_name__, but Python recasts as
+    # RuntimeError
     with pytest.raises(RuntimeError):
 
         class RegistryUser:
-            a = b = Registry()
+            a = b = Registry[t.Any]()
 
 
-def test_registry_reuse_okay():
+def test_registry_reuse_okay() -> None:
     """Registries be reused with the same name under different hosts."""
-    reusable = Registry()
+    reusable: Registry = Registry()
 
     assert reusable._name is None
 
@@ -198,35 +199,33 @@ def test_registry_reuse_okay():
     assert HostA.registry is reusable
 
 
-def test_registry_param_type():
+def test_registry_param_type() -> None:
     """Registry's param must be string or None."""
-    r = Registry()
-    assert r._param is None
-    r = Registry('')
-    assert r._param is None
-    r = Registry(1)
-    assert r._param == '1'
-    r = Registry('obj')
-    assert r._param == 'obj'
-    r = Registry(param='foo')
-    assert r._param == 'foo'
-
-
-def test_registry_property_cached_property():
-    """A registry can have property or cached_property set, but not both."""
-    r = Registry()
-    assert r._default_property is False
-    assert r._default_cached_property is False
-
-    r = Registry(property=True)
-    assert r._default_property is True
-    assert r._default_cached_property is False
-
-    r = Registry(cached_property=True)
-    assert r._default_property is False
-    assert r._default_cached_property is True
-
+    r: Registry = Registry()
+    assert r._default_kwarg is None
+    with pytest.raises(ValueError, match="kwarg parameter cannot be blank"):
+        Registry(kwarg='')
     with pytest.raises(TypeError):
+        r = Registry(kwarg=1)  # type: ignore[arg-type]
+    r = Registry(kwarg='obj')
+    assert r._default_kwarg == 'obj'
+
+
+def test_registry_property_cached_property() -> None:
+    """A registry can have property or cached_property set, but not both."""
+    r1: Registry = Registry()
+    assert r1._default_property is False
+    assert r1._default_cached_property is False
+
+    r2: Registry = Registry(property=True)
+    assert r2._default_property is True
+    assert r2._default_cached_property is False
+
+    r3: Registry = Registry(cached_property=True)
+    assert r3._default_property is False
+    assert r3._default_cached_property is True
+
+    with pytest.raises(ValueError, match="Only one of"):
         Registry(property=True, cached_property=True)
 
 
@@ -422,20 +421,26 @@ def test_add_to_registry_custom_name(all_registry_hosts, registry_member):
 def test_add_to_registry_underscore(all_registry_hosts, registry_member):
     """Registry member names cannot start with an underscore."""
     for host in all_registry_hosts:
-        with pytest.raises(ValueError):
+        with pytest.raises(AttributeError):
             host.registry('_new_member')(registry_member)
+        with pytest.raises(AttributeError):
+            host.registry._new_member = registry_member
 
 
 def test_add_to_registry_dupe(all_registry_hosts, registry_member):
     """Registry member names cannot be duplicates of an existing name."""
     for host in all_registry_hosts:
         host.registry()(registry_member)
-        with pytest.raises(ValueError):
+        with pytest.raises(AttributeError):
             host.registry()(registry_member)
+        with pytest.raises(AttributeError):
+            setattr(host.registry, registry_member.__name__, registry_member)
 
         host.registry('custom')(registry_member)
-        with pytest.raises(ValueError):
+        with pytest.raises(AttributeError):
             host.registry('custom')(registry_member)
+        with pytest.raises(AttributeError):
+            host.registry.custom = registry_member
 
 
 def test_cached_properties_are_cached(
@@ -504,7 +509,7 @@ def test_cached_properties_are_cached(
 # --- RegistryMixin tests --------------------------------------------------------------
 
 
-def test_access_item_from_class(registrymixin_models):
+def test_access_item_from_class(registrymixin_models: SimpleNamespace) -> None:
     """Registered items are available from the model class."""
     assert (
         registrymixin_models.RegistryTest1.views.test
@@ -526,7 +531,7 @@ def test_access_item_from_class(registrymixin_models):
     assert registrymixin_models.RegistryTest2.features.is1 is registrymixin_models.is1
 
 
-def test_access_item_class_from_instance(registrymixin_models):
+def test_access_item_class_from_instance(registrymixin_models: SimpleNamespace) -> None:
     """Registered items are available from the model instance."""
     r1 = registrymixin_models.RegistryTest1()
     r2 = registrymixin_models.RegistryTest2()
@@ -542,7 +547,9 @@ def test_access_item_class_from_instance(registrymixin_models):
     assert r2.features.is1.func is registrymixin_models.is1
 
 
-def test_access_item_instance_from_instance(registrymixin_models):
+def test_access_item_instance_from_instance(
+    registrymixin_models: SimpleNamespace,
+) -> None:
     """Registered items can be instantiated from the model instance."""
     r1 = registrymixin_models.RegistryTest1()
     r2 = registrymixin_models.RegistryTest2()
@@ -559,7 +566,7 @@ def test_access_item_instance_from_instance(registrymixin_models):
     assert i2.obj is not r1
 
 
-def test_features(registrymixin_models):
+def test_features(registrymixin_models: SimpleNamespace) -> None:
     """The features registry can be used for feature tests."""
     r1 = registrymixin_models.RegistryTest1()
     r2 = registrymixin_models.RegistryTest2()

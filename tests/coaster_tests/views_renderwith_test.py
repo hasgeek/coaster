@@ -1,3 +1,4 @@
+import typing as t
 import unittest
 
 from flask import Flask, Response
@@ -10,7 +11,7 @@ from coaster.views import jsonp, render_with
 app = Flask(__name__)
 
 
-def viewcallable(data):
+def viewcallable(data: t.Dict[str, str]) -> Response:
     return Response(repr(data), mimetype='text/plain')
 
 
@@ -24,7 +25,7 @@ def returns_string(data):
 
 @app.route('/renderedview1')
 @render_with('renderedview1.html')
-def myview():
+def myview() -> t.Dict[str, str]:
     return {'data': 'value'}
 
 
@@ -37,7 +38,7 @@ def myview():
     },
     jsonp=True,
 )
-def otherview():
+def otherview() -> t.Tuple[dict, int]:
     return {'data': 'value'}, 201
 
 
@@ -49,19 +50,19 @@ def otherview():
         'text/plain': viewcallable,
     }
 )
-def onemoreview():
+def onemoreview() -> t.Tuple[dict]:
     return ({'data': 'value'},)
 
 
 @app.route('/renderedview4')
 @render_with({'text/plain': viewcallable})
-def view_for_text():
+def view_for_text() -> t.Tuple[dict, int, t.Dict[str, str]]:
     return {'data': 'value'}, 201, {'Referrer': 'http://example.com'}
 
 
 @app.route('/renderedview5')
 @render_with({'text/plain': returns_string})
-def view_for_star():
+def view_for_star() -> t.Tuple[dict, int]:
     return {'data': 'value'}, 201
 
 
@@ -69,11 +70,11 @@ def view_for_star():
 
 
 class TestLoadModels(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         app.testing = True
         self.app = app.test_client()
 
-    def test_render(self):
+    def test_render(self) -> None:
         """Test rendered views."""
         # For this test to pass, the render_view decorator must call render_template
         # with the correct template name. Since the templates don't actually exist,

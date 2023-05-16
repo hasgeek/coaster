@@ -1,15 +1,22 @@
 """Test classviews."""
 
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
+import typing as t
 import unittest
 
 from flask import Flask, json
+from flask.ctx import RequestContext
+from flask.typing import ResponseReturnValue
 from werkzeug.exceptions import Forbidden
 import pytest
 
 from coaster.app import JSONProvider
 from coaster.auth import add_auth_attribute
-from coaster.sqlalchemy import BaseIdNameMixin, BaseNameMixin, BaseScopedNameMixin
+from coaster.sqlalchemy import (
+    BaseIdNameMixin,
+    BaseNameMixin,
+    BaseScopedNameMixin,
+    LazyRoleSet,
+)
 from coaster.utils import InspectableSet
 from coaster.views import (
     ClassView,
@@ -44,7 +51,9 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'view_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
-    def permissions(self, actor, inherited=()):
+    def permissions(
+        self, actor: t.Optional[str], inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor in (
@@ -55,7 +64,9 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
             perms.add('delete')
         return perms
 
-    def roles_for(self, actor=None, anchors=()):
+    def roles_for(
+        self, actor: t.Optional[str] = None, anchors: t.Iterable = ()
+    ) -> LazyRoleSet:
         roles = super().roles_for(actor, anchors)
         if actor in ('this-is-the-owner', 'this-is-another-owner'):
             roles.add('owner')
@@ -73,7 +84,7 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-de
     __roles__ = {'all': {'read': {'name', 'title', 'doctype'}}}
 
     @property
-    def doctype(self):
+    def doctype(self) -> str:
         return 'scoped-doc'
 
 
@@ -164,7 +175,7 @@ class BaseView(ClassView):
     def also_inherited(self):
         return 'also_inherited'
 
-    def latent_route(self):
+    def latent_route(self) -> str:
         return 'latent-route'
 
 
@@ -208,7 +219,9 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
-    def before_request(self, access_token=None):
+    def before_request(
+        self, access_token: t.Optional[str] = None
+    ) -> t.Optional[ResponseReturnValue]:
         if access_token == 'owner-admin-secret':  # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute(
@@ -266,7 +279,7 @@ class MultiDocumentView(UrlForView, ModelView):
     model = ViewDocument
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
-    def loader(self, doc1, doc2):
+    def loader(self, doc1: str, doc2: str) -> t.Tuple[ViewDocument, RenameableDocument]:
         doc1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
         doc2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
         return (doc1, doc2)
@@ -286,7 +299,9 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
-    def before_request(self, access_token=None):
+    def before_request(
+        self, access_token: t.Optional[str] = None
+    ) -> t.Optional[ResponseReturnValue]:
         if access_token == 'owner-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-the-owner'
@@ -333,53 +348,54 @@ GatedDocumentView.init_app(app)
 
 class TestClassView(unittest.TestCase):
     app = app
+    ctx: RequestContext
 
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
+    def setUp(self) -> None:
+        self.ctx = t.cast(RequestContext, self.app.test_request_context())
         self.ctx.push()
         db.create_all()
         self.session = db.session
         self.client = self.app.test_client()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.session.rollback()
         db.drop_all()
         self.ctx.pop()
 
-    def test_index(self):
+    def test_index(self) -> None:
         """Test index view (/)"""
         rv = self.client.get('/')
         assert rv.data == b'index'
 
-    def test_page(self):
+    def test_page(self) -> None:
         """Test page view (/page)"""
         rv = self.client.get('/page')
         assert rv.data == b'page'
 
-    def test_current_view(self):
+    def test_current_view(self) -> None:
         rv = self.client.get('/current_view')
         assert rv.data == b'True'
 
-    def test_current_handler_is_self(self):
+    def test_current_handler_is_self(self) -> None:
         rv = self.client.get('/current_view/current_handler_is_self')
         assert rv.data == b'True'
 
-    def test_current_handler_is_wrapper(self):
+    def test_current_handler_is_wrapper(self) -> None:
         rv = self.client.get('/current_view/current_handler_is_wrapper')
         assert rv.data == b'True'
 
-    def test_view_args_are_received(self):
+    def test_view_args_are_received(self) -> None:
         rv = self.client.get('/view_args/one/two')
         assert rv.data == b'one/two'
         rv = self.client.get('/view_args/three/four')
         assert rv.data == b'three/four'
 
-    def test_document_404(self):
+    def test_document_404(self) -> None:
         """Test 404 response from within a view"""
         rv = self.client.get('/doc/this-doc-does-not-exist')
         assert rv.status_code == 404  # This 404 came from DocumentView.view
 
-    def test_document_view(self):
+    def test_document_view(self) -> None:
         """Test document view (loaded from database)"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
@@ -391,7 +407,7 @@ class TestClassView(unittest.TestCase):
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
-    def test_document_edit(self):
+    def test_document_edit(self) -> None:
         """POST handler shares URL with GET handler but is routed to correctly"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
@@ -404,7 +420,7 @@ class TestClassView(unittest.TestCase):
         self.client.post('/doc/test1', data={'title': "Edit 3"})
         assert doc.title == "Edit 3"
 
-    def test_callable_view(self):
+    def test_callable_view(self) -> None:
         """View handlers are callable as regular methods"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
@@ -420,14 +436,14 @@ class TestClassView(unittest.TestCase):
         assert rv == 'edited!'
         assert doc.title == "Edited"
 
-    def test_rerouted(self):
+    def test_rerouted(self) -> None:
         """Subclass replaces view handler"""
         rv = self.client.get('/subclasstest')
         assert rv.data != b'first'
         assert rv.data == b'rerouted-first'
         assert rv.status_code == 200
 
-    def test_rerouted_with_new_routes(self):
+    def test_rerouted_with_new_routes(self) -> None:
         """Subclass replaces view handler and adds new routes"""
         rv = self.client.get('/subclasstest/second')
         assert rv.data != b'second'
@@ -438,20 +454,20 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'rerouted-second'
         assert rv.status_code == 200
 
-    def test_unrouted(self):
+    def test_unrouted(self) -> None:
         """Subclass removes a route from base class"""
         rv = self.client.get('/subclasstest/third')
         assert rv.data != b'third'
         assert rv.data != b'unrouted-third'
         assert rv.status_code == 404
 
-    def test_inherited(self):
+    def test_inherited(self) -> None:
         """Subclass inherits a view from the base class without modifying it"""
         rv = self.client.get('/subclasstest/inherited')
         assert rv.data == b'inherited'
         assert rv.status_code == 200
 
-    def test_added_routes(self):
+    def test_added_routes(self) -> None:
         """Subclass adds more routes to a base class's view handler"""
         rv = self.client.get('/subclasstest/also-inherited')  # From base class
         assert rv.data == b'also_inherited'
@@ -462,12 +478,12 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/subclasstest/latent')
         assert rv.data == b'latent-route'
 
-    def test_cant_route_missing_method(self):
+    def test_cant_route_missing_method(self) -> None:
         """Routes can't be added for missing attributes"""
         with pytest.raises(AttributeError):
             SubView.add_route_for('this_method_does_not_exist', '/missing')
 
-    def test_second_subview_reroute(self):
+    def test_second_subview_reroute(self) -> None:
         """Using reroute does not mutate the base class"""
         rv = self.client.get('/secondsub/second')
         assert rv.data != b'second'
@@ -481,7 +497,7 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/secondsub/2')
         assert rv.status_code == 404
 
-    def test_endpoints(self):
+    def test_endpoints(self) -> None:
         """View handlers get endpoints reflecting where they are"""
         assert IndexView.index.endpoints == {'IndexView_index'}
         assert IndexView.page.endpoints == {'IndexView_page'}
@@ -498,7 +514,7 @@ class TestClassView(unittest.TestCase):
             'just_also_inherited',
         }
 
-    def test_viewdata(self):
+    def test_viewdata(self) -> None:
         """View handlers can have additional data fields"""
         assert IndexView.index.data['title'] == "Index"
         assert IndexView.page.data['title'] == "Page"
@@ -510,7 +526,7 @@ class TestClassView(unittest.TestCase):
         )  # Reroute took priority
         assert SubView.second.data['title'] == "Second"
 
-    def test_viewlist(self):
+    def test_viewlist(self) -> None:
         assert IndexView.__views__ == {
             'current_handler_is_self',
             'current_handler_is_wrapper',
@@ -520,7 +536,7 @@ class TestClassView(unittest.TestCase):
             'view_args_are_received',
         }
 
-    def test_modelview_instanceloader_view(self):
+    def test_modelview_instanceloader_view(self) -> None:
         """Test document view in ModelView with InstanceLoader"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
@@ -532,7 +548,7 @@ class TestClassView(unittest.TestCase):
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
-    def test_modelview_instanceloader_requires_permission_edit(self):
+    def test_modelview_instanceloader_requires_permission_edit(self) -> None:
         """Test document edit in ModelView with InstanceLoader and requires_permission"""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
@@ -547,7 +563,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
         assert rv.data == b'edit-called'
 
-    def test_modelview_url_for(self):
+    def test_modelview_url_for(self) -> None:
         """Test that ModelView provides model.is_url_for with appropriate parameters"""
         doc1 = ViewDocument(name='test1', title="Test 1")
         doc2 = ViewDocument(name='test2', title="Test 2")
@@ -555,7 +571,7 @@ class TestClassView(unittest.TestCase):
         assert doc1.url_for('view') == '/model/test1'
         assert doc2.url_for('view') == '/model/test2'
 
-    def test_scopedmodelview_view(self):
+    def test_scopedmodelview_view(self) -> None:
         """Test that InstanceLoader in a scoped model correctly loads parent"""
         doc = ViewDocument(name='test1', title="Test 1")
         sdoc = ScopedViewDocument(name='test2', title="Test 2", parent=doc)
@@ -572,7 +588,7 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/model/this-doc-does-not-exist/test2')
         assert rv.status_code == 404
 
-    def test_redirectablemodel_view(self):
+    def test_redirectablemodel_view(self) -> None:
         doc = RenameableDocument(name='test1', title="Test 1")
         self.session.add(doc)
         self.session.commit()
@@ -604,7 +620,7 @@ class TestClassView(unittest.TestCase):
         data = json.loads(rv.data)
         assert data['name'] == 'renamed'
 
-    def test_multi_view(self):
+    def test_multi_view(self) -> None:
         """
         A ModelView view can handle multiple objects and also construct URLs
         for objects that do not have a well defined relationship between each other.
@@ -618,7 +634,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
         assert rv.data == b'/multi/test1/1-test2'
 
-    def test_registered_views(self):
+    def test_registered_views(self) -> None:
         doc1 = ViewDocument(name='test1', title="Test 1")
         doc2 = ScopedViewDocument(name='test2', title="Test 2", parent=doc1)
         doc3 = RenameableDocument(name='test3', title="Test 3")
@@ -633,7 +649,7 @@ class TestClassView(unittest.TestCase):
         assert isinstance(doc2.views.main(), ScopedDocumentView)
         assert isinstance(doc3.views.main(), RenameableDocumentView)
 
-    def test_view_for(self):
+    def test_view_for(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -654,7 +670,7 @@ class TestClassView(unittest.TestCase):
         with pytest.raises(Forbidden):
             doc.view_for('edit')()
 
-    def test_requires_roles_layered1(self):
+    def test_requires_roles_layered1(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -670,7 +686,7 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/gated/test1/role-perm')
         assert rv.status_code == 403
 
-    def test_requires_roles_layered2(self):
+    def test_requires_roles_layered2(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -690,7 +706,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
         assert rv.data == b'role-perm-called'
 
-    def test_requires_roles_layered3(self):
+    def test_requires_roles_layered3(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -707,7 +723,7 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/gated/test1/role-perm?access_token=another-owner-secret')
         assert rv.status_code == 403
 
-    def test_requires_roles_layered4(self):
+    def test_requires_roles_layered4(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -723,7 +739,7 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/gated/test1/role-perm?access_token=editor-secret')
         assert rv.status_code == 403
 
-    def test_is_available(self):
+    def test_is_available(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -738,7 +754,7 @@ class TestClassView(unittest.TestCase):
         assert doc.view_for('by_perm_role').is_available() is False
         assert doc.view_for('by_role_perm').is_available() is False
 
-    def test_class_is_available(self):
+    def test_class_is_available(self) -> None:
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -758,7 +774,7 @@ class TestClassView(unittest.TestCase):
         add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         assert doc.views.gated().is_available() is True
 
-    def test_classview_equals(self):
+    def test_classview_equals(self) -> None:
         # ClassView implements __eq__ that is not fooled by subclasses
         assert BaseView() == BaseView()
         assert SubView() == SubView()
@@ -779,7 +795,7 @@ class TestClassView(unittest.TestCase):
         assert ModelDocumentView(obj=doc1) != ScopedDocumentView(obj=doc1)
         assert ScopedDocumentView(obj=doc1) != ModelDocumentView(obj=doc1)
 
-    def test_url_dict_current_roles(self):
+    def test_url_dict_current_roles(self) -> None:
         doc1 = ViewDocument(name='test1', title="Test 1")
         assert set(doc1.urls) == {
             'view',  # From ModelDocumentView

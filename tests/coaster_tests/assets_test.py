@@ -6,7 +6,7 @@ from coaster.assets import AssetNotFound, Version, VersionedAssets
 
 
 class TestAssets(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.assets = VersionedAssets()
         self.assets['jquery.js'][Version('1.7.1')] = 'jquery-1.7.1.js'
         self.assets['jquery.js'][Version('1.8.3')] = 'jquery-1.8.3.js'
@@ -28,11 +28,11 @@ class TestAssets(unittest.TestCase):
             'old-lib-1.0.0.js',
         )
 
-    def test_asset_unversioned(self):
+    def test_asset_unversioned(self) -> None:
         bundle = self.assets.require('jquery.js')
         assert bundle.contents == ('jquery-1.8.3.js',)
 
-    def test_asset_versioned(self):
+    def test_asset_versioned(self) -> None:
         bundle = self.assets.require('jquery.js==1.7.1')
         assert bundle.contents == ('jquery-1.7.1.js',)
         bundle = self.assets.require('jquery.js<1.8.0')
@@ -40,35 +40,35 @@ class TestAssets(unittest.TestCase):
         bundle = self.assets.require('jquery.js>=1.8.0')
         assert bundle.contents == ('jquery-1.8.3.js',)
 
-    def test_missing_asset(self):
+    def test_missing_asset(self) -> None:
         with pytest.raises(AssetNotFound):
             self.assets.require('missing.js')
 
-    def test_single_requires(self):
+    def test_single_requires(self) -> None:
         bundle = self.assets.require('jquery.form.js')
         assert bundle.contents == ('jquery-1.8.3.js', 'jquery.form-2.96.js')
 
-    def test_single_requires_which_is_dict(self):
+    def test_single_requires_which_is_dict(self) -> None:
         bundle = self.assets.require('jquery.form.1.js')
         assert bundle.contents == ('jquery-1.8.3.js',)
 
-    def test_provides_requires(self):
+    def test_provides_requires(self) -> None:
         bundle = self.assets.require('jquery.some.js', 'jquery.form.js')
         assert bundle.contents == ('jquery-1.8.3.js', 'jquery.form-2.96.js')
 
-    def test_version_copies(self):
+    def test_version_copies(self) -> None:
         # First asset will load highest available version of the requirement, which conflicts
         # with the second requested version. The same asset can't be requested twice
         with pytest.raises(ValueError):
             self.assets.require('jquery.form.js', 'jquery.js==1.7.1')
 
-    def test_version_conflict(self):
+    def test_version_conflict(self) -> None:
         # First asset will load highest available version of the requirement, which conflicts
         # with the second requested version. The same asset can't be requested twice
         with pytest.raises(ValueError):
             self.assets.require('jquery.form.js', 'old-lib.js')
 
-    def test_blacklist(self):
+    def test_blacklist(self) -> None:
         bundle = self.assets.require('!jquery.js', 'jquery.form.js')
         assert bundle.contents == ('jquery.form-2.96.js',)
         bundle = self.assets.require('jquery.form.js', '!jquery.js')

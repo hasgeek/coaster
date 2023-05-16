@@ -1,6 +1,8 @@
+import typing as t
 import unittest
 
 from flask import Flask
+from flask.ctx import RequestContext
 from werkzeug.routing import BuildError
 import pytest
 
@@ -84,27 +86,28 @@ def doc_per_app2(doc):
 
 class TestUrlForBase(unittest.TestCase):
     app = app1
+    ctx: RequestContext
 
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
+    def setUp(self) -> None:
+        self.ctx = t.cast(RequestContext, self.app.test_request_context())
         self.ctx.push()
         db.create_all()
         self.session = db.session
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         self.session.rollback()
         db.drop_all()
         self.ctx.pop()
 
 
 class TestUrlFor(TestUrlForBase):
-    def test_class_has_url_for(self):
+    def test_class_has_url_for(self) -> None:
         """Test that is_url_for declarations on one class are distinct from those on another class."""
         assert (
             NamedDocument.url_for_endpoints is not ScopedNamedDocument.url_for_endpoints
         )
 
-    def test_url_for(self):
+    def test_url_for(self) -> None:
         """Test that is_url_for declarations are saved and used by the url_for method."""
         # Make two documents
         doc1 = NamedDocument(name='document1', title="Document 1")
@@ -133,7 +136,7 @@ class TestUrlFor(TestUrlForBase):
             doc2.url_for('edit', _external=True) == 'http://localhost/1/document2/edit'
         )
 
-    def test_absolute_url(self):
+    def test_absolute_url(self) -> None:
         """The .absolute_url property is the same as .url_for(_external=True)"""
         # Make two documents
         doc1 = NamedDocument(name='document1', title="Document 1")
@@ -149,18 +152,18 @@ class TestUrlFor(TestUrlForBase):
         assert doc2.absolute_url == doc2.url_for(_external=True)
         assert doc2.absolute_url != doc2.url_for(_external=False)
 
-    def test_absolute_url_missing(self):
+    def test_absolute_url_missing(self) -> None:
         """The .absolute_url property exists on all UrlForMixin-models, even if there is no view"""
         c1 = Container()
         assert c1.absolute_url is None
 
-    def test_absolute_url_in_access_proxy(self):
+    def test_absolute_url_in_access_proxy(self) -> None:
         """The .absolute_url property does not have a default access role"""
         c1 = Container()
         d = c1.access_for(roles={'all'})
         assert 'absolute_url' not in d
 
-    def test_per_app(self):
+    def test_per_app(self) -> None:
         """Allow app-specific URLs for the same action name"""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -169,7 +172,7 @@ class TestUrlFor(TestUrlForBase):
         # The action's URL is specific to the app
         assert doc1.url_for('per_app') == '/document1/app1'
 
-    def test_app_only(self):
+    def test_app_only(self) -> None:
         """Allow URLs to only be available in one app"""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -178,7 +181,7 @@ class TestUrlFor(TestUrlForBase):
         # This action is only available in this app
         assert doc1.url_for('app_only') == '/document1/app_only'
 
-    def test_linked_doc(self):
+    def test_linked_doc(self) -> None:
         """URLs linking two unrelated models are possible"""
         doc1 = NamedDocument(name='document1', title="Document 1")
         doc2 = NamedDocument(name='document2', title="Document 2")
@@ -188,7 +191,7 @@ class TestUrlFor(TestUrlForBase):
         # url_for is given an object and extracts an attribute from it
         assert doc1.url_for('with', other=doc2) == '/document1/with/document2'
 
-    def test_url_dict(self):
+    def test_url_dict(self) -> None:
         """URLs to views are available from a .urls dictionary-like object."""
         doc1 = NamedDocument(name='document1', title="Document")
         self.session.add(doc1)
@@ -215,7 +218,7 @@ class TestUrlFor(TestUrlForBase):
 class TestUrlFor2(TestUrlForBase):
     app = app2
 
-    def test_per_app(self):
+    def test_per_app(self) -> None:
         """Allow app-specific URLs for the same action name"""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -224,7 +227,7 @@ class TestUrlFor2(TestUrlForBase):
         # The action's URL is specific to the app
         assert doc1.url_for('per_app') == '/document1/app2'
 
-    def test_app_only(self):
+    def test_app_only(self) -> None:
         """Allow URLs to only be available in one app"""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -234,7 +237,7 @@ class TestUrlFor2(TestUrlForBase):
         with pytest.raises(BuildError):
             doc1.url_for('app_only')
 
-    def test_url_dict_app_only(self):
+    def test_url_dict_app_only(self) -> None:
         """The urls dictionary only includes available URLs."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)

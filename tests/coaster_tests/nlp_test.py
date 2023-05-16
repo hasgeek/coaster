@@ -43,6 +43,6 @@ sample_text_blocks = [
 
 
 class TestExtractText(unittest.TestCase):
-    def test_extract_text(self):
+    def test_extract_text(self) -> None:
         tb = text_blocks(sample_html, skip_pre=True)
         assert tb == sample_text_blocks

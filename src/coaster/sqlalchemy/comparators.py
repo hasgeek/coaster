@@ -9,8 +9,9 @@ import typing as t
 import uuid as uuid_
 
 from flask import abort
-from flask_sqlalchemy.query import Query as BaseQuery
-from sqlalchemy.ext.hybrid import Comparator
+from flask_sqlalchemy.pagination import Pagination, QueryPagination
+from sqlalchemy.orm.query import Query as QueryBase
+import sqlalchemy as sa
 
 from ..utils import uuid_from_base58, uuid_from_base64
 
@@ -27,10 +28,51 @@ __all__ = [
 _marker = object()
 
 
-class Query(BaseQuery):
-    """Extends flask_sqlalchemy.query.Query to add additional helper methods."""
+_T = t.TypeVar('_T', bound=t.Any)
 
-    def notempty(self):
+
+class Query(QueryBase[_T]):
+    """Extends SQLAlchemy's Query to add additional helper methods."""
+
+    def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:
+        """
+        Like :meth:`~sqlalchemy.orm.Query.get` but aborts with 404 if no result.
+
+        :param ident: The primary key to query
+        :param description: A custom message to show on the error page
+        """
+        rv = self.get(ident)
+
+        if rv is None:
+            abort(404, description=description)
+
+        return rv
+
+    def first_or_404(self, description: t.Optional[str] = None) -> _T:
+        """
+        Like :meth:`~sqlalchemy.orm.Query.first` but aborts with 404 if no result.
+
+        :param description: A custom message to show on the error page
+        """
+        rv = self.first()
+
+        if rv is None:
+            abort(404, description=description)
+
+        return rv
+
+    def one_or_404(self, description: t.Optional[str] = None) -> _T:
+        """
+        Like :meth:`~sqlalchemy.orm.Query.one` but aborts with 404 instead of erroring.
+
+        :param description: A custom message to show on the error page.
+        """
+        try:
+            return self.one()
+        except (sa.exc.NoResultFound, sa.exc.MultipleResultsFound):
+            abort(404, description=description)
+
+    def notempty(self) -> bool:
         """
         Return `True` if the query has non-zero results.
 
@@ -40,7 +82,7 @@ class Query(BaseQuery):
         """
         return self.session.query(self.exists()).scalar()
 
-    def isempty(self):
+    def isempty(self) -> bool:
         """
         Return `True` if the query has zero results.
 
@@ -50,22 +92,60 @@ class Query(BaseQuery):
         """
         return not self.session.query(self.exists()).scalar()
 
-    def one_or_404(self):
+    # TODO: Pagination may not preserve model type information, affecting downstream
+    # type validation
+    def paginate(
+        self,
+        *,
+        page: int | None = None,
+        per_page: int | None = None,
+        max_per_page: int | None = None,
+        error_out: bool = True,
+        count: bool = True,
+    ) -> Pagination:
         """
-        Return exactly one result, or abort with 404 if zero are found.
+        Apply an offset and limit to the query, returning a Pagination object.
 
-        Extends :meth:`~sqlalchemy.orm.query.Query.one_or_none` to raise a 404
-        if no result is found. This method offers a safety net over
-        :meth:`~flask_sqlalchemy.query.Query.first_or_404` as it helps identify
-        poorly specified queries that could have returned more than one result.
+        :param page: The current page, used to calculate the offset. Defaults to the
+            ``page`` query arg during a request, or 1 otherwise
+        :param per_page: The maximum number of items on a page, used to calculate the
+            offset and limit. Defaults to the ``per_page`` query arg during a request,
+            or 20 otherwise
+        :param max_per_page: The maximum allowed value for ``per_page``, to limit a
+            user-provided value. Use ``None`` for no limit. Defaults to 100
+        :param error_out: Abort with a ``404 Not Found`` error if no items are returned
+            and ``page`` is not 1, or if ``page`` or ``per_page`` is less than 1, or if
+            either are not ints
+        :param count: Calculate the total number of values by issuing an extra count
+            query. For very complex queries this may be inaccurate or slow, so it can be
+            disabled and set manually if necessary
         """
-        result = self.one_or_none()
-        if not result:
-            abort(404)
-        return result
+        return QueryPagination(
+            query=self,
+            page=page,
+            per_page=per_page,
+            max_per_page=max_per_page,
+            error_out=error_out,
+            count=count,
+        )
 
 
-class SplitIndexComparator(Comparator):
+class QueryProperty(t.Generic[_T]):
+    """A class property that creates a query object for a model."""
+
+    @t.overload
+    def __get__(self, obj: None, cls: t.Type[_T]) -> Query[_T]:
+        ...
+
+    @t.overload
+    def __get__(self, obj: _T, cls: t.Type[_T]) -> Query[_T]:
+        ...
+
+    def __get__(self, obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
+        return cls.query_class(cls, session=cls.__fsa__.session())
+
+
+class SplitIndexComparator(sa.ext.hybrid.Comparator):
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(

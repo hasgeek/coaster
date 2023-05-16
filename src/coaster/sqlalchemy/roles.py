@@ -129,9 +129,11 @@ from typing import overload
 import operator
 import typing as t
 
+from flask import g
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
+    KeyFuncDict,
     MappedColumn,
     MapperProperty,
     Query,
@@ -149,15 +151,6 @@ from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
-
-try:  # pragma: no cover
-    from sqlalchemy.orm import KeyFuncDict  # New name in SQLAlchemy 2.0
-except ModuleNotFoundError:  # type: ignore[unreachable]
-    from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
-        MappedCollection as KeyFuncDict,
-    )
-
-from flask import g
 import typing_extensions as te
 
 from ..auth import current_auth
@@ -298,7 +291,7 @@ class RoleGrantABC(metaclass=ABCMeta):
         return NotImplemented  # pragma: no cover
 
 
-class LazyRoleSet(abc.MutableSet):
+class LazyRoleSet(abc.MutableSet[str]):
     """Set that provides lazy evaluations for whether a role is present."""
 
     def __init__(self, obj, actor, initial=()) -> None:
@@ -1006,18 +999,18 @@ class RoleMixin:
 
     @overload
     def actors_with(
-        self, roles: t.AbstractSet[str], with_role: te.Literal[False] = False
+        self, roles: t.Iterable[str], with_role: te.Literal[False] = False
     ) -> t.Any:
         ...
 
     @overload
     def actors_with(
-        self, roles: t.AbstractSet[str], with_role: te.Literal[True] = True
+        self, roles: t.Iterable[str], with_role: te.Literal[True] = True
     ) -> t.Tuple[t.Any, str]:
         ...
 
     def actors_with(
-        self, roles: t.AbstractSet[str], with_role: bool = False
+        self, roles: t.Iterable[str], with_role: bool = False
     ) -> t.Union[t.Any, t.Tuple[str, t.Any]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
@@ -1036,7 +1029,7 @@ class RoleMixin:
             is returned
         """
         if not is_collection(roles):
-            raise ValueError("`roles` parameter must be a set")
+            raise ValueError("`roles` parameter must be a list or set")
 
         # Don't yield the same actor twice. Use a set to keep track of what has already
         # been returned

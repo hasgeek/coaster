@@ -152,7 +152,9 @@ class LocalVarFormatter(logging.Formatter):
             # conflict with a parallel stack dump -- which could otherwise restore the
             # original __repr__ while this is still dumping.
             original_config_repr = Config.__repr__
-            Config.__repr__ = lambda self: '<Config [FILTERED]>'  # type: ignore[assignment]
+            Config.__repr__ = (  # type: ignore[method-assign]
+                lambda self: '<Config [FILTERED]>'
+            )
             value_cache: t.Dict[t.Any, str] = {}
 
             print('\n----------\n', file=sio)  # noqa: T201
@@ -180,7 +182,7 @@ class LocalVarFormatter(logging.Formatter):
                         print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
             del value_cache
-            Config.__repr__ = original_config_repr  # type: ignore[assignment]
+            Config.__repr__ = original_config_repr  # type: ignore[method-assign]
 
         if request:
             print('\n----------\n', file=sio)  # noqa: T201

@@ -195,12 +195,12 @@ This is a header in text-only mode
 '''.strip()
 
 
-def test_markdown():
+def test_markdown() -> None:
     """Markdown rendering."""
     assert markdown('hello') == '<p>hello</p>'
 
 
-def test_text_markdown():
+def test_text_markdown() -> None:
     """Markdown rendering with HTML disabled (default)."""
     assert (
         markdown('hello <del>there</del>')
@@ -208,14 +208,14 @@ def test_text_markdown():
     )
 
 
-def test_html_markdown():
+def test_html_markdown() -> None:
     """Markdown rendering with HTML enabled."""
     assert (
         markdown('hello <del>there</del>', html=True) == '<p>hello <del>there</del></p>'
     )
 
 
-def test_markdown_javascript_link():
+def test_markdown_javascript_link() -> None:
     """Markdown rendering should strip `javascript:` protocol links."""
     # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
     # link3 entirely, mashing it into link2.
@@ -229,7 +229,7 @@ def test_markdown_javascript_link():
     )
 
 
-def test_markdown_javascript_link_html():
+def test_markdown_javascript_link_html() -> None:
     """Markdown rendering should strip `javascript:` protocol links."""
     # Markdown's link processor can't handle `javascript:alert("Hello")` so it loses
     # link3 entirely, mashing it into link2.
@@ -244,17 +244,17 @@ def test_markdown_javascript_link_html():
     )
 
 
-def test_empty_markdown():
+def test_empty_markdown() -> None:
     """Don't choke on None."""
     assert markdown(None) is None
 
 
-def test_sample_markdown():
+def test_sample_markdown() -> None:
     """Confirm sample Markdown rendering is stable."""
     assert markdown(sample_markdown) == sample_output
 
 
-def test_sample_markdown_html():
+def test_sample_markdown_html() -> None:
     """Confirm sample Markdown rendering in HTML mode is stable."""
     # In HTML mode, many characters are converted to HTML entities (by Bleach; side
     # effect), and Pygments code highlighting is dropped, as we cannot safely
@@ -283,7 +283,7 @@ nolinkify_html = '''
 '''.strip()
 
 
-def test_linkify():
+def test_linkify() -> None:
     """Optional Linkify flag controls linkification."""
     # Linkify is also responsible for adding `nofollow` on all links
     assert markdown(linkify_text) == linkify_html

@@ -35,6 +35,7 @@ from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
 from werkzeug.routing import BuildError
 import sqlalchemy as sa
+import typing_extensions as te
 
 from ..auth import current_auth
 from ..utils import (
@@ -59,7 +60,6 @@ from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
 __all__ = [
-    'Mapped',
     'IdMixin',
     'TimestampMixin',
     'PermissionMixin',
@@ -93,14 +93,15 @@ class IdMixin:
     :class:`IdMixin` is a base class for :class:`BaseMixin`, the standard base class.
     """
 
-    query: Query
-    query_class = Query
+    query_class: t.ClassVar[t.Type[Query]] = Query
+    query: t.ClassVar[Query[te.Self]]
+    __column_annotations__: dict
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database
     __uuid_primary_key__ = False
 
     @declared_attr
-    def id(cls) -> Mapped[int | UUID]:  # noqa: A003
+    def id(cls) -> Mapped[t.Union[int, UUID]]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return immutable(
@@ -111,35 +112,39 @@ class IdMixin:
         return immutable(sa.Column(sa.Integer, primary_key=True, nullable=False))
 
     @declared_attr
-    def url_id(cls) -> Mapped[int | UUID]:
+    def url_id(cls) -> Mapped[str]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
-            def url_id_func(self):
+            def url_id_uuid_func(self):
                 """URL-safe representation of the UUID id as a hex value."""
                 return self.id.hex
 
-            def url_id_is(cls):
+            def url_id_uuid_is(cls):
                 """Compare two hex UUID values."""
                 return SqlUuidHexComparator(cls.id)
 
-            url_id_func.__name__ = 'url_id'
-            url_id_property = hybrid_property(url_id_func).comparator(
-                url_id_is  # type: ignore[arg-type]
+            url_id_uuid_func.__name__ = 'url_id'
+            url_id_property = hybrid_property(url_id_uuid_func).comparator(
+                url_id_uuid_is
             )
-            return url_id_property
+            return url_id_property  # type: ignore[return-value]
 
-        def url_id_func(self):  # type: ignore  # pylint: disable=function-redefined
+        def url_id_int_func(
+            self,
+        ):
             """URL-safe representation of the integer id as a string."""
             return str(self.id)
 
-        def url_id_expression(cls):
+        def url_id_int_expression(cls):
             """Database column for id, for SQL expressions."""
             return cls.id
 
-        url_id_func.__name__ = 'url_id'
-        url_id_property = hybrid_property(url_id_func).expression(url_id_expression)
-        return url_id_property
+        url_id_int_func.__name__ = 'url_id'
+        url_id_property = hybrid_property(url_id_int_func).expression(
+            url_id_int_expression
+        )
+        return url_id_property  # type: ignore[return-value]
 
     def __repr__(self):
         return f'<{self.__class__.__name__} {self.id}>'
@@ -175,31 +180,29 @@ class UuidMixin:
         )
 
     @hybrid_property
-    def uuid_hex(self):
+    def uuid_hex(self) -> str:
         """URL-friendly UUID representation as a hex string."""
         return self.uuid.hex
 
-    @uuid_hex.comparator  # type: ignore[no-redef]
-    def uuid_hex(cls):
+    @uuid_hex.inplace.comparator
+    @classmethod
+    def _uuid_hex_comparator(cls) -> SqlUuidHexComparator:
         """Return SQL comparator for UUID in hex format."""
-        # For some reason the test fails if we use `cls.uuid` here
-        # but works fine in the `uuid_b64` and `uuid_b58` comparators below
-        if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
-            return SqlUuidHexComparator(cls.id)
         return SqlUuidHexComparator(cls.uuid)
 
     @hybrid_property
-    def uuid_b64(self):
+    def uuid_b64(self) -> str:
         """URL-friendly UUID representation, using URL-safe Base64 (BUID)."""
         return uuid_to_base64(self.uuid)
 
-    @uuid_b64.setter  # type: ignore[no-redef]
-    def uuid_b64(self, value):
+    @uuid_b64.inplace.setter
+    def _uuid_b64_setter(self, value: str) -> None:
         """Set UUID in Base64 format."""
         self.uuid = uuid_from_base64(value)
 
-    @uuid_b64.comparator  # type: ignore[no-redef]
-    def uuid_b64(cls):
+    @uuid_b64.inplace.comparator
+    @classmethod
+    def _uuid_b64_comparator(cls) -> SqlUuidB64Comparator:
         """Return SQL comparator for UUID in Base64 format."""
         return SqlUuidB64Comparator(cls.uuid)
 
@@ -211,16 +214,16 @@ class UuidMixin:
     with_roles(uuid_b64, read={'all'})
 
     @hybrid_property
-    def uuid_b58(self):
+    def uuid_b58(self) -> str:
         """URL-friendly UUID representation, using Base58 with the Bitcoin alphabet."""
         return uuid_to_base58(self.uuid)
 
-    @uuid_b58.setter  # type: ignore[no-redef]
-    def uuid_b58(self, value):
+    @uuid_b58.inplace.setter
+    def _uuid_b58_setter(self, value: str) -> None:
         self.uuid = uuid_from_base58(value)
 
-    @uuid_b58.comparator  # type: ignore[no-redef]
-    def uuid_b58(cls):
+    @uuid_b58.inplace.comparator
+    def _uuid_b58_comparator(cls) -> SqlUuidB58Comparator:
         """Return SQL comparator for UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid)
 
@@ -232,15 +235,16 @@ class UuidMixin:
 class TimestampMixin:
     """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
+    query_class: t.ClassVar[t.Type[Query]] = Query
+    query: t.ClassVar[Query[te.Self]]
     __with_timezone__ = False
-    query: Query
-    query_class = Query
+    __column_annotations__: dict
 
     @immutable
     @declared_attr
     def created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
-        return sa.Column(
+        return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
             nullable=False,
@@ -249,7 +253,7 @@ class TimestampMixin:
     @declared_attr
     def updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
-        return sa.Column(
+        return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
             default=func.utcnow(),
             onupdate=func.utcnow(),
@@ -267,7 +271,7 @@ class PermissionMixin:
     """
 
     def permissions(
-        self, actor, inherited: t.Optional[t.Set[str]] = None
+        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
     ) -> t.Set[str]:
         """Return permissions available to the given user on this object."""
         if inherited is not None:
@@ -367,7 +371,9 @@ class UrlForMixin:
 
     def url_for(self, action='view', **kwargs) -> str:
         """Return public URL to this instance for a given action (default 'view')."""
-        app = current_app._get_current_object() if current_app else None
+        app = (  # pylint: disable=protected-access
+            current_app._get_current_object() if current_app else None
+        )
         if app is not None and action in self.url_for_endpoints.get(app, {}):
             epdata = self.url_for_endpoints[app][action]
         else:
@@ -554,8 +560,8 @@ class BaseNameMixin(BaseMixin):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.Column(column_type, nullable=False, unique=True)
-        return sa.Column(
+            return sa.orm.mapped_column(column_type, nullable=False, unique=True)
+        return sa.orm.mapped_column(
             column_type, sa.CheckConstraint("name <> ''"), nullable=False, unique=True
         )
 
@@ -566,7 +572,7 @@ class BaseNameMixin(BaseMixin):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.Column(column_type, nullable=False)
+        return sa.orm.mapped_column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -685,6 +691,9 @@ class BaseScopedNameMixin(BaseMixin):
     __name_length__: t.Optional[int] = 250
     __title_length__: t.Optional[int] = 250
 
+    #: Specify expected type for a 'parent' attr
+    parent: Mapped[t.Any]
+
     @declared_attr
     def name(cls) -> Mapped[str]:
         """Column for URL name of this object, unique within a parent container."""
@@ -693,8 +702,10 @@ class BaseScopedNameMixin(BaseMixin):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.Column(column_type, nullable=False)
-        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
+            return sa.orm.mapped_column(column_type, nullable=False)
+        return sa.orm.mapped_column(
+            column_type, sa.CheckConstraint("name <> ''"), nullable=False
+        )
 
     @declared_attr
     def title(cls) -> Mapped[str]:
@@ -703,7 +714,7 @@ class BaseScopedNameMixin(BaseMixin):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.Column(column_type, nullable=False)
+        return sa.orm.mapped_column(column_type, nullable=False)
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -800,7 +811,9 @@ class BaseScopedNameMixin(BaseMixin):
         """
         return self.short_title
 
-    def permissions(self, actor, inherited=None):
+    def permissions(
+        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
@@ -846,8 +859,10 @@ class BaseIdNameMixin(BaseMixin):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.Column(column_type, nullable=False)
-        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
+            return sa.orm.mapped_column(column_type, nullable=False)
+        return sa.orm.mapped_column(
+            column_type, sa.CheckConstraint("name <> ''"), nullable=False
+        )
 
     @declared_attr
     def title(cls) -> Mapped[str]:
@@ -856,7 +871,7 @@ class BaseIdNameMixin(BaseMixin):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.Column(column_type, nullable=False)
+        return sa.orm.mapped_column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -887,8 +902,9 @@ class BaseIdNameMixin(BaseMixin):
         """Id and name in ``id-name`` format for use in URLs."""
         return f'{self.url_id}-{self.name}'
 
-    @url_id_name.comparator  # type: ignore[no-redef]
-    def url_id_name(cls):
+    @url_id_name.inplace.comparator
+    @classmethod
+    def _url_id_name_comparator(cls):
         """Return SQL comparator for id and name."""
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
@@ -906,8 +922,9 @@ class BaseIdNameMixin(BaseMixin):
         """
         return f'{self.name}-{self.uuid_b58}'
 
-    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
-    def url_name_uuid_b58(cls):
+    @url_name_uuid_b58.inplace.comparator
+    @classmethod
+    def _url_name_uuid_b58_comparator(cls):
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
@@ -930,12 +947,15 @@ class BaseScopedIdMixin(BaseMixin):
             __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
     """
 
+    #: Specify expected type for a 'parent' attr
+    parent: Mapped[t.Any]
+
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
     def url_id(cls) -> Mapped[int]:
         """Column for an id number that is unique within the parent container."""
-        return sa.Column(sa.Integer, nullable=False)
+        return sa.orm.mapped_column(sa.Integer, nullable=False)
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
@@ -961,7 +981,9 @@ class BaseScopedIdMixin(BaseMixin):
                 .as_scalar()
             )
 
-    def permissions(self, actor, inherited=None):
+    def permissions(
+        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
@@ -1018,8 +1040,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.Column(column_type, nullable=False)
-        return sa.Column(column_type, sa.CheckConstraint("name <> ''"), nullable=False)
+            return sa.orm.mapped_column(column_type, nullable=False)
+        return sa.orm.mapped_column(
+            column_type, sa.CheckConstraint("name <> ''"), nullable=False
+        )
 
     @declared_attr
     def title(cls) -> Mapped[str]:
@@ -1028,7 +1052,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.Column(column_type, nullable=False)
+        return sa.orm.mapped_column(column_type, nullable=False)
 
     @property
     def title_for_name(self):
@@ -1069,8 +1093,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """Combine :attr:`url_id` and :attr:`name` in ``id-name`` syntax for URLs."""
         return f'{self.url_id}-{self.name}'
 
-    @url_id_name.comparator  # type: ignore[no-redef]
-    def url_id_name(cls):
+    @url_id_name.inplace.comparator
+    @classmethod
+    def _url_id_name_comparator(cls):
         """Return SQL comparator for id and name."""
         return SqlSplitIdComparator(cls.url_id, splitindex=0)
 
@@ -1086,8 +1111,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         """
         return f'{self.name}-{self.uuid_b58}'
 
-    @url_name_uuid_b58.comparator  # type: ignore[no-redef]
-    def url_name_uuid_b58(cls):
+    @url_name_uuid_b58.inplace.comparator
+    @classmethod
+    def _url_name_uuid_b58_comparator(cls):
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid, splitindex=-1)
 
@@ -1101,8 +1127,12 @@ class CoordinatesMixin:
     property.
     """
 
-    latitude = sa.Column(sa.Numeric)
-    longitude = sa.Column(sa.Numeric)
+    latitude: Mapped[t.Optional[Decimal]] = sa.orm.mapped_column(
+        sa.Numeric, nullable=True
+    )
+    longitude: Mapped[t.Optional[Decimal]] = sa.orm.mapped_column(
+        sa.Numeric, nullable=True
+    )
 
     @property
     def has_coordinates(self):

@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
 import json
 import typing as t
 import unittest
 
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import Mapped, declarative_mixin, mapped_column
-
-try:  # pragma: no cover
-    from sqlalchemy.orm import attribute_keyed_dict, column_keyed_dict  # SQLAlchemy 2.0
-except ModuleNotFoundError:  # type: ignore[unreachable]
-    from sqlalchemy.orm.collections import (  # type: ignore[attr-defined,no-redef]
-        attribute_mapped_collection as attribute_keyed_dict,
-        column_mapped_collection as column_keyed_dict,
-    )
-
+from sqlalchemy.orm import (
+    Mapped,
+    attribute_keyed_dict,
+    column_keyed_dict,
+    declarative_mixin,
+    mapped_column,
+)
 import pytest
 
 from coaster.sqlalchemy import (
@@ -33,7 +29,7 @@ from coaster.sqlalchemy import (
 )
 from coaster.utils import InspectableSet
 
-from .conftest import db
+from .conftest import AppTestCase, db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -99,7 +95,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
     defval = with_roles(db.deferred(db.Column(db.Unicode(250))), rw={'owner'})
 
     @with_roles(call={'all'})  # 'call' grants call access to the decorated method
-    def hello(self):
+    def hello(self) -> str:
         """Sample method decorated with `with_roles`."""
         return "Hello!"
 
@@ -109,7 +105,9 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
     # for granting roles given an actor and anchors (an iterable). The format for
     # anchors is not specified by RoleMixin.
 
-    def roles_for(self, actor=None, anchors=()):
+    def roles_for(
+        self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
+    ) -> LazyRoleSet:
         """Find roles for a given actor."""
         # Calling super gives us a set with the standard roles
         roles = super().roles_for(actor, anchors)
@@ -291,7 +289,7 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
     role3 = db.Column(db.Boolean, default=False)
 
     @property
-    def offered_roles(self):
+    def offered_roles(self) -> t.Set[str]:
         """Return roles offered by this object."""
         roles = set()
         if self.role1:
@@ -384,7 +382,7 @@ class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
 class JsonTestEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
-    def default(self, o):
+    def default(self, o: t.Any) -> t.Any:
         if isinstance(o, RoleAccessProxy):
             return dict(o)
         return super().default(o)
@@ -393,7 +391,7 @@ class JsonTestEncoder(json.JSONEncoder):
 class JsonProtocolEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
-    def default(self, o):
+    def default(self, o: t.Any) -> t.Any:
         if hasattr(o, '__json__'):
             return o.__json__()
         return super().default(o)
@@ -402,27 +400,12 @@ class JsonProtocolEncoder(json.JSONEncoder):
 # --- Tests ----------------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestCoasterRoles(unittest.TestCase):
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-        db.create_all()
-        self.session = db.session
-        # SQLAlchemy doesn't fire mapper_configured events until the first time a
-        # mapping is used, or configuration is explicitly requested
-        db.configure_mappers()
-
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
-    def test_base_is_clean(self):
+class TestCoasterRoles(AppTestCase):
+    def test_base_is_clean(self) -> None:
         """Specifying roles never mutates RoleMixin.__roles__"""
         assert RoleMixin.__roles__ == {}
 
-    def test_role_dict(self):
+    def test_role_dict(self) -> None:
         """Roles may be declared multiple ways and they all work"""
         assert RoleModel.__roles__ == {
             'all': {'call': {'hello'}, 'read': {'id', 'name', 'title', 'mixed_in2'}},
@@ -448,18 +431,18 @@ class TestCoasterRoles(unittest.TestCase):
             },
         }
 
-    def test_autorole_dict(self):
+    def test_autorole_dict(self) -> None:
         """A model without __roles__, using only with_roles, also works as expected"""
         assert AutoRoleModel.__roles__ == {
             'all': {'read': {'id', 'name'}},
             'owner': {'read': {'name'}, 'write': {'name'}},
         }
 
-    def test_basemixin_roles(self):
+    def test_basemixin_roles(self) -> None:
         """A model with BaseMixin by default exposes nothing to the 'all' role"""
         assert BaseModel.__roles__.get('all', {}).get('read', set()) == set()
 
-    def test_uuidmixin_roles(self):
+    def test_uuidmixin_roles(self) -> None:
         """
         A model with UuidMixin provides 'all' read access to uuid, uuid_b58 and uuid_b64
         among others.
@@ -468,13 +451,13 @@ class TestCoasterRoles(unittest.TestCase):
             'read'
         ]
 
-    def test_roles_for_anon(self):
+    def test_roles_for_anon(self) -> None:
         """An anonymous actor should have 'all' and 'anon' roles"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=None)
         assert roles == {'all', 'anon'}
 
-    def test_roles_for_actor(self):
+    def test_roles_for_actor(self) -> None:
         """An actor (but anchors) must have 'all' and 'auth' roles"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(actor=1)
@@ -482,13 +465,13 @@ class TestCoasterRoles(unittest.TestCase):
         roles = rm.roles_for(anchors=(1,))
         assert roles == {'all', 'anon'}
 
-    def test_roles_for_owner(self):
+    def test_roles_for_owner(self) -> None:
         """Presenting the correct anchor grants 'owner' role"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.roles_for(anchors=('owner-secret',))
         assert roles == {'all', 'anon', 'owner'}
 
-    def test_current_roles(self):
+    def test_current_roles(self) -> None:
         """Current roles are available"""
         rm = RoleModel(name='test', title='Test')
         roles = rm.current_roles
@@ -497,21 +480,21 @@ class TestCoasterRoles(unittest.TestCase):
         assert roles.anon
         assert not roles.owner
 
-    def test_access_for_syntax(self):
+    def test_access_for_syntax(self) -> None:
         """access_for can be called with either roles or actor for identical outcomes"""
         rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles=rm.roles_for(actor=None))
         proxy2 = rm.access_for(actor=None)
         assert proxy1 == proxy2
 
-    def test_access_for_all(self):
+    def test_access_for_all(self) -> None:
         """All actors should be able to read some fields"""
         arm = AutoRoleModel(name='test')
         proxy = arm.access_for(actor=None)
         assert len(proxy) == 2
         assert set(proxy.keys()) == {'id', 'name'}
 
-    def test_current_access(self):
+    def test_current_access(self) -> None:
         """Current access is available"""
         arm = AutoRoleModel(name='test')
         proxy = arm.current_access()
@@ -524,7 +507,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert roles.anon
         assert not roles.owner
 
-    def test_json_protocol(self):
+    def test_json_protocol(self) -> None:
         """Cast to JSON happens with __json__"""
         arm = AutoRoleModel(name='test')
         json_str = json.dumps(arm, cls=JsonProtocolEncoder)
@@ -535,7 +518,7 @@ class TestCoasterRoles(unittest.TestCase):
             'name'
         }
 
-    def test_attr_dict_access(self):
+    def test_attr_dict_access(self) -> None:
         """Proxies support identical attribute and dictionary access"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(actor=None)
@@ -543,7 +526,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert proxy.name == 'test'
         assert proxy['name'] == 'test'
 
-    def test_diff_roles(self):
+    def test_diff_roles(self) -> None:
         """Different roles get different access"""
         rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles={'all'})
@@ -569,7 +552,7 @@ class TestCoasterRoles(unittest.TestCase):
             'mixed_in4',
         }
 
-    def test_diff_roles_single_model_dataset(self):
+    def test_diff_roles_single_model_dataset(self) -> None:
         """Data profiles constrain the attributes available via enumeration"""
         rm = RoleModel(name='test', title='Test')
         proxy1a = rm.access_for(roles={'all'}, datasets=('minimal',))
@@ -595,7 +578,7 @@ class TestCoasterRoles(unittest.TestCase):
         # Dataset was created from with_roles
         assert RoleModel.__datasets__['third'] == {'title'}
 
-    def test_write_without_read(self):
+    def test_write_without_read(self) -> None:
         """A proxy may allow writes without allowing reads"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'owner'})
@@ -609,7 +592,7 @@ class TestCoasterRoles(unittest.TestCase):
         with pytest.raises(KeyError):
             proxy['title']
 
-    def test_no_write(self):
+    def test_no_write(self) -> None:
         """A proxy will disallow writes if the role doesn't permit it"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'editor'})
@@ -625,7 +608,7 @@ class TestCoasterRoles(unittest.TestCase):
             proxy['name'] = 'changed'
         assert rm.name == 'test'
 
-    def test_method_call(self):
+    def test_method_call(self) -> None:
         """Method calls are allowed as calling is just an alias for reading"""
         rm = RoleModel(name='test', title='Test')
         proxy1 = rm.access_for(roles={'all'})
@@ -636,13 +619,13 @@ class TestCoasterRoles(unittest.TestCase):
         with pytest.raises(KeyError):
             proxy2['hello']()
 
-    def test_dictionary_comparison(self):
+    def test_dictionary_comparison(self) -> None:
         """A proxy can be compared with a dictionary"""
         rm = RoleModel(name='test', title='Test')
         proxy = rm.access_for(roles={'all'})
         assert proxy == {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
 
-    def test_bad_decorator(self):
+    def test_bad_decorator(self) -> None:
         """Prevent with_roles from being used with a positional parameter"""
         with pytest.raises(TypeError):
 
@@ -650,7 +633,7 @@ class TestCoasterRoles(unittest.TestCase):
             def f():
                 pass
 
-    def test_access_for_roles_and_actor_or_anchors(self):
+    def test_access_for_roles_and_actor_or_anchors(self) -> None:
         """access_for accepts roles or actor/anchors, not both/all"""
         rm = RoleModel(name='test', title='Test')
         with pytest.raises(TypeError):
@@ -660,7 +643,7 @@ class TestCoasterRoles(unittest.TestCase):
         with pytest.raises(TypeError):
             rm.access_for(roles={'all'}, actor=1, anchors=('owner-secret',))
 
-    def test_scalar_relationship(self):
+    def test_scalar_relationship(self) -> None:
         """Scalar relationships are automatically wrapped in an access proxy"""
         parent = RelationshipParent(title="Parent")
         child = RelationshipChild(title="Child", parent=parent)
@@ -674,7 +657,7 @@ class TestCoasterRoles(unittest.TestCase):
 
         # TODO: Test for other roles using the actor parameter
 
-    def test_collection_relationship(self):
+    def test_collection_relationship(self) -> None:
         """Collection relationships are automatically wrapped in an access proxy"""
         parent = RelationshipParent(title="Parent")
         child = RelationshipChild(title="Child", parent=parent)
@@ -705,7 +688,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert isinstance(proxy.children_dict_column['child'], RoleAccessProxy)
         assert proxy.children_dict_column['child'].title == child.title
 
-    def test_cascading_datasets(self):
+    def test_cascading_datasets(self) -> None:
         """Test data profile cascades"""
         parent = RelationshipParent(title="Parent")
         child = RelationshipChild(title="Child", parent=parent)
@@ -764,7 +747,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert pchild['parent'] is not None
         assert pchild.parent is not None
 
-    def test_missing_dataset(self):
+    def test_missing_dataset(self) -> None:
         """A missing dataset will raise a KeyError indicating what is missing where"""
         parent = RelationshipParent(title="Parent")
         self.session.add(parent)
@@ -775,7 +758,7 @@ class TestCoasterRoles(unittest.TestCase):
                 cls=JsonTestEncoder,
             )
 
-    def test_role_grant(self):
+    def test_role_grant(self) -> None:
         m1 = RoleGrantMany()
         m2 = RoleGrantMany()
         u1 = RoleUser(doc=m1)
@@ -813,7 +796,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'creator' not in ro2u1
         assert 'creator' in ro2u2
 
-    def test_actors_with(self):
+    def test_actors_with(self) -> None:
         m1 = RoleGrantMany()
         m2 = RoleGrantMany()
         u1 = RoleUser(doc=m1)
@@ -854,14 +837,14 @@ class TestCoasterRoles(unittest.TestCase):
             m2.actors_with(['primary_role', 'secondary_role'], with_role=True)
         ) == {(u2, 'primary_role')}
 
-    def test_actors_with_invalid(self):
+    def test_actors_with_invalid(self) -> None:
         m1 = RoleGrantMany()
         with pytest.raises(ValueError):
             # Parameter can't be a string. Because actors_with is a generator,
             # we have to extract a value from it to trigger the exception
             next(m1.actors_with('owner'))
 
-    def test_role_grant_synonyms(self):
+    def test_role_grant_synonyms(self) -> None:
         """Test that synonyms reflect the underlying attribute"""
         rgs = RoleGrantSynonym(datacol='abc')
         assert rgs.datacol == 'abc'
@@ -887,7 +870,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'datacol' not in all_proxy
         assert 'altcol' not in all_proxy
 
-    def test_dynamic_association_proxy(self):
+    def test_dynamic_association_proxy(self) -> None:
         parent1 = RelationshipParent(title="Proxy Parent 1")
         parent2 = RelationshipParent(title="Proxy Parent 2")
         parent3 = RelationshipParent(title="Proxy Parent 3")
@@ -932,7 +915,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert not (p1a != p1b)  # Test __ne__
         assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
 
-    def test_granted_via(self):
+    def test_granted_via(self) -> None:
         """
         Roles can be granted via related objects
         """
@@ -1081,7 +1064,7 @@ class TestCoasterRoles(unittest.TestCase):
         assert 'parent_role3b' in croles3
         assert 'parent_role_shared' in croles3
 
-    def test_granted_via_error(self):
+    def test_granted_via_error(self) -> None:
         """A misconfigured granted_via declaration will raise an error"""
         user = RoleUser()
         document = MultiroleDocument()
@@ -1091,7 +1074,7 @@ class TestCoasterRoles(unittest.TestCase):
         with pytest.raises(TypeError):
             'incorrectly_specified_role' in roles
 
-    def test_actors_from_granted_via(self):
+    def test_actors_from_granted_via(self) -> None:
         """
         actors_with will find actors whose roles are declared in granted_via
         """
@@ -1173,8 +1156,8 @@ class TestLazyRoleSet(unittest.TestCase):
         __roles__ = {'owner': {'granted_by': ['user', 'userlist']}}
 
         # Test flags
-        accessed_user = False
-        accessed_userlist = False
+        accessed_user: bool = False
+        accessed_userlist: bool = False
 
         @property
         def user(self):
@@ -1199,7 +1182,7 @@ class TestLazyRoleSet(unittest.TestCase):
     class User:
         pass
 
-    def test_initial(self):
+    def test_initial(self) -> None:
         r1 = LazyRoleSet(self.EmptyDocument(), self.User(), {'all', 'auth'})
         assert r1._present == {'all', 'auth'}
         assert r1._not_present == set()
@@ -1208,7 +1191,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r2._present == set()
         assert r2._not_present == set()
 
-    def test_set_add_remove_discard(self):
+    def test_set_add_remove_discard(self) -> None:
         r = LazyRoleSet(self.EmptyDocument(), self.User())
 
         assert r._present == set()
@@ -1240,7 +1223,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r._not_present == {'role2'}
         assert r
 
-    def test_set_operations(self):
+    def test_set_operations(self) -> None:
         """Confirm we support common set operations."""
         doc = self.Document()
         user = self.User()
@@ -1276,7 +1259,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r == r2
         assert r2 == r
 
-    def test_has_any(self):
+    def test_has_any(self) -> None:
         """Test the has_any method"""
         doc = self.Document()
         user = self.User()
@@ -1312,7 +1295,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert r.has_any({'also-bogus'}) is False
         assert 'also-bogus' in r._not_present
 
-    def test_lazyroleset(self):
+    def test_lazyroleset(self) -> None:
         d = self.Document()
         u1 = self.User()
         u2 = self.User()
@@ -1335,7 +1318,7 @@ class TestLazyRoleSet(unittest.TestCase):
 
         # Confirm which relationship was examined
         assert d.accessed_user is True
-        assert d.accessed_userlist is False
+        assert d.accessed_userlist is False  # type: ignore[unreachable]
 
         # The 'owner' role is not granted for a user not present in
         # both relationships.
@@ -1362,7 +1345,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert d.accessed_user is True
         assert d.accessed_userlist is True
 
-    def test_inspectable_lazyroleset(self):
+    def test_inspectable_lazyroleset(self) -> None:
         d = self.Document()
         u1 = self.User()
         u2 = self.User()
@@ -1373,14 +1356,14 @@ class TestLazyRoleSet(unittest.TestCase):
         assert d.accessed_userlist is False
 
         # Constructing an inspectable set does not enumerate roles
-        r1 = InspectableSet(d.roles_for(u1))
+        r1: InspectableSet[str] = InspectableSet(d.roles_for(u1))
         assert d.accessed_user is False
         assert d.accessed_userlist is False
 
         # However, accessing the role does
         assert r1.owner is True
         assert d.accessed_user is True
-        assert d.accessed_userlist is False
+        assert d.accessed_userlist is False  # type: ignore[unreachable]
 
         # Reset and try the other relationship
         d.user = None
@@ -1392,7 +1375,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert d.accessed_user is True
         assert d.accessed_userlist is True
 
-    def test_offered_roles(self):
+    def test_offered_roles(self) -> None:
         """
         Test that an object with an `offered_roles` method is a RoleGrantABC type
         """

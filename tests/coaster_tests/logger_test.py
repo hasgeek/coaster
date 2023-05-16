@@ -3,7 +3,7 @@ from io import StringIO
 from coaster.logger import RepeatValueIndicator, filtered_value, pprint_with_indent
 
 
-def test_filtered_value():
+def test_filtered_value() -> None:
     """Test for filtered values."""
     # Doesn't touch normal key/value pairs
     assert filtered_value('normal', 'value') == 'value'
@@ -34,7 +34,7 @@ def test_filtered_value():
     )
 
 
-def test_pprint_with_indent():
+def test_pprint_with_indent() -> None:
     """Test pprint_with_indent does indentation."""
     out = StringIO()
     data = {
@@ -59,7 +59,7 @@ def test_pprint_with_indent():
     )
 
 
-def test_repeat_value_indicator():
+def test_repeat_value_indicator() -> None:
     """Test RepeatValueIndicator class."""
     assert repr(RepeatValueIndicator('key')) == "<same as prior 'key'>"
     assert str(RepeatValueIndicator('key')) == "<same as prior 'key'>"

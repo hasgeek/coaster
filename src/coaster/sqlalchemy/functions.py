@@ -7,11 +7,7 @@ from __future__ import annotations
 
 import typing as t
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import ColumnProperty, relationship
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.sql import functions
 import sqlalchemy as sa
 
 __all__ = [
@@ -29,7 +25,7 @@ T = t.TypeVar('T')
 # Provide sqlalchemy.func.utcnow()
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
-class UtcNow(functions.GenericFunction):
+class UtcNow(sa.sql.functions.GenericFunction):
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
     type = sa.TIMESTAMP()  # noqa: A003
@@ -119,12 +115,12 @@ def failsafe_add(_session, _instance: T, **filters: t.Any) -> t.Optional[T]:
         savepoint.commit()
         if filters:
             return _instance
-    except IntegrityError as e:
+    except sa.exc.IntegrityError as e:
         savepoint.rollback()
         if filters:
             try:
                 return _session.query(_instance.__class__).filter_by(**filters).one()
-            except NoResultFound:  # Do not trap the other, MultipleResultsFound
+            except sa.exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
                 raise e from e
     return None
 
@@ -190,7 +186,7 @@ def add_primary_relationship(
     primary_table = sa.Table(
         primary_table_name, parent.metadata, *primary_table_columns
     )
-    rel = relationship(child, uselist=False, secondary=primary_table)
+    rel = sa.orm.relationship(child, uselist=False, secondary=primary_table)
     setattr(parent, childrel, rel)
 
     @sa.event.listens_for(rel, 'set')
@@ -265,7 +261,7 @@ def auto_init_default(column) -> None:
 
         auto_init_default(MyModel.column)
     """
-    if isinstance(column, ColumnProperty):
+    if isinstance(column, sa.orm.ColumnProperty):
         default = column.columns[0].default
     else:
         default = column.default

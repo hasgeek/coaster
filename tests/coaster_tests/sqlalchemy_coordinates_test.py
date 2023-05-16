@@ -1,13 +1,8 @@
 """Test CoordinatesMixin class."""
 
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
-import unittest
-
-import pytest
-
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-from .conftest import db
+from .conftest import AppTestCase, db
 
 
 class CoordinatesData(
@@ -21,32 +16,20 @@ class CoordinatesData(
 # -- Tests --------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestCoordinatesColumn(unittest.TestCase):
+class TestCoordinatesColumn(AppTestCase):
     """Test for coordinates column."""
 
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-        db.create_all()
-        self.session = db.session
-
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
-    def test_columns_created(self):
+    def test_columns_created(self) -> None:
         table = CoordinatesData.__table__
         assert isinstance(table.c.latitude.type, db.Numeric)
         assert isinstance(table.c.longitude.type, db.Numeric)
 
-    def test_columns_when_null(self):
+    def test_columns_when_null(self) -> None:
         data = CoordinatesData()
         assert data.coordinates == (None, None)
         assert data.has_coordinates is False
 
-    def test_columns_when_missing(self):
+    def test_columns_when_missing(self) -> None:
         data = CoordinatesData()
         assert data.has_coordinates is False
         assert data.has_missing_coordinates is True
@@ -58,9 +41,9 @@ class TestCoordinatesColumn(unittest.TestCase):
         assert data.has_missing_coordinates is True
         data.coordinates = (12, 73)
         assert data.has_coordinates is True
-        assert data.has_missing_coordinates is False
+        assert data.has_missing_coordinates is False  # type: ignore[unreachable]
 
-    def test_column_set_value(self):
+    def test_column_set_value(self) -> None:
         data = CoordinatesData()
         data.coordinates = (12, 73)
         assert data.coordinates == (12, 73)
@@ -69,5 +52,5 @@ class TestCoordinatesColumn(unittest.TestCase):
         db.session.commit()
 
         readdata = CoordinatesData.query.first()
-        assert readdata.coordinates == (12, 73)
+        assert readdata is not None
         assert readdata.coordinates == (12, 73)

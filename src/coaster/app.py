@@ -18,11 +18,11 @@ import itsdangerous
 
 try:  # pragma: no cover
     import tomllib  # Python >= 3.11
-except ModuleNotFoundError:  # type: ignore[unreachable]
+except ModuleNotFoundError:
     try:
-        import toml as tomllib  # type: ignore[no-redef]
+        import toml as tomllib
     except ModuleNotFoundError:
-        tomllib = None  # type: ignore[assignment]
+        tomllib = None
     # tomli is not supported as it requires files to be opened in binary mode, but
     # Flask's ``app.config.from_file(path, loader)`` gives the loader a file opened in
     # text mode
@@ -30,7 +30,7 @@ except ModuleNotFoundError:  # type: ignore[unreachable]
 
 try:  # pragma: no cover
     import yaml
-except ModuleNotFoundError:  # type: ignore[unreachable]
+except ModuleNotFoundError:
     yaml = None  # type: ignore[assignment]
 
 from . import logger
@@ -227,10 +227,8 @@ def load_config_from_file(
     """Load config from a specified file with a specified loader (default Python)."""
     try:
         if load is None:
-            app.config.from_pyfile(filepath)
-        else:
-            app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
-        return True
+            return app.config.from_pyfile(filepath)
+        return app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
     except OSError:
         app.logger.warning(
             "Did not find settings file %s for additional settings, skipping it",

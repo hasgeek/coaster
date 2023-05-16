@@ -1,3 +1,4 @@
+import typing as t
 import unittest
 
 from flask import Flask, json, session
@@ -17,51 +18,59 @@ from coaster.views import (
 )
 
 
-def index():
+def index() -> str:
     return "index"
 
 
-def external():
+def external() -> str:
     return "external"
 
 
-def somewhere():
+def somewhere() -> str:
     return "somewhere"
 
 
 @requestargs('p1', ('p2', int), ('p3[]', int))
-def requestargs_test1(p1, p2=None, p3=None):
+def requestargs_test1(
+    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
+) -> t.Tuple[t.Any, ...]:
     return p1, p2, p3
 
 
 @requestargs('p1', ('p2', int), 'p3[]')
-def requestargs_test2(p1, p2=None, p3=None):
+def requestargs_test2(
+    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[str]] = None
+) -> t.Tuple[t.Any, ...]:
     return p1, p2, p3
 
 
 @requestquery('p1', ('p2', int), ('p3[]', int))
-def requestquery_test(p1, p2=None, p3=None):
+def requestquery_test(
+    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
+) -> t.Tuple[t.Any, ...]:
     return p1, p2, p3
 
 
 @requestform('p1', ('p2', int), ('p3[]', int))
-def requestform_test(p1, p2=None, p3=None):
+def requestform_test(
+    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
+) -> t.Tuple[t.Any, ...]:
     return p1, p2, p3
 
 
 @requestquery('query1')
 @requestform('form1')
-def requestcombo_test(query1, form1):
+def requestcombo_test(query1: str, form1: str) -> t.Tuple[str, str]:
     return query1, form1
 
 
 @requires_permission('allow-this')
-def permission1():
+def permission1() -> str:
     return 'allowed1'
 
 
 @requires_permission({'allow-this', 'allow-that'})
-def permission2():
+def permission2() -> str:
     return 'allowed2'
 
 
@@ -69,14 +78,14 @@ def permission2():
 
 
 class TestCoasterViews(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = Flask(__name__)
         load_config_from_file(self.app, 'settings.py')
         self.app.add_url_rule('/', 'index', index)
         self.app.add_url_rule('/', 'external', external)
         self.app.add_url_rule('/somewhere', 'somewhere')
 
-    def test_get_current_url(self):
+    def test_get_current_url(self) -> None:
         with self.app.test_request_context('/'):
             assert get_current_url() == '/'
 
@@ -95,7 +104,7 @@ class TestCoasterViews(unittest.TestCase):
         ):
             assert get_current_url() == 'http://sub.example.com/somewhere'
 
-    def test_get_next_url(self):
+    def test_get_next_url(self) -> None:
         with self.app.test_request_context('/?next=http://example.com'):
             assert get_next_url(external=True) == 'http://example.com'
             assert get_next_url() == '/'
@@ -131,7 +140,7 @@ class TestCoasterViews(unittest.TestCase):
             assert get_next_url(external=True) == '//sub.example.com/elsewhere'
             assert get_next_url(default=()) == '//sub.example.com/elsewhere'
 
-    def test_jsonp(self):
+    def test_jsonp(self) -> None:
         with self.app.test_request_context('/?callback=callback'):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
@@ -157,7 +166,7 @@ class TestCoasterViews(unittest.TestCase):
             assert resp['param1'] == param1
             assert resp['param2'] == param2
 
-    def test_requestargs(self):
+    def test_requestargs(self) -> None:
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
             assert requestargs_test1() == ('1', 3, [1, 2])
 
@@ -192,7 +201,7 @@ class TestCoasterViews(unittest.TestCase):
         # Calling without a request context works as well
         assert requestargs_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])
 
-    def test_requires_permission(self):
+    def test_requires_permission(self) -> None:
         with self.app.test_request_context():
             assert permission1.is_available() is False
             assert permission2.is_available() is False

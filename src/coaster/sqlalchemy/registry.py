@@ -38,67 +38,123 @@ from threading import Lock
 import typing as t
 
 from sqlalchemy.orm import declarative_mixin
+import typing_extensions as te
+
+from ..typing import ReturnDecorator, WrappedFunc
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
 _marker = object()
 
+_T = t.TypeVar('_T', bound=t.Any)
 
-class Registry:
-    """Container for items registered to a model."""
 
-    _param: t.Optional[str]
+class Registry(t.Generic[_T]):
+    """
+    A registry provides a plugin namespace within another class.
+
+    Callables can be added to a registry, and when called via the registry's host
+    instance, will receive the instance as a positional or keyword parameter::
+
+        >>> class MyClass:
+        ...     def __repr__(self):
+        ...         return 'MyClass instance'
+        ...     # Define one or more registries, with configuration
+        ...     registry1 = Registry()
+        ...     registry2 = Registry(kwarg='obj')
+        ...     registry3 = Registry(property=True)
+
+        >>> # Add callables to a registry, either via a decorator with config, ...
+        >>> @MyClass.registry1()  # name=None, property=False, cached_property=False
+        ... @MyClass.registry2('extn')
+        ... def plugin(instance=None, obj=None):
+        ...     return (repr(instance), repr(obj))
+
+        >>> # ... or add them directly to the registry, using the registry's config for
+        >>> # the property and cached_property flags
+        >>> MyClass.registry3.plugin_as_property = plugin
+
+        >>> instance = MyClass()
+        >>> instance.registry1.plugin()
+        ('MyClass instance', 'None')
+        >>> instance.registry2.extn()
+        ('None', 'MyClass instance')
+        >>> instance.registry3.plugin_as_property
+        ('MyClass instance', 'None')
+
+    A registry can call its registered callables with the host instance as either the
+    first positional argument, or as a keyword argument. Callables can be registered as
+    methods or as properties (optionally cached), and may be added directly to the
+    registry with setattr, or by using the registry as a decorator to customise options.
+
+    :param kwarg: Call with the host as this keyword argument (default is positional)
+    :param property: Register callables as properties
+    :param cached_property: Register callables as cached properties
+    """
+
+    #: Name of this registry
     _name: t.Optional[str]
+    #: A lock for the cache
     _lock: Lock
+    #: Default value of the optional kwarg when registering a callable
+    _default_kwarg: t.Optional[str]
+    #: Default value of the property flag when registering a callable
     _default_property: bool
+    #: Default value of the cached_property flag when registering a callable
     _default_cached_property: bool
-    _members: t.Set[str]
+    #: Dict of registered callable names and their optional kwarg parameter
+    _members: t.Dict[str, t.Optional[str]]
+    #: Names of callables registered as properties
     _properties: t.Set[str]
+    #: Names of callables registered as cached properties
     _cached_properties: t.Set[str]
 
     def __init__(
         self,
-        param: t.Optional[str] = None,
+        *,
+        kwarg: t.Optional[str] = None,
         property: bool = False,  # noqa: A002  # pylint: disable=redefined-builtin
         cached_property: bool = False,
     ):
         """Initialize with config."""
         if property and cached_property:
-            raise TypeError("Only one of property and cached_property can be True")
-        object.__setattr__(self, '_param', str(param) if param else None)
+            raise ValueError("Only one of property and cached_property can be True")
+        if kwarg is not None and not isinstance(kwarg, str):
+            raise TypeError(f"Expected type for kwarg is str|None: {kwarg}")
+        if kwarg == '':
+            raise ValueError("kwarg parameter cannot be blank")
+        object.__setattr__(self, '_default_kwarg', kwarg if kwarg else None)
         object.__setattr__(self, '_name', None)
         object.__setattr__(self, '_lock', Lock())
         object.__setattr__(self, '_default_property', property)
         object.__setattr__(self, '_default_cached_property', cached_property)
-        object.__setattr__(self, '_members', set())
+        object.__setattr__(self, '_members', {})
         object.__setattr__(self, '_properties', set())
         object.__setattr__(self, '_cached_properties', set())
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner: t.Any, name: str) -> None:
         """Set a name for this registry."""
         if self._name is None:
             object.__setattr__(self, '_name', name)
         elif name != self._name:
-            raise TypeError(
-                f"A registry cannot be used under multiple names {self._name} and"
-                f" {name}"
-            )
+            raise AttributeError(f"This registry is bound to the name {self._name!r}")
 
-    def __setattr__(self, name, value):
-        """Incorporate a new registry member."""
-        if name.startswith('_'):
-            raise ValueError("Registry member names cannot be underscore-prefixed")
-        if hasattr(self, name):
-            raise ValueError(f"{name} is already registered")
-        if not callable(value):
-            raise ValueError("Registry members must be callable")
-        self._members.add(name)
-        object.__setattr__(self, name, value)
+    def __setattr__(self, name: str, value: t.Callable) -> None:
+        """Incorporate a new registry member after validation."""
+        self.__call__(name)(value)
 
+    # types.EllipsisType was only introduced in Python 3.10, so we must silence Mypy
+    # for the use of ... as an undeclared sentinel value here
     def __call__(  # pylint: disable=redefined-builtin
-        self, name=None, property=None, cached_property=None  # noqa: A002
-    ):
+        self,
+        name: t.Optional[str] = None,
+        *,
+        kwarg: t.Union[str, None] = ...,  # type: ignore[assignment]
+        property: t.Optional[bool] = None,  # noqa: A002
+        cached_property: t.Optional[bool] = None,
+    ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""
+        use_kwarg = self._default_kwarg if kwarg is ... else kwarg
         use_property = self._default_property if property is None else property
         use_cached_property = (
             self._default_cached_property
@@ -114,9 +170,20 @@ class Registry:
                 f" Conflicting registry settings must be explicitly set to False."
             )
 
-        def decorator(f):
+        def decorator(f: WrappedFunc) -> WrappedFunc:
             use_name = name or f.__name__
-            setattr(self, use_name, f)
+
+            if use_name.startswith('_'):
+                raise AttributeError(
+                    "Registry member names cannot be underscore-prefixed"
+                )
+            if hasattr(self, use_name):
+                raise AttributeError(f"{use_name} is already registered")
+            if not callable(f):
+                raise AttributeError("Registry members must be callable")
+
+            self._members[use_name] = use_kwarg
+            object.__setattr__(self, use_name, f)
             if use_property:
                 self._properties.add(use_name)
             if use_cached_property:
@@ -127,7 +194,19 @@ class Registry:
 
     # def __iter__ (here or in instance?)
 
-    def __get__(self, obj, cls=None):
+    @t.overload
+    def __get__(self, obj: None, cls: t.Optional[t.Type[_T]] = None) -> Registry:
+        ...
+
+    @t.overload
+    def __get__(
+        self, obj: _T, cls: t.Optional[t.Type[_T]] = None
+    ) -> InstanceRegistry[_T]:
+        ...
+
+    def __get__(
+        self, obj: t.Optional[_T], cls: t.Optional[t.Type[_T]] = None
+    ) -> t.Union[Registry, InstanceRegistry[_T]]:
         """Access at runtime."""
         if obj is None:
             return self
@@ -144,17 +223,14 @@ class Registry:
         # that was saved to obj.__dict__
         return ir
 
-    def clear_cache_for(self, obj) -> bool:
-        """
-        Clear cached instance registry from an object.
+    if t.TYPE_CHECKING:
+        # Tell Mypy that it's okay for code to attempt reading an attr
 
-        Returns `True` if cache was cleared, `False` if it wasn't needed.
-        """
-        with self._lock:
-            return bool(obj.__dict__.pop(self._name, False))
+        def __getattr__(self, attr: str) -> t.Any:
+            ...
 
 
-class InstanceRegistry:
+class InstanceRegistry(t.Generic[_T]):
     """
     Container for accessing registered items from an instance of the model.
 
@@ -162,7 +238,7 @@ class InstanceRegistry:
     in an ``obj`` parameter when called.
     """
 
-    def __init__(self, registry, obj):
+    def __init__(self, registry: Registry[_T], obj: _T):
         """Prepare to serve a registry member."""
         # This would previously be cause for a memory leak due to being a cyclical
         # reference, and would have needed a weakref. However, this is no longer a
@@ -170,40 +246,35 @@ class InstanceRegistry:
         self.__registry = registry
         self.__obj = obj
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> t.Any:
         """Access a registry member."""
         registry = self.__registry
         obj = self.__obj
-        param = registry._param
+        kwarg = registry._members[attr]
         func = getattr(registry, attr)
 
         # If attr is a property, return the result
         if attr in registry._properties:
-            if param is not None:
-                return func(**{param: obj})
+            if kwarg is not None:
+                return func(**{kwarg: obj})
             return func(obj)
 
         # If attr is a cached property, cache and return the result
         if attr in registry._cached_properties:
-            if param is not None:
-                val = func(**{param: obj})
+            if kwarg is not None:
+                val = func(**{kwarg: obj})
             else:
                 val = func(obj)
             setattr(self, attr, val)
             return val
 
         # Not a property or cached_property. Construct a partial, cache and return it
-        if param is not None:
-            pfunc = partial(func, **{param: obj})
+        if kwarg is not None:
+            pfunc = partial(func, **{kwarg: obj})
         else:
             pfunc = partial(func, obj)
         setattr(self, attr, pfunc)
         return pfunc
-
-    def clear_cache(self):
-        """Clear cache from this registry."""
-        with self.__registry.lock:
-            return bool(self.__obj.__dict__.pop(self.__registry.name, False))
 
 
 @declarative_mixin
@@ -218,15 +289,15 @@ class RegistryMixin:
     * ``features`` registry for feature availability test functions.
 
     The forms registry passes the instance to the registered form as an ``obj`` keyword
-    parameter. The other registries pass it as the first positional parameter.
+    argument. The other registries pass it as the first positional argument.
     """
 
-    forms: t.ClassVar[Registry]
-    views: t.ClassVar[Registry]
-    features: t.ClassVar[Registry]
+    forms: t.ClassVar[Registry[te.Self]]
+    views: t.ClassVar[Registry[te.Self]]
+    features: t.ClassVar[Registry[te.Self]]
 
     def __init_subclass__(cls, **kwargs) -> None:
-        cls.forms = Registry('obj')
+        cls.forms = Registry(kwarg='obj')
         cls.forms.__set_name__(cls, 'forms')
         cls.views = Registry()
         cls.views.__set_name__(cls, 'views')
