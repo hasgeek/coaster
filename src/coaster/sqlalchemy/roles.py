@@ -291,7 +291,7 @@ class RoleGrantABC(metaclass=ABCMeta):
         return NotImplemented  # pragma: no cover
 
 
-class LazyRoleSet(abc.MutableSet[str]):
+class LazyRoleSet(abc.MutableSet):
     """Set that provides lazy evaluations for whether a role is present."""
 
     def __init__(self, obj, actor, initial=()) -> None:
