@@ -118,7 +118,7 @@ class TestCoasterAnnotations(AppTestCase):
     def test_annotation_in_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):
             for annotation in (immutable, cached):
-                assert annotation.name in model.__column_annotations__
+                assert annotation.__name__ in model.__column_annotations__
 
     def test_attr_in_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):

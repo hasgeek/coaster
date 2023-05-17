@@ -138,7 +138,9 @@ def _configure_annotations(mapper_, cls):
 _A = t.TypeVar('_A', bound=t.Any)
 
 
-def annotation_wrapper(annotation, doc=None):
+def annotation_wrapper(
+    annotation: str, doc: t.Optional[str] = None
+) -> t.Callable[[_A], _A]:
     """Define an annotation, which can be applied to attributes in a database model."""
 
     def decorator(attr: _A) -> _A:
@@ -163,6 +165,6 @@ def annotation_wrapper(annotation, doc=None):
                 pass
         return attr
 
-    decorator.__name__ = decorator.name = annotation
+    decorator.__name__ = annotation
     decorator.__doc__ = doc
     return decorator

@@ -101,16 +101,16 @@ class IdMixin:
     #: the need to commit to the database
     __uuid_primary_key__ = False
 
+    @immutable
     @declared_attr
     def id(cls) -> Mapped[t.Union[int, UUID]]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
-            return immutable(
-                sa.Column(
-                    postgresql.UUID, default=uuid4, primary_key=True, nullable=False
-                )
+            return sa.orm.mapped_column(
+                postgresql.UUID, default=uuid4, primary_key=True, nullable=False
             )
-        return immutable(sa.Column(sa.Integer, primary_key=True, nullable=False))
+
+        return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
 
     @declared_attr
     def url_id(cls) -> Mapped[str]:
@@ -170,14 +170,15 @@ class UuidMixin:
     code.
     """
 
+    @immutable
     @with_roles(read={'all'})
     @declared_attr
     def uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
-        return immutable(
-            sa.Column(postgresql.UUID, default=uuid4, unique=True, nullable=False)
+        return sa.orm.mapped_column(
+            postgresql.UUID, default=uuid4, unique=True, nullable=False
         )
 
     @hybrid_property
