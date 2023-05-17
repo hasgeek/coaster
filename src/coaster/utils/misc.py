@@ -52,7 +52,6 @@ __all__ = [
     'uuid_from_base64',
     'uuid_to_base58',
     'uuid_to_base64',
-    'valid_username',
 ]
 
 # --- Common delimiters and punctuation ------------------------------------------------
@@ -452,7 +451,7 @@ def md5sum(data: str) -> str:
     return hashlib.md5(data.encode('utf-8')).hexdigest()  # nosec  # skipcq: PTC-W1003
 
 
-def getbool(value: t.Optional[t.Any]) -> t.Optional[bool]:
+def getbool(value: t.Union[str, int, bool, None]) -> t.Optional[bool]:
     """
     Return a boolean from any of a range of boolean-like values.
 
@@ -513,9 +512,6 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
     return str(value) if value else None
 
 
-nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
-
-
 @overload
 def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
     ...
@@ -548,12 +544,15 @@ def require_one_of(__return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t
     :return: If `__return`, matching parameter name and value
     :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
+
+    .. deprecated:: 0.7.0
+        Use static type checking with @overload declarations to avoid runtime overhead
     """
     # Two ways to count number of non-None parameters:
     #
     # 1. sum([1 if v is not None else 0 for v in kwargs.values()])
     #
-    #    Using a list comprehension instead of a generator comprehension as the
+    #    This uses a list comprehension instead of a generator comprehension as the
     #    parameter to `sum` is faster on both Python 2 and 3.
     #
     # 2. len(kwargs) - kwargs.values().count(None)
@@ -605,30 +604,6 @@ def get_email_domain(emailaddr):
         return domain or None
     except ValueError:
         return None
-
-
-def valid_username(candidate):
-    """
-    Check if a username is valid.
-
-    .. deprecated:: 0.7.0
-        Coaster is too low level to specify rules for valid usernames.
-
-    >>> valid_username('example person')
-    False
-    >>> valid_username('example_person')
-    False
-    >>> valid_username('exampleperson')
-    True
-    >>> valid_username('example-person')
-    True
-    >>> valid_username('a')
-    True
-    >>> (valid_username('a-') or valid_username('ab-') or valid_username('-a') or
-    ...   valid_username('-ab'))
-    False
-    """
-    return _username_valid_re.search(candidate) is not None
 
 
 def namespace_from_url(url):

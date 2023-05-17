@@ -34,7 +34,7 @@ dictionary, mapping annotation names to a list of attribute names, and to a
 reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
 
 .. deprecated:: 0.7.0
-   This module is due to be replaced with typing.Annotated
+    This module is due to be replaced with typing.Annotated
 """
 
 from __future__ import annotations

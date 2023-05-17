@@ -3,9 +3,9 @@ Flask-SQLAlchemy instance
 -------------------------
 
 .. deprecated:: 0.7.0
-   Coaster provides a global instance of Flask-SQLAlchemy for convenience, but this is
-   deprecated as of Flask-SQLAlchemy 3.0 as it now applies metadata isolation between
-   binds even within the same app.
+    Coaster provides a global instance of Flask-SQLAlchemy for convenience, but this is
+    deprecated as of Flask-SQLAlchemy 3.0 as it now applies metadata isolation between
+    binds even within the same app.
 """
 
 from __future__ import annotations
