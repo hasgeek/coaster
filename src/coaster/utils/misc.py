@@ -517,16 +517,16 @@ nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
 
 
 @overload
-def require_one_of(_return: te.Literal[False] = False, **kwargs: t.Any) -> None:
+def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
     ...
 
 
 @overload
-def require_one_of(_return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
+def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
     ...
 
 
-def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.Any]]:
+def require_one_of(__return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
 
@@ -543,9 +543,9 @@ def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.
             # Carry on with function logic
             pass
 
-    :param _return: Return the matching parameter name and value
+    :param __return: Return the matching parameter name and value (positional only)
     :param kwargs: Parameters, of which one and only one is mandatory
-    :return: If `_return`, matching parameter name and value
+    :return: If `__return`, matching parameter name and value
     :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
     """
@@ -574,7 +574,7 @@ def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.
             "Only one of these parameters is allowed: " + ', '.join(kwargs.keys())
         )
 
-    if _return:
+    if __return:
         keys, values = zip(*((k, 1 if v is not None else 0) for k, v in kwargs.items()))
         k = keys[values.index(1)]
         return k, kwargs[k]

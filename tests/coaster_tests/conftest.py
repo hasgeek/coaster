@@ -40,7 +40,7 @@ def clsapp(request, app: Flask) -> Flask:
 
 
 @pytest.mark.usefixtures('clsapp')
-class AppTestCase(unittest.TestCase):
+class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
     """Base class for unit tests that need self.app."""
 
     app: Flask

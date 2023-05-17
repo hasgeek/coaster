@@ -31,7 +31,7 @@ _marker = object()
 _T = t.TypeVar('_T', bound=t.Any)
 
 
-class Query(QueryBase[_T]):
+class Query(QueryBase[_T]):  # skipcq: PYL-W0223
     """Extends SQLAlchemy's Query to add additional helper methods."""
 
     def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:

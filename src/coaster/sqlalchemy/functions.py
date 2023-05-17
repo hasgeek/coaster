@@ -72,7 +72,7 @@ def make_timestamp_columns(
     )
 
 
-def failsafe_add(_session, _instance: T, **filters: t.Any) -> t.Optional[T]:
+def failsafe_add(__session, __instance: T, **filters: t.Any) -> t.Optional[T]:
     """
     Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).
 
@@ -97,29 +97,29 @@ def failsafe_add(_session, _instance: T, **filters: t.Any) -> t.Optional[T]:
 
     You must commit the transaction as usual after calling ``failsafe_add``.
 
-    :param _session: Database session
-    :param _instance: Instance to commit
+    :param __session: Database session (positional only)
+    :param __instance: Instance to commit (positional only)
     :param filters: Filters required to load existing instance from the
         database in case the commit fails (required)
     :return: Instance that is in the database
     """
-    if _instance in _session:
+    if __instance in __session:
         # This instance is already in the session, most likely due to a
         # save-update cascade. SQLAlchemy will flush before beginning a
         # nested transaction, which defeats the purpose of nesting, so
         # remove it for now and add it back inside the SAVEPOINT.
-        _session.expunge(_instance)
-    savepoint = _session.begin_nested()
+        __session.expunge(__instance)
+    savepoint = __session.begin_nested()
     try:
-        _session.add(_instance)
+        __session.add(__instance)
         savepoint.commit()
         if filters:
-            return _instance
+            return __instance
     except sa.exc.IntegrityError as e:
         savepoint.rollback()
         if filters:
             try:
-                return _session.query(_instance.__class__).filter_by(**filters).one()
+                return __session.query(__instance.__class__).filter_by(**filters).one()
             except sa.exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
                 raise e from e
     return None

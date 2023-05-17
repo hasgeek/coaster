@@ -150,7 +150,7 @@ class Registry(t.Generic[_T]):
         name: t.Optional[str] = None,
         *,
         kwarg: t.Union[str, None] = ...,  # type: ignore[assignment]
-        property: t.Optional[bool] = None,  # noqa: A002
+        property: t.Optional[bool] = None,  # noqa: A002  # pylint: disable=W0622
         cached_property: t.Optional[bool] = None,
     ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""

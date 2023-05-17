@@ -371,8 +371,10 @@ class UrlForMixin:
 
     def url_for(self, action='view', **kwargs) -> str:
         """Return public URL to this instance for a given action (default 'view')."""
-        app = (  # pylint: disable=protected-access
-            current_app._get_current_object() if current_app else None
+        app = (
+            current_app._get_current_object()  # pylint: disable=protected-access
+            if current_app
+            else None
         )
         if app is not None and action in self.url_for_endpoints.get(app, {}):
             epdata = self.url_for_endpoints[app][action]
