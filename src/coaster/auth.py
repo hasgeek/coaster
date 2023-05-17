@@ -154,6 +154,10 @@ class CurrentAuth:
             object.__setattr__(self, 'user', None)
 
     def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
+        if hasattr(self, attr) and getattr(self, attr) is value:
+            # This test is used to allow in-place mutations such as:
+            # current_auth.permissions |= {extra}
+            return  # type: ignore[misc]
         raise AttributeError('CurrentAuth is read-only')
 
     def __delattr__(self, attr: str) -> t.NoReturn:

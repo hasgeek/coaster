@@ -6,8 +6,9 @@ Utility classes
 from __future__ import annotations
 
 from collections import namedtuple
-from collections.abc import Set
 import typing as t
+
+import typing_extensions as te
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
@@ -239,14 +240,26 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         return [(name, title) for name, title in cls.values()]
 
 
-_T = t.TypeVar('_T', bound=t.Any)
+_C = t.TypeVar('_C', bound=t.Collection)
 
 
-class InspectableSet(Set, t.Generic[_T]):
+class InspectableSet(t.Generic[_C]):
     """
-    Provides attribute and dictionary access to test for an element present in a set.
+    InspectableSet provides an ``elem in set`` test via attribute or dictionary access.
 
-    This is useful in templates to simplify membership inspection::
+    For example, if ``permissions`` is an InspectableSet wrapping a regular `set`, a
+    test for an element in the set can be rewritten from ``if 'view' in permissions`` to
+    ``if permissions.view``. The concise form improves readability for visual inspection
+    where code linters cannot help, such as in Jinja2 templates.
+
+    InspectableSet provides a read-only view to the wrapped data source. The mutation
+    operators ``+=``, ``-=``, ``&=``, ``|=`` and ``^=`` will be proxied to the
+    underlying data source, if supported, while the copy operators ``+``, ``-``, ``&``,
+    ``|`` and ``^`` will be proxied and the result re-wrapped with InspectableSet.
+
+    If no data source is supplied to InspectableSet, an empty set is used.
+
+    ::
 
         >>> myset = InspectableSet({'member', 'other'})
         >>> 'member' in myset
@@ -280,36 +293,152 @@ class InspectableSet(Set, t.Generic[_T]):
         0
     """
 
-    __members__: t.Set[_T]
+    __slots__ = ('__members__',)
+    __members__: _C
 
-    def __init__(
-        self,
-        members: t.Iterable[_T] = (),
-    ) -> None:
-        if not isinstance(members, Set):
-            members = set(members)
-        object.__setattr__(self, '__members__', members)
+    def __init__(self, members: t.Union[_C, InspectableSet[_C], None] = None) -> None:
+        if isinstance(members, InspectableSet):
+            members = members.__members__
+        object.__setattr__(
+            self, '__members__', members if members is not None else set()
+        )
 
     def __repr__(self):
         return f'InspectableSet({self.__members__!r})'
 
-    def __len__(self) -> int:
-        return len(self.__members__)
+    def __hash__(self) -> int:
+        return hash(self.__members__)
 
     def __contains__(self, key: t.Any) -> bool:
         return key in self.__members__
 
-    def __iter__(self) -> t.Iterator[_T]:
+    def __iter__(self) -> t.Iterator:
         yield from self.__members__
 
-    def __getitem__(self, key: _T) -> bool:
-        return key in self.__members__  # Returns True if present, False otherwise
+    def __len__(self) -> int:
+        return len(self.__members__)
+
+    def __getitem__(self, key: t.Any) -> bool:
+        return key in self.__members__  # Return True if present, False otherwise
+
+    def __setattr__(self, attr: str, _value: t.Any) -> t.NoReturn:
+        """Prevent accidental attempts to set a value."""
+        raise AttributeError(attr)
 
     def __getattr__(self, attr: str) -> bool:
-        return attr in self.__members__  # Returns True if present, False otherwise
+        return attr in self.__members__  # Return True if present, False otherwise
 
-    def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
-        raise AttributeError(attr)
+    def _op_bool(self, op: str, other: t.Any) -> bool:
+        """Return result of a boolean operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            return getattr(self.__members__, op)(other)
+        return NotImplemented
+
+    def __le__(self, other: t.Any) -> bool:
+        """Return self <= other."""
+        return self._op_bool('__le__', other)
+
+    def __lt__(self, other: t.Any) -> bool:
+        """Return self < other."""
+        return self._op_bool('__lt__', other)
+
+    def __eq__(self, other: t.Any) -> bool:
+        """Return self == other."""
+        return self._op_bool('__eq__', other)
+
+    def __ne__(self, other: t.Any) -> bool:
+        """Return self != other."""
+        return self._op_bool('__ne__', other)
+
+    def __gt__(self, other: t.Any) -> bool:
+        """Return self > other."""
+        return self._op_bool('__gt__', other)
+
+    def __ge__(self, other: t.Any) -> bool:
+        """Return self >= other."""
+        return self._op_bool('__ge__', other)
+
+    def _op_copy(self, op: str, other: t.Any) -> InspectableSet[_C]:
+        """Return result of a copy operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            retval = getattr(self.__members__, op)(other)
+            if retval is not NotImplemented:
+                return InspectableSet(retval)
+        return NotImplemented
+
+    def __add__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self + other (add)."""
+        return self._op_copy('__add__', other)
+
+    def __radd__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other + self (reverse add)."""
+        return self._op_copy('__radd__', other)
+
+    def __sub__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self - other (subset)."""
+        return self._op_copy('__sub__', other)
+
+    def __rsub__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other - self (reverse subset)."""
+        return self._op_copy('__rsub__', other)
+
+    def __and__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self & other (intersection)."""
+        return self._op_copy('__and__', other)
+
+    def __rand__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other & self (intersection)."""
+        return self._op_copy('__rand__', other)
+
+    def __or__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self | other (union)."""
+        return self._op_copy('__or__', other)
+
+    def __ror__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other | self (union)."""
+        return self._op_copy('__ror__', other)
+
+    def __xor__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self ^ other (non-intersecting)."""
+        return self._op_copy('__xor__', other)
+
+    def __rxor__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other ^ self (non-intersecting)."""
+        return self._op_copy('__rxor__', other)
+
+    def _op_inplace(self, op: str, other: t.Any) -> te.Self:
+        """Return self after an inplace operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            if getattr(self.__members__, op)(other) is NotImplemented:
+                return NotImplemented
+            return self
+        return NotImplemented
+
+    def __iadd__(self, other: t.Any) -> te.Self:
+        """Operate self += other (list/tuple add)."""
+        return self._op_inplace('__iadd__', other)
+
+    def __isub__(self, other: t.Any) -> te.Self:
+        """Operate self -= other (set.difference_update)."""
+        return self._op_inplace('__isub__', other)
+
+    def __iand__(self, other: t.Any) -> te.Self:
+        """Operate self &= other (set.intersection_update)."""
+        return self._op_inplace('__iand__', other)
+
+    def __ior__(self, other: t.Any) -> te.Self:
+        """Operate self |= other (set.update)."""
+        return self._op_inplace('__ior__', other)
+
+    def __ixor__(self, other: t.Any) -> te.Self:
+        """Operate self ^= other (set.symmetric_difference_update)."""
+        return self._op_inplace('__isub__', other)
 
 
 class classmethodproperty:  # noqa: N801

@@ -900,7 +900,7 @@ class StateManager:
             :attr:`data` attribute
         """
 
-        def decorator(f):
+        def decorator(f: t.Union[t.Callable, StateTransition]) -> StateTransition:
             if isinstance(f, StateTransition):
                 f.add_transition(self, from_, to, if_, data)
                 st = f

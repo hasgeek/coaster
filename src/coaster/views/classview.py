@@ -174,18 +174,16 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
 
     def __init__(
         self,
-        rule,
-        rule_options=None,
-        viewdata=None,  # pylint: disable=W0621
-        requires_roles=None,  # pylint: disable=W0621
-    ):
+        rule: t.Optional[str],
+        rule_options: t.Optional[t.Dict[str, t.Any]] = None,
+        viewdata: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> None:
         if rule is not None:
             self.routes = [(rule, rule_options or {})]
         else:
             self.routes = []
         self.data = viewdata or {}
-        self.requires_roles = requires_roles or {}
-        self.endpoints = set()
+        self.endpoints: t.Set[str] = set()
 
     @t.no_type_check
     def reroute(self: ViewHandlerType, f: t.Callable) -> ViewHandlerType:
@@ -344,6 +342,7 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
+# TODO: Make this generic on ViewHandler's type, but how?
 class ViewHandlerWrapper:
     """Wrapper for a view at runtime."""
 
@@ -358,15 +357,15 @@ class ViewHandlerWrapper:
         self._obj = obj
         self._cls = cls
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> t.Any:
         """Treat this like a call to the method (and not to the view)."""
         # As per the __decorators__ spec, we call .func, not .wrapped_func
         return self._viewh.func(self._obj, *args, **kwargs)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> t.Any:
         return getattr(self._viewh, name)
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         return (
             isinstance(other, ViewHandlerWrapper)
             and self._viewh == other._viewh
@@ -765,12 +764,12 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
                 abort(403)
 
         @wraps(f)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self, *args, **kwargs) -> t.Any:
             validate(self)
             return f(self, *args, **kwargs)
 
         @wraps(f)
-        async def async_wrapper(self, *args, **kwargs):
+        async def async_wrapper(self, *args, **kwargs) -> t.Any:
             validate(self)
             return await f(self, *args, **kwargs)
 

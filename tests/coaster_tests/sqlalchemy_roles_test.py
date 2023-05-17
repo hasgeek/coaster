@@ -1356,7 +1356,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert d.accessed_userlist is False
 
         # Constructing an inspectable set does not enumerate roles
-        r1: InspectableSet[str] = InspectableSet(d.roles_for(u1))
+        r1 = InspectableSet(d.roles_for(u1))
         assert d.accessed_user is False
         assert d.accessed_userlist is False
 

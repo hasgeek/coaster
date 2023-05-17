@@ -952,7 +952,7 @@ class RoleMixin:
         return result
 
     @property
-    def current_roles(self) -> InspectableSet[str]:
+    def current_roles(self) -> InspectableSet[LazyRoleSet]:
         """
         Roles currently available on this object.
 

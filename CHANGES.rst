@@ -34,6 +34,7 @@
 * UgliPyJS is no longer offered as a Webassets filter as the dependency is
   unmaintained, and usage is shifting from Webassets to Webpack
 * ``for_tsquery`` has been removed as PostgreSQL>=12 has native functions
+* ``render_with`` no longer offers a shorthand for JSONP responses
 
 0.6.1 - 2021-01-06
 ------------------

@@ -247,7 +247,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert require_one_of(True, first=None, second='b') == ('second', 'b')
 
     def test_inspectable_set(self) -> None:
-        s1: InspectableSet[str] = InspectableSet(['all', 'anon'])
+        s1 = InspectableSet(['all', 'anon'])
         assert 'all' in s1
         assert 'auth' not in s1
         assert s1['all']
@@ -255,7 +255,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert s1.all
         assert not s1.auth
 
-        s2: InspectableSet[str] = InspectableSet({'all', 'anon', 'other'})
+        s2 = InspectableSet({'all', 'anon', 'other'})
         assert 'all' in s2
         assert 'auth' not in s2
         assert s2['all']
@@ -265,7 +265,8 @@ class TestCoasterUtils(unittest.TestCase):
 
         assert len(s1) == 2
         assert len(s2) == 3
-        assert s1 == {'all', 'anon'}
+        assert s1 != {'all', 'anon'}  # s1 will behave like a list
+        assert s1 == ['all', 'anon']
         assert s2 == {'all', 'anon', 'other'}
 
         with pytest.raises(AttributeError):

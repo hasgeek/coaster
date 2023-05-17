@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from html import unescape
+from typing import overload
 from xml.etree.ElementTree import Element  # nosec B405
 import typing as t
 
@@ -157,7 +158,7 @@ default_markdown_extension_configs: t.Mapping[str, t.Mapping[str, t.Any]] = {
 # --- Markdown processor ---------------------------------------------------------------
 
 
-@t.overload
+@overload
 def markdown(
     text: None,
     html: bool = False,
@@ -169,7 +170,7 @@ def markdown(
     ...
 
 
-@t.overload
+@overload
 def markdown(
     text: str,
     html: bool = False,

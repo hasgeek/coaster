@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from functools import partial
 from threading import Lock
+from typing import overload
 import typing as t
 
 from sqlalchemy.orm import declarative_mixin
@@ -192,13 +193,11 @@ class Registry(t.Generic[_T]):
 
         return decorator
 
-    # def __iter__ (here or in instance?)
-
-    @t.overload
+    @overload
     def __get__(self, obj: None, cls: t.Optional[t.Type[_T]] = None) -> Registry:
         ...
 
-    @t.overload
+    @overload
     def __get__(
         self, obj: _T, cls: t.Optional[t.Type[_T]] = None
     ) -> InstanceRegistry[_T]:

@@ -135,10 +135,13 @@ def _configure_annotations(mapper_, cls):
 # --- Helpers --------------------------------------------------------------------------
 
 
+_A = t.TypeVar('_A', bound=t.Any)
+
+
 def annotation_wrapper(annotation, doc=None):
     """Define an annotation, which can be applied to attributes in a database model."""
 
-    def decorator(attr):
+    def decorator(attr: _A) -> _A:
         __cache__.setdefault(attr, []).append(annotation)
         # Also mark the annotation on the object itself. This will
         # fail if the object has a restrictive __slots__, but it's
@@ -154,7 +157,7 @@ def annotation_wrapper(annotation, doc=None):
         else:
             try:
                 if not hasattr(attr, '_coaster_annotations'):
-                    setattr(attr, '_coaster_annotations', [])
+                    attr._coaster_annotations = []
                 attr._coaster_annotations.append(annotation)
             except AttributeError:
                 pass

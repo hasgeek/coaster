@@ -11,6 +11,7 @@ from datetime import datetime
 from functools import wraps
 from random import SystemRandom
 from secrets import token_bytes
+from typing import overload
 from urllib.parse import urlparse
 import email.utils
 import hashlib
@@ -510,12 +511,12 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
     return str(value) if value else None
 
 
-@t.overload
+@overload
 def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
     ...
 
 
-@t.overload
+@overload
 def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
     ...
 

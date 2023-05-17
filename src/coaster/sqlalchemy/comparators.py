@@ -5,6 +5,7 @@ Enhanced query and custom comparators
 
 from __future__ import annotations
 
+from typing import overload
 import typing as t
 import uuid as uuid_
 
@@ -133,11 +134,11 @@ class Query(QueryBase[_T]):  # skipcq: PYL-W0223
 class QueryProperty(t.Generic[_T]):
     """A class property that creates a query object for a model."""
 
-    @t.overload
+    @overload
     def __get__(self, obj: None, cls: t.Type[_T]) -> Query[_T]:
         ...
 
-    @t.overload
+    @overload
     def __get__(self, obj: _T, cls: t.Type[_T]) -> Query[_T]:
         ...
 

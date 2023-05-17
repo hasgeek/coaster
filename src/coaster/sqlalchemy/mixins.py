@@ -38,6 +38,7 @@ import sqlalchemy as sa
 import typing_extensions as te
 
 from ..auth import current_auth
+from ..typing import WrappedFunc
 from ..utils import (
     InspectableSet,
     make_name,
@@ -279,7 +280,7 @@ class PermissionMixin:
         return set()
 
     @property
-    def current_permissions(self) -> InspectableSet[str]:
+    def current_permissions(self) -> InspectableSet[set]:
         """
         Available permissions for the current user on this object.
 
@@ -430,7 +431,7 @@ class UrlForMixin:
         :param dict paramattrs: Mapping of URL parameter to attribute on the object
         """
 
-        def decorator(f):
+        def decorator(f: WrappedFunc) -> WrappedFunc:
             cls.register_endpoint(
                 action=_action,
                 endpoint=_endpoint or f.__name__,

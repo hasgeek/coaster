@@ -107,8 +107,7 @@ class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-metho
         return self._make_wrapper(attr) if callable(item) else item
 
     def _make_wrapper(self, attr: str) -> t.Callable:
-        def wrapper(*args, **kwargs):
-            saved_exc = None
+        def wrapper(*args, **kwargs) -> t.Any:
             for engine in self._engines:
                 try:
                     return getattr(engine, attr)(*args, **kwargs)

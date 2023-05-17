@@ -1,10 +1,11 @@
 import typing as t
 import unittest
 
-from flask import Flask, Response
+from flask import Flask, Response, jsonify
 from jinja2 import TemplateNotFound
+import pytest
 
-from coaster.views import jsonp, render_with
+from coaster.views import render_with
 
 # --- Test setup -----------------------------------------------------------------------
 
@@ -36,7 +37,7 @@ def myview() -> t.Dict[str, str]:
         'text/xml': 'renderedview2.xml',
         'text/plain': viewcallable,
     },
-    jsonp=True,
+    json=True,
 )
 def otherview() -> t.Tuple[dict, int]:
     return {'data': 'value'}, 201
@@ -81,11 +82,11 @@ class TestLoadModels(unittest.TestCase):
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the
         # missing template is the one that was supposed to be rendered.
         try:
-            self.app.get('/renderedview1')
+            rv = self.app.get('/renderedview1')
         except TemplateNotFound as e:
             assert str(e) == 'renderedview1.html'
         else:
-            raise Exception("Wrong template rendered")
+            pytest.fail(f"Unexpected response: {rv.headers!r} {rv.data!r}")
 
         for acceptheader, template in [
             ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
@@ -96,11 +97,13 @@ class TestLoadModels(unittest.TestCase):
             ),
         ]:
             try:
-                self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
+                rv = self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
             except TemplateNotFound as e:
                 assert str(e) == template
             else:
-                raise Exception("Wrong template rendered")
+                pytest.fail(
+                    f"Accept: {acceptheader} Response: {rv.headers!r} {rv.data!r}"
+                )
 
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.
@@ -108,8 +111,10 @@ class TestLoadModels(unittest.TestCase):
             '/renderedview2', headers=[('Accept', 'application/json')]
         )
         assert isinstance(response, Response)
-        with app.test_request_context():  # jsonp requires a request context
-            assert response.data == jsonp({"data": "value"}).data
+        assert response.mimetype == 'application/json'
+        with app.test_request_context():
+            # jsonify needs a request context
+            assert response.data == jsonify({"data": "value"}).data
         response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
         assert isinstance(response, Response)
         assert response.data.decode('utf-8') == "{'data': 'value'}"
