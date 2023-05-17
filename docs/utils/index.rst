@@ -7,5 +7,4 @@
    datetime
    text
    markdown
-   tsquery
    classes

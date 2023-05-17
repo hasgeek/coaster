@@ -33,6 +33,7 @@
 * Now compatible with Flask 2.2 and 2.3
 * UgliPyJS is no longer offered as a Webassets filter as the dependency is
   unmaintained, and usage is shifting from Webassets to Webpack
+* ``for_tsquery`` has been removed as PostgreSQL>=12 has native functions
 
 0.6.1 - 2021-01-06
 ------------------
