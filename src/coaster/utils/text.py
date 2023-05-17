@@ -66,21 +66,22 @@ unicode_format_whitespace = (
     '\ufeff'  # ZERO WIDTH NO-BREAK SPACE (format)
 )
 
-unicode_extended_whitespace = (
-    '\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '  # ASCII whitespace
-) + unicode_format_whitespace
+ascii_whitespace = '\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '
+ascii_whitespace_without_newline = '\t\x0b\x0c\x1c\x1d\x1e\x1f '
+unicode_extended_whitespace = ascii_whitespace + unicode_format_whitespace
 
 re_singleline_spaces = re.compile(
     '[' + unicode_extended_whitespace + ']', re.UNICODE | re.MULTILINE
 )
 re_multiline_spaces = re.compile(
-    '[' + unicode_format_whitespace + ']', re.UNICODE | re.MULTILINE
+    '[' + ascii_whitespace_without_newline + unicode_format_whitespace + ']',
+    re.UNICODE | re.MULTILINE,
 )
 re_compress_spaces = re.compile(
     r'[\s' + unicode_format_whitespace + ']+', re.UNICODE | re.MULTILINE
 )
 
-VALID_TAGS: t.Mapping[str, t.List[str]] = {
+VALID_TAGS: t.Dict[str, t.List[str]] = {
     'a': ['href', 'title', 'target', 'rel'],
     'abbr': ['title'],
     'b': [],
@@ -114,11 +115,20 @@ VALID_TAGS: t.Mapping[str, t.List[str]] = {
 
 LINKIFY_SKIP_TAGS: t.List = ['pre', 'code', 'kbd', 'samp', 'var']
 
+# Attrs is described in the Linkify source as {(namespace, name): value}, but the code
+# that calls us sets it as `attrs = {(None, "href"): href, "_text": url}`
+LinkifyAttrsType = t.Optional[t.Dict[t.Union[t.Tuple[t.Optional[str], str], str], str]]
+
 
 # Adapted from https://bleach.readthedocs.io/en/latest/linkify.html#preventing-links
-def dont_linkify_filenames(attrs, new=False):
+def dont_linkify_filenames(
+    attrs: LinkifyAttrsType,
+    new: bool = False,
+) -> LinkifyAttrsType:
     # This is an existing link, so leave it be
     if not new:
+        return attrs
+    if attrs is None:
         return attrs
     # If the TLD is '.py', make sure it starts with http: or https:.
     # Use _text because that's the original text
@@ -133,7 +143,12 @@ def dont_linkify_filenames(attrs, new=False):
 LINKIFY_CALLBACKS = list(DEFAULT_CALLBACKS) + [dont_linkify_filenames]
 
 
-def sanitize_html(value, valid_tags=None, strip=True, linkify=False):
+def sanitize_html(
+    value: str,
+    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
+    strip: bool = True,
+    linkify: bool = False,
+) -> Markup:
     """Strip unwanted markup out of HTML."""
     if valid_tags is None:
         valid_tags = VALID_TAGS
@@ -196,7 +211,7 @@ blockish_tags: t.Set[str] = {
 }
 
 
-def text_blocks(html_text, skip_pre=True):
+def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
     """Extract a list of paragraphs from a given HTML string."""
     doc = html5lib.parseFragment(html_text)
     blocks = []
@@ -280,7 +295,7 @@ def normalize_spaces(text):
     return re_singleline_spaces.sub(' ', text)
 
 
-def normalize_spaces_multiline(text):
+def normalize_spaces_multiline(text: str) -> str:
     """
     Replace whitespace characters with regular spaces, in multiline text.
 
@@ -289,22 +304,22 @@ def normalize_spaces_multiline(text):
     return re_multiline_spaces.sub(' ', text)
 
 
-def ulstrip(text):
+def ulstrip(text: str) -> str:
     """Strip Unicode extended whitespace from the left side of a string."""
     return text.lstrip(unicode_extended_whitespace)
 
 
-def urstrip(text):
+def urstrip(text: str) -> str:
     """Strip Unicode extended whitespace from the right side of a string."""
     return text.rstrip(unicode_extended_whitespace)
 
 
-def ustrip(text):
+def ustrip(text: str) -> str:
     """Strip Unicode extended whitespace from a string."""
     return text.strip(unicode_extended_whitespace)
 
 
-def compress_whitespace(text):
+def compress_whitespace(text: str) -> str:
     """Reduce all space-like characters into single spaces and strip from ends."""
     return ustrip(re_compress_spaces.sub(' ', text))
 
@@ -318,7 +333,7 @@ _deobfuscate_at2_re = re.compile(r'([a-z0-9])AT([a-z0-9])')
 _deobfuscate_at3_re = re.compile(r'([A-Z0-9])at([A-Z0-9])')
 
 
-def deobfuscate_email(text):
+def deobfuscate_email(text: str) -> str:
     """Deobfuscate email addresses in provided text."""
     text = unescape(text)
     # Find the "dot"
@@ -333,7 +348,7 @@ def deobfuscate_email(text):
     return text
 
 
-def simplify_text(text):
+def simplify_text(text: str) -> str:
     """
     Simplify text to allow comparison.
 

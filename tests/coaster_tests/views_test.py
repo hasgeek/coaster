@@ -7,6 +7,7 @@ import pytest
 
 from coaster.app import load_config_from_file
 from coaster.auth import add_auth_attribute, current_auth
+from coaster.utils import InspectableSet
 from coaster.views import (
     get_current_url,
     get_next_url,
@@ -211,7 +212,7 @@ class TestCoasterViews(unittest.TestCase):
             with pytest.raises(Forbidden):
                 permission2()
 
-            add_auth_attribute('permissions', set())
+            add_auth_attribute('permissions', InspectableSet())
 
             assert permission1.is_available() is False
             assert permission2.is_available() is False
@@ -221,9 +222,7 @@ class TestCoasterViews(unittest.TestCase):
             with pytest.raises(Forbidden):
                 permission2()
 
-            current_auth.permissions.add(
-                'allow-that'
-            )  # FIXME! Shouldn't this be a frozenset?
+            add_auth_attribute('permissions', current_auth.permissions | {'allow-that'})
 
             assert permission1.is_available() is False
             assert permission2.is_available() is True
@@ -232,7 +231,7 @@ class TestCoasterViews(unittest.TestCase):
                 permission1()
             assert permission2() == 'allowed2'
 
-            current_auth.permissions.add('allow-this')
+            add_auth_attribute('permissions', current_auth.permissions | {'allow-this'})
 
             assert permission1.is_available() is True
             assert permission2.is_available() is True

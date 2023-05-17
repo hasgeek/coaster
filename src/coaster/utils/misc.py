@@ -11,7 +11,6 @@ from datetime import datetime
 from functools import wraps
 from random import SystemRandom
 from secrets import token_bytes
-from typing import overload
 from urllib.parse import urlparse
 import email.utils
 import hashlib
@@ -147,7 +146,7 @@ def uuid1mc() -> uuid.UUID:
     return uuid.uuid1(node=uuid._random_getnode())  # type: ignore[attr-defined]
 
 
-def uuid1mc_from_datetime(dt) -> uuid.UUID:
+def uuid1mc_from_datetime(dt: t.Union[datetime, float]) -> uuid.UUID:
     """
     Return a UUID1 with a specific timestamp and a random multicast MAC id.
 
@@ -393,7 +392,7 @@ def make_name(
     return candidate
 
 
-def format_currency(value, decimals=2):
+def format_currency(value: t.Union[int, float], decimals: int = 2) -> str:
     """
     Return a number suitably formatted for display as currency.
 
@@ -511,17 +510,19 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
     return str(value) if value else None
 
 
-@overload
+@t.overload
 def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
     ...
 
 
-@overload
+@t.overload
 def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
     ...
 
 
-def require_one_of(__return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.Any]]:
+def require_one_of(
+    __return: bool = False, **kwargs: t.Any
+) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
 
@@ -579,7 +580,7 @@ def require_one_of(__return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t
     return None
 
 
-def get_email_domain(emailaddr):
+def get_email_domain(emailaddr: str) -> t.Optional[str]:
     """
     Return the domain component of an email address.
 
@@ -605,7 +606,7 @@ def get_email_domain(emailaddr):
         return None
 
 
-def namespace_from_url(url):
+def namespace_from_url(url: str) -> t.Optional[str]:
     """Construct a dotted namespace string from a URL."""
     parsed = urlparse(url)
     if (
@@ -624,7 +625,7 @@ def namespace_from_url(url):
     return type(url)('.'.join(namespace))
 
 
-def base_domain_matches(d1, d2):
+def base_domain_matches(d1: str, d2: str) -> bool:
     """
     Check if two domains have the same base domain, using the Public Suffix List.
 
@@ -648,7 +649,7 @@ def base_domain_matches(d1, d2):
     return r1.domain == r2.domain and r1.suffix == r2.suffix
 
 
-def domain_namespace_match(domain, namespace):
+def domain_namespace_match(domain: str, namespace: str) -> bool:
     """
     Check if namespace is related to the domain because the base domain matches.
 

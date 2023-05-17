@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from html import unescape
-from typing import overload
+from xml.etree.ElementTree import Element  # nosec B405
 import typing as t
 
 from bleach import linkify as linkify_processor
@@ -74,7 +74,7 @@ class EscapeHtml(Extension):
     #safe_mode-and-html_replacement_text-keywords-deprecated
     """
 
-    def extendMarkdown(self, md) -> None:  # noqa: N802
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802
         md.preprocessors.deregister('html_block')
         md.inlinePatterns.deregister('html')
 
@@ -82,7 +82,7 @@ class EscapeHtml(Extension):
 class JavascriptProtocolProcessor(Treeprocessor):
     """Processor to remove `javascript:` links."""
 
-    def run(self, root):
+    def run(self, root: Element) -> None:
         for anchor in root.iter('a'):
             href = anchor.attrib.get('href')
             if href and unescape(href).lower().startswith(('javascript:', 'vbscript:')):
@@ -92,7 +92,7 @@ class JavascriptProtocolProcessor(Treeprocessor):
 class JavascriptProtocolExtension(Extension):
     """Markdown extension for :class:`JavascriptProtocolProcessor`."""
 
-    def extendMarkdown(self, md) -> None:  # noqa: N802
+    def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802
         # Register with low priority so we run last
         md.treeprocessors.register(
             JavascriptProtocolProcessor(md), 'javascript_protocol', 1
@@ -157,24 +157,24 @@ default_markdown_extension_configs: t.Mapping[str, t.Mapping[str, t.Any]] = {
 # --- Markdown processor ---------------------------------------------------------------
 
 
-@overload
+@t.overload
 def markdown(
     text: None,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
     extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
     extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
 ) -> None:
     ...
 
 
-@overload
+@t.overload
 def markdown(
     text: str,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
     extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
     extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
 ) -> Markup:
@@ -185,7 +185,7 @@ def markdown(
     text: t.Optional[str],
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Union[t.List[str], t.Mapping[str, t.List]]] = None,
+    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
     extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
     extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
 ) -> t.Optional[Markup]:
@@ -234,6 +234,10 @@ def markdown(
         ).convert(t.cast(str, text))
         if linkify:
             output = linkify_processor(
-                output, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS
+                output,
+                # types-bleach specifies `callbacks: Iterable[_Callback]`, but that
+                # _Callback has an incorrect definition for the `attrs` parameter
+                callbacks=LINKIFY_CALLBACKS,  # type: ignore[arg-type]
+                skip_tags=LINKIFY_SKIP_TAGS,
             )
         return Markup(output)

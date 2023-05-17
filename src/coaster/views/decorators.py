@@ -31,7 +31,7 @@ import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
-from ..utils import is_collection
+from ..utils import InspectableSet, is_collection
 from .misc import ensure_sync, jsonp
 
 __all__ = [
@@ -373,7 +373,7 @@ def load_models(*chain, **kwargs):
                 if g:  # XXX: Deprecated
                     g.permissions = permissions
                 if request:
-                    add_auth_attribute('permissions', permissions)
+                    add_auth_attribute('permissions', InspectableSet(permissions))
                 if (
                     url_check and request.method == 'GET'
                 ):  # Only do urlcheck redirects on GET requests

@@ -11,16 +11,21 @@ import typing as t
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
-T = t.TypeVar('T')
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
-    def __new__(cls, name, bases, attrs, **kwargs):
-        labels = {}
-        names = {}
+    def __new__(
+        cls: t.Type,
+        name: str,
+        bases: t.Tuple[t.Type, ...],
+        attrs: t.Dict[str, t.Any],
+        **kwargs: t.Any,
+    ) -> t.Type[LabeledEnum]:
+        labels: t.Dict[str, t.Any] = {}
+        names: t.Dict[str, t.Any] = {}
 
         def pop_name_by_value(value):
             for k, v in list(names.items()):
@@ -234,7 +239,10 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         return [(name, title) for name, title in cls.values()]
 
 
-class InspectableSet(Set, t.Generic[T]):
+_T = t.TypeVar('_T', bound=t.Any)
+
+
+class InspectableSet(Set, t.Generic[_T]):
     """
     Provides attribute and dictionary access to test for an element present in a set.
 
@@ -272,30 +280,35 @@ class InspectableSet(Set, t.Generic[T]):
         0
     """
 
-    def __init__(self, members=()):
+    __members__: t.Set[_T]
+
+    def __init__(
+        self,
+        members: t.Iterable[_T] = (),
+    ) -> None:
         if not isinstance(members, Set):
             members = set(members)
-        object.__setattr__(self, '_members', members)
+        object.__setattr__(self, '__members__', members)
 
     def __repr__(self):
-        return f'InspectableSet({self._members!r})'
+        return f'InspectableSet({self.__members__!r})'
 
-    def __len__(self):
-        return len(self._members)
+    def __len__(self) -> int:
+        return len(self.__members__)
 
-    def __contains__(self, key):
-        return key in self._members
+    def __contains__(self, key: t.Any) -> bool:
+        return key in self.__members__
 
-    def __iter__(self):
-        yield from self._members
+    def __iter__(self) -> t.Iterator[_T]:
+        yield from self.__members__
 
-    def __getitem__(self, key):
-        return key in self._members  # Returns True if present, False otherwise
+    def __getitem__(self, key: _T) -> bool:
+        return key in self.__members__  # Returns True if present, False otherwise
 
-    def __getattr__(self, attr):
-        return attr in self._members  # Returns True if present, False otherwise
+    def __getattr__(self, attr: str) -> bool:
+        return attr in self.__members__  # Returns True if present, False otherwise
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
         raise AttributeError(attr)
 
 
@@ -350,7 +363,7 @@ class classmethodproperty:  # noqa: N801
         'bar'
     """
 
-    def __init__(self, func):
+    def __init__(self, func: t.Callable) -> None:
         self.func = func
 
     def __get__(self, obj, cls=None):
