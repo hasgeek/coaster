@@ -21,7 +21,7 @@ import textwrap
 import traceback
 import typing as t
 
-from flask import g, request, session
+from flask import Flask, g, request, session
 from flask.config import Config
 import requests
 
@@ -60,11 +60,11 @@ error_throttle_timestamp_telegram: t.Dict[str, datetime] = {}
 class FilteredValueIndicator:
     """Represent a filtered value."""
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Filter str."""
         return '[Filtered]'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Filter repr."""
         return '[Filtered]'
 
@@ -76,18 +76,18 @@ filtered_value_indicator = FilteredValueIndicator()
 class RepeatValueIndicator:
     """Represent a repeating value."""
 
-    def __init__(self, key):
+    def __init__(self, key: str) -> None:
         """Init with key."""
         self.key = key
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation."""
         return f'<same as prior {self.key!r}>'
 
     __str__ = __repr__
 
 
-def filtered_value(key, value):
+def filtered_value(key: t.Any, value: t.Any) -> t.Any:
     """Find and mask sensitive values based on key names."""
     if isinstance(key, str) and _filter_re.search(key):
         return filtered_value_indicator
@@ -96,7 +96,7 @@ def filtered_value(key, value):
     return value
 
 
-def pprint_with_indent(dictlike, outfile, indent=4):
+def pprint_with_indent(dictlike: t.Dict, outfile: t.IO, indent: int = 4) -> None:
     """Filter values and pprint with indent to create a Markdown code block."""
     out = StringIO()
     pprint(  # noqa: T203
@@ -109,12 +109,12 @@ def pprint_with_indent(dictlike, outfile, indent=4):
 class LocalVarFormatter(logging.Formatter):
     """Log the contents of local variables in the stack frame."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Init formatter."""
         super().__init__(*args, **kwargs)
         self.lock = Lock()
 
-    def format(self, record):  # noqa: A003
+    def format(self, record: logging.LogRecord) -> str:  # noqa: A003
         """
         Format the specified record as text.
 
@@ -375,7 +375,7 @@ class TelegramHandler(logging.Handler):
             error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
 
 
-def init_app(app):
+def init_app(app: Flask) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 
@@ -420,8 +420,7 @@ def init_app(app):
         logger.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
-        logging.handlers.SlackHandler = SlackHandler
-        slack_handler = logging.handlers.SlackHandler(
+        slack_handler = SlackHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
         )
@@ -432,8 +431,7 @@ def init_app(app):
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
     ):
-        logging.handlers.TelegramHandler = TelegramHandler
-        telegram_handler = logging.handlers.TelegramHandler(
+        telegram_handler = TelegramHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             chatid=app.config['TELEGRAM_ERROR_CHATID'],
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],

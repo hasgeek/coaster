@@ -87,7 +87,7 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
             ca.__dict__['actor'] = value
 
 
-def add_auth_anchor(anchor) -> None:
+def add_auth_anchor(anchor: t.Any) -> None:
     """Add an anchor to current auth (placeholder pending a spec for anchors)."""
     existing = set(current_auth.anchors)
     existing.add(anchor)
@@ -186,7 +186,7 @@ class CurrentAuth:
             except KeyError:
                 raise AttributeError(attr) from None
 
-    def _call_login_manager(self):
+    def _call_login_manager(self) -> None:
         """Call the app's login manager on first access of user or actor (internal)."""
         # Check for an existing user from Flask-Login
         if not request:

@@ -182,7 +182,9 @@ def test_key_rotation_wrapper() -> None:
 
     # The KeyRotationWrapper has a safety catch for when a string secret is provided
     with pytest.raises(ValueError, match="Secret keys must be a list"):
-        KeyRotationWrapper(itsdangerous.URLSafeSerializer, 'secret_key')
+        KeyRotationWrapper(
+            itsdangerous.URLSafeSerializer, 'secret_key'  # type: ignore[arg-type]
+        )
 
 
 def test_app_key_rotation() -> None:

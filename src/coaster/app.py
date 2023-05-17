@@ -73,7 +73,10 @@ if yaml is not None:
     _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=yaml.safe_load)
 
 
-class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
+_S = t.TypeVar('_S', bound=itsdangerous.Serializer)
+
+
+class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -85,18 +88,25 @@ class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
     :param kwargs: Arguments to pass to each signer/serializer
     """
 
-    def __init__(self, cls, secret_keys, **kwargs):
+    def __init__(
+        self,
+        cls: t.Type[_S],
+        secret_keys: t.List[str],
+        **kwargs: t.Any,
+    ) -> None:
         """Init key rotation wrapper."""
-        if isinstance(secret_keys, str):
+        if isinstance(secret_keys, str):  # type: ignore[unreachable]
             raise ValueError("Secret keys must be a list")
+        if not secret_keys:
+            raise ValueError("No secret keys in the list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> t.Any:
         """Read a wrapped attribute."""
         item = getattr(self._engines[0], attr)
         return self._make_wrapper(attr) if callable(item) else item
 
-    def _make_wrapper(self, attr):
+    def _make_wrapper(self, attr: str) -> t.Callable:
         def wrapper(*args, **kwargs):
             saved_exc = None
             for engine in self._engines:
@@ -113,7 +123,7 @@ class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
 class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
-    def get_signing_serializer(self, app):
+    def get_signing_serializer(self, app: Flask) -> t.Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import re
+import typing as t
 
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version
@@ -25,7 +26,7 @@ _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 __all__ = ['Version', 'SimpleSpec', 'VersionedAssets', 'AssetNotFound']
 
 
-def split_namespec(namespec):
+def split_namespec(namespec: str) -> t.Tuple[str, SimpleSpec]:
     find_mark = _VERSION_SPECIFIER_RE.search(namespec)
     if find_mark is None:
         name = namespec
@@ -37,12 +38,14 @@ def split_namespec(namespec):
 
 
 class AssetNotFound(Exception):  # noqa: N818
-    """No asset with this name"""
+    """No asset with this name."""
 
 
 class VersionedAssets(defaultdict):
     """
-    Semantic-versioned assets. To use, initialize a container for your assets::
+    Semantic-versioned asset registry.
+
+    To use, initialize a container for your assets::
 
         from coaster.assets import VersionedAssets, Version
         assets = VersionedAssets()
@@ -104,12 +107,12 @@ class VersionedAssets(defaultdict):
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Override dict's __init__ to prevent parameters
         super().__init__(dict)
 
-    def _require_recursive(self, *namespecs):
-        asset_versions = {}  # Name: version
+    def _require_recursive(self, *namespecs: str) -> t.List[t.Tuple[str, Version, str]]:
+        asset_versions: t.Dict[str, Version] = {}  # Name: version
         bundles = []
         for namespec in namespecs:
             name, spec = split_namespec(namespec)
@@ -160,7 +163,7 @@ class VersionedAssets(defaultdict):
                     for provided in provides:
                         if provided not in asset_versions:
                             asset_versions[provided] = version
-                    for req_name, req_version, req_bundle in req_bundles:
+                    for req_name, req_version, _req_bundle in req_bundles:
                         asset_versions[req_name] = req_version
                     if bundle is not None:
                         bundles.append((name, version, bundle))
@@ -168,14 +171,14 @@ class VersionedAssets(defaultdict):
                 raise AssetNotFound(namespec)
         return bundles
 
-    def require(self, *namespecs):
+    def require(self, *namespecs: str) -> Bundle:
         """Return a bundle of the requested assets and their dependencies."""
         blacklist = {n[1:] for n in namespecs if n.startswith('!')}
         not_blacklist = [n for n in namespecs if not n.startswith('!')]
         return Bundle(
             *(
                 bundle
-                for name, version, bundle in self._require_recursive(*not_blacklist)
+                for name, _version, bundle in self._require_recursive(*not_blacklist)
                 if name not in blacklist
             )
         )
