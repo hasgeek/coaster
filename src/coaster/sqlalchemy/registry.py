@@ -116,7 +116,7 @@ class Registry(t.Generic[_T]):
         kwarg: t.Optional[str] = None,
         property: bool = False,  # noqa: A002  # pylint: disable=redefined-builtin
         cached_property: bool = False,
-    ):
+    ) -> None:
         """Initialize with config."""
         if property and cached_property:
             raise ValueError("Only one of property and cached_property can be True")

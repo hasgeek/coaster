@@ -150,8 +150,11 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(
-        self, expression, splitindex: t.Optional[int] = None, separator: str = '-'
-    ):
+        self,
+        expression: t.Any,
+        splitindex: t.Optional[int] = None,
+        separator: str = '-',
+    ) -> None:
         super().__init__(expression)
         self.splitindex = splitindex
         self.separator = separator
@@ -159,23 +162,23 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
     def _decode(self, other):
         raise NotImplementedError
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
             other = self._decode(other)
         except (ValueError, TypeError):
             # If other could not be decoded, we do not match.
-            return False
+            return sa.sql.expression.false()
         return self.__clause_element__() == other
 
-    def __ne__(self, other):
+    def __ne__(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
             other = self._decode(other)
         except (ValueError, TypeError):
             # If other could not be decoded, we are not equal.
-            return True
+            return sa.sql.expression.true()
         return self.__clause_element__() != other
 
-    def in_(self, other):
+    def in_(self, other: t.Any) -> sa.BinaryExpression[bool]:
         """Check if self is present in the other."""
 
         def errordecode(val):
@@ -187,7 +190,7 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
 
         # Make list of comparison values, removing undecipherable values (marker object)
         otherlist = (v for v in (errordecode(val) for val in other) if v is not _marker)
-        return self.__clause_element__().in_(otherlist)
+        return self.__clause_element__().in_(otherlist)  # type: ignore[attr-defined]
 
 
 class SqlSplitIdComparator(SplitIndexComparator):
@@ -198,12 +201,12 @@ class SqlSplitIdComparator(SplitIndexComparator):
     if specified as a `splitindex` parameter to the constructor.
     """
 
-    def _decode(self, other):
+    def _decode(self, other: t.Optional[str]) -> t.Optional[int]:
         if other is None:
-            return
+            return None
         if self.splitindex is not None and isinstance(other, str):
-            other = int(other.split(self.separator)[self.splitindex])
-        return other
+            return int(other.split(self.separator)[self.splitindex])
+        return int(other)
 
 
 class SqlUuidHexComparator(SplitIndexComparator):
@@ -216,13 +219,15 @@ class SqlUuidHexComparator(SplitIndexComparator):
     UUID value if specified as a `splitindex` parameter to the constructor.
     """
 
-    def _decode(self, other):
+    def _decode(
+        self, other: t.Optional[t.Union[str, uuid_.UUID]]
+    ) -> t.Optional[uuid_.UUID]:
         if other is None:
-            return
+            return None
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split(self.separator)[self.splitindex]
-            other = uuid_.UUID(other)
+            return uuid_.UUID(other)
         return other
 
 
@@ -240,13 +245,15 @@ class SqlUuidB64Comparator(SplitIndexComparator):
     using this comparator.
     """
 
-    def _decode(self, other):
+    def _decode(
+        self, other: t.Optional[t.Union[str, uuid_.UUID]]
+    ) -> t.Optional[uuid_.UUID]:
         if other is None:
-            return
+            return None
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split(self.separator)[self.splitindex]
-            other = uuid_from_base64(other)
+            return uuid_from_base64(other)
         return other
 
 
@@ -260,11 +267,13 @@ class SqlUuidB58Comparator(SplitIndexComparator):
     UUID value if specified as a `splitindex` parameter to the constructor.
     """
 
-    def _decode(self, other):
+    def _decode(
+        self, other: t.Optional[t.Union[str, uuid_.UUID]]
+    ) -> t.Optional[uuid_.UUID]:
         if other is None:
-            return
+            return None
         if not isinstance(other, uuid_.UUID):
             if self.splitindex is not None:
                 other = other.split('-')[self.splitindex]
-            other = uuid_from_base58(other)
+            return uuid_from_base58(other)
         return other

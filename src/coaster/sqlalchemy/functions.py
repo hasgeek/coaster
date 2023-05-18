@@ -34,17 +34,17 @@ class UtcNow(sa.sql.functions.GenericFunction):
 
 
 @compiles(UtcNow)
-def _utcnow_default(element, compiler, **kw):
+def _utcnow_default(element: UtcNow, _compiler: t.Any, **kwargs) -> str:
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(UtcNow, 'mysql')
-def _utcnow_mysql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mysql(element: UtcNow, _compiler: t.Any, **kwargs):  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(UtcNow, 'mssql')
-def _utcnow_mssql(element, compiler, **kw):  # pragma: no cover
+def _utcnow_mssql(element: UtcNow, _compiler: t.Any, **kwargs):  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 
@@ -248,7 +248,9 @@ def add_primary_relationship(
     return primary_table
 
 
-def auto_init_default(column) -> None:
+def auto_init_default(
+    column: t.Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
+) -> None:
     """
     Set the default value of a columnn on first access.
 

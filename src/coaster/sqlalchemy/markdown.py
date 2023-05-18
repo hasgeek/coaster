@@ -28,7 +28,7 @@ class MarkdownComposite(MutableComposite):
         t.Callable[[], t.Dict[str, t.Any]],
     ] = {}
 
-    def __init__(self, text, html=None):
+    def __init__(self, text: t.Optional[str], html: t.Optional[str] = None) -> None:
         """Create a composite."""
         if html is None:
             self.text = text  # This will regenerate HTML
@@ -37,23 +37,25 @@ class MarkdownComposite(MutableComposite):
             self._html = html
 
     # Return column values for SQLAlchemy to insert into the database
-    def __composite_values__(self):
+    def __composite_values__(
+        self,
+    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
         """Return composite values."""
         return (self._text, self._html)
 
     # Return a string representation of the text (see class decorator)
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation."""
         return self.text or ''
 
     # Return a HTML representation of the text
-    def __html__(self):
+    def __html__(self) -> str:
         """Return HTML representation."""
         return self._html or ''
 
     # Return a Markup string of the HTML
     @property
-    def html(self):
+    def html(self) -> t.Optional[Markup]:
         """Return HTML as a property."""
         return Markup(self._html) if self._html is not None else None
 
@@ -101,12 +103,12 @@ class MarkdownComposite(MutableComposite):
         self._text, self._html = state
         self.changed()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return boolean value."""
         return bool(self._text)
 
     @classmethod
-    def coerce(cls, key, value):
+    def coerce(cls, key: str, value: t.Any) -> MarkdownComposite:
         """Allow a composite column to be assigned a string value."""
         return cls(value)
 

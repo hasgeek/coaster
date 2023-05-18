@@ -184,7 +184,7 @@ class MyUrlModel(db.Model):  # type: ignore[name-defined]
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
     url = sa.Column(UrlType)  # type: ignore[var-annotated]
     url_all_scheme = sa.Column(UrlType(schemes=None))  # type: ignore[var-annotated]
-    url_custom_scheme = sa.Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
+    url_custom_scheme = sa.Column(UrlType(schemes=['ftp']))  # type: ignore[var-annotated]
     url_optional_scheme = sa.Column(  # type: ignore[var-annotated]
         UrlType(optional_scheme=True)
     )
@@ -1027,12 +1027,10 @@ class TestCoasterModels(AppTestCase):
         )
 
         # Query returns False (or True) if given an invalid value
-        assert bool(UuidKey.url_id == 'garbage!') is False
-        assert bool(UuidKey.url_id != 'garbage!') is True
-        assert bool(NonUuidMixinKey.url_id == 'garbage!') is False
-        assert bool(NonUuidMixinKey.url_id != 'garbage!') is True
-        assert bool(UuidMixinKey.url_id == 'garbage!') is False
-        assert bool(UuidMixinKey.url_id != 'garbage!') is True
+        assert (UuidKey.url_id == 'garbage!') == sa.sql.expression.false()
+        assert (UuidKey.url_id != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.url_id == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.url_id != 'garbage!') == sa.sql.expression.true()
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         assert (
@@ -1171,14 +1169,14 @@ class TestCoasterModels(AppTestCase):
         )
 
         # Query returns False (or True) if given an invalid value
-        assert bool(NonUuidMixinKey.buid == 'garbage!') is False
-        assert bool(NonUuidMixinKey.buid != 'garbage!') is True
-        assert bool(NonUuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(NonUuidMixinKey.uuid_b58 != 'garbage!') is True
-        assert bool(UuidMixinKey.buid == 'garbage!') is False
-        assert bool(UuidMixinKey.buid != 'garbage!') is True
-        assert bool(UuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(UuidMixinKey.uuid_b58 != 'garbage!') is True
+        assert (NonUuidMixinKey.buid == 'garbage!') == sa.sql.expression.false()
+        assert (NonUuidMixinKey.buid != 'garbage!') == sa.sql.expression.true()
+        assert (NonUuidMixinKey.uuid_b58 == 'garbage!') == sa.sql.expression.false()
+        assert (NonUuidMixinKey.uuid_b58 != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.buid == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.buid != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.uuid_b58 == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.uuid_b58 != 'garbage!') == sa.sql.expression.true()
 
     def test_uuid_url_id_name(self) -> None:
         """

@@ -6,28 +6,16 @@ SQLAlchemy column types
 from __future__ import annotations
 
 import json
+import typing as t
 
 from furl import furl
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.mutable import Mutable
-from sqlalchemy.types import TEXT, TypeDecorator, UserDefinedType
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy_utils.types import URLType as UrlTypeBase
 import sqlalchemy as sa
 
 __all__ = ['JsonDict', 'UrlType']
-
-
-class JsonType(UserDefinedType):
-    """The PostgreSQL JSON type."""
-
-    def get_col_spec(self):
-        return 'JSON'
-
-
-class JsonbType(UserDefinedType):
-    """The PostgreSQL JSONB type."""
-
-    def get_col_spec(self):
-        return 'JSONB'
 
 
 # Adapted from http://docs.sqlalchemy.org/en/rel_0_8/orm/extensions/mutable.html
@@ -48,23 +36,20 @@ class JsonDict(TypeDecorator):
     regardless of the backing data type.
     """
 
-    impl = TEXT
+    impl = sa.types.JSON
+    cache_ok = True
 
     def load_dialect_impl(self, dialect):
         if dialect.name == 'postgresql':
-            version = tuple(dialect.server_version_info[:2])
-            if version in [(9, 2), (9, 3)]:
-                return dialect.type_descriptor(JsonType)
-            if version >= (9, 4):
-                return dialect.type_descriptor(JsonbType)
+            return dialect.type_descriptor(postgresql.JSONB)
         return dialect.type_descriptor(self.impl)
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> str:
         if value is not None:
             value = json.dumps(value, default=str)  # Callable default
         return value
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
         if value is not None and isinstance(value, str):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
             # we only attempt decoding if the value is a string.
@@ -76,7 +61,7 @@ class JsonDict(TypeDecorator):
 
 class MutableDict(Mutable, dict):
     @classmethod
-    def coerce(cls, key, value):
+    def coerce(cls, key: t.Any, value: t.Any) -> MutableDict:
         """Convert plain dictionaries to MutableDict."""
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
@@ -86,17 +71,15 @@ class MutableDict(Mutable, dict):
                 if value:
                     return MutableDict(json.loads(value))
                 return MutableDict()  # Empty value is an empty dict
-
-            # this call will raise ValueError
-            return Mutable.coerce(key, value)
+            raise ValueError(f"Value is not dict-like: {value}")
         return value
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: t.Any, value: t.Any) -> None:
         """Detect dictionary set events and emit change events."""
         dict.__setitem__(self, key, value)
         self.changed()
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: t.Any) -> None:
         """Detect dictionary del events and emit change events."""
         dict.__delitem__(self, key)
         self.changed()
@@ -123,14 +106,17 @@ class UrlType(UrlTypeBase):
     cache_ok = True
 
     def __init__(
-        self, schemes=('http', 'https'), optional_scheme=False, optional_host=False
-    ):
+        self,
+        schemes: t.Optional[t.Collection[str]] = ('http', 'https'),
+        optional_scheme: bool = False,
+        optional_host: bool = False,
+    ) -> None:
         super().__init__()
         self.schemes = schemes
         self.optional_host = optional_host
         self.optional_scheme = optional_scheme
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Optional[str]:
         value = super().process_bind_param(value, dialect)
         if value:
             parsed = self.url_parser(value)
@@ -147,9 +133,12 @@ class UrlType(UrlTypeBase):
                 raise ValueError("Missing URL host")
         return value
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(
+        self, value: t.Any, dialect: sa.Dialect
+    ) -> t.Optional[furl]:
         if value is not None:
             return self.url_parser(value)
+        return None
 
     def _coerce(self, value):
         if value is not None and not isinstance(value, self.url_parser):
