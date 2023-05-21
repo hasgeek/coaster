@@ -14,14 +14,13 @@ Provides a wrapper around NLTK to extract named entities from HTML text::
 
 from __future__ import annotations
 
+import typing as t
+
 import nltk
 
 
-def extract_named_entities(text_blocks):
-    """
-    Return a list of named entities extracted from provided text blocks (list of text
-    strings).
-    """
+def extract_named_entities(text_blocks: t.Iterable[str]) -> t.Set[str]:
+    """Return a set of named entities extracted from the provided text blocks."""
     sentences = []
     for text in text_blocks:
         sentences.extend(nltk.sent_tokenize(text))
@@ -30,14 +29,14 @@ def extract_named_entities(text_blocks):
     tagged_sentences = [nltk.pos_tag(sentence) for sentence in tokenized_sentences]
     chunked_sentences = nltk.ne_chunk_sents(tagged_sentences, binary=True)
 
-    def extract_entity_names(t):
+    def extract_entity_names(tree: nltk.Tree) -> t.List[str]:
         entity_names = []
 
-        if hasattr(t, 'label'):
-            if t.label() == 'NE':
-                entity_names.append(' '.join(child[0] for child in t))
+        if hasattr(tree, 'label'):
+            if tree.label() == 'NE':
+                entity_names.append(' '.join(child[0] for child in tree))
             else:
-                for child in t:
+                for child in tree:
                     entity_names.extend(extract_entity_names(child))
 
         return entity_names

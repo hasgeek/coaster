@@ -2,12 +2,11 @@
 # pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
-import typing as t  # noqa: F401  # pylint: disable=unused-import
-import uuid as uuid_  # noqa: F401  # pylint: disable=unused-import
+import typing as t
 
-from flask import g, has_request_context, render_template_string
+from flask import Flask, g, has_request_context, render_template_string
+from flask.ctx import RequestContext
 import pytest
-import sqlalchemy as sa  # noqa: F401  # pylint: disable=unused-import
 
 from coaster.auth import (
     add_auth_anchor,
@@ -15,18 +14,10 @@ from coaster.auth import (
     current_auth,
     request_has_auth,
 )
-from coaster.sqlalchemy import (  # noqa: F401  # pylint: disable=unused-import
-    BaseMixin,
-    IdMixin,
-    NoIdMixin,
-    PermissionMixin,
-    RegistryMixin,
-    RoleMixin,
-    TimestampMixin,
-    UrlForMixin,
-)
+from coaster.sqlalchemy import BaseMixin
 
 from .conftest import db
+from .sqlalchemy_models_test import User
 
 # The unused imports above are present to mitigate a bug in sqlalchemy2-stubs for mypy
 
@@ -36,17 +27,17 @@ from .conftest import db
 class LoginManager:  # pylint: disable=too-few-public-methods
     """Test login manager implementing _load_user method."""
 
-    def __init__(self, app):  # pylint: disable=redefined-outer-name
-        app.login_manager = self
-        self.user = None
+    def __init__(self, _app: Flask) -> None:
+        _app.login_manager = self
+        self.user: t.Optional[User] = None
 
-    def set_user_for_testing(self, user, load=False):
+    def set_user_for_testing(self, user: User, load: bool = False) -> None:
         """Test auth by setting a user."""
         self.user = user
         if load:
             self._load_user()
 
-    def _load_user(self):
+    def _load_user(self) -> None:
         """Load user into current_auth."""
         if has_request_context():
             add_auth_attribute('user', self.user)
@@ -57,7 +48,7 @@ class LoginManager:  # pylint: disable=too-few-public-methods
 class FlaskLoginManager(LoginManager):  # pylint: disable=too-few-public-methods
     """Test login manager implementing _load_user but only setting ``g._login_user``."""
 
-    def _load_user(self):
+    def _load_user(self) -> None:
         if g:
             g._login_user = self.user  # pylint: disable=protected-access
 
@@ -77,7 +68,7 @@ def models() -> SimpleNamespace:
         username = db.Column(db.Unicode(80))
         fullname = db.Column(db.Unicode(80))
 
-        def __repr__(self):
+        def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'
 
     class AnonUser(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -88,7 +79,7 @@ def models() -> SimpleNamespace:
         username = 'anon'
         fullname = 'Anonymous'
 
-        def __repr__(self):
+        def __repr__(self) -> str:
             return f'AnonUser(username={self.username!r}, fullname={self.fullname!r})'
 
     class Client(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -103,23 +94,23 @@ def models() -> SimpleNamespace:
 
 
 @pytest.fixture()
-def login_manager(app):
+def login_manager(app: Flask):
     """Login manager fixture."""
     yield LoginManager(app)
     del app.login_manager
 
 
 @pytest.fixture()
-def flask_login_manager(app):
+def flask_login_manager(app: Flask):
     """Flask-Login style login manager fixture."""
     yield FlaskLoginManager(app)
     del app.login_manager
 
 
 @pytest.fixture()
-def request_ctx(app):
+def request_ctx(app: Flask):
     """Request context with database models."""
-    ctx = app.test_request_context()
+    ctx = t.cast(RequestContext, app.test_request_context())
     ctx.push()
     db.create_all()
     yield ctx
@@ -131,7 +122,7 @@ def request_ctx(app):
 # --- Tests ----------------------------------------------------------------------------
 
 
-def test_current_auth_no_request():
+def test_current_auth_no_request() -> None:
     """Test for current_auth in placeholder mode with no app or request context."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -139,7 +130,7 @@ def test_current_auth_no_request():
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_current_auth_no_login_manager():
+def test_current_auth_no_login_manager() -> None:
     """Test current_auth without a login manager."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -147,7 +138,7 @@ def test_current_auth_no_login_manager():
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_current_auth_without_user():
+def test_current_auth_without_user() -> None:
     """Test current_auth being used without a user."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -157,7 +148,9 @@ def test_current_auth_without_user():
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_current_auth_with_user(models, login_manager):
+def test_current_auth_with_user(
+    models: SimpleNamespace, login_manager: LoginManager
+) -> None:
     """Test current_auth with a user via the login manager."""
     user = models.User(username='foo', fullname='Mr Foo')
     login_manager.set_user_for_testing(user)
@@ -184,7 +177,9 @@ def test_current_auth_with_user(models, login_manager):
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_current_auth_with_flask_login_user_implicit(app, models):
+def test_current_auth_with_flask_login_user_implicit(
+    app: Flask, models: SimpleNamespace
+) -> None:
     """Flask-Login's user is no longer implicitly valid."""
     assert not hasattr(app, 'login_manager')
     user = models.User(username='bar', fullname='Ms Bar')
@@ -197,7 +192,9 @@ def test_current_auth_with_flask_login_user_implicit(app, models):
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_current_auth_with_flask_login_user_explicit(models, flask_login_manager):
+def test_current_auth_with_flask_login_user_explicit(
+    models: SimpleNamespace, flask_login_manager: FlaskLoginManager
+) -> None:
     """Flask-Login's login manager is called and its user is accepted."""
     user = models.User(username='baz', fullname='Mr Baz')
     flask_login_manager.set_user_for_testing(user)
@@ -210,7 +207,9 @@ def test_current_auth_with_flask_login_user_explicit(models, flask_login_manager
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_current_auth_with_user_loaded(models, login_manager):
+def test_current_auth_with_user_loaded(
+    models: SimpleNamespace, login_manager: LoginManager
+) -> None:
     """Test for current_auth working when the login manager is able to load a user."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -222,7 +221,7 @@ def test_current_auth_with_user_loaded(models, login_manager):
     login_manager.set_user_for_testing(user, load=True)
 
     assert not current_auth.is_anonymous
-    assert current_auth.is_authenticated
+    assert current_auth.is_authenticated  # type: ignore[unreachable]
     assert current_auth
     assert current_auth.user is not None
     assert current_auth.user == user
@@ -230,7 +229,7 @@ def test_current_auth_with_user_loaded(models, login_manager):
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_anonymous_user(models, login_manager):
+def test_anonymous_user(models: SimpleNamespace, login_manager: LoginManager) -> None:
     """Test for current_auth having an anonymous actor."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -242,14 +241,14 @@ def test_anonymous_user(models, login_manager):
 
     # is_authenticated == True, since there is an actor
     assert current_auth.is_authenticated
-    assert current_auth
+    assert current_auth  # type: ignore[unreachable]
     assert current_auth.actor is not None
     assert current_auth.user == user
     assert current_auth.actor == user
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_invalid_auth_attribute():
+def test_invalid_auth_attribute() -> None:
     """Test to confirm current_auth will not accept reserved keywords as attrs."""
     for attr in (
         'actor',
@@ -262,7 +261,7 @@ def test_invalid_auth_attribute():
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_other_actor_authenticated(models):
+def test_other_actor_authenticated(models: SimpleNamespace) -> None:
     """Test for current_auth having an actor who is not a user."""
     assert current_auth.is_anonymous
     assert not current_auth.is_authenticated
@@ -273,7 +272,7 @@ def test_other_actor_authenticated(models):
     add_auth_attribute('client', client, actor=True)
 
     assert not current_auth.is_anonymous
-    assert current_auth.is_authenticated
+    assert current_auth.is_authenticated  # type: ignore[unreachable]
     assert current_auth
     assert current_auth.user is None  # It's not the user
     assert current_auth.client == client  # There's now a client attribute
@@ -281,7 +280,7 @@ def test_other_actor_authenticated(models):
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_auth_anchor():
+def test_auth_anchor() -> None:
     """A request starts with zero anchors, but they can be added"""
     assert not current_auth.anchors
     add_auth_anchor('test-anchor')
@@ -290,7 +289,7 @@ def test_auth_anchor():
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_has_current_auth():
+def test_has_current_auth() -> None:
     """Test that request_has_auth indicates if current_auth was invoked."""
     assert not request_has_auth()
     # Invoke current_auth without checking for a user
@@ -302,7 +301,7 @@ def test_has_current_auth():
 
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
-def test_jinja2_no_auth(app):
+def test_jinja2_no_auth(app: Flask) -> None:
     """Test that current_auth is available in Jinja2 and has no side effects."""
     app.jinja_env.globals['current_auth'] = current_auth
     assert not request_has_auth()
@@ -322,7 +321,9 @@ def test_jinja2_no_auth(app):
 
 
 @pytest.mark.usefixtures('request_ctx')
-def test_jinja2_auth(app, models, login_manager):
+def test_jinja2_auth(
+    app: Flask, models: SimpleNamespace, login_manager: LoginManager
+) -> None:
     """Test that current_auth is available in Jinja2 and records if it was used."""
     app.jinja_env.globals['current_auth'] = current_auth
     user = models.User(username='user', fullname="User")

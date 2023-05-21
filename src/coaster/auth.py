@@ -22,13 +22,16 @@ from __future__ import annotations
 from threading import Lock
 import typing as t
 
-from flask import current_app, g, request
+from flask import Flask, current_app, g, request
 from werkzeug.local import LocalProxy
 from werkzeug.wrappers import Response as BaseResponse
 
 from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
+
+
+_Response = t.TypeVar('_Response', bound=BaseResponse)
 
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
@@ -87,7 +90,7 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
             ca.__dict__['actor'] = value
 
 
-def add_auth_anchor(anchor) -> None:
+def add_auth_anchor(anchor: t.Any) -> None:
     """Add an anchor to current auth (placeholder pending a spec for anchors)."""
     existing = set(current_auth.anchors)
     existing.add(anchor)
@@ -143,7 +146,7 @@ class CurrentAuth:
 
     is_placeholder: bool
     permissions: InspectableSet
-    anchors: t.Set
+    anchors: t.Sequence[t.Any]
 
     def __init__(self, is_placeholder: bool = False) -> None:
         object.__setattr__(self, 'is_placeholder', is_placeholder)
@@ -154,6 +157,10 @@ class CurrentAuth:
             object.__setattr__(self, 'user', None)
 
     def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
+        if hasattr(self, attr) and getattr(self, attr) is value:
+            # This test is used to allow in-place mutations such as:
+            # current_auth.permissions |= {extra}
+            return  # type: ignore[misc]
         raise AttributeError('CurrentAuth is read-only')
 
     def __delattr__(self, attr: str) -> t.NoReturn:
@@ -186,7 +193,7 @@ class CurrentAuth:
             except KeyError:
                 raise AttributeError(attr) from None
 
-    def _call_login_manager(self):
+    def _call_login_manager(self) -> None:
         """Call the app's login manager on first access of user or actor (internal)."""
         # Check for an existing user from Flask-Login
         if not request:
@@ -224,12 +231,12 @@ class CurrentAuth:
         return bool(self)
 
 
-def _set_auth_cookie_after_request(response: BaseResponse) -> BaseResponse:
+def _set_auth_cookie_after_request(response: _Response) -> _Response:
     # TODO
     return response
 
 
-def init_app(app):
+def init_app(app: Flask) -> None:
     """Optionally initialize current_auth for auth cookie management in an app."""
     app.config.setdefault('AUTH_COOKIE_NAME', 'auth')
     for our_config, flask_config in [

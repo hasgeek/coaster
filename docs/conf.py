@@ -16,7 +16,7 @@ import sys
 import typing as t
 
 sys.path.insert(0, os.path.abspath('../src'))
-from coaster import _version  # isort:skip
+from coaster import _version  # isort:skip  # pylint: disable=wrong-import-position
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -240,7 +240,7 @@ texinfo_documents = [
         'Coaster Documentation',
         'Hasgeek',
         'coaster',
-        'Coaster contains functions and db models for recurring patterns in Flask apps.',
+        'Coaster contains helpers for recurring patterns in Flask apps',
         'Miscellaneous',
     )
 ]
@@ -257,8 +257,8 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    'https://docs.python.org/2/': None,
-    'http://flask.pocoo.org/docs/': None,
-    'http://docs.sqlalchemy.org/en/latest/': None,
-    'http://flask-sqlalchemy.pocoo.org/2.3/': None,
+    'https://docs.python.org/3/': None,
+    'https://flask.palletsprojects.com/en/2.3.x/': None,
+    'http://docs.sqlalchemy.org/en/20/': None,
+    'https://flask-sqlalchemy.palletsprojects.com/en/3.0.x/': None,
 }

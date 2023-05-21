@@ -25,6 +25,7 @@ try:  # pragma: no cover
 except ModuleNotFoundError:
     async_to_sync = None  # type: ignore[assignment, misc]
 
+
 from .. import typing as tc  # pylint: disable=reimported
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
@@ -32,7 +33,7 @@ __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 
-def _index_url():
+def _index_url() -> str:
     if request:
         return request.script_root or '/'
     return '/'
@@ -90,11 +91,11 @@ def get_current_url() -> str:
     return url
 
 
-__marker = object()
-
-
 def get_next_url(
-    referrer=False, external=False, session=False, default=__marker
+    referrer: bool = False,
+    external: bool = False,
+    session: bool = False,
+    default: t.Optional[str] = None,
 ) -> str:
     """
     Get the next URL to redirect to.
@@ -105,7 +106,7 @@ def get_next_url(
     This function looks for a ``next`` parameter in the request or in the session
     (depending on whether parameter ``session`` is True). If no ``next`` is present, it
     checks the referrer (if enabled), and finally returns either the provided default
-    (which can be any value including ``None``) or the script root (typically ``/``).
+    or the script root (typically ``/``).
     """
     if session:
         next_url = request_session.pop('next', None) or request.args.get('next', '')
@@ -116,23 +117,18 @@ def get_next_url(
     if next_url:
         return next_url
 
-    if default is __marker:
-        usedefault = False
-    else:
-        usedefault = True
-
     if referrer and request.referrer:
         if external:
             return request.referrer
         else:
             return _clean_external_url(request.referrer) or (
-                default if usedefault else _index_url()
+                default if default is not None else _index_url()
             )
     else:
-        return default if usedefault else _index_url()
+        return default if default is not None else _index_url()
 
 
-def jsonp(*args, **kw):
+def jsonp(*args: t.Any, **kwargs: t.Any) -> Response:
     """
     Return a JSON response with a callback wrapper, if asked for.
 
@@ -140,7 +136,7 @@ def jsonp(*args, **kw):
         Switch to CORS as JSONP makes the client app insecure. See the
         :func:`~coaster.views.decorators.cors` decorator.
     """
-    data = json.dumps(dict(*args, **kw), indent=2)
+    data = json.dumps(dict(*args, **kwargs), indent=2)
     callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
         data = callback + '(' + data + ');'

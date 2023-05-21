@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from time import sleep
 from uuid import UUID
 import typing as t
-import unittest
 
 from pytz import utc
 from sqlalchemy.dialects import postgresql
@@ -32,7 +31,7 @@ from coaster.sqlalchemy import (
 )
 from coaster.utils import uuid_to_base58, uuid_to_base64
 
-from .conftest import db
+from .conftest import AppTestCase, db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -49,10 +48,10 @@ class TimestampAware(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 class Container(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'container'
-    name = sa.Column(sa.Unicode(80), nullable=True)
-    title = sa.Column(sa.Unicode(80), nullable=True)
+    name: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
+    title: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
 
-    content = sa.Column(sa.Unicode(250))
+    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -126,7 +125,7 @@ class UnlimitedName(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     __name_length__ = __title_length__ = None
 
     @property
-    def title_for_name(self):
+    def title_for_name(self) -> str:
         """Return title for make_name."""
         return "Custom1: " + self.title
 
@@ -140,7 +139,7 @@ class UnlimitedScopedName(BaseScopedNameMixin, db.Model):  # type: ignore[name-d
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
-    def title_for_name(self):
+    def title_for_name(self) -> str:
         """Return title for make_name."""
         return "Custom2: " + self.title
 
@@ -150,7 +149,7 @@ class UnlimitedIdName(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
     __name_length__ = __title_length__ = None
 
     @property
-    def title_for_name(self):
+    def title_for_name(self) -> str:
         """Return title for make_name."""
         return "Custom3: " + self.title
 
@@ -164,7 +163,7 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, db.Model):  # type: ignore[na
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
     @property
-    def title_for_name(self):
+    def title_for_name(self) -> str:
         """Return title for make_name."""
         return "Custom4: " + self.title
 
@@ -185,7 +184,7 @@ class MyUrlModel(db.Model):  # type: ignore[name-defined]
     id = sa.Column(sa.Integer, primary_key=True)  # noqa: A003
     url = sa.Column(UrlType)  # type: ignore[var-annotated]
     url_all_scheme = sa.Column(UrlType(schemes=None))  # type: ignore[var-annotated]
-    url_custom_scheme = sa.Column(UrlType(schemes='ftp'))  # type: ignore[var-annotated]
+    url_custom_scheme = sa.Column(UrlType(schemes=['ftp']))  # type: ignore[var-annotated]
     url_optional_scheme = sa.Column(  # type: ignore[var-annotated]
         UrlType(optional_scheme=True)
     )
@@ -210,7 +209,7 @@ class UuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(postgresql.UUID, primary_key=True)  # noqa: A003
+    id = db.Column(sa.Uuid, primary_key=True)  # noqa: A003
 
 
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -290,31 +289,19 @@ auto_init_default(DefaultValue.value)
 # --- Tests ----------------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestCoasterModels(unittest.TestCase):
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-        db.create_all()
-        self.session = db.session
-
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
-    def make_container(self):
+class TestCoasterModels(AppTestCase):
+    def make_container(self) -> Container:
         c = Container()
         self.session.add(c)
         return c
 
-    def test_container(self):
+    def test_container(self) -> None:
         c = self.make_container()
         assert c.id is None
-        self.session.commit()
+        self.session.commit()  # type: ignore[unreachable]
         assert c.id == 1
 
-    def test_timestamp(self):
+    def test_timestamp(self) -> None:
         now1 = self.session.query(sa.func.utcnow()).scalar()
         # Start a new transaction so that NOW() returns a new value
         self.session.commit()
@@ -342,7 +329,7 @@ class TestCoasterModels(unittest.TestCase):
         assert c.updated_at > c.created_at
         assert c.updated_at > u
 
-    def test_unnamed(self):
+    def test_unnamed(self) -> None:
         c = self.make_container()
         d = UnnamedDocument(content="hello", container=c)
         self.session.add(d)
@@ -350,7 +337,7 @@ class TestCoasterModels(unittest.TestCase):
         assert c.id == 1
         assert d.id == 1
 
-    def test_named(self):
+    def test_named(self) -> None:
         """Named documents have globally unique names."""
         c1 = self.make_container()
         d1 = NamedDocument(title="Hello", content="World", container=c1)
@@ -397,7 +384,7 @@ class TestCoasterModels(unittest.TestCase):
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
     # since they replicate code without sharing it. Only BaseNameMixin
     # is tested here.
-    def test_named_blank_disallowed(self):
+    def test_named_blank_disallowed(self) -> None:
         c1 = self.make_container()
         d1 = NamedDocument(title="Index", name="", container=c1)
         # BaseNameMixin will always try to set a name. Explicitly blank it.
@@ -406,7 +393,7 @@ class TestCoasterModels(unittest.TestCase):
         with pytest.raises(IntegrityError):
             self.session.commit()
 
-    def test_named_blank_allowed(self):
+    def test_named_blank_allowed(self) -> None:
         c1 = self.make_container()
         d1 = NamedDocumentBlank(title="Index", name="", container=c1)
         # BaseNameMixin will always try to set a name. Explicitly blank it.
@@ -414,7 +401,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.add(d1)
         assert d1.name == ""
 
-    def test_scoped_named(self):
+    def test_scoped_named(self) -> None:
         """Scoped named documents have names unique to their containers."""
         c1 = self.make_container()
         self.session.commit()
@@ -477,7 +464,7 @@ class TestCoasterModels(unittest.TestCase):
             )
             self.session.commit()
 
-    def test_scoped_named_short_title(self):
+    def test_scoped_named_short_title(self) -> None:
         """Test the short_title method of BaseScopedNameMixin."""
         c1 = self.make_container()
         self.session.commit()
@@ -494,7 +481,7 @@ class TestCoasterModels(unittest.TestCase):
         d1.title = "Container - Contained"
         assert d1.short_title == "Contained"
 
-    def test_id_named(self):
+    def test_id_named(self) -> None:
         """Documents with a global id in the URL"""
         c1 = self.make_container()
         d1 = IdNamedDocument(title="Hello", content="World", container=c1)
@@ -513,7 +500,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         assert d3.url_name == '3-hello'
 
-    def test_scoped_id(self):
+    def test_scoped_id(self) -> None:
         """Documents with a container-specific id in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdDocument(content="Hello", container=c1)
@@ -541,7 +528,7 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         assert d4.url_id == 3
 
-    def test_scoped_id_named(self):
+    def test_scoped_id_named(self) -> None:
         """Documents with a container-specific id and name in the URL"""
         c1 = self.make_container()
         d1 = ScopedIdNamedDocument(title="Hello", content="World", container=c1)
@@ -579,7 +566,7 @@ class TestCoasterModels(unittest.TestCase):
         ).first()
         assert qd2 == d2
 
-    def test_scoped_id_without_parent(self):
+    def test_scoped_id_without_parent(self) -> None:
         d1 = ScopedIdDocument(content="Hello")
         self.session.add(d1)
         with pytest.raises(IntegrityError):
@@ -590,7 +577,7 @@ class TestCoasterModels(unittest.TestCase):
         with pytest.raises(IntegrityError):
             self.session.commit()
 
-    def test_scoped_named_without_parent(self):
+    def test_scoped_named_without_parent(self) -> None:
         d1 = ScopedNamedDocument(title="Hello", content="World")
         self.session.add(d1)
         with pytest.raises(IntegrityError):
@@ -601,7 +588,7 @@ class TestCoasterModels(unittest.TestCase):
         with pytest.raises(IntegrityError):
             self.session.commit()
 
-    def test_reserved_name(self):
+    def test_reserved_name(self) -> None:
         c = self.make_container()
         self.session.commit()
         d1 = NamedDocument(container=c, title="New")
@@ -625,7 +612,7 @@ class TestCoasterModels(unittest.TestCase):
         d2.make_name(reserved=['new2'])
         assert d2.name == 'new3'
 
-    def test_named_auto(self):
+    def test_named_auto(self) -> None:
         """
         The name attribute is auto-generated on database insertion
         """
@@ -640,7 +627,7 @@ class TestCoasterModels(unittest.TestCase):
         d4.title = "Auto name"
         self.session.add_all([d1, d2, d3, d4])
         assert d1.name is None
-        assert d2.name is None
+        assert d2.name is None  # type: ignore[unreachable]
         assert d3.name is None
         assert d4.name is None
         self.session.commit()
@@ -649,7 +636,7 @@ class TestCoasterModels(unittest.TestCase):
         assert d3.name == 'auto-name'
         assert d4.name == 'auto-name'
 
-    def test_scoped_id_auto(self):
+    def test_scoped_id_auto(self) -> None:
         """
         The url_id attribute is auto-generated on database insertion
         """
@@ -661,12 +648,12 @@ class TestCoasterModels(unittest.TestCase):
         d2.title = "Auto name"
         self.session.add_all([d1, d2])
         assert d1.url_id is None
-        assert d2.url_id is None
+        assert d2.url_id is None  # type: ignore[unreachable]
         self.session.commit()
         assert d1.url_id == 1
         assert d2.url_id == 1
 
-    def test_title_for_name(self):
+    def test_title_for_name(self) -> None:
         """Models can customise how their names are generated"""
         c1 = self.make_container()
         self.session.flush()  # Container needs an id for scoped names to be validated
@@ -693,7 +680,7 @@ class TestCoasterModels(unittest.TestCase):
         assert d4.title_for_name == "Custom4: Document 4"
         assert d4.name == 'custom4-document-4'
 
-    def test_has_timestamps(self):
+    def test_has_timestamps(self) -> None:
         # Confirm that a model with multiple base classes between it and
         # TimestampMixin still has created_at and updated_at
         c = self.make_container()
@@ -711,24 +698,33 @@ class TestCoasterModels(unittest.TestCase):
         self.session.commit()
         assert d.updated_at > updated_at
 
-    def test_url_for_fail(self):
+    def test_url_for_fail(self) -> None:
         d = UnnamedDocument(content="hello")
         with pytest.raises(BuildError):
             d.url_for()
 
-    def test_jsondict(self):
+    def test_jsondict(self) -> None:
         m1 = MyData(data={'value': 'foo'})
         self.session.add(m1)
         self.session.commit()
+        assert m1.data is not None
+        assert m1.data == {'value': 'foo'}
         # Test for __setitem__
         m1.data['value'] = 'bar'
         assert m1.data['value'] == 'bar'
+        db.session.commit()
+        assert m1.data['value'] == 'bar'
         del m1.data['value']
         assert m1.data == {}
-        with pytest.raises(ValueError):
+        db.session.commit()
+        assert m1.data == {}
+        with pytest.raises(ValueError, match="Value is not dict-like"):
             MyData(data='NonDict')
+        m1.data = None
+        self.session.commit()
+        assert m1.data is None
 
-    def test_urltype(self):
+    def test_urltype(self) -> None:
         m1 = MyUrlModel(
             url="https://example.com",
             url_all_scheme="magnet://example.com",
@@ -740,25 +736,25 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_all_scheme) == "magnet://example.com"
         assert str(m1.url_custom_scheme) == "ftp://example.com"
 
-    def test_urltype_invalid(self):
+    def test_urltype_invalid(self) -> None:
         with pytest.raises(StatementError):
             m1 = MyUrlModel(url="example.com")
             self.session.add(m1)
             self.session.commit()
 
-    def test_urltype_invalid_without_scheme(self):
+    def test_urltype_invalid_without_scheme(self) -> None:
         with pytest.raises(StatementError):
             m2 = MyUrlModel(url="//example.com")
             self.session.add(m2)
             self.session.commit()
 
-    def test_urltype_invalid_without_host(self):
+    def test_urltype_invalid_without_host(self) -> None:
         with pytest.raises(StatementError):
             m2 = MyUrlModel(url="https:///test")
             self.session.add(m2)
             self.session.commit()
 
-    def test_urltype_empty(self):
+    def test_urltype_empty(self) -> None:
         m1 = MyUrlModel(url="", url_all_scheme="", url_custom_scheme="")
         self.session.add(m1)
         self.session.commit()
@@ -766,19 +762,19 @@ class TestCoasterModels(unittest.TestCase):
         assert str(m1.url_all_scheme) == ""
         assert str(m1.url_custom_scheme) == ""
 
-    def test_urltype_invalid_scheme_default(self):
+    def test_urltype_invalid_scheme_default(self) -> None:
         with pytest.raises(StatementError):
             m1 = MyUrlModel(url="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
-    def test_urltype_invalid_scheme_custom(self):
+    def test_urltype_invalid_scheme_custom(self) -> None:
         with pytest.raises(StatementError):
             m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
             self.session.add(m1)
             self.session.commit()
 
-    def test_urltype_optional_scheme(self):
+    def test_urltype_optional_scheme(self) -> None:
         m1 = MyUrlModel(url_optional_scheme="//example.com/test")
         self.session.add(m1)
         self.session.commit()
@@ -788,7 +784,7 @@ class TestCoasterModels(unittest.TestCase):
             self.session.add(m2)
             self.session.commit()
 
-    def test_urltype_optional_host(self):
+    def test_urltype_optional_host(self) -> None:
         m1 = MyUrlModel(url_optional_host="file:///test/path")
         self.session.add(m1)
         self.session.commit()
@@ -798,12 +794,12 @@ class TestCoasterModels(unittest.TestCase):
             self.session.add(m2)
             self.session.commit()
 
-    def test_urltype_optional_scheme_host(self):
+    def test_urltype_optional_scheme_host(self) -> None:
         m1 = MyUrlModel(url_optional_scheme_host='/test/path')
         self.session.add(m1)
         self.session.commit()
 
-    def test_query(self):
+    def test_query(self) -> None:
         c1 = Container(name='c1')
         self.session.add(c1)
         c2 = Container(name='c2')
@@ -815,7 +811,7 @@ class TestCoasterModels(unittest.TestCase):
         with pytest.raises(MultipleResultsFound):
             Container.query.one_or_none()
 
-    def test_failsafe_add(self):
+    def test_failsafe_add(self) -> None:
         """
         failsafe_add gracefully handles IntegrityError from dupe entries
         """
@@ -828,7 +824,7 @@ class TestCoasterModels(unittest.TestCase):
         assert d2a is not d2  # This time we got back d1 instead of d2
         assert d2a is d1
 
-    def test_failsafe_add_existing(self):
+    def test_failsafe_add_existing(self) -> None:
         """
         failsafe_add doesn't fail if the item is already in the session
         """
@@ -842,7 +838,7 @@ class TestCoasterModels(unittest.TestCase):
         assert d2a is not d2  # This time we got back d1 instead of d2
         assert d2a is d1
 
-    def test_failsafe_add_fail(self):
+    def test_failsafe_add_fail(self) -> None:
         """
         failsafe_add passes through errors occuring from bad data
         """
@@ -850,7 +846,7 @@ class TestCoasterModels(unittest.TestCase):
         with pytest.raises(IntegrityError):
             failsafe_add(self.session, d1, name='missing_title')
 
-    def test_failsafe_add_silent_fail(self):
+    def test_failsafe_add_silent_fail(self) -> None:
         """
         failsafe_add does not raise IntegrityError with bad data
         when no filters are provided
@@ -858,7 +854,7 @@ class TestCoasterModels(unittest.TestCase):
         d1 = NamedDocument(name='missing_title')
         assert failsafe_add(self.session, d1) is None
 
-    def test_uuid_key(self):
+    def test_uuid_key(self) -> None:
         """
         Models with a UUID primary key work as expected
         """
@@ -884,7 +880,7 @@ class TestCoasterModels(unittest.TestCase):
         assert fk1.uuidkey_id == u1.id
         assert fk2.uuidkey_id == u2.id
 
-    def test_uuid_url_id(self):
+    def test_uuid_url_id(self) -> None:
         """
         IdMixin provides a url_id that renders as a string of either the
         integer primary key or the UUID primary key. In addition, UuidMixin
@@ -1039,12 +1035,10 @@ class TestCoasterModels(unittest.TestCase):
         )
 
         # Query returns False (or True) if given an invalid value
-        assert bool(UuidKey.url_id == 'garbage!') is False
-        assert bool(UuidKey.url_id != 'garbage!') is True
-        assert bool(NonUuidMixinKey.url_id == 'garbage!') is False
-        assert bool(NonUuidMixinKey.url_id != 'garbage!') is True
-        assert bool(UuidMixinKey.url_id == 'garbage!') is False
-        assert bool(UuidMixinKey.url_id != 'garbage!') is True
+        assert (UuidKey.url_id == 'garbage!') == sa.sql.expression.false()
+        assert (UuidKey.url_id != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.url_id == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.url_id != 'garbage!') == sa.sql.expression.true()
 
         # Repeat against UuidMixin classes (with only hex keys for brevity)
         assert (
@@ -1077,7 +1071,7 @@ class TestCoasterModels(unittest.TestCase):
         qu4 = UuidMixinKey.query.filter_by(url_id=u4.url_id).first()
         assert u4 == qu4
 
-    def test_uuid_buid_uuid_b58(self):
+    def test_uuid_buid_uuid_b58(self) -> None:
         """
         UuidMixin provides uuid_b64 (also as buid) and uuid_b58
         """
@@ -1183,16 +1177,16 @@ class TestCoasterModels(unittest.TestCase):
         )
 
         # Query returns False (or True) if given an invalid value
-        assert bool(NonUuidMixinKey.buid == 'garbage!') is False
-        assert bool(NonUuidMixinKey.buid != 'garbage!') is True
-        assert bool(NonUuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(NonUuidMixinKey.uuid_b58 != 'garbage!') is True
-        assert bool(UuidMixinKey.buid == 'garbage!') is False
-        assert bool(UuidMixinKey.buid != 'garbage!') is True
-        assert bool(UuidMixinKey.uuid_b58 == 'garbage!') is False
-        assert bool(UuidMixinKey.uuid_b58 != 'garbage!') is True
+        assert (NonUuidMixinKey.buid == 'garbage!') == sa.sql.expression.false()
+        assert (NonUuidMixinKey.buid != 'garbage!') == sa.sql.expression.true()
+        assert (NonUuidMixinKey.uuid_b58 == 'garbage!') == sa.sql.expression.false()
+        assert (NonUuidMixinKey.uuid_b58 != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.buid == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.buid != 'garbage!') == sa.sql.expression.true()
+        assert (UuidMixinKey.uuid_b58 == 'garbage!') == sa.sql.expression.false()
+        assert (UuidMixinKey.uuid_b58 != 'garbage!') == sa.sql.expression.true()
 
-    def test_uuid_url_id_name(self):
+    def test_uuid_url_id_name(self) -> None:
         """
         BaseIdNameMixin models with UUID primary or secondary keys should
         generate properly formatted url_id, url_id_name and url_name_uuid_b58.
@@ -1250,7 +1244,7 @@ class TestCoasterModels(unittest.TestCase):
         ).first()
         assert q58u3 == u3
 
-    def test_uuid_default(self):
+    def test_uuid_default(self) -> None:
         """
         Models with a UUID primary or secondary key have a default value before
         adding to session
@@ -1264,7 +1258,7 @@ class TestCoasterModels(unittest.TestCase):
         u1 = uuid_no.id
         assert u1 is None
         # However, UUID keys are generated even before adding to session
-        u2 = uuid_yes.id
+        u2 = uuid_yes.id  # type: ignore[unreachable]
         assert isinstance(u2, UUID)
         # Once generated, the key remains stable
         u3 = uuid_yes.id
@@ -1281,7 +1275,7 @@ class TestCoasterModels(unittest.TestCase):
         assert isinstance(um2, UUID)
         assert uuidm_yes.id == uuidm_yes.uuid
 
-    def test_parent_child_primary(self):
+    def test_parent_child_primary(self) -> None:
         """
         Test parents with multiple children and a primary child
         """
@@ -1320,6 +1314,9 @@ class TestCoasterModels(unittest.TestCase):
         qparent1 = ParentForPrimary.query.get(parent1.id)
         qparent2 = ParentForPrimary.query.get(parent2.id)
 
+        assert qparent1 is not None
+        assert qparent2 is not None
+
         assert qparent1.primary_child == child1a
         assert qparent2.primary_child == child2a
 
@@ -1354,7 +1351,7 @@ class TestCoasterModels(unittest.TestCase):
         )
         assert ParentForPrimary.query.count() == 2
 
-    def test_auto_init_default(self):
+    def test_auto_init_default(self) -> None:
         """
         Calling ``auto_init_default`` on a column makes it load defaults automatically
         """
@@ -1386,7 +1383,7 @@ class TestCoasterModels(unittest.TestCase):
             elif d.id in (d3.id, d4.id):
                 assert d.value == 'changed'
 
-    def test_parent_child_primary_sql_validator(self):
+    def test_parent_child_primary_sql_validator(self) -> None:
         parent1 = ParentForPrimary()
         parent2 = ParentForPrimary()
         child1a = ChildForPrimary(parent=parent1)
@@ -1419,7 +1416,7 @@ class TestCoasterModels(unittest.TestCase):
                 .values({'child_for_primary_id': child2a.id})
             )
 
-    def test_timestamp_naive_is_naive(self):
+    def test_timestamp_naive_is_naive(self) -> None:
         row = TimestampNaive()
         self.session.add(row)
         self.session.commit()
@@ -1429,7 +1426,7 @@ class TestCoasterModels(unittest.TestCase):
         assert row.updated_at is not None
         assert row.updated_at.tzinfo is None
 
-    def test_timestamp_aware_is_aware(self):
+    def test_timestamp_aware_is_aware(self) -> None:
         row = TimestampAware()
         self.session.add(row)
         self.session.commit()

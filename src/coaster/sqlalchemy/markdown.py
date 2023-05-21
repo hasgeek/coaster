@@ -6,7 +6,7 @@ import typing as t
 
 from markupsafe import Markup
 from sqlalchemy.ext.mutable import MutableComposite
-from sqlalchemy.orm import CompositeProperty, composite
+from sqlalchemy.orm import Composite, composite
 import sqlalchemy as sa
 
 from ..utils import markdown as markdown_processor
@@ -28,46 +28,52 @@ class MarkdownComposite(MutableComposite):
         t.Callable[[], t.Dict[str, t.Any]],
     ] = {}
 
-    def __init__(self, text, html=None):
+    def __init__(self, text: t.Optional[str], html: t.Optional[str] = None) -> None:
         """Create a composite."""
         if html is None:
             self.text = text  # This will regenerate HTML
         else:
             self._text = text
-            self._html = html
+            self._html: t.Optional[str] = html
 
     # Return column values for SQLAlchemy to insert into the database
-    def __composite_values__(self):
+    def __composite_values__(
+        self,
+    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
         """Return composite values."""
         return (self._text, self._html)
 
     # Return a string representation of the text (see class decorator)
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation."""
         return self.text or ''
 
     # Return a HTML representation of the text
-    def __html__(self):
+    def __html__(self) -> str:
         """Return HTML representation."""
         return self._html or ''
 
     # Return a Markup string of the HTML
     @property
-    def html(self):
+    def html(self) -> t.Optional[Markup]:
         """Return HTML as a property."""
         return Markup(self._html) if self._html is not None else None
 
     @property
-    def text(self):
+    def text(self) -> t.Optional[str]:
         """Return text as a property."""
         return self._text
 
     @text.setter
-    def text(self, value):
+    def text(self, value: t.Optional[str]) -> None:
         """Set the text value."""
         self._text = None if value is None else str(value)
+        # Mypy and Pylance appear to be incorrectly typing self.markdown as taking
+        # a parameter text=Literal[None] based on the first overload in the original
+        # function declaration
         self._html = self.markdown(
-            self._text, **(self.options() if callable(self.options) else self.options)
+            self._text,  # type: ignore[arg-type]
+            **(self.options() if callable(self.options) else self.options),
         )
         self.changed()
 
@@ -76,13 +82,13 @@ class MarkdownComposite(MutableComposite):
         return {'text': self._text, 'html': self._html}
 
     # Compare text value
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         """Compare for equality."""
         return isinstance(other, MarkdownComposite) and (
             self.__composite_values__() == other.__composite_values__()
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: t.Any) -> bool:
         """Compare for inequality."""
         return not self.__eq__(other)
 
@@ -90,23 +96,27 @@ class MarkdownComposite(MutableComposite):
     # tested here as we don't use them.
     # https://docs.sqlalchemy.org/en/13/orm/extensions/mutable.html#id1
 
-    def __getstate__(self):  # pragma: no cover
+    def __getstate__(  # pragma: no cover
+        self,
+    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
         """Get state for pickling."""
         # Return state for pickling
         return (self._text, self._html)
 
-    def __setstate__(self, state):  # pragma: no cover
+    def __setstate__(  # pragma: no cover
+        self, state: t.Tuple[t.Optional[str], t.Optional[str]]
+    ) -> None:
         """Set state from pickle."""
         # Set state from pickle
         self._text, self._html = state
         self.changed()
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return boolean value."""
         return bool(self._text)
 
     @classmethod
-    def coerce(cls, key, value):
+    def coerce(cls, key: str, value: t.Any) -> MarkdownComposite:
         """Allow a composite column to be assigned a string value."""
         return cls(value)
 
@@ -118,7 +128,7 @@ def markdown_column(
     markdown: t.Optional[t.Callable] = None,
     options: t.Optional[dict] = None,
     **kwargs,
-) -> CompositeProperty:
+) -> Composite[MarkdownComposite]:
     """
     Create a composite column that autogenerates HTML from Markdown text.
 

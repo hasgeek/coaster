@@ -32,6 +32,9 @@ Sample usage::
 Annotations are saved to the model's class as a ``__column_annotations__``
 dictionary, mapping annotation names to a list of attribute names, and to a
 reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotations.
+
+.. deprecated:: 0.7.0
+    This module is due to be replaced with typing.Annotated
 """
 
 from __future__ import annotations
@@ -70,7 +73,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @sa.event.listens_for(Mapper, 'mapper_configured')
-def _configure_annotations(mapper_, cls):
+def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
     """
     Extract annotations from attributes.
 
@@ -78,8 +81,8 @@ def _configure_annotations(mapper_, cls):
     :func:`annotation_wrapper` and add them to :attr:`cls.__column_annotations__`
     and :attr:`cls.__column_annotations_by_attr__`
     """
-    annotations = {}
-    annotations_by_attr = {}
+    annotations: t.Dict[str, t.List[str]] = {}  # Annotation name: list of attrs
+    annotations_by_attr: t.Dict[str, t.List[str]] = {}  # Attr name: annotations
 
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
@@ -109,7 +112,8 @@ def _configure_annotations(mapper_, cls):
                 elif '_coaster_annotations' in attr.info:
                     data = attr.info['_coaster_annotations']
                 elif hasattr(attr.property, '_coaster_annotations'):
-                    data = getattr(attr.property, '_coaster_annotations')
+                    # pylint: disable=protected-access
+                    data = attr.property._coaster_annotations
                 else:
                     data = None
             else:
@@ -132,10 +136,15 @@ def _configure_annotations(mapper_, cls):
 # --- Helpers --------------------------------------------------------------------------
 
 
-def annotation_wrapper(annotation, doc=None):
+_A = t.TypeVar('_A', bound=t.Any)
+
+
+def annotation_wrapper(
+    annotation: str, doc: t.Optional[str] = None
+) -> t.Callable[[_A], _A]:
     """Define an annotation, which can be applied to attributes in a database model."""
 
-    def decorator(attr):
+    def decorator(attr: _A) -> _A:
         __cache__.setdefault(attr, []).append(annotation)
         # Also mark the annotation on the object itself. This will
         # fail if the object has a restrictive __slots__, but it's
@@ -150,13 +159,14 @@ def annotation_wrapper(annotation, doc=None):
             attr.info.setdefault('_coaster_annotations', []).append(annotation)
         else:
             try:
+                # pylint: disable=protected-access
                 if not hasattr(attr, '_coaster_annotations'):
-                    setattr(attr, '_coaster_annotations', [])
+                    attr._coaster_annotations = []
                 attr._coaster_annotations.append(annotation)
             except AttributeError:
                 pass
         return attr
 
-    decorator.__name__ = decorator.name = annotation
+    decorator.__name__ = annotation
     decorator.__doc__ = doc
     return decorator

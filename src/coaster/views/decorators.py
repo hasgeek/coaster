@@ -15,7 +15,6 @@ import typing as t
 from flask import (
     Response,
     abort,
-    current_app,
     g,
     jsonify,
     make_response,
@@ -24,15 +23,16 @@ from flask import (
     request,
     url_for,
 )
-from werkzeug.datastructures import Headers
+from flask.typing import ResponseReturnValue
+from werkzeug.datastructures import Headers, MIMEAccept
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
-from ..utils import is_collection
-from .misc import ensure_sync, jsonp
+from ..utils import InspectableSet, is_collection
+from .misc import ensure_sync
 
 __all__ = [
     'RequestTypeError',
@@ -47,6 +47,18 @@ __all__ = [
     'cors',
     'requires_permission',
 ]
+
+ReturnRenderWithResponse = t.Union[WerkzeugResponse, t.Mapping[str, t.Any]]
+ReturnRenderWithHeaders = t.Union[t.List[t.Tuple[str, str]], t.Dict[str, str], Headers]
+ReturnRenderWith = t.Union[
+    ReturnRenderWithResponse,
+    t.Tuple[ReturnRenderWithResponse],
+    t.Tuple[ReturnRenderWithResponse, ReturnRenderWithHeaders],
+    t.Tuple[ReturnRenderWithResponse, int],
+    t.Tuple[ReturnRenderWithResponse, int, ReturnRenderWithHeaders],
+]
+_VP = te.ParamSpec('_VP')  # View parameters as accepted by the decorated view
+_VR = t.TypeVar('_VR', bound=t.Any)  # View return value
 
 
 class RequestTypeError(BadRequest, TypeError):
@@ -65,7 +77,7 @@ def requestargs(
         te.Literal['query'],
         te.Literal['body'],
     ] = 'values',
-):
+) -> tc.ReturnDecorator:
     """
     Decorate a function to load parameters from the request if not supplied directly.
 
@@ -155,35 +167,35 @@ def requestargs(
             raise TypeError("Unknown data source")
 
         @wraps(f)
-        def wrapper(*args, **kw) -> t.Any:
+        def wrapper(*args, **kwargs) -> t.Any:
             """Wrap a view to insert keyword arguments."""
             values, has_gettype = datasource()
             for name, filt, is_list in namefilt:
                 # Process name if
                 # (a) it's not in the function's parameters, and
                 # (b) is in the form/query
-                if name not in kw and name in values:
+                if name not in kwargs and name in values:
                     try:
                         if is_list:
                             if has_gettype:
-                                kw[name] = values.getlist(name, type=filt)
+                                kwargs[name] = values.getlist(name, type=filt)
                             else:
                                 if filt:
-                                    kw[name] = [filt(_v) for _v in values[name]]
+                                    kwargs[name] = [filt(_v) for _v in values[name]]
                                 else:
-                                    kw[name] = values[name]
+                                    kwargs[name] = values[name]
                         else:
                             if has_gettype:
-                                kw[name] = values.get(name, type=filt)
+                                kwargs[name] = values.get(name, type=filt)
                             else:
                                 if filt:
-                                    kw[name] = filt(values[name])
+                                    kwargs[name] = filt(values[name])
                                 else:
-                                    kw[name] = values[name]
+                                    kwargs[name] = values[name]
                     except ValueError as e:
                         raise RequestValueError(str(e)) from e
             try:
-                return ensure_sync(f)(*args, **kw)
+                return ensure_sync(f)(*args, **kwargs)
             except TypeError as e:
                 raise RequestTypeError(str(e)) from e
 
@@ -192,30 +204,40 @@ def requestargs(
     return decorator
 
 
-def requestquery(*args) -> tc.ReturnDecorator:
+def requestquery(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
 
 
-def requestform(*args) -> tc.ReturnDecorator:
+def requestform(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
-def requestbody(*args) -> tc.ReturnDecorator:
+def requestbody(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
 
 def load_model(  # pylint: disable=too-many-arguments
-    model,
-    attributes=None,
-    parameter=None,
-    kwargs=False,
-    permission=None,
-    addlperms=None,
-    urlcheck=(),
-):
+    model: t.Type,
+    attributes: t.Dict[str, str],
+    parameter: str,
+    kwargs: bool = False,
+    permission: t.Optional[t.Union[str, t.Set[str]]] = None,
+    addlperms: t.Optional[
+        t.Union[t.Iterable[str], t.Callable[[], t.Iterable[str]]]
+    ] = None,
+    urlcheck: t.Collection[str] = (),
+) -> t.Callable[
+    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
+]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -280,7 +302,11 @@ def load_model(  # pylint: disable=too-many-arguments
     )
 
 
-def load_models(*chain, **kwargs):
+def load_models(
+    *chain, permission: t.Optional[t.Union[str, t.Set[str]]] = None, **config
+) -> t.Callable[
+    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
+]:
     """
     Decorator to load a chain of models from the given parameters. This works just like
     :func:`load_model` and accepts the same parameters, with some small differences.
@@ -312,17 +338,23 @@ def load_models(*chain, **kwargs):
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def inner(f):
+    def decorator(
+        f: t.Callable[..., _VR]
+    ) -> t.Callable[..., t.Union[_VR, WerkzeugResponse]]:
         @wraps(f)
-        def decorated_function(*args, **kw):
-            permissions = None
-            permission_required = kwargs.get('permission')
-            url_check_attributes = kwargs.get('urlcheck', [])
-            if isinstance(permission_required, str):
-                permission_required = {permission_required}
-            elif permission_required is not None:
-                permission_required = set(permission_required)
-            result = {}
+        def wrapper(*args, **kwargs) -> t.Union[_VR, WerkzeugResponse]:
+            view_args: t.Optional[t.Dict[str, t.Any]]
+            request_endpoint: str = request.endpoint  # type: ignore[assignment]
+            permissions: t.Optional[t.Set[str]] = None
+            permission_required = (
+                {permission}
+                if isinstance(permission, str)
+                else set(permission)
+                if permission is not None
+                else None
+            )
+            url_check_attributes = config.get('urlcheck', [])
+            result: t.Dict[str, t.Any] = {}
             for models, attributes, parameter in chain:
                 if not isinstance(models, (list, tuple)):
                     models = (models,)
@@ -333,7 +365,7 @@ def load_models(*chain, **kwargs):
                     url_check_paramvalues = {}
                     for k, v in attributes.items():
                         if callable(v):
-                            query = query.filter_by(**{k: v(result, kw)})
+                            query = query.filter_by(**{k: v(result, kwargs)})
                         else:
                             if '.' in v:
                                 first, attrs = v.split('.', 1)
@@ -341,7 +373,7 @@ def load_models(*chain, **kwargs):
                                 for attr in attrs.split('.'):
                                     val = getattr(val, attr)
                             else:
-                                val = result.get(v, kw.get(v))
+                                val = result.get(v, kwargs.get(v))
                             query = query.filter_by(**{k: val})
                         if k in url_check_attributes:
                             url_check = True
@@ -357,7 +389,7 @@ def load_models(*chain, **kwargs):
                     # This item is a redirect object. Redirect to destination
                     view_args = dict(request.view_args)
                     view_args.update(item.redirect_view_args())
-                    location = url_for(request.endpoint, **view_args)
+                    location = url_for(request_endpoint, **view_args)
                     if request.query_string:
                         location = location + '?' + request.query_string.decode()
                     return redirect(location, code=307)
@@ -366,14 +398,16 @@ def load_models(*chain, **kwargs):
                     permissions = item.permissions(
                         current_auth.actor, inherited=permissions
                     )
-                    addlperms = kwargs.get('addlperms') or []
+                    if permissions is None:
+                        permissions = set()
+                    addlperms = config.get('addlperms') or []
                     if callable(addlperms):
                         addlperms = addlperms() or []
                     permissions.update(addlperms)
                 if g:  # XXX: Deprecated
                     g.permissions = permissions
                 if request:
-                    add_auth_attribute('permissions', permissions)
+                    add_auth_attribute('permissions', InspectableSet(permissions))
                 if (
                     url_check and request.method == 'GET'
                 ):  # Only do urlcheck redirects on GET requests
@@ -387,7 +421,10 @@ def load_models(*chain, **kwargs):
                                 view_args = dict(request.view_args)
                             view_args[uparam] = getattr(item, k)
                     if url_redirect:
-                        location = url_for(request.endpoint, **view_args)
+                        if view_args is None:
+                            location = url_for(request_endpoint)
+                        else:
+                            location = url_for(request_endpoint, **view_args)
                         if request.query_string:
                             location = location + '?' + request.query_string.decode()
                         return redirect(location, code=302)
@@ -395,52 +432,45 @@ def load_models(*chain, **kwargs):
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
                 result[parameter] = item
-            if permission_required and not permission_required & permissions:
+            if permission_required and (
+                permissions is None or not permission_required & permissions
+            ):
                 abort(403)
-            if kwargs.get('kwargs'):
-                return ensure_sync(f)(*args, kwargs=kw, **result)
+            if config.get('kwargs'):
+                return ensure_sync(f)(*args, kwargs=kwargs, **result)
             return ensure_sync(f)(*args, **result)
 
-        return decorated_function
+        return wrapper
 
-    return inner
+    return decorator
 
 
-def _best_mimetype_match(available_list, accept_mimetypes, default=None):
-    for use_mimetype, _quality in accept_mimetypes:
-        for mimetype in available_list:
-            if use_mimetype.lower() == mimetype.lower():
-                return use_mimetype.lower()
+def _best_mimetype_match(
+    available_list: t.List[str], accept_mimetypes: MIMEAccept, default: str
+) -> str:
+    for acceptable_mimetype, _quality in accept_mimetypes:
+        acceptable_mimetype = acceptable_mimetype.lower()
+        for available_mimetype in available_list:
+            if acceptable_mimetype == available_mimetype.lower():
+                return available_mimetype
     return default
 
 
-def dict_jsonify(param):
+def render_with(
+    template: t.Union[
+        t.Dict[str, t.Union[str, t.Callable[..., ResponseReturnValue]]], str, None
+    ] = None,
+    json: bool = False,
+) -> t.Callable[[t.Callable[..., ReturnRenderWith]], t.Callable[..., WerkzeugResponse]]:
     """
-    Convert the parameter into a dictionary before calling jsonify, if it's not already
-    one
-    """
-    if not isinstance(param, dict):
-        param = dict(param)
-    return jsonify(param)
+    Render the view's dict output with a MIMEtype-specific renderer.
 
-
-def dict_jsonp(param):
-    """
-    Convert the parameter into a dictionary before calling jsonp, if it's not already
-    one
-    """
-    if not isinstance(param, dict):
-        param = dict(param)
-    return jsonp(param)
-
-
-def render_with(template=None, json=False, jsonp=False):  # pylint: disable=W0621
-    """
-    Decorator to render the wrapped function with the given template (or dictionary
-    of mimetype keys to templates, where the template is a string name of a template
-    file or a callable that returns a Response). The function's return value must be
-    a dictionary and is passed to the template as parameters. Callable templates get
-    a single parameter with the function's return value. Usage::
+    Accepts a single Jinja2 template, or a dictionary of mimetypes and their templates
+    or callables. If a template filename is provided, the view's return type must be a
+    dictionary and is passed to ``render_template`` as context. If a callable is
+    provided, the view's result is passed in as a single parameter. The view may return
+    a status code or headers as in Flask views. These are not passed to the callable
+    and will be applied to the response from the callable. Usage::
 
         @app.route('/myview')
         @render_with('myview.html')
@@ -467,154 +497,143 @@ def render_with(template=None, json=False, jsonp=False):  # pylint: disable=W062
         @app.route('/headerview')
         @render_with('myview.html')
         def myview():
-            return {'data': 'value'}, 200, {'X-Header': 'Header value'}
+            return {'data': 'value'}, {'X-Header': 'Header value'}
 
     When a mimetype is specified and the template is not a callable, the response is
-    returned with the same mimetype. Callable templates must return Response objects
-    to ensure the correct mimetype is set.
+    returned with the same mimetype. Callable must return Response objects with the
+    correct mimetype.
 
     If a dictionary of templates is provided and does not include a handler for ``*/*``,
     render_with will attempt to use the handler for (in order) ``text/html``,
-    ``text/plain`` and the various JSON types, falling back to rendering the value into
-    a unicode string.
+    ``text/plain`` and ``application/json``, falling back to rendering the value as a
+    string.
 
-    If the method is called outside a request context, the wrapped method's original
-    return value is returned. This is meant to facilitate testing and should not be
-    used to call the method from within another view handler as the presence of a
-    request context will trigger template rendering.
+    If the decorated view is called outside a request context, the return value will
+    not be rendered. Rendering may also be skipped within a request context by passing
+    a keyword argument ``_render=False``.
 
-    Rendering may also be suspended by calling the view handler with ``_render=False``.
+    :param template: Single template, or dictionary of MIME type to templates/callables
+    :param json: Respond to ``application/json`` with a JSON response (default False)
 
-    render_with provides JSON and JSONP handlers for the ``application/json``,
-    ``text/json`` and ``text/x-json`` mimetypes if ``json`` or ``jsonp`` is True
-    (default is False).
-
-    :param template: Single template, or dictionary of MIME type to templates. If the
-        template is a callable, it is called with the output of the wrapped function
-    :param json: Helper to add a JSON handler (default is False)
-    :param jsonp: Helper to add a JSONP handler (if True, also provides JSON, default
-        is False)
+    .. deprecated:: 0.7.0
+        render_with no longer has a shorthand for JSONP. If still required, specify a
+        template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
-    if jsonp:
-        templates = {
-            'application/json': dict_jsonp,
-            'application/javascript': dict_jsonp,
-        }
-    elif json:
-        templates = {'application/json': dict_jsonify}
+    templates: t.Dict[str, t.Union[str, t.Callable[..., ResponseReturnValue]]]
+    default_mimetype: t.Optional[str] = None
+    if json:
+        templates = {'application/json': jsonify}
     else:
         templates = {}
     if isinstance(template, str):
-        templates['text/html'] = template
+        templates['*/*'] = template
     elif isinstance(template, dict):
         templates.update(template)
-    elif template is None and (json or jsonp):
+    elif template is None and json:
         pass
     else:  # pragma: no cover
         raise ValueError("Expected string or dict for template")
 
-    default_mimetype = '*/*'
     if '*/*' not in templates:
         templates['*/*'] = str
         default_mimetype = 'text/plain'
-        for mimetype in ('text/html', 'text/plain', 'application/json'):
-            if mimetype in templates:
-                templates['*/*'] = templates[mimetype]
-                default_mimetype = (
-                    mimetype  # Remember which mimetype's handler is serving for */*
-                )
+        for candidate_default in ('text/html', 'text/plain', 'application/json'):
+            if candidate_default in templates:
+                templates['*/*'] = templates[candidate_default]
+                # Remember which mimetype's handler is serving for */*
+                default_mimetype = candidate_default
                 break
 
     template_mimetypes = list(templates.keys())
-    template_mimetypes.remove(
-        '*/*'
-    )  # */* messes up matching, so supply it only as last resort
+    # */* messes up matching, so supply it only as last resort
+    template_mimetypes.remove('*/*')
 
-    def inner(f):
+    def decorator(
+        f: t.Callable[..., ReturnRenderWith]
+    ) -> t.Callable[..., WerkzeugResponse]:
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> WerkzeugResponse:
             # Check if we need to bypass rendering
             render = kwargs.pop('_render', True)
 
             # Get the result
             result = ensure_sync(f)(*args, **kwargs)
 
+            if not render or not request:
+                # Return value is not a WerkzeugResponse here
+                return result  # type: ignore[return-value]
+
             # Is the result a Response object? Don't attempt rendering
-            if isinstance(
-                result, (Response, WerkzeugResponse, current_app.response_class)
-            ):
+            if isinstance(result, WerkzeugResponse):
                 return result
+
+            headers: t.Optional[ReturnRenderWithHeaders]
 
             # Did the result include status code and headers?
             if isinstance(result, tuple):
                 resultset = result
                 result = resultset[0]
-                if len(resultset) > 1:
-                    status_code = resultset[1]
-                else:
+                len_resultset = len(resultset)
+                if len_resultset == 1:
                     status_code = None
-                if len(resultset) > 2:
-                    headers = Headers(resultset[2])
+                    headers = None
+                elif len_resultset == 2:
+                    status_or_headers = resultset[1]  # type: ignore[misc]
+                    if isinstance(status_or_headers, (Headers, dict, tuple, list)):
+                        status_code = None
+                        headers = Headers(status_or_headers)
+                    else:
+                        status_code = status_or_headers
+                        headers = None
+                elif len(resultset) == 3:
+                    status_code = resultset[1]  # type: ignore[misc]
+                    headers = resultset[2]  # type: ignore[misc]
                 else:
-                    headers = Headers()
+                    raise TypeError("View's response is an oversized tuple")
             else:
                 status_code = None
-                headers = Headers()
+                headers = None
 
-            if len(templates) > 1:  # If we have more than one template handler
-                if 'Vary' in headers:
-                    vary_values = [item.strip() for item in headers['Vary'].split(',')]
-                    if 'Accept' not in vary_values:
-                        vary_values.append('Accept')
-                    headers['Vary'] = ', '.join(vary_values)
-                else:
-                    headers['Vary'] = 'Accept'
+            # Set Vary: Accept if there is more than one way to render the result
+            vary_accept = len(templates) > 1
 
             # Find a matching mimetype between Accept headers and available templates
-            use_mimetype = None
-            if render and request:
-                # We do not use request.accept_mimetypes.best_match because it turns out
-                # to be buggy: it returns the least match instead of the best match.
-                # Previously:
-                # use_mimetype = request.accept_mimetypes.best_match(template_mimetypes,
-                #     '*/*')
-                use_mimetype = _best_mimetype_match(
-                    template_mimetypes, request.accept_mimetypes, '*/*'
-                )
+            # We do not use request.accept_mimetypes.best_match because it turns out
+            # to be buggy: it returns the least match instead of the best match.
+            # This does not appear to be fixed as of Werkzeug 2.3
+            accept_mimetype = _best_mimetype_match(
+                template_mimetypes, request.accept_mimetypes, '*/*'
+            )
+            # Previously:
+            # accept_mimetype = request.accept_mimetypes.best_match(
+            #     template_mimetypes, '*/*'
+            # )
 
             # Now render the result with the template for the mimetype
-            if use_mimetype is not None:
-                if callable(templates[use_mimetype]):
-                    rendered = templates[use_mimetype](result)
-                    if isinstance(rendered, Response):
-                        if status_code is not None:
-                            rendered.status_code = status_code
-                        if headers is not None:
-                            rendered.headers.extend(headers)
-                    else:
-                        rendered = current_app.response_class(
-                            rendered,
-                            status=status_code,
-                            headers=headers,
-                            mimetype=default_mimetype
-                            if use_mimetype == '*/*'
-                            else use_mimetype,
-                        )
-                else:  # Not a callable mimetype. Render as a jinja2 template
-                    rendered = current_app.response_class(
-                        render_template(templates[use_mimetype], **result),
-                        status=status_code or 200,
-                        headers=headers,
-                        mimetype=default_mimetype
-                        if use_mimetype == '*/*'
-                        else use_mimetype,
-                    )
-                return rendered
-            return result
+            use_template = templates[accept_mimetype]
+            if callable(use_template):
+                response = make_response(use_template(result))
+            else:
+                if t.TYPE_CHECKING:
+                    assert isinstance(use_template, str)  # nosec B101
+                    assert isinstance(result, dict)  # nosec B101
+                response = make_response(render_template(use_template, **result))
+                if accept_mimetype == '*/*':
+                    if default_mimetype is not None:
+                        response.mimetype = default_mimetype
+                else:
+                    response.mimetype = accept_mimetype
+            if status_code is not None:
+                response.status_code = status_code
+            if headers is not None:
+                response.headers.extend(headers)
+            if vary_accept:
+                response.vary.add('Accept')  # type: ignore[union-attr]
+            return response
 
-        return decorated_function
+        return wrapper
 
-    return inner
+    return decorator
 
 
 def cors(
@@ -749,7 +768,7 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
                 return bool(current_auth.permissions & permission)
             return permission in current_auth.permissions
 
-        def is_available(context=None) -> bool:
+        def is_available(context: t.Optional[t.Any] = None) -> bool:
             result = is_available_here()
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well

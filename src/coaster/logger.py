@@ -19,9 +19,13 @@ import logging.handlers
 import re
 import textwrap
 import traceback
+import types
 import typing as t
 
-from flask import g, request, session
+if t.TYPE_CHECKING:
+    from logging import _SysExcInfoType
+
+from flask import Flask, g, request, session
 from flask.config import Config
 import requests
 
@@ -53,18 +57,18 @@ _filter_re = re.compile(
 )
 
 # global var as lazy in-memory cache
-error_throttle_timestamp_slack: t.Dict[str, datetime] = {}
-error_throttle_timestamp_telegram: t.Dict[str, datetime] = {}
+error_throttle_timestamp_slack: t.Dict[t.Tuple[str, int], datetime] = {}
+error_throttle_timestamp_telegram: t.Dict[t.Tuple[str, int], datetime] = {}
 
 
 class FilteredValueIndicator:
     """Represent a filtered value."""
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Filter str."""
         return '[Filtered]'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Filter repr."""
         return '[Filtered]'
 
@@ -76,18 +80,18 @@ filtered_value_indicator = FilteredValueIndicator()
 class RepeatValueIndicator:
     """Represent a repeating value."""
 
-    def __init__(self, key):
+    def __init__(self, key: str) -> None:
         """Init with key."""
         self.key = key
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation."""
         return f'<same as prior {self.key!r}>'
 
     __str__ = __repr__
 
 
-def filtered_value(key, value):
+def filtered_value(key: t.Any, value: t.Any) -> t.Any:
     """Find and mask sensitive values based on key names."""
     if isinstance(key, str) and _filter_re.search(key):
         return filtered_value_indicator
@@ -96,7 +100,7 @@ def filtered_value(key, value):
     return value
 
 
-def pprint_with_indent(dictlike, outfile, indent=4):
+def pprint_with_indent(dictlike: t.Dict, outfile: t.IO, indent: int = 4) -> None:
     """Filter values and pprint with indent to create a Markdown code block."""
     out = StringIO()
     pprint(  # noqa: T203
@@ -109,12 +113,12 @@ def pprint_with_indent(dictlike, outfile, indent=4):
 class LocalVarFormatter(logging.Formatter):
     """Log the contents of local variables in the stack frame."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Init formatter."""
         super().__init__(*args, **kwargs)
         self.lock = Lock()
 
-    def format(self, record):  # noqa: A003
+    def format(self, record: logging.LogRecord) -> str:  # noqa: A003
         """
         Format the specified record as text.
 
@@ -129,15 +133,17 @@ class LocalVarFormatter(logging.Formatter):
             record.exc_text = None
         return super().format(record)
 
-    def formatException(self, ei) -> str:  # noqa: N802
+    def formatException(self, ei: _SysExcInfoType) -> str:  # noqa: N802
         """Render a stack trace with local variables in each stack frame."""
         tb = ei[2]
+        if tb is None:
+            return ''
         while True:
             if not tb.tb_next:
                 break
             tb = tb.tb_next
         stack = []
-        f = tb.tb_frame
+        f: t.Optional[types.FrameType] = tb.tb_frame
         while f:
             stack.append(f)
             f = f.f_back
@@ -152,7 +158,9 @@ class LocalVarFormatter(logging.Formatter):
             # conflict with a parallel stack dump -- which could otherwise restore the
             # original __repr__ while this is still dumping.
             original_config_repr = Config.__repr__
-            Config.__repr__ = lambda self: '<Config [FILTERED]>'  # type: ignore[assignment]
+            Config.__repr__ = (  # type: ignore[method-assign]
+                lambda self: '<Config [FILTERED]>'
+            )
             value_cache: t.Dict[t.Any, str] = {}
 
             print('\n----------\n', file=sio)  # noqa: T201
@@ -180,7 +188,7 @@ class LocalVarFormatter(logging.Formatter):
                         print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 
             del value_cache
-            Config.__repr__ = original_config_repr  # type: ignore[assignment]
+            Config.__repr__ = original_config_repr  # type: ignore[method-assign]
 
         if request:
             print('\n----------\n', file=sio)  # noqa: T201
@@ -240,13 +248,13 @@ class LocalVarFormatter(logging.Formatter):
 class SlackHandler(logging.Handler):
     """Custom logging handler to post error reports to Slack."""
 
-    def __init__(self, app_name, webhooks):
+    def __init__(self, app_name: str, webhooks: t.List[t.Dict[str, t.Any]]) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.webhooks = webhooks
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_slack or (
@@ -317,14 +325,14 @@ class SlackHandler(logging.Handler):
 class TelegramHandler(logging.Handler):
     """Custom logging handler to report errors to a Telegram chat."""
 
-    def __init__(self, app_name, chatid, apikey):
+    def __init__(self, app_name: str, chatid: str, apikey: str) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.chatid = chatid
         self.apikey = apikey
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_telegram or (
@@ -373,7 +381,7 @@ class TelegramHandler(logging.Handler):
             error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
 
 
-def init_app(app):
+def init_app(app: Flask) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 
@@ -418,8 +426,7 @@ def init_app(app):
         logger.addHandler(file_handler)
 
     if app.config.get('SLACK_LOGGING_WEBHOOKS'):
-        logging.handlers.SlackHandler = SlackHandler
-        slack_handler = logging.handlers.SlackHandler(
+        slack_handler = SlackHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
         )
@@ -430,8 +437,7 @@ def init_app(app):
     if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
         'TELEGRAM_ERROR_APIKEY'
     ):
-        logging.handlers.TelegramHandler = TelegramHandler
-        telegram_handler = logging.handlers.TelegramHandler(
+        telegram_handler = TelegramHandler(
             app_name=app.config.get('SITE_ID') or app.name,
             chatid=app.config['TELEGRAM_ERROR_CHATID'],
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],
@@ -457,7 +463,3 @@ def init_app(app):
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
         logger.addHandler(mail_handler)
-
-
-# Legacy name
-configure = init_app

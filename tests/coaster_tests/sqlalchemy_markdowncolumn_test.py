@@ -1,14 +1,10 @@
 """Test Markdown composite column."""
 
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
-import unittest
-
-import pytest
 
 from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
 
-from .conftest import db
+from .conftest import AppTestCase, db
 
 
 class MarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -21,7 +17,7 @@ class MarkdownHtmlData(BaseMixin, db.Model):  # type: ignore[name-defined]
     value = MarkdownColumn('value', nullable=False, options={'html': True})
 
 
-def fake_markdown(text):
+def fake_markdown(text: str) -> str:
     return 'fake-markdown'
 
 
@@ -33,20 +29,8 @@ class FakeMarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
 # -- Tests --------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestMarkdownColumn(unittest.TestCase):
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-        db.create_all()
-        self.session = db.session
-
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
-    def test_markdown_column(self):
+class TestMarkdownColumn(AppTestCase):
+    def test_markdown_column(self) -> None:
         text = """# this is going to be h1.\n- Now a list. \n- 1\n- 2\n- 3"""
         data = MarkdownData(value=text)
         self.session.add(data)
@@ -56,47 +40,50 @@ class TestMarkdownColumn(unittest.TestCase):
         assert data.value.__str__() == text
         assert data.value.__html__() == markdown(text)
 
-    def test_does_not_render_on_load(self):
+    def test_does_not_render_on_load(self) -> None:
         text = "This is the text"
         real_html = markdown(text)
         fake_html = "This is not the text"
-        data = MarkdownData(value=text)
-        self.session.add(data)
+        data1 = MarkdownData(value=text)
+        self.session.add(data1)
 
         # Insert fake rendered data for commit to db
-        data.value._html = fake_html
-        data.value.changed()
+        data1.value._html = fake_html
+        data1.value.changed()
         self.session.commit()
-        del data
+        del data1
 
         # Reload from db and confirm HTML is exactly as committed
-        data = MarkdownData.query.first()
-        assert data.value.text == text
-        assert data.value.html == fake_html
-        assert data.value.__str__() == text
-        assert data.value.__html__() == fake_html
+        data2 = MarkdownData.query.first()
+        assert data2 is not None
+        assert data2.value.text == text
+        assert data2.value.html == fake_html
+        assert data2.value.__str__() == text
+        assert data2.value.__html__() == fake_html
 
         # Edit text and confirm HTML was regenerated, saved and reloaded
-        data.value.text = text
+        data2.value.text = text
         db.session.commit()
-        del data
+        del data2
 
-        data = MarkdownData.query.first()
-        assert data.value.text == text
-        assert data.value.html == real_html
-        assert data.value.__str__() == text
-        assert data.value.__html__() == real_html
+        data3 = MarkdownData.query.first()
+        assert data3 is not None
+        assert data3.value.text == text
+        assert data3.value.html == real_html
+        assert data3.value.__str__() == text
+        assert data3.value.__html__() == real_html
 
-    def test_raw_value(self):
+    def test_raw_value(self) -> None:
         text = "This is the text"
         data = MarkdownData()
         self.session.add(data)
-        data.value = text
+        # If the composite is assigned a text value, it'll be coerced into a composite
+        data.value = text  # type: ignore[assignment]
         self.session.commit()
         assert data.value.text == text
         assert data.value.html == '<p>' + text + '</p>'
 
-    def test_none_value(self):
+    def test_none_value(self) -> None:
         doc = MarkdownData(value=None)
         assert not doc.value
         assert doc.value.text is None
@@ -106,7 +93,7 @@ class TestMarkdownColumn(unittest.TestCase):
         assert str(doc.value) == ''
         assert doc.value.__html__() == ''
 
-    def test_empty_value(self):
+    def test_empty_value(self) -> None:
         doc = MarkdownData(value='')
         assert not doc.value
         assert doc.value.text == ''
@@ -114,14 +101,14 @@ class TestMarkdownColumn(unittest.TestCase):
         assert doc.value.html == ''
         assert doc.value_html == ''
 
-    def test_nonstr_value(self):
+    def test_nonstr_value(self) -> None:
         doc = MarkdownData(value=1)
         assert doc.value.text == '1'
         assert doc.value_text == '1'
         assert doc.value.html == '<p>1</p>'
         assert doc.value_html == '<p>1</p>'
 
-    def test_html_customization(self):
+    def test_html_customization(self) -> None:
         """Markdown columns may specify custom Markdown processor options."""
         text = "Allow <b>some</b> HTML"
         d1 = MarkdownData(value=text)
@@ -132,7 +119,7 @@ class TestMarkdownColumn(unittest.TestCase):
         assert d1.value.html == '<p>Allow &lt;b&gt;some&lt;/b&gt; HTML</p>'
         assert d2.value.html == '<p>Allow <b>some</b> HTML</p>'
 
-    def test_custom_markdown_processor(self):
+    def test_custom_markdown_processor(self) -> None:
         """Markdown columns may specify their own markdown processor."""
         doc = FakeMarkdownData(value="This is some text")
         assert doc.value.text == "This is some text"

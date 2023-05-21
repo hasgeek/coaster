@@ -1,5 +1,3 @@
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
-import unittest
 import warnings
 
 from sqlalchemy.orm.attributes import NO_VALUE
@@ -15,7 +13,7 @@ from coaster.sqlalchemy import (
     immutable,
 )
 
-from .conftest import db
+from .conftest import AppTestCase, db
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -111,44 +109,29 @@ class SynonymAnnotation(BaseMixin, db.Model):  # type: ignore[name-defined]
 # --- Tests ----------------------------------------------------------------------------
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestCoasterAnnotations(unittest.TestCase):
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-        db.create_all()
-        self.session = db.session
-        # SQLAlchemy doesn't fire mapper_configured events until the first time a
-        # mapping is used
-        IdOnly()
-
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
-    def test_has_annotations(self):
+class TestCoasterAnnotations(AppTestCase):
+    def test_has_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):
             assert hasattr(model, '__column_annotations__')
             assert hasattr(model, '__column_annotations_by_attr__')
 
-    def test_annotation_in_annotations(self):
+    def test_annotation_in_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):
             for annotation in (immutable, cached):
-                assert annotation.name in model.__column_annotations__
+                assert annotation.__name__ in model.__column_annotations__
 
-    def test_attr_in_annotations(self):
+    def test_attr_in_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):
             assert 'is_immutable' in model.__column_annotations__['immutable']
             assert 'is_cached' in model.__column_annotations__['cached']
 
-    def test_base_attrs_in_annotations(self):
+    def test_base_attrs_in_annotations(self) -> None:
         for model in (IdOnly, IdUuid, UuidOnly):
             for attr in ('created_at', 'id'):
                 assert attr in model.__column_annotations__['immutable']
         assert 'uuid' in IdUuid.__column_annotations__['immutable']
 
-    def test_init_immutability(self):
+    def test_init_immutability(self) -> None:
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
@@ -195,7 +178,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         assert i2.is_cached == 'cc'
         assert i3.is_cached == 'zz'
 
-    def test_postinit_immutability(self):
+    def test_postinit_immutability(self) -> None:
         # Make instances with no initial value
         i1 = IdOnly()
         i2 = IdUuid()
@@ -253,7 +236,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         assert i2.is_cached == 'cc'
         assert i3.is_cached == 'zz'
 
-    def test_postload_immutability(self):
+    def test_postload_immutability(self) -> None:
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
@@ -274,9 +257,24 @@ class TestCoasterAnnotations(unittest.TestCase):
         pi3 = UuidOnly.query.options(db.load_only(UuidOnly.id)).filter_by(id=id3).one()
 
         # Confirm there is no value for is_immutable
-        assert sa.inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
-        assert sa.inspect(pi2).attrs.is_immutable.loaded_value is NO_VALUE
-        assert sa.inspect(pi3).attrs.is_immutable.loaded_value is NO_VALUE
+        assert (
+            sa.inspect(
+                pi1
+            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            is NO_VALUE
+        )
+        assert (
+            sa.inspect(
+                pi2
+            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            is NO_VALUE
+        )
+        assert (
+            sa.inspect(
+                pi3
+            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            is NO_VALUE
+        )
 
         # Immutable columns are immutable even if not loaded
         with pytest.raises(ImmutableColumnError):
@@ -286,7 +284,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         with pytest.raises(ImmutableColumnError):
             pi3.is_immutable = 'yy'
 
-    def test_immutable_foreignkey(self):
+    def test_immutable_foreignkey(self) -> None:
         rt1 = ReferralTarget()
         rt2 = ReferralTarget()
         self.session.add_all([rt1, rt2])
@@ -310,7 +308,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         with pytest.raises(ImmutableColumnError):
             i3.referral_target_id = rt2.id
 
-    def test_immutable_relationship(self):
+    def test_immutable_relationship(self) -> None:
         rt1 = ReferralTarget()
         rt2 = ReferralTarget()
         self.session.add_all([rt1, rt2])
@@ -339,13 +337,13 @@ class TestCoasterAnnotations(unittest.TestCase):
         with pytest.raises(ImmutableColumnError):
             i3.referral_target = rt2
 
-    def test_polymorphic_annotations(self):
+    def test_polymorphic_annotations(self) -> None:
         assert 'is_immutable' in PolymorphicParent.__column_annotations__['immutable']
         assert 'also_immutable' in PolymorphicParent.__column_annotations__['immutable']
         assert 'is_immutable' in PolymorphicChild.__column_annotations__['immutable']
         assert 'also_immutable' in PolymorphicChild.__column_annotations__['immutable']
 
-    def test_polymorphic_immutable(self):
+    def test_polymorphic_immutable(self) -> None:
         parent = PolymorphicParent(is_immutable='a', also_immutable='b')
         child = PolymorphicChild(is_immutable='x', also_immutable='y')
         with pytest.raises(ImmutableColumnError):
@@ -357,7 +355,7 @@ class TestCoasterAnnotations(unittest.TestCase):
         with pytest.raises(ImmutableColumnError):
             child.also_immutable = 'yy'
 
-    def test_synonym_annotation(self):
+    def test_synonym_annotation(self) -> None:
         """The immutable annotation can be bypassed via synonyms"""
         sa = SynonymAnnotation(col_regular='a', col_immutable='b')
         # The columns behave as expected:

@@ -52,7 +52,6 @@ __all__ = [
     'uuid_from_base64',
     'uuid_to_base58',
     'uuid_to_base64',
-    'valid_username',
 ]
 
 # --- Common delimiters and punctuation ------------------------------------------------
@@ -61,7 +60,6 @@ _strip_re = re.compile('[\'"`‘’“”′″‴]+')
 _punctuation_re = re.compile(
     '[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
 )
-_username_valid_re = re.compile('^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
 _ipv4_re = re.compile(
     r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
     r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
@@ -149,7 +147,7 @@ def uuid1mc() -> uuid.UUID:
     return uuid.uuid1(node=uuid._random_getnode())  # type: ignore[attr-defined]
 
 
-def uuid1mc_from_datetime(dt) -> uuid.UUID:
+def uuid1mc_from_datetime(dt: t.Union[datetime, float]) -> uuid.UUID:
     """
     Return a UUID1 with a specific timestamp and a random multicast MAC id.
 
@@ -189,7 +187,7 @@ def uuid1mc_from_datetime(dt) -> uuid.UUID:
     fields[1] = time_mid
     fields[2] = time_hi_version
 
-    return uuid.UUID(fields=tuple(fields))
+    return uuid.UUID(fields=tuple(fields))  # type: ignore[arg-type]
 
 
 def uuid_to_base64(value: uuid.UUID) -> str:
@@ -395,7 +393,7 @@ def make_name(
     return candidate
 
 
-def format_currency(value, decimals=2):
+def format_currency(value: t.Union[int, float], decimals: int = 2) -> str:
     """
     Return a number suitably formatted for display as currency.
 
@@ -452,7 +450,7 @@ def md5sum(data: str) -> str:
     return hashlib.md5(data.encode('utf-8')).hexdigest()  # nosec  # skipcq: PTC-W1003
 
 
-def getbool(value: t.Optional[t.Any]) -> t.Optional[bool]:
+def getbool(value: t.Union[str, int, bool, None]) -> t.Optional[bool]:
     """
     Return a boolean from any of a range of boolean-like values.
 
@@ -513,20 +511,19 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
     return str(value) if value else None
 
 
-nullunicode = nullstr  # XXX: Deprecated name. Remove soon.
-
-
 @overload
-def require_one_of(_return: te.Literal[False] = False, **kwargs: t.Any) -> None:
+def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
     ...
 
 
 @overload
-def require_one_of(_return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
+def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
     ...
 
 
-def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.Any]]:
+def require_one_of(
+    __return: bool = False, **kwargs: t.Any
+) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
 
@@ -543,17 +540,20 @@ def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.
             # Carry on with function logic
             pass
 
-    :param _return: Return the matching parameter name and value
+    :param __return: Return the matching parameter name and value (positional only)
     :param kwargs: Parameters, of which one and only one is mandatory
-    :return: If `_return`, matching parameter name and value
+    :return: If `__return`, matching parameter name and value
     :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
+
+    .. deprecated:: 0.7.0
+        Use static type checking with @overload declarations to avoid runtime overhead
     """
     # Two ways to count number of non-None parameters:
     #
     # 1. sum([1 if v is not None else 0 for v in kwargs.values()])
     #
-    #    Using a list comprehension instead of a generator comprehension as the
+    #    This uses a list comprehension instead of a generator comprehension as the
     #    parameter to `sum` is faster on both Python 2 and 3.
     #
     # 2. len(kwargs) - kwargs.values().count(None)
@@ -574,14 +574,14 @@ def require_one_of(_return=False, **kwargs: t.Any) -> t.Optional[t.Tuple[str, t.
             "Only one of these parameters is allowed: " + ', '.join(kwargs.keys())
         )
 
-    if _return:
+    if __return:
         keys, values = zip(*((k, 1 if v is not None else 0) for k, v in kwargs.items()))
         k = keys[values.index(1)]
         return k, kwargs[k]
     return None
 
 
-def get_email_domain(emailaddr):
+def get_email_domain(emailaddr: str) -> t.Optional[str]:
     """
     Return the domain component of an email address.
 
@@ -607,31 +607,7 @@ def get_email_domain(emailaddr):
         return None
 
 
-def valid_username(candidate):
-    """
-    Check if a username is valid.
-
-    .. deprecated:: 0.7.0
-        Coaster is too low level to specify rules for valid usernames.
-
-    >>> valid_username('example person')
-    False
-    >>> valid_username('example_person')
-    False
-    >>> valid_username('exampleperson')
-    True
-    >>> valid_username('example-person')
-    True
-    >>> valid_username('a')
-    True
-    >>> (valid_username('a-') or valid_username('ab-') or valid_username('-a') or
-    ...   valid_username('-ab'))
-    False
-    """
-    return _username_valid_re.search(candidate) is not None
-
-
-def namespace_from_url(url):
+def namespace_from_url(url: str) -> t.Optional[str]:
     """Construct a dotted namespace string from a URL."""
     parsed = urlparse(url)
     if (
@@ -650,7 +626,7 @@ def namespace_from_url(url):
     return type(url)('.'.join(namespace))
 
 
-def base_domain_matches(d1, d2):
+def base_domain_matches(d1: str, d2: str) -> bool:
     """
     Check if two domains have the same base domain, using the Public Suffix List.
 
@@ -674,7 +650,7 @@ def base_domain_matches(d1, d2):
     return r1.domain == r2.domain and r1.suffix == r2.suffix
 
 
-def domain_namespace_match(domain, namespace):
+def domain_namespace_match(domain: str, namespace: str) -> bool:
     """
     Check if namespace is related to the domain because the base domain matches.
 

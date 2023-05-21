@@ -53,9 +53,9 @@ dependencies = [
   'nltk>=3.4.5',
   'pymdown-extensions>=8.0',
   'pytz',
-  'semantic_version>=2.8.0',
+  'semantic-version>=2.8.0',
   'sqlalchemy-utils',
-  'SQLAlchemy>=1.4',
+  'SQLAlchemy>=2.0.4',
   'tldextract',
   'typing_extensions',
   'Unidecode',
@@ -143,7 +143,6 @@ disable = [
 [tool.mypy]
 files = '**/*.py'
 exclude = 'node_modules'
-plugins = ['sqlalchemy.ext.mypy.plugin']
 ignore_missing_imports = true
 show_error_codes = true
 warn_unreachable = true

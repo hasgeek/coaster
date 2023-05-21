@@ -1,8 +1,7 @@
 """Test @load_models view helper."""
 # pylint: disable=redefined-outer-name
 
-from uuid import UUID  # noqa: F401  # pylint: disable=unused-import
-import unittest
+import typing as t
 
 from flask import g
 from sqlalchemy.orm import Mapped, relationship
@@ -14,6 +13,7 @@ from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin
 from coaster.views import load_model, load_models
 
 from .auth_test import LoginManager
+from .conftest import AppTestCase
 from .sqlalchemy_models_test import (
     Container,
     IdNamedDocument,
@@ -37,11 +37,13 @@ class ParentDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     middle_id = sa.Column(sa.Integer, sa.ForeignKey('middle_container.id'))
     middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.middle = MiddleContainer()
 
-    def permissions(self, actor, inherited=None):
+    def permissions(
+        self, actor: User, inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor.username == 'foo':
@@ -55,7 +57,9 @@ class ChildDocument(BaseScopedIdMixin, db.Model):  # type: ignore[name-defined]
     parent_id = sa.Column(sa.Integer, sa.ForeignKey('middle_container.id'))
     parent: Mapped[MiddleContainer] = relationship(MiddleContainer, backref='children')
 
-    def permissions(self, actor, inherited=None):
+    def permissions(
+        self, actor: User, inherited: t.Optional[t.Set[str]] = None
+    ) -> t.Set[str]:
         if inherited is None:
             perms = set()
         else:
@@ -73,11 +77,11 @@ class RedirectDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     target_id = sa.Column(sa.Integer, sa.ForeignKey('named_document.id'))
     target: Mapped[NamedDocument] = relationship(NamedDocument)
 
-    def redirect_view_args(self):
+    def redirect_view_args(self) -> t.Dict[str, str]:
         return {'document': self.target.name}
 
 
-def return_siteadmin_perms():
+def return_siteadmin_perms() -> t.Set[str]:
     return {'siteadmin'}
 
 
@@ -92,17 +96,17 @@ def return_siteadmin_perms():
     kwargs=True,
     addlperms=return_siteadmin_perms,
 )
-def t_container(container, kwargs):
+def t_container(container: Container, kwargs: t.Dict[str, str]) -> Container:
     return container
 
 
 @load_model(User, {'username': 'username'}, 'g.user')
-def t_load_user_to_g(user):
+def t_load_user_to_g(user: User) -> User:
     return user
 
 
 @load_models((User, {'username': 'username'}, 'g.user'))
-def t_single_model_in_loadmodels(user):
+def t_single_model_in_loadmodels(user: User) -> User:
     return user
 
 
@@ -110,7 +114,7 @@ def t_single_model_in_loadmodels(user):
     (Container, {'name': 'container'}, 'container'),
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
-def t_named_document(container, document):
+def t_named_document(container: Container, document: NamedDocument) -> NamedDocument:
     return document
 
 
@@ -122,7 +126,7 @@ def t_named_document(container, document):
         'document',
     ),
 )
-def t_redirect_document(container, document):
+def t_redirect_document(container: Container, document: NamedDocument) -> NamedDocument:
     return document
 
 
@@ -130,7 +134,9 @@ def t_redirect_document(container, document):
     (Container, {'name': 'container'}, 'container'),
     (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
-def t_scoped_named_document(container, document):
+def t_scoped_named_document(
+    container: Container, document: ScopedNamedDocument
+) -> ScopedNamedDocument:
     return document
 
 
@@ -139,7 +145,9 @@ def t_scoped_named_document(container, document):
     (IdNamedDocument, {'url_name': 'document', 'container': 'container'}, 'document'),
     urlcheck=['url_name'],
 )
-def t_id_named_document(container, document):
+def t_id_named_document(
+    container: Container, document: IdNamedDocument
+) -> IdNamedDocument:
     return document
 
 
@@ -147,7 +155,9 @@ def t_id_named_document(container, document):
     (Container, {'name': 'container'}, 'container'),
     (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document'),
 )
-def t_scoped_id_document(container, document):
+def t_scoped_id_document(
+    container: Container, document: ScopedIdDocument
+) -> ScopedIdDocument:
     return document
 
 
@@ -160,7 +170,9 @@ def t_scoped_id_document(container, document):
     ),
     urlcheck=['url_name'],
 )
-def t_scoped_id_named_document(container, document):
+def t_scoped_id_named_document(
+    container: Container, document: ScopedIdNamedDocument
+) -> ScopedIdNamedDocument:
     return document
 
 
@@ -172,7 +184,9 @@ def t_scoped_id_named_document(container, document):
         'child',
     ),
 )
-def t_callable_document(document, child):
+def t_callable_document(
+    document: ParentDocument, child: ChildDocument
+) -> ChildDocument:
     return child
 
 
@@ -180,7 +194,7 @@ def t_callable_document(document, child):
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
 )
-def t_dotted_document(document, child):
+def t_dotted_document(document: ParentDocument, child: ChildDocument) -> ChildDocument:
     return child
 
 
@@ -189,7 +203,9 @@ def t_dotted_document(document, child):
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='view',
 )
-def t_dotted_document_view(document, child):
+def t_dotted_document_view(
+    document: ParentDocument, child: ChildDocument
+) -> ChildDocument:
     return child
 
 
@@ -198,7 +214,9 @@ def t_dotted_document_view(document, child):
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='edit',
 )
-def t_dotted_document_edit(document, child):
+def t_dotted_document_edit(
+    document: ParentDocument, child: ChildDocument
+) -> ChildDocument:
     return child
 
 
@@ -222,14 +240,9 @@ def _app_extra(app):
     )
 
 
-@pytest.mark.usefixtures('clsapp')
-class TestLoadModels(unittest.TestCase):
-    def setUp(self):
-        self.ctx = self.app.test_request_context()
-        self.ctx.push()
-
-        db.create_all()
-        self.session = db.session
+class TestLoadModels(AppTestCase):
+    def setUp(self) -> None:
+        super().setUp()
         c = Container(name='c')
         self.session.add(c)
         self.container = c
@@ -284,13 +297,8 @@ class TestLoadModels(unittest.TestCase):
         self.session.add(self.child2)
         self.session.commit()
 
-    def tearDown(self):
-        self.session.rollback()
-        db.drop_all()
-        self.ctx.pop()
-
     @pytest.mark.flaky()
-    def test_container(self):
+    def test_container(self) -> None:
         assert self.app.login_manager is not None
         with self.app.test_request_context():
             self.app.login_manager.set_user_for_testing(
@@ -298,7 +306,7 @@ class TestLoadModels(unittest.TestCase):
             )
             assert t_container(container='c') == self.container
 
-    def test_named_document(self):
+    def test_named_document(self) -> None:
         assert t_named_document(container='c', document='named-document') == self.nd1
         assert (
             t_named_document(container='c', document='another-named-document')
@@ -306,7 +314,7 @@ class TestLoadModels(unittest.TestCase):
         )
 
     @pytest.mark.flaky()
-    def test_redirect_document(self):
+    def test_redirect_document(self) -> None:
         with self.app.test_request_context('/c/named-document'):
             assert (
                 t_redirect_document(container='c', document='named-document')
@@ -326,7 +334,7 @@ class TestLoadModels(unittest.TestCase):
             assert response.status_code == 307
             assert response.headers['Location'] == '/c/named-document?preserve=this'
 
-    def test_scoped_named_document(self):
+    def test_scoped_named_document(self) -> None:
         assert (
             t_scoped_named_document(container='c', document='scoped-named-document')
             == self.snd1
@@ -339,7 +347,7 @@ class TestLoadModels(unittest.TestCase):
         )
 
     @pytest.mark.flaky()
-    def test_id_named_document(self):
+    def test_id_named_document(self) -> None:
         assert (
             t_id_named_document(container='c', document='1-id-named-document')
             == self.ind1
@@ -359,14 +367,14 @@ class TestLoadModels(unittest.TestCase):
         with pytest.raises(NotFound):
             t_id_named_document(container='c', document='random-non-integer')
 
-    def test_scoped_id_document(self):
+    def test_scoped_id_document(self) -> None:
         assert t_scoped_id_document(container='c', document='1') == self.sid1
         assert t_scoped_id_document(container='c', document='2') == self.sid2
         assert t_scoped_id_document(container='c', document=1) == self.sid1
         assert t_scoped_id_document(container='c', document=2) == self.sid2
 
     @pytest.mark.flaky()
-    def test_scoped_id_named_document(self):
+    def test_scoped_id_named_document(self) -> None:
         assert (
             t_scoped_id_named_document(
                 container='c', document='1-scoped-id-named-document'
@@ -386,15 +394,15 @@ class TestLoadModels(unittest.TestCase):
         with pytest.raises(NotFound):
             t_scoped_id_named_document(container='c', document='random-non-integer')
 
-    def test_callable_document(self):
+    def test_callable_document(self) -> None:
         assert t_callable_document(document='parent', child=1) == self.child1
         assert t_callable_document(document='parent', child=2) == self.child2
 
-    def test_dotted_document(self):
+    def test_dotted_document(self) -> None:
         assert t_dotted_document(document='parent', child=1) == self.child1
         assert t_dotted_document(document='parent', child=2) == self.child2
 
-    def test_direct_permissions(self):
+    def test_direct_permissions(self) -> None:
         user1 = User(username='foo')
         user2 = User(username='bar')
         assert self.pc.permissions(user1) == {'view', 'edit', 'delete'}
@@ -407,14 +415,14 @@ class TestLoadModels(unittest.TestCase):
             'view'
         }
 
-    def test_inherited_permissions(self):
+    def test_inherited_permissions(self) -> None:
         user = User(username='admin')
         assert self.pc.permissions(user, inherited={'add-video'}) == {
             'add-video',
             'view',
         }
 
-    def test_unmutated_inherited_permissions(self):
+    def test_unmutated_inherited_permissions(self) -> None:
         """The inherited permission set should not be mutated by a permission check"""
         user = User(username='admin')
         inherited = {'add-video'}
@@ -422,7 +430,7 @@ class TestLoadModels(unittest.TestCase):
         assert inherited == {'add-video'}
 
     @pytest.mark.flaky()
-    def test_loadmodel_permissions(self):
+    def test_loadmodel_permissions(self) -> None:
         with self.app.test_request_context():
             self.app.login_manager.set_user_for_testing(User(username='foo'), load=True)
             assert t_dotted_document_view(document='parent', child=1) == self.child1
@@ -431,7 +439,7 @@ class TestLoadModels(unittest.TestCase):
                 t_dotted_document_delete(document='parent', child=1)
 
     @pytest.mark.flaky()
-    def test_load_user_to_g(self):
+    def test_load_user_to_g(self) -> None:
         with self.app.test_request_context():
             user = User(username='baz')
             self.session.add(user)
@@ -442,7 +450,7 @@ class TestLoadModels(unittest.TestCase):
                 t_load_user_to_g(username='boo')
 
     @pytest.mark.flaky()
-    def test_single_model_in_loadmodels(self):
+    def test_single_model_in_loadmodels(self) -> None:
         with self.app.test_request_context():
             user = User(username='user1')
             self.session.add(user)

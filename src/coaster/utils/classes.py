@@ -6,27 +6,28 @@ Utility classes
 from __future__ import annotations
 
 from collections import namedtuple
-from collections.abc import Set
 import typing as t
+import warnings
+
+import typing_extensions as te
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 
-T = t.TypeVar('T')
 NameTitle = namedtuple('NameTitle', ['name', 'title'])
 
 
 class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
-    def __new__(cls, name, bases, attrs, **kwargs):
-        labels = {}
-        names = {}
-
-        def pop_name_by_value(value):
-            for k, v in list(names.items()):
-                if v == value:
-                    names.pop(k)
-                    return k
+    def __new__(
+        cls: t.Type,
+        name: str,
+        bases: t.Tuple[t.Type, ...],
+        attrs: t.Dict[str, t.Any],
+        **kwargs: t.Any,
+    ) -> t.Type[LabeledEnum]:
+        labels: t.Dict[str, t.Any] = {}
+        names: t.Dict[str, t.Any] = {}
 
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
@@ -46,36 +47,19 @@ class _LabeledEnumMeta(type):
                 }
 
         if '__order__' in attrs:
-            ordered_labels = {}
-            ordered_names = {}
-            for value in attrs['__order__']:
-                ordered_labels[value[0]] = labels.pop(value[0])
-                attr_name = pop_name_by_value(value[0])
-                if attr_name is not None:
-                    ordered_names[attr_name] = value[0]
-            for (
-                key,
-                value,
-            ) in (
-                labels.items()
-            ):  # Left over items after processing the list in __order__
-                ordered_labels[key] = value
-                attr_name = pop_name_by_value(value)
-                if attr_name is not None:
-                    ordered_names[attr_name] = value
-            ordered_names.update(names)  # Left over names that don't have a label
-        else:  # This enum doesn't care about ordering, or is using Py3 with __prepare__
-            ordered_labels = labels
-            ordered_names = names
-        attrs['__labels__'] = ordered_labels
-        attrs['__names__'] = ordered_names
+            warnings.warn(
+                "LabeledEnum.__order__ is obsolete in Python >= 3.6", stacklevel=2
+            )
+
+        attrs['__labels__'] = labels
+        attrs['__names__'] = names
         return type.__new__(cls, name, bases, attrs)
 
-    def __getitem__(cls, key):
-        return cls.__labels__[key]
+    def __getitem__(cls, key: t.Union[str, tuple]) -> t.Any:
+        return cls.__labels__[key]  # type: ignore[attr-defined]
 
-    def __contains__(cls, key):
-        return key in cls.__labels__
+    def __contains__(cls, key: t.Union[str, tuple]) -> bool:
+        return key in cls.__labels__  # type: ignore[attr-defined]
 
 
 class LabeledEnum(metaclass=_LabeledEnumMeta):
@@ -111,28 +95,14 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         True
 
     Retrieve a full list of values and labels with ``.items()``. Definition order is
-    preserved in Python 3.x, but not in 2.x::
+    preserved::
 
-        >>> sorted(MY_ENUM.items())
-        [(1, 'First'), (2, 'Second'), (3, 'Third')]
-        >>> sorted(MY_ENUM.keys())
-        [1, 2, 3]
-        >>> sorted(MY_ENUM.values())
-        ['First', 'Second', 'Third']
-
-    However, if you really want ordering in Python 2.x, add an __order__ list. Anything
-    not in it will default to Python's ordering::
-
-        >>> class RSVP(LabeledEnum):
-        ...     RSVP_Y = ('Y', "Yes")
-        ...     RSVP_N = ('N', "No")
-        ...     RSVP_M = ('M', "Maybe")
-        ...     RSVP_U = ('U', "Unknown")
-        ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_A)
-
-        >>> RSVP.items()
-        [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
+        >>> MY_ENUM.items()
+        [(1, 'First'), (3, 'Third'), (2, 'Second')]
+        >>> MY_ENUM.keys()
+        [1, 3, 2]
+        >>> MY_ENUM.values()
+        ['First', 'Third', 'Second']
 
     Three value tuples are assumed to be (value, name, title) and the name and title are
     converted into NameTitle(name, title)::
@@ -141,7 +111,6 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ...     FIRST = (1, 'first', "First")
         ...     THIRD = (3, 'third', "Third")
         ...     SECOND = (2, 'second', "Second")
-        ...     __order__ = (FIRST, SECOND, THIRD)
 
         >>> NAME_ENUM.FIRST
         1
@@ -155,8 +124,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
     To make it easier to use with forms and to hide the actual values, a list of (name,
     title) pairs is available::
 
-        >>> NAME_ENUM.nametitles()
-        [('first', 'First'), ('second', 'Second'), ('third', 'Third')]
+        >>> [tuple(x) for x in NAME_ENUM.nametitles()]
+        [('first', 'First'), ('third', 'Third'), ('second', 'Second')]
 
     Given a name, the value can be looked up::
 
@@ -174,7 +143,6 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ...     RSVP_M = ('M', "Maybe")
         ...     RSVP_U = ('U', "Unknown")
         ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_U, RSVP_A)
         ...     UNCERTAIN = {RSVP_M, RSVP_U, 'A'}
 
         >>> isinstance(RSVP_EXTRA.UNCERTAIN, set)
@@ -201,44 +169,62 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ['RSVP_Y', 'RSVP_N', 'RSVP_M', 'RSVP_U', 'RSVP_A', 'UNCERTAIN']
     """
 
+    __labels__: t.ClassVar[t.Dict[t.Any, t.Any]]
+    __names__: t.ClassVar[t.Dict[str, t.Any]]
+
     @classmethod
-    def get(cls, key, default=None):
+    def get(cls, key: str, default: t.Optional[t.Any] = None) -> t.Any:
         """Get the label for an enum value."""
         return cls.__labels__.get(key, default)
 
     @classmethod
-    def keys(cls):
+    def keys(cls) -> t.List[t.Any]:
         """Get all enum values."""
         return list(cls.__labels__.keys())
 
     @classmethod
-    def values(cls):
+    def values(cls) -> t.List[t.Union[str, NameTitle]]:
         """Get all enum labels."""
         return list(cls.__labels__.values())
 
     @classmethod
-    def items(cls):
+    def items(cls) -> t.List[t.Tuple[t.Any, t.Union[str, NameTitle]]]:
         """Get all enum values and associated labels."""
         return list(cls.__labels__.items())
 
     @classmethod
-    def value_for(cls, name):
+    def value_for(cls, name: str) -> t.Any:
         """Get enum value given a label name."""
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
 
     @classmethod
-    def nametitles(cls):
+    def nametitles(cls) -> t.List[NameTitle]:
         """Get names and titles of labels."""
-        return [(name, title) for name, title in cls.values()]
+        return [label for label in cls.values() if isinstance(label, tuple)]
 
 
-class InspectableSet(Set, t.Generic[T]):
+_C = t.TypeVar('_C', bound=t.Collection)
+
+
+class InspectableSet(t.Generic[_C]):
     """
-    Provides attribute and dictionary access to test for an element present in a set.
+    InspectableSet provides an ``elem in set`` test via attribute or dictionary access.
 
-    This is useful in templates to simplify membership inspection::
+    For example, if ``permissions`` is an InspectableSet wrapping a regular `set`, a
+    test for an element in the set can be rewritten from ``if 'view' in permissions`` to
+    ``if permissions.view``. The concise form improves readability for visual inspection
+    where code linters cannot help, such as in Jinja2 templates.
+
+    InspectableSet provides a read-only view to the wrapped data source. The mutation
+    operators ``+=``, ``-=``, ``&=``, ``|=`` and ``^=`` will be proxied to the
+    underlying data source, if supported, while the copy operators ``+``, ``-``, ``&``,
+    ``|`` and ``^`` will be proxied and the result re-wrapped with InspectableSet.
+
+    If no data source is supplied to InspectableSet, an empty set is used.
+
+    ::
 
         >>> myset = InspectableSet({'member', 'other'})
         >>> 'member' in myset
@@ -272,31 +258,155 @@ class InspectableSet(Set, t.Generic[T]):
         0
     """
 
-    def __init__(self, members=()):
-        if not isinstance(members, Set):
-            members = set(members)
-        object.__setattr__(self, '_members', members)
+    __slots__ = ('__members__',)
+    __members__: _C
 
-    def __repr__(self):
-        return f'InspectableSet({self._members!r})'
+    def __init__(self, members: t.Union[_C, InspectableSet[_C], None] = None) -> None:
+        if isinstance(members, InspectableSet):
+            members = members.__members__
+        object.__setattr__(
+            self, '__members__', members if members is not None else set()
+        )
 
-    def __len__(self):
-        return len(self._members)
+    def __repr__(self) -> str:
+        return f'InspectableSet({self.__members__!r})'
 
-    def __contains__(self, key):
-        return key in self._members
+    def __hash__(self) -> int:
+        return hash(self.__members__)
 
-    def __iter__(self):
-        yield from self._members
+    def __contains__(self, key: t.Any) -> bool:
+        return key in self.__members__
 
-    def __getitem__(self, key):
-        return key in self._members  # Returns True if present, False otherwise
+    def __iter__(self) -> t.Iterator:
+        yield from self.__members__
 
-    def __getattr__(self, attr):
-        return attr in self._members  # Returns True if present, False otherwise
+    def __len__(self) -> int:
+        return len(self.__members__)
 
-    def __setattr__(self, attr, value):
+    def __bool__(self) -> bool:
+        return bool(self.__members__)
+
+    def __getitem__(self, key: t.Any) -> bool:
+        return key in self.__members__  # Return True if present, False otherwise
+
+    def __setattr__(self, attr: str, _value: t.Any) -> t.NoReturn:
+        """Prevent accidental attempts to set a value."""
         raise AttributeError(attr)
+
+    def __getattr__(self, attr: str) -> bool:
+        return attr in self.__members__  # Return True if present, False otherwise
+
+    def _op_bool(self, op: str, other: t.Any) -> bool:
+        """Return result of a boolean operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            return getattr(self.__members__, op)(other)
+        return NotImplemented
+
+    def __le__(self, other: t.Any) -> bool:
+        """Return self <= other."""
+        return self._op_bool('__le__', other)
+
+    def __lt__(self, other: t.Any) -> bool:
+        """Return self < other."""
+        return self._op_bool('__lt__', other)
+
+    def __eq__(self, other: t.Any) -> bool:
+        """Return self == other."""
+        return self._op_bool('__eq__', other)
+
+    def __ne__(self, other: t.Any) -> bool:
+        """Return self != other."""
+        return self._op_bool('__ne__', other)
+
+    def __gt__(self, other: t.Any) -> bool:
+        """Return self > other."""
+        return self._op_bool('__gt__', other)
+
+    def __ge__(self, other: t.Any) -> bool:
+        """Return self >= other."""
+        return self._op_bool('__ge__', other)
+
+    def _op_copy(self, op: str, other: t.Any) -> InspectableSet[_C]:
+        """Return result of a copy operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            retval = getattr(self.__members__, op)(other)
+            if retval is not NotImplemented:
+                return InspectableSet(retval)
+        return NotImplemented
+
+    def __add__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self + other (add)."""
+        return self._op_copy('__add__', other)
+
+    def __radd__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other + self (reverse add)."""
+        return self._op_copy('__radd__', other)
+
+    def __sub__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self - other (subset)."""
+        return self._op_copy('__sub__', other)
+
+    def __rsub__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other - self (reverse subset)."""
+        return self._op_copy('__rsub__', other)
+
+    def __and__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self & other (intersection)."""
+        return self._op_copy('__and__', other)
+
+    def __rand__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other & self (intersection)."""
+        return self._op_copy('__rand__', other)
+
+    def __or__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self | other (union)."""
+        return self._op_copy('__or__', other)
+
+    def __ror__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other | self (union)."""
+        return self._op_copy('__ror__', other)
+
+    def __xor__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return self ^ other (non-intersecting)."""
+        return self._op_copy('__xor__', other)
+
+    def __rxor__(self, other: t.Any) -> InspectableSet[_C]:
+        """Return other ^ self (non-intersecting)."""
+        return self._op_copy('__rxor__', other)
+
+    def _op_inplace(self, op: str, other: t.Any) -> te.Self:
+        """Return self after an inplace operation."""
+        if hasattr(self.__members__, op):
+            if isinstance(other, InspectableSet):
+                other = other.__members__
+            if getattr(self.__members__, op)(other) is NotImplemented:
+                return NotImplemented
+            return self
+        return NotImplemented
+
+    def __iadd__(self, other: t.Any) -> te.Self:
+        """Operate self += other (list/tuple add)."""
+        return self._op_inplace('__iadd__', other)
+
+    def __isub__(self, other: t.Any) -> te.Self:
+        """Operate self -= other (set.difference_update)."""
+        return self._op_inplace('__isub__', other)
+
+    def __iand__(self, other: t.Any) -> te.Self:
+        """Operate self &= other (set.intersection_update)."""
+        return self._op_inplace('__iand__', other)
+
+    def __ior__(self, other: t.Any) -> te.Self:
+        """Operate self |= other (set.update)."""
+        return self._op_inplace('__ior__', other)
+
+    def __ixor__(self, other: t.Any) -> te.Self:
+        """Operate self ^= other (set.symmetric_difference_update)."""
+        return self._op_inplace('__isub__', other)
 
 
 class classmethodproperty:  # noqa: N801
@@ -350,16 +460,14 @@ class classmethodproperty:  # noqa: N801
         'bar'
     """
 
-    def __init__(self, func):
+    def __init__(self, func: t.Callable) -> None:
         self.func = func
 
-    def __get__(self, obj, cls=None):
-        if cls is None:
-            cls = type(obj)
+    def __get__(self, _obj: t.Any, cls: t.Type) -> t.Any:
         return self.func(cls)
 
-    def __set__(self, obj, value):
+    def __set__(self, _obj: t.Any, _value: t.Any) -> t.NoReturn:
         raise AttributeError(f"{self.func.__name__} is read-only")
 
-    def __delete__(self, obj):
+    def __delete__(self, _obj: t.Any) -> t.NoReturn:
         raise AttributeError(f"{self.func.__name__} is read-only")

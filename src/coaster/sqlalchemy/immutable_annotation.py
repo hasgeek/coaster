@@ -5,6 +5,8 @@ Immutable annotation
 
 from __future__ import annotations
 
+import typing as t
+
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 import sqlalchemy as sa
 
@@ -26,7 +28,14 @@ cached = annotation_wrapper(
 class ImmutableColumnError(AttributeError):
     """Exception raised when an immutable column is set."""
 
-    def __init__(self, class_name, column_name, old_value, new_value, message=None):
+    def __init__(
+        self,
+        class_name: str,
+        column_name: str,
+        old_value: t.Any,
+        new_value: t.Any,
+        message: t.Optional[str] = None,
+    ) -> None:
         """Create exception."""
         if message is None:
             message = (
@@ -41,10 +50,15 @@ class ImmutableColumnError(AttributeError):
 
 
 @annotations_configured.connect
-def _make_immutable(cls):
-    def add_immutable_event(attr, col):
+def _make_immutable(cls: t.Type) -> None:
+    def add_immutable_event(attr: str, col: t.Any) -> None:
         @sa.event.listens_for(col, 'set', raw=True)
-        def immutable_column_set_listener(target, value, old_value, initiator):
+        def immutable_column_set_listener(  # skipcq: PTC-W0065
+            target: sa.orm.InstanceState,
+            value: t.Any,
+            old_value: t.Any,
+            _initiator: t.Any,
+        ) -> None:
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in
             # SQLAlchemy >= 1.4 it appears to also be used in place of NO_VALUE.
@@ -61,7 +75,7 @@ def _make_immutable(cls):
 
     if (
         hasattr(cls, '__column_annotations__')
-        and immutable.name in cls.__column_annotations__
+        and immutable.__name__ in cls.__column_annotations__
     ):
-        for attr in cls.__column_annotations__[immutable.name]:
+        for attr in cls.__column_annotations__[immutable.__name__]:
             add_immutable_event(attr, getattr(cls, attr))

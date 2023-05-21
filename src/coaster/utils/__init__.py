@@ -14,4 +14,3 @@ from .datetime import *
 from .markdown import *
 from .misc import *
 from .text import *
-from .tsquery import *

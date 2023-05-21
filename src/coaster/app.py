@@ -18,7 +18,7 @@ import itsdangerous
 
 try:  # pragma: no cover
     import tomllib  # Python >= 3.11
-except ModuleNotFoundError:  # type: ignore[unreachable]
+except ModuleNotFoundError:
     try:
         import toml as tomllib  # type: ignore[no-redef]
     except ModuleNotFoundError:
@@ -30,7 +30,7 @@ except ModuleNotFoundError:  # type: ignore[unreachable]
 
 try:  # pragma: no cover
     import yaml
-except ModuleNotFoundError:  # type: ignore[unreachable]
+except ModuleNotFoundError:
     yaml = None  # type: ignore[assignment]
 
 from . import logger
@@ -73,7 +73,10 @@ if yaml is not None:
     _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=yaml.safe_load)
 
 
-class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
+_S = t.TypeVar('_S', bound=itsdangerous.Serializer)
+
+
+class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -85,20 +88,26 @@ class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
     :param kwargs: Arguments to pass to each signer/serializer
     """
 
-    def __init__(self, cls, secret_keys, **kwargs):
+    def __init__(
+        self,
+        cls: t.Type[_S],
+        secret_keys: t.List[str],
+        **kwargs: t.Any,
+    ) -> None:
         """Init key rotation wrapper."""
-        if isinstance(secret_keys, str):
+        if isinstance(secret_keys, str):  # type: ignore[unreachable]
             raise ValueError("Secret keys must be a list")
+        if not secret_keys:
+            raise ValueError("No secret keys in the list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> t.Any:
         """Read a wrapped attribute."""
         item = getattr(self._engines[0], attr)
         return self._make_wrapper(attr) if callable(item) else item
 
-    def _make_wrapper(self, attr):
-        def wrapper(*args, **kwargs):
-            saved_exc = None
+    def _make_wrapper(self, attr: str) -> t.Callable:
+        def wrapper(*args: t.Any, **kwargs: t.Any) -> t.Any:
             for engine in self._engines:
                 try:
                     return getattr(engine, attr)(*args, **kwargs)
@@ -113,7 +122,7 @@ class KeyRotationWrapper:  # pylint: disable=too-few-public-methods
 class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
-    def get_signing_serializer(self, app):
+    def get_signing_serializer(self, app: Flask) -> t.Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None
@@ -135,7 +144,7 @@ class JSONProvider(DefaultJSONProvider):
     """Expand Flask's JSON provider to support the ``__json__`` protocol."""
 
     @staticmethod
-    def default(o):
+    def default(o: t.Any) -> t.Any:
         """Expand default support to check for `__json__`."""
         if hasattr(o, '__json__'):
             return o.__json__()
@@ -227,10 +236,8 @@ def load_config_from_file(
     """Load config from a specified file with a specified loader (default Python)."""
     try:
         if load is None:
-            app.config.from_pyfile(filepath)
-        else:
-            app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
-        return True
+            return app.config.from_pyfile(filepath)
+        return app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
     except OSError:
         app.logger.warning(
             "Did not find settings file %s for additional settings, skipping it",
