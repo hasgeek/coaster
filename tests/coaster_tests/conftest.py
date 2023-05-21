@@ -33,7 +33,7 @@ def app() -> Flask:
 
 
 @pytest.fixture(scope='class')
-def clsapp(request, app: Flask) -> Flask:
+def clsapp(request: pytest.FixtureRequest, app: Flask) -> Flask:
     """App fixture in unittest class."""
     request.cls.app = app
     return app

@@ -107,7 +107,7 @@ class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-metho
         return self._make_wrapper(attr) if callable(item) else item
 
     def _make_wrapper(self, attr: str) -> t.Callable:
-        def wrapper(*args, **kwargs) -> t.Any:
+        def wrapper(*args: t.Any, **kwargs: t.Any) -> t.Any:
             for engine in self._engines:
                 try:
                     return getattr(engine, attr)(*args, **kwargs)
@@ -144,7 +144,7 @@ class JSONProvider(DefaultJSONProvider):
     """Expand Flask's JSON provider to support the ``__json__`` protocol."""
 
     @staticmethod
-    def default(o):
+    def default(o: t.Any) -> t.Any:
         """Expand default support to check for `__json__`."""
         if hasattr(o, '__json__'):
             return o.__json__()

@@ -29,12 +29,6 @@ class _LabeledEnumMeta(type):
         labels: t.Dict[str, t.Any] = {}
         names: t.Dict[str, t.Any] = {}
 
-        def pop_name_by_value(value):
-            for k, v in list(names.items()):
-                if v == value:
-                    names.pop(k)
-                    return k
-
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
                 # value = tuple of actual value (0), label/name (1), optional title (2)
@@ -56,36 +50,16 @@ class _LabeledEnumMeta(type):
             warnings.warn(
                 "LabeledEnum.__order__ is obsolete in Python >= 3.6", stacklevel=2
             )
-            ordered_labels = {}
-            ordered_names = {}
-            for value in attrs['__order__']:
-                ordered_labels[value[0]] = labels.pop(value[0])
-                attr_name = pop_name_by_value(value[0])
-                if attr_name is not None:
-                    ordered_names[attr_name] = value[0]
-            for (
-                key,
-                value,
-            ) in (
-                labels.items()
-            ):  # Left over items after processing the list in __order__
-                ordered_labels[key] = value
-                attr_name = pop_name_by_value(value)
-                if attr_name is not None:
-                    ordered_names[attr_name] = value
-            ordered_names.update(names)  # Left over names that don't have a label
-        else:  # This enum doesn't care about ordering, or is using Py3 with __prepare__
-            ordered_labels = labels
-            ordered_names = names
-        attrs['__labels__'] = ordered_labels
-        attrs['__names__'] = ordered_names
+
+        attrs['__labels__'] = labels
+        attrs['__names__'] = names
         return type.__new__(cls, name, bases, attrs)
 
-    def __getitem__(cls, key):
-        return cls.__labels__[key]
+    def __getitem__(cls, key: t.Union[str, tuple]) -> t.Any:
+        return cls.__labels__[key]  # type: ignore[attr-defined]
 
-    def __contains__(cls, key):
-        return key in cls.__labels__
+    def __contains__(cls, key: t.Union[str, tuple]) -> bool:
+        return key in cls.__labels__  # type: ignore[attr-defined]
 
 
 class LabeledEnum(metaclass=_LabeledEnumMeta):
@@ -121,28 +95,14 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         True
 
     Retrieve a full list of values and labels with ``.items()``. Definition order is
-    preserved in Python 3.x, but not in 2.x::
+    preserved::
 
-        >>> sorted(MY_ENUM.items())
-        [(1, 'First'), (2, 'Second'), (3, 'Third')]
-        >>> sorted(MY_ENUM.keys())
-        [1, 2, 3]
-        >>> sorted(MY_ENUM.values())
-        ['First', 'Second', 'Third']
-
-    However, if you really want ordering in Python 2.x, add an __order__ list. Anything
-    not in it will default to Python's ordering::
-
-        >>> class RSVP(LabeledEnum):
-        ...     RSVP_Y = ('Y', "Yes")
-        ...     RSVP_N = ('N', "No")
-        ...     RSVP_M = ('M', "Maybe")
-        ...     RSVP_U = ('U', "Unknown")
-        ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_A)
-
-        >>> RSVP.items()
-        [('Y', 'Yes'), ('N', 'No'), ('M', 'Maybe'), ('A', 'Awaiting'), ('U', 'Unknown')]
+        >>> MY_ENUM.items()
+        [(1, 'First'), (3, 'Third'), (2, 'Second')]
+        >>> MY_ENUM.keys()
+        [1, 3, 2]
+        >>> MY_ENUM.values()
+        ['First', 'Third', 'Second']
 
     Three value tuples are assumed to be (value, name, title) and the name and title are
     converted into NameTitle(name, title)::
@@ -151,7 +111,6 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ...     FIRST = (1, 'first', "First")
         ...     THIRD = (3, 'third', "Third")
         ...     SECOND = (2, 'second', "Second")
-        ...     __order__ = (FIRST, SECOND, THIRD)
 
         >>> NAME_ENUM.FIRST
         1
@@ -165,8 +124,8 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
     To make it easier to use with forms and to hide the actual values, a list of (name,
     title) pairs is available::
 
-        >>> NAME_ENUM.nametitles()
-        [('first', 'First'), ('second', 'Second'), ('third', 'Third')]
+        >>> [tuple(x) for x in NAME_ENUM.nametitles()]
+        [('first', 'First'), ('third', 'Third'), ('second', 'Second')]
 
     Given a name, the value can be looked up::
 
@@ -184,7 +143,6 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ...     RSVP_M = ('M', "Maybe")
         ...     RSVP_U = ('U', "Unknown")
         ...     RSVP_A = ('A', "Awaiting")
-        ...     __order__ = (RSVP_Y, RSVP_N, RSVP_M, RSVP_U, RSVP_A)
         ...     UNCERTAIN = {RSVP_M, RSVP_U, 'A'}
 
         >>> isinstance(RSVP_EXTRA.UNCERTAIN, set)
@@ -215,36 +173,36 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
     __names__: t.ClassVar[t.Dict[str, t.Any]]
 
     @classmethod
-    def get(cls, key, default=None):
+    def get(cls, key: str, default: t.Optional[t.Any] = None) -> t.Any:
         """Get the label for an enum value."""
         return cls.__labels__.get(key, default)
 
     @classmethod
-    def keys(cls):
+    def keys(cls) -> t.List[t.Any]:
         """Get all enum values."""
         return list(cls.__labels__.keys())
 
     @classmethod
-    def values(cls):
+    def values(cls) -> t.List[t.Union[str, NameTitle]]:
         """Get all enum labels."""
         return list(cls.__labels__.values())
 
     @classmethod
-    def items(cls):
+    def items(cls) -> t.List[t.Tuple[t.Any, t.Union[str, NameTitle]]]:
         """Get all enum values and associated labels."""
         return list(cls.__labels__.items())
 
     @classmethod
-    def value_for(cls, name):
+    def value_for(cls, name: str) -> t.Any:
         """Get enum value given a label name."""
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
 
     @classmethod
-    def nametitles(cls):
+    def nametitles(cls) -> t.List[NameTitle]:
         """Get names and titles of labels."""
-        return [(name, title) for name, title in cls.values()]
+        return [label for label in cls.values() if isinstance(label, tuple)]
 
 
 _C = t.TypeVar('_C', bound=t.Collection)
@@ -310,7 +268,7 @@ class InspectableSet(t.Generic[_C]):
             self, '__members__', members if members is not None else set()
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'InspectableSet({self.__members__!r})'
 
     def __hash__(self) -> int:
@@ -324,6 +282,9 @@ class InspectableSet(t.Generic[_C]):
 
     def __len__(self) -> int:
         return len(self.__members__)
+
+    def __bool__(self) -> bool:
+        return bool(self.__members__)
 
     def __getitem__(self, key: t.Any) -> bool:
         return key in self.__members__  # Return True if present, False otherwise
@@ -502,13 +463,11 @@ class classmethodproperty:  # noqa: N801
     def __init__(self, func: t.Callable) -> None:
         self.func = func
 
-    def __get__(self, obj, cls=None):
-        if cls is None:
-            cls = type(obj)
+    def __get__(self, _obj: t.Any, cls: t.Type) -> t.Any:
         return self.func(cls)
 
-    def __set__(self, obj, value):
+    def __set__(self, _obj: t.Any, _value: t.Any) -> t.NoReturn:
         raise AttributeError(f"{self.func.__name__} is read-only")
 
-    def __delete__(self, obj):
+    def __delete__(self, _obj: t.Any) -> t.NoReturn:
         raise AttributeError(f"{self.func.__name__} is read-only")

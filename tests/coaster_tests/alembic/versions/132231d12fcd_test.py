@@ -1,4 +1,4 @@
-"""Test Migration
+"""Test Migration.
 
 Revision ID: 132231d12fcd
 Revises: None
@@ -12,9 +12,9 @@ revision = '132231d12fcd'
 down_revision: t.Optional[str] = None
 
 
-def upgrade():
-    pass
+def upgrade() -> None:
+    """Perform database upgrade."""
 
 
-def downgrade():
-    pass
+def downgrade() -> None:
+    """Perform database downgrade."""

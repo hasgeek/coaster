@@ -708,13 +708,21 @@ class TestCoasterModels(AppTestCase):
         self.session.add(m1)
         self.session.commit()
         assert m1.data is not None
+        assert m1.data == {'value': 'foo'}
         # Test for __setitem__
         m1.data['value'] = 'bar'
         assert m1.data['value'] == 'bar'
+        db.session.commit()
+        assert m1.data['value'] == 'bar'
         del m1.data['value']
         assert m1.data == {}
-        with pytest.raises(ValueError):
+        db.session.commit()
+        assert m1.data == {}
+        with pytest.raises(ValueError, match="Value is not dict-like"):
             MyData(data='NonDict')
+        m1.data = None
+        self.session.commit()
+        assert m1.data is None
 
     def test_urltype(self) -> None:
         m1 = MyUrlModel(

@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
+import typing as t
 
 import pytest
 
@@ -126,7 +127,7 @@ def registrymixin_models():
     class RegisteredItem1:
         """Registered item 1."""
 
-        def __init__(self, obj=None):
+        def __init__(self, obj: t.Any = None) -> None:
             """Init class."""
             self.obj = obj
 
@@ -135,7 +136,7 @@ def registrymixin_models():
     class RegisteredItem2:
         """Registered item 2."""
 
-        def __init__(self, obj=None):
+        def __init__(self, obj: t.Any = None) -> None:
             """Init class."""
             self.obj = obj
 

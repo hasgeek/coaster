@@ -27,9 +27,9 @@ from .sqlalchemy_models_test import User
 class LoginManager:  # pylint: disable=too-few-public-methods
     """Test login manager implementing _load_user method."""
 
-    def __init__(self, app):  # pylint: disable=redefined-outer-name
-        app.login_manager = self
-        self.user = None
+    def __init__(self, _app: Flask) -> None:
+        _app.login_manager = self
+        self.user: t.Optional[User] = None
 
     def set_user_for_testing(self, user: User, load: bool = False) -> None:
         """Test auth by setting a user."""
@@ -68,7 +68,7 @@ def models() -> SimpleNamespace:
         username = db.Column(db.Unicode(80))
         fullname = db.Column(db.Unicode(80))
 
-        def __repr__(self):
+        def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'
 
     class AnonUser(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -79,7 +79,7 @@ def models() -> SimpleNamespace:
         username = 'anon'
         fullname = 'Anonymous'
 
-        def __repr__(self):
+        def __repr__(self) -> str:
             return f'AnonUser(username={self.username!r}, fullname={self.fullname!r})'
 
     class Client(BaseMixin, db.Model):  # type: ignore[name-defined]

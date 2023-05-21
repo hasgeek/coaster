@@ -34,7 +34,7 @@ class MarkdownComposite(MutableComposite):
             self.text = text  # This will regenerate HTML
         else:
             self._text = text
-            self._html = html
+            self._html: t.Optional[str] = html
 
     # Return column values for SQLAlchemy to insert into the database
     def __composite_values__(
@@ -60,16 +60,20 @@ class MarkdownComposite(MutableComposite):
         return Markup(self._html) if self._html is not None else None
 
     @property
-    def text(self):
+    def text(self) -> t.Optional[str]:
         """Return text as a property."""
         return self._text
 
     @text.setter
-    def text(self, value):
+    def text(self, value: t.Optional[str]) -> None:
         """Set the text value."""
         self._text = None if value is None else str(value)
+        # Mypy and Pylance appear to be incorrectly typing self.markdown as taking
+        # a parameter text=Literal[None] based on the first overload in the original
+        # function declaration
         self._html = self.markdown(
-            self._text, **(self.options() if callable(self.options) else self.options)
+            self._text,  # type: ignore[arg-type]
+            **(self.options() if callable(self.options) else self.options),
         )
         self.changed()
 
@@ -78,13 +82,13 @@ class MarkdownComposite(MutableComposite):
         return {'text': self._text, 'html': self._html}
 
     # Compare text value
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         """Compare for equality."""
         return isinstance(other, MarkdownComposite) and (
             self.__composite_values__() == other.__composite_values__()
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: t.Any) -> bool:
         """Compare for inequality."""
         return not self.__eq__(other)
 
@@ -92,12 +96,16 @@ class MarkdownComposite(MutableComposite):
     # tested here as we don't use them.
     # https://docs.sqlalchemy.org/en/13/orm/extensions/mutable.html#id1
 
-    def __getstate__(self):  # pragma: no cover
+    def __getstate__(  # pragma: no cover
+        self,
+    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
         """Get state for pickling."""
         # Return state for pickling
         return (self._text, self._html)
 
-    def __setstate__(self, state):  # pragma: no cover
+    def __setstate__(  # pragma: no cover
+        self, state: t.Tuple[t.Optional[str], t.Optional[str]]
+    ) -> None:
         """Set state from pickle."""
         # Set state from pickle
         self._text, self._html = state

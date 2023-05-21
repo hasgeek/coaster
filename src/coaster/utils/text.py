@@ -289,7 +289,7 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
     return blocks
 
 
-def normalize_spaces(text):
+def normalize_spaces(text: str) -> str:
     """Replace whitespace characters with regular spaces."""
     return re_singleline_spaces.sub(' ', text)
 

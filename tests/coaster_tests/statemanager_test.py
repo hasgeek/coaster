@@ -160,7 +160,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
         return success, 'passed'
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
+        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
     ) -> LazyRoleSet:
         """Return roles for the actor."""
         roles = super().roles_for(actor, anchors)

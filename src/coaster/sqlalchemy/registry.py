@@ -60,7 +60,7 @@ class Registry:
     instance, will receive the instance as a positional or keyword parameter::
 
         >>> class MyClass:
-        ...     def __repr__(self):
+        ...     def __repr__(self) -> str:
         ...         return 'MyClass instance'
         ...     # Define one or more registries, with configuration
         ...     registry1 = Registry()
@@ -243,7 +243,7 @@ class InstanceRegistry(t.Generic[_T]):
     in an ``obj`` parameter when called.
     """
 
-    def __init__(self, registry: Registry, obj: _T):
+    def __init__(self, registry: Registry, obj: _T) -> None:
         """Prepare to serve a registry member."""
         # This would previously be cause for a memory leak due to being a cyclical
         # reference, and would have needed a weakref. However, this is no longer a
@@ -305,7 +305,7 @@ class RegistryMixin:
 
 
 @sa.event.listens_for(RegistryMixin, 'after_mapper_constructed', propagate=True)
-def _create_registries(_mapper, cls) -> None:
+def _create_registries(_mapper: t.Any, cls: RegistryMixin) -> None:
     """Create the default registries in a mapped class using RegistryMixin."""
     for registry, kwarg in [('forms', 'obj'), ('views', None), ('features', None)]:
         if hasattr(cls, registry):

@@ -204,30 +204,40 @@ def requestargs(
     return decorator
 
 
-def requestquery(*args) -> tc.ReturnDecorator:
+def requestquery(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
 
 
-def requestform(*args) -> tc.ReturnDecorator:
+def requestform(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
-def requestbody(*args) -> tc.ReturnDecorator:
+def requestbody(
+    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
 
 def load_model(  # pylint: disable=too-many-arguments
-    model,
-    attributes=None,
-    parameter=None,
+    model: t.Type,
+    attributes: t.Dict[str, str],
+    parameter: str,
     kwargs: bool = False,
     permission: t.Optional[t.Union[str, t.Set[str]]] = None,
-    addlperms=None,
-    urlcheck=(),
-):
+    addlperms: t.Optional[
+        t.Union[t.Iterable[str], t.Callable[[], t.Iterable[str]]]
+    ] = None,
+    urlcheck: t.Collection[str] = (),
+) -> t.Callable[
+    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
+]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -295,7 +305,7 @@ def load_model(  # pylint: disable=too-many-arguments
 def load_models(
     *chain, permission: t.Optional[t.Union[str, t.Set[str]]] = None, **config
 ) -> t.Callable[
-    [t.Callable[_VP, _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
+    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
 ]:
     """
     Decorator to load a chain of models from the given parameters. This works just like
@@ -329,12 +339,10 @@ def load_models(
     """
 
     def decorator(
-        f: t.Callable[_VP, _VR]
+        f: t.Callable[..., _VR]
     ) -> t.Callable[..., t.Union[_VR, WerkzeugResponse]]:
         @wraps(f)
-        def wrapper(
-            *args: _VP.args, **kwargs: _VP.kwargs
-        ) -> t.Union[_VR, WerkzeugResponse]:
+        def wrapper(*args, **kwargs) -> t.Union[_VR, WerkzeugResponse]:
             view_args: t.Optional[t.Dict[str, t.Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
             permissions: t.Optional[t.Set[str]] = None
@@ -760,7 +768,7 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
                 return bool(current_auth.permissions & permission)
             return permission in current_auth.permissions
 
-        def is_available(context=None) -> bool:
+        def is_available(context: t.Optional[t.Any] = None) -> bool:
             result = is_available_here()
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well

@@ -37,7 +37,7 @@ class ParentDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     middle_id = sa.Column(sa.Integer, sa.ForeignKey('middle_container.id'))
     middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.middle = MiddleContainer()
 

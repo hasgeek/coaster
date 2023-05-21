@@ -22,13 +22,16 @@ from __future__ import annotations
 from threading import Lock
 import typing as t
 
-from flask import current_app, g, request
+from flask import Flask, current_app, g, request
 from werkzeug.local import LocalProxy
 from werkzeug.wrappers import Response as BaseResponse
 
 from .utils import InspectableSet
 
 __all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
+
+
+_Response = t.TypeVar('_Response', bound=BaseResponse)
 
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
@@ -143,7 +146,7 @@ class CurrentAuth:
 
     is_placeholder: bool
     permissions: InspectableSet
-    anchors: t.Set
+    anchors: t.Sequence[t.Any]
 
     def __init__(self, is_placeholder: bool = False) -> None:
         object.__setattr__(self, 'is_placeholder', is_placeholder)
@@ -228,12 +231,12 @@ class CurrentAuth:
         return bool(self)
 
 
-def _set_auth_cookie_after_request(response: BaseResponse) -> BaseResponse:
+def _set_auth_cookie_after_request(response: _Response) -> _Response:
     # TODO
     return response
 
 
-def init_app(app):
+def init_app(app: Flask) -> None:
     """Optionally initialize current_auth for auth cookie management in an app."""
     app.config.setdefault('AUTH_COOKIE_NAME', 'auth')
     for our_config, flask_config in [

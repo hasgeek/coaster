@@ -65,7 +65,7 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
         return perms
 
     def roles_for(
-        self, actor: t.Optional[str] = None, anchors: t.Iterable = ()
+        self, actor: t.Optional[str] = None, anchors: t.Sequence[t.Any] = ()
     ) -> LazyRoleSet:
         roles = super().roles_for(actor, anchors)
         if actor in ('this-is-the-owner', 'this-is-another-owner'):

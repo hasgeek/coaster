@@ -410,7 +410,7 @@ class ManagedStateGroup:
         self,
         name: str,
         statemanager: StateManager,
-        states: t.Iterable[ManagedState],
+        states: t.Iterable[t.Union[ManagedState, ManagedStateGroup]],
     ) -> None:
         self.name = name
         self.statemanager = statemanager
@@ -424,6 +424,10 @@ class ManagedStateGroup:
                 or state.statemanager != statemanager
             ):
                 raise ValueError(f"Invalid state {state!r} for state group {self!r}")
+
+        if t.TYPE_CHECKING:
+            # Tell Mypy that we only have ManagedState in the list now
+            states = t.cast(t.Iterable[ManagedState], states)
 
         # Second, separate conditional from regular states (regular states may still be
         # grouped states)
@@ -482,7 +486,7 @@ class ManagedStateInstance(t.Generic[_T]):
         self,
         mstate: t.Union[ManagedState, ManagedStateGroup],
         obj: _T,
-    ):
+    ) -> None:
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
             raise TypeError(f"Parameter is not a managed state: {mstate!r}")
         self._mstate = mstate
@@ -615,7 +619,7 @@ class StateTransition(t.Generic[_P, _R]):
             return self
         return StateTransitionWrapper(self, obj)
 
-    def __call__(self, obj, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def __call__(self, obj: t.Any, *args: _P.args, **kwargs: _P.kwargs) -> _R:
         """Call transition directly from the class with an instance parameter."""
         return StateTransitionWrapper(self, obj)(*args, **kwargs)
 
@@ -627,7 +631,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
     Automatically constructed by :class:`StateTransition`.
     """
 
-    def __init__(self, statetransition: StateTransition[_P, _R], obj: _T):
+    def __init__(self, statetransition: StateTransition[_P, _R], obj: _T) -> None:
         self.statetransition = statetransition
         self.obj = obj
 
@@ -738,7 +742,7 @@ class StateManager:
     transitions: t.List[str]
 
     def __init__(
-        self, propname, lenum: t.Type[LabeledEnum], doc: t.Optional[str] = None
+        self, propname: str, lenum: t.Type[LabeledEnum], doc: t.Optional[str] = None
     ) -> None:
         self.cls = object  # Depend on __set_name__ to update
         self.propname = propname
@@ -764,7 +768,7 @@ class StateManager:
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
-    def __set_name__(self, owner: t.Type, name: str):
+    def __set_name__(self, owner: t.Type, name: str) -> None:
         if self.cls is not object:
             raise TypeError("This StateManager is already affiliated with a host class")
         self.cls = owner
@@ -852,7 +856,9 @@ class StateManager:
         # uppercased)
         setattr(self, name, mstate)
 
-    def add_state_group(self, name: str, *states) -> None:
+    def add_state_group(
+        self, name: str, *states: t.Union[ManagedState, ManagedStateGroup]
+    ) -> None:
         """
         Add a group of managed states.
 
@@ -956,7 +962,7 @@ class StateManager:
     def requires(
         self,
         from_: t.Union[ManagedState, ManagedStateGroup],
-        **data,
+        **data: t.Any,
     ) -> t.Callable[
         [t.Callable[te.Concatenate[t.Any, _P], _R]], StateTransition[_P, _R]
     ]:
@@ -1004,7 +1010,9 @@ class StateManager:
         return groups
 
     @staticmethod
-    def check_constraint(column, lenum, **kwargs):
+    def check_constraint(
+        column: str, lenum: t.Type[LabeledEnum], **kwargs: t.Any
+    ) -> sa.CheckConstraint:
         """
         Construct a SQL CHECK constraint.
 
@@ -1053,12 +1061,12 @@ class StateManager:
 class StateManagerInstance(t.Generic[_SM, _T]):
     """Wraps :class:`StateManager` when accessed from an instance."""
 
-    def __init__(self, statemanager: _SM, obj: _T, cls: t.Type[_T]):
+    def __init__(self, statemanager: _SM, obj: _T, cls: t.Type[_T]) -> None:
         self.statemanager = statemanager
         self.obj = obj
         self.cls = cls
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<StateManagerInstance {self.cls.__name__}.{self.statemanager.name})>'
 
     @property
@@ -1115,8 +1123,8 @@ class StateManagerInstance(t.Generic[_SM, _T]):
     def transitions_for(
         self,
         roles: t.Optional[t.Set[str]] = None,
-        actor: t.Any = None,
-        anchors: t.Tuple[()] = (),
+        actor: t.Optional[t.Any] = None,
+        anchors: t.Sequence[t.Any] = (),
     ) -> t.Dict[str, StateTransitionWrapper]:
         """
         Return currently available transitions for the given actor or roles.

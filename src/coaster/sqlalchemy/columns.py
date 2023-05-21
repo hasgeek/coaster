@@ -5,7 +5,7 @@ SQLAlchemy column types
 
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 import typing as t
 
 from furl import furl
@@ -39,38 +39,22 @@ class JsonDict(TypeDecorator):
     impl = sa.types.JSON
     cache_ok = True
 
-    def load_dialect_impl(self, dialect):
+    def load_dialect_impl(self, dialect: sa.Dialect) -> sa.types.TypeEngine:
+        """Use JSONB column in PostgreSQL."""
         if dialect.name == 'postgresql':
-            return dialect.type_descriptor(postgresql.JSONB)
-        return dialect.type_descriptor(self.impl)
-
-    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> str:
-        if value is not None:
-            value = json.dumps(value, default=str)  # Callable default
-        return value
-
-    def process_result_value(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
-        if value is not None and isinstance(value, str):
-            # Psycopg2 >= 2.5 will auto-decode JSON columns, so
-            # we only attempt decoding if the value is a string.
-            # Since this column stores dicts only, processed values
-            # can never be strings.
-            value = json.loads(value)
-        return value
+            return dialect.type_descriptor(postgresql.JSONB)  # type: ignore[arg-type]
+        return dialect.type_descriptor(self.impl)  # type: ignore[arg-type]
 
 
 class MutableDict(Mutable, dict):
     @classmethod
-    def coerce(cls, key: t.Any, value: t.Any) -> MutableDict:
+    def coerce(cls, key: t.Any, value: t.Any) -> t.Optional[MutableDict]:
         """Convert plain dictionaries to MutableDict."""
+        if value is None:
+            return None
         if not isinstance(value, MutableDict):
-            if isinstance(value, dict):
+            if isinstance(value, Mapping):
                 return MutableDict(value)
-            if isinstance(value, str):
-                # Assume JSON string
-                if value:
-                    return MutableDict(json.loads(value))
-                return MutableDict()  # Empty value is an empty dict
             raise ValueError(f"Value is not dict-like: {value}")
         return value
 
@@ -117,6 +101,7 @@ class UrlType(UrlTypeBase):
         self.optional_scheme = optional_scheme
 
     def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Optional[str]:
+        """Validate URL before storing to the database."""
         value = super().process_bind_param(value, dialect)
         if value:
             parsed = self.url_parser(value)
@@ -136,11 +121,12 @@ class UrlType(UrlTypeBase):
     def process_result_value(
         self, value: t.Any, dialect: sa.Dialect
     ) -> t.Optional[furl]:
+        """Cast URL loaded from database into a furl object."""
         if value is not None:
             return self.url_parser(value)
         return None
 
-    def _coerce(self, value):
+    def _coerce(self, value: t.Any) -> t.Optional[furl]:
         if value is not None and not isinstance(value, self.url_parser):
             return self.url_parser(value)
         return value

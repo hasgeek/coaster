@@ -107,7 +107,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
     # anchors is not specified by RoleMixin.
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
+        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
     ) -> LazyRoleSet:
         """Find roles for a given actor."""
         # Calling super gives us a set with the standard roles

@@ -330,7 +330,7 @@ class RoleGrantABC(metaclass=ABCMeta):
         return set()
 
     @classmethod
-    def __subclasshook__(cls, c) -> bool:
+    def __subclasshook__(cls, c: t.Type) -> bool:
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             if any('offered_roles' in b.__dict__ for b in c.__mro__):
@@ -463,7 +463,7 @@ class LazyRoleSet(abc.MutableSet):
     def __contains__(self, key: t.Any) -> bool:
         return self._role_is_present(key)
 
-    def __iter__(self):
+    def __iter__(self) -> t.Iterator[str]:
         return iter(self._contents())
 
     def __len__(self) -> int:
@@ -565,21 +565,21 @@ class DynamicAssociationProxy:
         self.rel = rel
         self.attr = attr
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls=None) -> te.Self:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
     def __get__(
-        self, obj: QueryModelType, cls=None
+        self, obj: QueryModelType, cls: t.Type
     ) -> DynamicAssociationProxyWrapper[QueryModelType]:
         ...
 
     def __get__(
-        self, obj: t.Optional[QueryModelType], cls=None
+        self, obj: t.Optional[QueryModelType], cls: t.Type
     ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[QueryModelType]]:
         if obj is None:
             return self
@@ -596,13 +596,13 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[QueryModelType]):
         obj: QueryModelType,
         rel: str,
         attr: str,
-    ):
+    ) -> None:
         self.obj = obj
         self.rel = rel
         self.relattr = getattr(obj, rel)
         self.attr = attr
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
         )
@@ -673,7 +673,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     _obj: RoleMixinType
     current_roles: InspectableSet[t.Union[LazyRoleSet, t.Set[str]]]
     _actor: t.Any
-    _anchors: t.Iterable
+    _anchors: t.Sequence[t.Any]
     _datasets: t.Optional[t.Sequence[str]]
     _dataset_attrs: t.Optional[t.Set[str]]
     _call: t.Set[str]
@@ -685,7 +685,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         obj: RoleMixinType,
         roles: t.Union[LazyRoleSet, t.Set[str]],
         actor: t.Optional[t.Any],
-        anchors: t.Iterable,
+        anchors: t.Sequence[t.Any],
         datasets: t.Optional[t.Sequence[str]],
     ) -> None:
         object.__setattr__(self, '_obj', obj)
@@ -1040,7 +1040,7 @@ class RoleMixin:
     __relationship_reversed_role_offer_map__: t.Dict[str, RoleOfferMap] = {}
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
+        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
     ) -> LazyRoleSet:
         """
         Return roles available to the given ``actor`` or ``anchors`` on this object.
@@ -1058,7 +1058,7 @@ class RoleMixin:
         boilerplate::
 
             def roles_for(
-                self, actor: t.Optional[User] = None, anchors: t.Iterable = ()
+                self, actor: t.Optional[User] = None, anchors: t.Sequence[t.Any] = ()
             ) -> LazyRoleSet:
                 roles = super().roles_for(actor, anchors)
                 # 'roles' is a set. Add more roles here
@@ -1155,7 +1155,7 @@ class RoleMixin:
         # been returned
         actor_ids = set()
 
-        def is_new(actor):
+        def is_new(actor: t.Optional[t.Any]) -> bool:
             if not actor:
                 return False
             # Use identity_key, NOT identity:
@@ -1255,8 +1255,8 @@ class RoleMixin:
     def access_for(
         self,
         roles: t.Optional[t.Union[LazyRoleSet, t.Set[str]]] = None,
-        actor=None,
-        anchors=(),
+        actor: t.Optional[t.Any] = None,
+        anchors: t.Sequence[t.Any] = (),
         datasets: t.Optional[t.Sequence[str]] = None,
     ) -> RoleAccessProxy:
         """
@@ -1308,7 +1308,9 @@ class RoleMixin:
             self, roles=roles, actor=actor, anchors=anchors, datasets=datasets
         )
 
-    def current_access(self, datasets=None) -> RoleAccessProxy:
+    def current_access(
+        self, datasets: t.Optional[t.Sequence[str]] = None
+    ) -> RoleAccessProxy:
         """
         Return an access control proxy for this instance for the current actor.
 
@@ -1320,13 +1322,13 @@ class RoleMixin:
             actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
         )
 
-    def __json__(self):
+    def __json__(self) -> t.Dict[str, t.Any]:
         """Render to a JSON-compatible data structure."""
         return dict(self.current_access(self.__json_datasets__))
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(_mapper, cls: RoleMixin) -> None:
+def _configure_roles(_mapper: t.Any, cls: RoleMixin) -> None:
     """
     Configure roles on all models when configuring SQLAlchemy mappers.
 

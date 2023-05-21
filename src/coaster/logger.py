@@ -19,7 +19,11 @@ import logging.handlers
 import re
 import textwrap
 import traceback
+import types
 import typing as t
+
+if t.TYPE_CHECKING:
+    from logging import _SysExcInfoType
 
 from flask import Flask, g, request, session
 from flask.config import Config
@@ -53,8 +57,8 @@ _filter_re = re.compile(
 )
 
 # global var as lazy in-memory cache
-error_throttle_timestamp_slack: t.Dict[str, datetime] = {}
-error_throttle_timestamp_telegram: t.Dict[str, datetime] = {}
+error_throttle_timestamp_slack: t.Dict[t.Tuple[str, int], datetime] = {}
+error_throttle_timestamp_telegram: t.Dict[t.Tuple[str, int], datetime] = {}
 
 
 class FilteredValueIndicator:
@@ -109,7 +113,7 @@ def pprint_with_indent(dictlike: t.Dict, outfile: t.IO, indent: int = 4) -> None
 class LocalVarFormatter(logging.Formatter):
     """Log the contents of local variables in the stack frame."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         """Init formatter."""
         super().__init__(*args, **kwargs)
         self.lock = Lock()
@@ -129,15 +133,17 @@ class LocalVarFormatter(logging.Formatter):
             record.exc_text = None
         return super().format(record)
 
-    def formatException(self, ei) -> str:  # noqa: N802
+    def formatException(self, ei: _SysExcInfoType) -> str:  # noqa: N802
         """Render a stack trace with local variables in each stack frame."""
         tb = ei[2]
+        if tb is None:
+            return ''
         while True:
             if not tb.tb_next:
                 break
             tb = tb.tb_next
         stack = []
-        f = tb.tb_frame
+        f: t.Optional[types.FrameType] = tb.tb_frame
         while f:
             stack.append(f)
             f = f.f_back
@@ -242,13 +248,13 @@ class LocalVarFormatter(logging.Formatter):
 class SlackHandler(logging.Handler):
     """Custom logging handler to post error reports to Slack."""
 
-    def __init__(self, app_name, webhooks):
+    def __init__(self, app_name: str, webhooks: t.List[t.Dict[str, t.Any]]) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.webhooks = webhooks
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_slack or (
@@ -319,14 +325,14 @@ class SlackHandler(logging.Handler):
 class TelegramHandler(logging.Handler):
     """Custom logging handler to report errors to a Telegram chat."""
 
-    def __init__(self, app_name, chatid, apikey):
+    def __init__(self, app_name: str, chatid: str, apikey: str) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.chatid = chatid
         self.apikey = apikey
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
         throttle_key = (record.module, record.lineno)
         if throttle_key not in error_throttle_timestamp_telegram or (
@@ -457,7 +463,3 @@ def init_app(app: Flask) -> None:
         mail_handler.setFormatter(formatter)
         mail_handler.setLevel(logging.ERROR)
         logger.addHandler(mail_handler)
-
-
-# Legacy name
-configure = init_app

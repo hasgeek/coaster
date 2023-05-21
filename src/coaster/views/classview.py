@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import partial, update_wrapper, wraps
 from types import SimpleNamespace
+from typing import overload
 import asyncio
 import typing as t
 
@@ -27,9 +28,7 @@ from flask.typing import ResponseReturnValue
 from furl import furl
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
-from sqlalchemy.orm.mapper import Mapper
 from sqlalchemy.orm.properties import RelationshipProperty
-from sqlalchemy.orm.query import Query
 from werkzeug.local import LocalProxy
 from werkzeug.routing import Map as WzMap
 from werkzeug.routing import Rule as WzRule
@@ -38,7 +37,7 @@ import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
-from ..sqlalchemy import UrlForMixin
+from ..sqlalchemy import Query, UrlForMixin
 from ..typing import WrappedFunc
 from ..utils import InspectableSet
 from .misc import ensure_sync
@@ -78,7 +77,7 @@ class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
         endpoint: str,
         view_func: t.Callable,
         **options,
-    ):
+    ) -> t.Any:
         ...
 
 
@@ -163,14 +162,12 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
-class ViewHandler(  # pylint: disable=too-many-instance-attributes
-    t.Generic[tc.WrappedFunc]
-):
+class ViewHandler:  # pylint: disable=too-many-instance-attributes
     """Internal object created by the :func:`route` and :func:`viewdata` functions."""
 
     name: str
     endpoint: str
-    func: tc.WrappedFunc
+    func: t.Callable
 
     def __init__(
         self,
@@ -185,17 +182,16 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self.data = data or {}
         self.endpoints: t.Set[str] = set()
 
-    @t.no_type_check
-    def reroute(self: ViewHandlerType, f: t.Callable) -> ViewHandlerType:
+    def reroute(self, f: t.Callable) -> te.Self:
         """Replace a view handler in a subclass while keeping its URL route rules."""
         # Use type(self) instead of ViewHandler so this works for (future) subclasses
         # of ViewHandler
         r = type(self)(None)
         r.routes = self.routes
         r.data = self.data
-        return r(f)
+        return t.cast(te.Self, r(f))
 
-    def copy_for_subclass(self: ViewHandlerType) -> ViewHandlerType:
+    def copy_for_subclass(self) -> te.Self:
         """Make a copy of this ViewHandler, for use in a subclass."""
         # Like reroute, but just a copy
         r = type(self)(None)
@@ -209,10 +205,19 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         r.endpoints = set()
         return r
 
-    @t.no_type_check
+    @overload
+    def __call__(  # type: ignore[misc]
+        self, decorated: t.Type[ClassView]
+    ) -> t.Type[ClassView]:
+        ...
+
+    @overload
+    def __call__(self, decorated: t.Union[t.Callable, te.Self]) -> te.Self:
+        ...
+
     def __call__(
-        self: ViewHandlerType, decorated: t.Union[t.Callable, ViewHandlerType]
-    ) -> ViewHandlerType:
+        self, decorated: t.Union[t.Callable, te.Self]
+    ) -> t.Union[t.Type[ClassView], te.Self]:
         """Decorate a view handler."""
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
         if isinstance(decorated, type) and issubclass(decorated, ClassView):
@@ -240,11 +245,25 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self.__doc__ = self.func.__doc__  # pylint: disable=W0201
         return self
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner: t.Type, name: str) -> None:
         self.name = name
         self.endpoint = owner.__name__ + '_' + self.name
 
-    def __get__(self, obj, cls=None):
+    @overload
+    def __get__(self: ViewHandlerType, obj: None, cls: t.Type) -> ViewHandlerType:
+        ...
+
+    @overload
+    def __get__(
+        self: ViewHandlerType, obj: t.Any, cls: t.Type
+    ) -> ViewHandlerWrapper[ViewHandlerType]:
+        ...
+
+    def __get__(
+        self: ViewHandlerType, obj: t.Optional[t.Any], cls: t.Type
+    ) -> t.Union[ViewHandlerType, ViewHandlerWrapper[ViewHandlerType]]:
+        if obj is None:
+            return self
         return ViewHandlerWrapper(self, obj, cls)
 
     def init_app(
@@ -342,16 +361,15 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
-# TODO: Make this generic on ViewHandler's type, but how?
-class ViewHandlerWrapper:
+class ViewHandlerWrapper(t.Generic[ViewHandlerType]):
     """Wrapper for a view at runtime."""
 
     def __init__(
         self,
-        viewh: ViewHandler,
-        obj: ClassView,
-        cls: t.Optional[t.Type[ClassView]] = None,
-    ):
+        viewh: ViewHandlerType,
+        obj: t.Optional[ClassView],
+        cls: t.Type[ClassView],
+    ) -> None:
         # obj is the ClassView instance
         self._viewh = viewh
         self._obj = obj
@@ -373,7 +391,7 @@ class ViewHandlerWrapper:
             and self._cls == other._cls
         )
 
-    def __ne__(self, other):  # pragma: no cover
+    def __ne__(self, other: t.Any) -> bool:  # pragma: no cover
         return not self.__eq__(other)
 
     def is_available(self) -> bool:
@@ -455,15 +473,18 @@ class ClassView:
     is_always_available = False
 
     #: When a view is called, this will point to the current view handler,
-    #: an instance of :class:`ViewHandler`.
-    current_handler: ViewHandler = None  # type: ignore[assignment]
+    #: an instance of :class:`ViewHandlerWrapper`.
+    current_handler: ViewHandlerWrapper = None  # type: ignore[assignment]
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
     view_args: t.Dict[str, t.Any] = {}
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self)
+
+    def __ne__(self, other: t.Any) -> bool:
+        return type(other) is not type(self)
 
     def dispatch_request(
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
@@ -529,7 +550,7 @@ class ClassView:
         )
 
     @classmethod
-    def __get_raw_attr(cls, name):
+    def __get_raw_attr(cls, name: str) -> t.Any:
         for base in cls.__mro__:
             if name in base.__dict__:
                 return base.__dict__[name]
@@ -637,7 +658,7 @@ class ModelView(ClassView):
     #: A loaded object of any type
     obj: t.Any
 
-    current_handler: ViewHandler
+    current_handler: ViewHandlerWrapper
 
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
@@ -652,12 +673,15 @@ class ModelView(ClassView):
     #: SQLAlchemy attribute references to load the instance object.
     route_model_map: t.Dict[str, str] = {}
 
-    def __init__(self, obj: t.Optional[t.Any] = None):
+    def __init__(self, obj: t.Optional[t.Any] = None) -> None:
         super().__init__()
         self.obj = obj
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self) and other.obj == self.obj
+
+    def __ne__(self, other: t.Any) -> bool:
+        return not self.__eq__(other)
 
     def dispatch_request(
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
@@ -748,28 +772,28 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
     """Decorate to require specific roles in a :class:`ModelView` view."""
 
     def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
-        def is_available_here(context):
+        def is_available_here(context: ModelView) -> bool:
             return context.obj.roles_for(current_auth.actor).has_any(roles)
 
-        def is_available(context):
+        def is_available(context: ModelView) -> bool:
             result = is_available_here(context)
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well
                 return f.is_available(context)
             return result
 
-        def validate(obj):
+        def validate(context: ModelView) -> None:
             add_auth_attribute('login_required', True)
-            if not is_available_here(obj):
+            if not is_available_here(context):
                 abort(403)
 
         @wraps(f)
-        def wrapper(self, *args, **kwargs) -> t.Any:
+        def wrapper(self: ModelView, *args, **kwargs) -> t.Any:
             validate(self)
             return f(self, *args, **kwargs)
 
         @wraps(f)
-        async def async_wrapper(self, *args, **kwargs) -> t.Any:
+        async def async_wrapper(self: ModelView, *args, **kwargs) -> t.Any:
             validate(self)
             return await f(self, *args, **kwargs)
 
@@ -807,7 +831,10 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             **options: t.Dict[str, t.Any],
         ) -> None:
             def register_paths_from_app(
-                reg_app: Flask, reg_rule: str, reg_endpoint: str, reg_options
+                reg_app: Flask,
+                reg_rule: str,
+                reg_endpoint: str,
+                reg_options: t.Dict[str, t.Any],
             ) -> None:
                 # Only pass in the attrs that are included in the rule.
                 # 1. Extract list of variables from the rule
@@ -900,7 +927,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     (``#target_id``) is not available to the server and will be lost.
     """
 
-    def validate(context) -> t.Optional[ResponseReturnValue]:
+    def validate(context: ModelView) -> t.Optional[ResponseReturnValue]:
         if request.method == 'GET' and context.obj is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = furl(correct_url).remove(
@@ -920,14 +947,14 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
         return None
 
     @wraps(f)
-    def wrapper(self, *args, **kwargs) -> t.Any:
+    def wrapper(self: ModelView, *args, **kwargs) -> t.Any:
         retval = validate(self)
         if retval is not None:
             return retval
         return f(self, *args, **kwargs)
 
     @wraps(f)
-    async def async_wrapper(self, *args, **kwargs) -> t.Any:
+    async def async_wrapper(self: ModelView, *args, **kwargs) -> t.Any:
         retval = validate(self)
         if retval is not None:
             return retval
@@ -975,7 +1002,11 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
         method directly.
     """
 
-    def loader(self, **view_args):
+    route_model_map: t.Dict[str, str]
+    model: t.Type
+    query: t.Optional[Query]
+
+    def loader(self, **view_args) -> t.Any:
         """Load instance based on view arguments."""
         # pylint: disable=too-many-nested-blocks
         if any(name in self.route_model_map for name in view_args):
@@ -1007,12 +1038,7 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
                         if isinstance(attr, InstrumentedAttribute) and isinstance(
                             attr.property, RelationshipProperty
                         ):
-                            if isinstance(attr.property.argument, Mapper):
-                                attr = (
-                                    attr.property.argument.class_
-                                )  # Unlikely to be used. pragma: no cover
-                            else:
-                                attr = attr.property.argument
+                            attr = attr.property.argument
                             if attr not in joined_models:
                                 # SQL JOIN the other model on the basis of
                                 # the relationship that led us to this join

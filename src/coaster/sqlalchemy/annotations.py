@@ -73,7 +73,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @sa.event.listens_for(Mapper, 'mapper_configured')
-def _configure_annotations(_mapper, cls):
+def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
     """
     Extract annotations from attributes.
 
@@ -81,8 +81,8 @@ def _configure_annotations(_mapper, cls):
     :func:`annotation_wrapper` and add them to :attr:`cls.__column_annotations__`
     and :attr:`cls.__column_annotations_by_attr__`
     """
-    annotations = {}
-    annotations_by_attr = {}
+    annotations: t.Dict[str, t.List[str]] = {}  # Annotation name: list of attrs
+    annotations_by_attr: t.Dict[str, t.List[str]] = {}  # Attr name: annotations
 
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()

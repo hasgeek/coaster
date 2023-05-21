@@ -1,5 +1,6 @@
 from collections.abc import MutableSet
 import datetime
+import typing as t
 import unittest
 
 from pytz import UTC, common_timezones
@@ -37,7 +38,6 @@ class MY_ENUM_TWO(LabeledEnum):  # noqa: N801
     FIRST = (1, 'first', "First")
     SECOND = (2, 'second', "Second")
     THIRD = (3, 'third', "Third")
-    __order__ = (FIRST, SECOND, THIRD)
 
 
 class TestCoasterUtils(unittest.TestCase):
@@ -247,7 +247,11 @@ class TestCoasterUtils(unittest.TestCase):
         assert require_one_of(True, first=None, second='b') == ('second', 'b')
 
     def test_inspectable_set(self) -> None:
+        s0: InspectableSet[set] = InspectableSet()
+        assert not s0
+
         s1 = InspectableSet(['all', 'anon'])
+        assert s1
         assert 'all' in s1
         assert 'auth' not in s1
         assert s1['all']
@@ -256,6 +260,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert not s1.auth
 
         s2 = InspectableSet({'all', 'anon', 'other'})
+        assert s2
         assert 'all' in s2
         assert 'auth' not in s2
         assert s2['all']
@@ -263,6 +268,7 @@ class TestCoasterUtils(unittest.TestCase):
         assert s2.all
         assert not s2.auth
 
+        assert len(s0) == 0
         assert len(s1) == 2
         assert len(s2) == 3
         assert s1 != {'all', 'anon'}  # s1 will behave like a list
@@ -306,22 +312,22 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_nary_op(self) -> None:
         class DemoSet(MutableSet):
-            def __init__(self, members):
+            def __init__(self, members: t.Any) -> None:
                 self.set = set(members)
 
-            def __contains__(self, value):
+            def __contains__(self, value: t.Any) -> bool:
                 return value in self.set
 
-            def __iter__(self):
+            def __iter__(self) -> t.Iterator:
                 return iter(self.set)
 
-            def __len__(self):
+            def __len__(self) -> int:
                 return len(self.set)
 
-            def add(self, value):
+            def add(self, value: t.Any) -> None:
                 return self.set.add(value)
 
-            def discard(self, value):
+            def discard(self, value: t.Any) -> None:
                 return self.set.discard(value)
 
             update = nary_op(MutableSet.__ior__, "Custom docstring")

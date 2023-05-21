@@ -5,7 +5,7 @@ Date, time and timezone utilities
 
 from __future__ import annotations
 
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 import typing as t
 
 from aniso8601 import parse_datetime, parse_duration
@@ -146,7 +146,7 @@ def midnight_to_utc(
 def sorted_timezones() -> t.List[t.Tuple[str, str]]:
     """Return a list of timezones sorted by offset from UTC."""
 
-    def hourmin(delta):
+    def hourmin(delta: timedelta) -> t.Tuple[int, int]:
         if delta.days < 0:
             hours, remaining = divmod(86400 - delta.seconds, 3600)
         else:

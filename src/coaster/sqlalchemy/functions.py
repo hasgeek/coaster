@@ -5,10 +5,12 @@ Helper functions
 
 from __future__ import annotations
 
+from typing import overload
 import typing as t
 
 from sqlalchemy.ext.compiler import compiles
 import sqlalchemy as sa
+import typing_extensions as te
 
 __all__ = [
     'make_timestamp_columns',
@@ -39,12 +41,16 @@ def _utcnow_default(element: UtcNow, _compiler: t.Any, **kwargs) -> str:
 
 
 @compiles(UtcNow, 'mysql')
-def _utcnow_mysql(element: UtcNow, _compiler: t.Any, **kwargs):  # pragma: no cover
+def _utcnow_mysql(  # pragma: no cover
+    element: UtcNow, _compiler: t.Any, **kwargs
+) -> str:
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(UtcNow, 'mssql')
-def _utcnow_mssql(element: UtcNow, _compiler: t.Any, **kwargs):  # pragma: no cover
+def _utcnow_mssql(  # pragma: no cover
+    element: UtcNow, _compiler: t.Any, **kwargs
+) -> str:
     return 'SYSUTCDATETIME()'
 
 
@@ -53,7 +59,7 @@ def _utcnow_mssql(element: UtcNow, _compiler: t.Any, **kwargs):  # pragma: no co
 
 def make_timestamp_columns(
     timezone: bool = False,
-) -> t.Tuple[sa.Column[sa.TIMESTAMP], sa.Column[sa.TIMESTAMP]]:
+) -> t.Iterable[sa.Column[sa.TIMESTAMP]]:
     """Return two columns, `created_at` and `updated_at`, with appropriate defaults."""
     return (
         sa.Column(
@@ -72,7 +78,19 @@ def make_timestamp_columns(
     )
 
 
-def failsafe_add(__session, __instance: T, **filters: t.Any) -> t.Optional[T]:
+@overload
+def failsafe_add(__session: sa.orm.Session, __instance: t.Any) -> None:
+    ...
+
+
+@overload
+def failsafe_add(__session: sa.orm.Session, __instance: T, **filters: t.Any) -> T:
+    ...
+
+
+def failsafe_add(
+    __session: sa.orm.Session, __instance: T, **filters: t.Any
+) -> t.Optional[T]:
     """
     Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).
 
@@ -125,8 +143,18 @@ def failsafe_add(__session, __instance: T, **filters: t.Any) -> t.Optional[T]:
     return None
 
 
+class _ModelType(te.Protocol):
+    __tablename__: t.ClassVar[str]
+    __with_timezone__: t.ClassVar[bool]
+    metadata: t.ClassVar[sa.MetaData]
+
+
 def add_primary_relationship(
-    parent, childrel: str, child, parentrel: str, parentcol: str
+    parent: t.Type[_ModelType],
+    childrel: str,
+    child: t.Type[_ModelType],
+    parentrel: str,
+    parentcol: str,
 ) -> sa.Table:
     """
     Add support for the primary child of a parent, given a one-to-many relationship.
@@ -157,8 +185,12 @@ def add_primary_relationship(
     parent_table_name = parent.__tablename__
     child_table_name = child.__tablename__
     primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
-    parent_id_columns = [c.name for c in sa.inspect(parent).primary_key]
-    child_id_columns = [c.name for c in sa.inspect(child).primary_key]
+    parent_id_columns = [
+        c.name for c in sa.inspect(parent).primary_key  # type: ignore[union-attr]
+    ]
+    child_id_columns = [
+        c.name for c in sa.inspect(child).primary_key  # type: ignore[union-attr]
+    ]
 
     primary_table_columns: t.List[sa.Column] = (
         [
@@ -180,7 +212,10 @@ def add_primary_relationship(
             )
             for name in child_id_columns
         ]
-        + list(make_timestamp_columns(timezone=parent.__with_timezone__))
+        + t.cast(
+            t.List[sa.Column],
+            list(make_timestamp_columns(timezone=parent.__with_timezone__)),
+        )
     )
 
     primary_table = sa.Table(
@@ -190,7 +225,9 @@ def add_primary_relationship(
     setattr(parent, childrel, rel)
 
     @sa.event.listens_for(rel, 'set')
-    def _validate_child(target, value, _oldvalue, _initiator):
+    def _validate_child(
+        target: t.Any, value: t.Any, _oldvalue: t.Any, _initiator: t.Any
+    ) -> None:
         if value and getattr(value, parentrel) != target:
             raise ValueError("The target is not affiliated with this parent")
 
@@ -205,9 +242,11 @@ def add_primary_relationship(
                 target RECORD;
             BEGIN
                 IF (NEW.%(rhs)s IS NOT NULL) THEN
-                    SELECT %(parentcol)s INTO target FROM %(child_table_name)s WHERE %(child_id_column)s = NEW.%(rhs)s;
+                    SELECT %(parentcol)s INTO target FROM %(child_table_name)s
+                    WHERE %(child_id_column)s = NEW.%(rhs)s;
                     IF (target.%(parentcol)s != NEW.%(lhs)s) THEN
-                        RAISE foreign_key_violation USING MESSAGE = 'The target is not affiliated with this parent';
+                        RAISE foreign_key_violation USING
+                        MESSAGE = 'The target is not affiliated with this parent';
                     END IF;
                 END IF;
                 RETURN NEW;
@@ -269,7 +308,9 @@ def auto_init_default(
         default = column.default
 
     @sa.event.listens_for(column, 'init_scalar', retval=True, propagate=True)
-    def init_scalar(_target, value, dict_):
+    def init_scalar(
+        _target: t.Any, value: t.Any, dict_: t.Dict[str, t.Any]
+    ) -> t.Optional[t.Any]:
         # A subclass may override the column and not provide a default. Watch out for
         # that.
         if default:
