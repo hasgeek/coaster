@@ -719,4 +719,4 @@ class TestStateManager(AppTestCase):
         assert list(groups2.values()) == [[self.post], [], [post2, post3]]
 
         with pytest.raises(TypeError):
-            MyPost.state.group([self.post, "Invalid type"])  # type: ignore[list-item]
+            MyPost.state.group([self.post, "Invalid type"])

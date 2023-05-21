@@ -240,7 +240,7 @@ __all__ = [
     'ManagedState',
     'ManagedStateGroup',
     'StateTransition',
-    'StateManagerWrapperInstance',
+    'StateManagerInstance',
     'ManagedStateWrapperInstance',
     'StateTransitionWrapper',
     'StateTransitionError',
@@ -821,26 +821,24 @@ class StateManager:
         return f'<StateManager {self.name}>'  # type: ignore[unreachable]
 
     @overload
-    def __get__(self: _SM, obj: None, cls: t.Type[_T]) -> StateManagerWrapper[_SM, _T]:
+    def __get__(self: _SM, obj: None, cls: t.Type[_T]) -> _SM:
         ...
 
     @overload
-    def __get__(
-        self: _SM, obj: _T, cls: t.Type[_T]
-    ) -> StateManagerWrapperInstance[_SM, _T]:
+    def __get__(self: _SM, obj: _T, cls: t.Type[_T]) -> StateManagerInstance[_SM, _T]:
         ...
 
     def __get__(
         self: _SM, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[StateManagerWrapper[_SM, _T], StateManagerWrapperInstance[_SM, _T]]:
-        if obj is not None:
-            # Cache for subsequent accesses to avoid re-constructing the wrapper
-            if self.name in obj.__dict__:
-                return obj.__dict__[self.name]
-            wrapper = StateManagerWrapperInstance(self, obj, cls)
-            obj.__dict__[self.name] = wrapper
-            return wrapper
-        return StateManagerWrapper(self, cls)
+    ) -> t.Union[_SM, StateManagerInstance[_SM, _T]]:
+        if obj is None:
+            return self
+        # Cache for subsequent accesses to avoid re-constructing the wrapper
+        if self.name in obj.__dict__:
+            return obj.__dict__[self.name]
+        wrapper = StateManagerInstance(self, obj, cls)
+        obj.__dict__[self.name] = wrapper
+        return wrapper
 
     def __set__(self: _SM, obj: _T, value: t.Any) -> t.NoReturn:
         raise AttributeError("StateManager cannot be set directly")
@@ -1025,6 +1023,38 @@ class StateManager:
         """
         return self.transition(from_, None, if_, **data)
 
+    def group(
+        self, items: t.Iterable[_T], keep_empty: bool = False
+    ) -> t.Dict[ManagedState, t.List[_T]]:
+        """
+        Given an iterable of instances, groups them by state.
+
+        Uses :class:`ManagedState` instances as dictionary keys. Returns a dict that
+        preserves the order of states from the source enum.
+
+        :param keep_empty: If ``True``, empty state groups are included in the result
+        """
+        groups: t.Dict[ManagedState, t.List[_T]] = {}
+        for mstate in self.states_by_value.values():
+            # Ensure we sort groups using the order of states in the source LabeledEnum.
+            # We'll discard the unused states later.
+            groups[mstate] = []
+        # Now process the items by state
+        for item in items:
+            # Use isinstance instead of `type(item) != cls` to account for subclasses
+            if not isinstance(item, self.cls):
+                raise TypeError(
+                    f"Item {item!r} is not an instance of type {self.cls!r}"
+                )
+            statevalue = self._get_state_value(item)
+            mstate = self.states_by_value[statevalue]
+            groups[mstate].append(item)
+        if not keep_empty:
+            for key, value in list(groups.items()):
+                if not value:
+                    del groups[key]
+        return groups
+
     @staticmethod
     def check_constraint(column, lenum, **kwargs):
         """
@@ -1072,74 +1102,16 @@ class StateManager:
             raise AttributeError(name)
 
 
-class StateManagerWrapper(t.Generic[_SM, _T]):
-    """Wraps :class:`StateManager` when accessed directly from the host type."""
-
-    statemanager: _SM
-
-    def __init__(self, statemanager: _SM, cls: t.Type[_T]):
-        self.statemanager = statemanager
-        self.cls = cls
-
-    def __repr__(self):
-        return (
-            f'<{self.__class__.__name__}({self.cls.__name__}'
-            f'.{self.statemanager.name})>'
-        )
-
-    def group(
-        self, items: t.Iterable[_T], keep_empty=False
-    ) -> t.Dict[ManagedState, t.List[_T]]:
-        """
-        Given an iterable of instances, groups them by state.
-
-        Uses :class:`ManagedState` instances as dictionary keys. Returns a dict that
-        preserves the order of states from the source
-        :class:`~coaster.utils.classes.LabeledEnum`.
-
-        :param bool keep_empty: If ``True``, empty states are included in the result
-        """
-        groups: t.Dict[ManagedState, t.List[_T]] = {}
-        for mstate in self.statemanager.states_by_value.values():
-            # Ensure we sort groups using the order of states in the source LabeledEnum.
-            # We'll discard the unused states later.
-            groups[mstate] = []
-        # Now process the items by state
-        for item in items:
-            # Use isinstance instead of `type(item) != cls` to account for subclasses
-            if not isinstance(item, self.cls):
-                raise TypeError(
-                    f"Item {item!r} is not an instance of type {self.cls!r}"
-                )
-            statevalue = self.statemanager._get_state_value(item)
-            mstate = self.statemanager.states_by_value[statevalue]
-            groups[mstate].append(item)
-        if not keep_empty:
-            for key, value in list(groups.items()):
-                if not value:
-                    del groups[key]
-        return groups
-
-    def current(self) -> t.NoReturn:
-        """Get current state (not available without an instance)."""
-        raise TypeError("Current state requires an instance")
-
-    def __getattr__(self, name: str) -> ManagedStateWrapper[_T]:
-        """Retrieve a state."""
-        attr = getattr(self.statemanager, name)
-        if isinstance(attr, (ManagedState, ManagedStateGroup)):
-            # return attr()  # FIXME: Must make the wrapper compatible with SQLAlchemy
-            return ManagedStateWrapper(attr, self.cls)
-        return attr
-
-
-class StateManagerWrapperInstance(StateManagerWrapper, t.Generic[_SM, _T]):
-    """Wraps :class:`StateManager` when accessed from the host type's instance."""
+class StateManagerInstance(t.Generic[_SM, _T]):
+    """Wraps :class:`StateManager` when accessed from an instance."""
 
     def __init__(self, statemanager: _SM, obj: _T, cls: t.Type[_T]):
         self.statemanager = statemanager
         self.obj = obj
         self.cls = cls
+
+    def __repr__(self):
+        return f'<StateManagerInstance {self.cls.__name__}.{self.statemanager.name})>'
 
     @property
     def value(self) -> t.Any:
@@ -1163,9 +1135,7 @@ class StateManagerWrapperInstance(StateManagerWrapper, t.Generic[_SM, _T]):
                 return msw
         raise RuntimeError("Unknown state value")
 
-    def current(  # type: ignore[override]
-        self,
-    ) -> t.Dict[str, ManagedStateWrapperInstance]:
+    def current(self) -> t.Dict[str, ManagedStateWrapperInstance]:
         """Return all states and state groups that are currently active."""
         return {
             name: ManagedStateWrapperInstance(mstate, self.obj)
