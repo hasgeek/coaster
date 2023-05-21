@@ -2,9 +2,8 @@
 States and transitions
 ----------------------
 
-:class:`StateManager` wraps a SQLAlchemy column with a
-:class:`~coaster.utils.classes.LabeledEnum` to facilitate state inspection, and
-to control state change via transitions. Sample usage::
+:class:`StateManager` wraps a SQLAlchemy column with an enum to facilitate state
+inspection, and to control state change via transitions. Sample usage::
 
     class MY_STATE(LabeledEnum):
         DRAFT = (0, "Draft")
@@ -51,38 +50,39 @@ to control state change via transitions. Sample usage::
         state.add_state_group('REDRAFTABLE',
             state.DRAFT, state.PENDING, state.RECENT)
 
-        # Transitions change FROM one state TO another, and can have
-        # an additional if_ condition (a callable) that must return True
-        @state.transition(state.DRAFT, state.PENDING, if_=reviewstate.UNSUBMITTED)
+        # Transitions change FROM one state TO another, and can require another state
+        # manager to be in a specific state
+        @state.transition(state.DRAFT, state.PENDING)
+        @reviewstate.requires(reviewstate.UNSUBMITTED)
         def submit(self):
             pass
 
-        # Transitions can coordinate across state managers. All of them
-        # must be in a valid FROM state for the transition to be available.
-        # Transitions can also specify arbitrary metadata such as this `title`
-        # attribute (on any of the decorators). These are made available in a
-        # `data` dictionary, accessible here as `publish.data`
+        # Transitions can coordinate across state managers. All of them must be in a
+        # valid FROM state for the transition to be available. Transitions can also
+        # specify arbitrary metadata such as this `title` attribute (on any of the
+        # decorators). These are made available in a `data` dictionary, accessible here
+        # as `publish.data`
         @state.transition(state.UNPUBLISHED, state.PUBLISHED, title="Publish")
         @reviewstate.transition(reviewstate.UNSUBMITTED, reviewstate.PENDING)
         def publish(self):
             # A transition can do additional housekeeping
             self.datetime = datetime.utcnow()
 
-        # A transition can use a conditional state. The condition is evaluated
-        # before the transition can proceed
+        # A transition can use a conditional state. The condition is evaluated before
+        # the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
         @reviewstate.transition(reviewstate.PENDING, reviewstate.UNSUBMITTED)
         def undo(self):
             pass
 
-        # Transitions can be defined FROM a group of states, but the TO
-        # state must always be an individual state
+        # Transitions can be defined FROM a group of states, but the TO state must
+        # always be an individual state
         @state.transition(state.REDRAFTABLE, state.DRAFT)
         def redraft(self):
             pass
 
-        # Transitions can abort without changing state, with or without raising
-        # an exception to the caller
+        # Transitions can abort without changing state, with or without raising an
+        # exception to the caller
         @state.transition(state.REDRAFTABLE, state.DRAFT)
         def faulty_transition_examples(self):
             # Cancel the transition, but don't raise an exception to the caller
@@ -106,54 +106,57 @@ to control state change via transitions. Sample usage::
 Defining states and transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Adding a :class:`StateManager` to the class links the underlying column
-(specified as a string) to the :class:`~coaster.utils.classes.LabeledEnum`
-(specified as an object). The :class:`StateManager` is read-only and state can
-only be mutated via transitions. The :class:`~coaster.utils.classes.LabeledEnum`
-is not required after this point. All symbol names in it are available as
-attributes on the state manager henceforth (as instances of
-:class:`ManagedState`).
+Adding a :class:`StateManager` to the class links the underlying column (specified as a
+string) to the :class:`~coaster.utils.classes.LabeledEnum` (specified as an object).
+The :class:`StateManager` is read-only and state can only be mutated via transitions.
+The :class:`~coaster.utils.classes.LabeledEnum` is not required after this point. All
+symbol names in it are available as attributes on the state manager henceforth (as
+instances of :class:`ManagedState`).
 
-Conditional states can be defined with
-:meth:`~StateManager.add_conditional_state` as a combination of an existing
-state and a validator that receives the object (the instance of the class
-the StateManager is present on). This can be used to evaluate for additional
-conditions. For example, to distinguish between a static "published" state and
-a dynamic "recently published" state.
-:meth:`~StateManager.add_conditional_state` also takes an optional
-``class_validator`` parameter that is used for queries against the class (see
-below for query examples).
+Conditional states can be defined with :meth:`~StateManager.add_conditional_state` as a
+combination of an existing state and a validator that receives the object (the instance
+of the class the StateManager is present on). This can be used to evaluate for
+additional conditions. For example, to distinguish between a static "published" state
+and a dynamic "recently published" state. :meth:`~StateManager.add_conditional_state`
+also takes an optional ``class_validator`` parameter that is used for queries against
+the class (see below for query examples).
 
-State groups can be defined with :meth:`~StateManager.add_state_group`. These
-are similar to grouped values in a LabeledEnum, but can also contain
-conditional states, and are stored as instances of :class:`ManagedStateGroup`.
-Grouped values in a :class:`~coaster.utils.classes.LabeledEnum` are more
-efficient for testing state against, so those should be preferred if the group
-does not contain a conditional state.
+State groups can be defined with :meth:`~StateManager.add_state_group`. These are
+similar to grouped values in a LabeledEnum, but can also contain conditional states,
+and are stored as instances of :class:`ManagedStateGroup`. Grouped values in a
+:class:`~coaster.utils.classes.LabeledEnum` are more efficient for testing state
+against, so those should be preferred if the group does not contain a conditional state.
 
-Transitions connect one managed state or group to another state (but not
-group). Transitions are defined as methods and decorated with
-:meth:`~StateManager.transition`, which transforms them into instances of
-:class:`StateTransition`, a callable class. If the transition raises an
-exception, the state change is aborted. Transitions may also abort without
-changing state using :exc:`AbortTransition`. Transitions have two additional
-attributes, :attr:`~StateTransitionWrapper.is_available`, a boolean property
-which indicates if the transition is currently available, and
-:attr:`~StateTransition.data`, a dictionary that contains all additional
-parameters passed to the :meth:`~StateManager.transition` decorator.
+Transitions connect one managed state or group to another state (but not group).
+Transitions are defined as methods and decorated with :meth:`~StateManager.transition`,
+which transforms them into instances of :class:`StateTransition`, a callable class. If
+the transition raises an exception, the state change is aborted. Transitions may also
+abort without raising an exception to the caller using the special exception
+:exc:`AbortTransition`. Transitions have two additional attributes,
+:attr:`~StateTransitionWrapper.is_available`, a boolean property which indicates if the
+transition is available given the object's current state, and
+:attr:`~StateTransition.data`, a dictionary that contains all additional parameters
+passed to the :meth:`~StateManager.transition` decorator. :attr:`~StateTransition.data`
+``['name']`` will always be the wrapped method's name.
 
-Transitions can be chained to coordinate a state change across state managers
-if the class has more than one. All state managers must be in a valid ``from``
-state for the transition to be available. A dictionary of currently available
-transitions can be obtained from the state manager using the
-:meth:`~StateManagerWrapper.transitions` method.
+Transitions can be chained to coordinate a state change across state managers if the
+class has more than one. All state managers must be in a valid ``from`` state for the
+transition to be available. A dictionary of currently available transitions can be
+obtained from the state manager using the :meth:`~StateManagerWrapper.transitions`
+method.
 
+Namespace
+~~~~~~~~~
+
+The StateManager's methods and states share a single namespace under the assumption that
+method names are always lowercase and states are always uppercase, following the
+convention used in enums.
 
 Queries
 ~~~~~~~
 
-The current state of the object can be retrieved by calling the state
-attribute or reading its ``value`` attribute::
+The current state of the object can be retrieved by calling the state attribute or
+reading its ``value`` attribute::
 
     post = MyPost(_state=MY_STATE.DRAFT)
     post.state() == MY_STATE.DRAFT
@@ -166,11 +169,10 @@ The label associated with the state value can be accessed from the ``label`` att
     post.state.label.name == 'pending'   # Is the NameTitle tuple from MY_STATE.PENDING
     post.state.label.title == "Pending"  # The title part of NameTitle
 
-States can be tested by direct reference using the names they were originally
-defined with in the :class:`~coaster.utils.classes.LabeledEnum`::
+States can be tested by direct reference using the names they were originally defined
+with in the :class:`~coaster.utils.classes.LabeledEnum`::
 
     post.state.DRAFT        # True
-    post.state.is_draft     # True (is_* attrs are lowercased aliases to states)
     post.state.PENDING      # False (since it's a draft)
     post.state.UNPUBLISHED  # True (grouped state values work as expected)
     post.publish()          # Change state from DRAFT to PUBLISHED
@@ -188,27 +190,15 @@ States can also be used for database queries when accessed from the class::
     #     MyPost.datetime > datetime.utcnow() - timedelta(hours=1))
     MyPost.query.filter(MyPost.state.RECENT)
 
-This works because :class:`StateManager`, :class:`ManagedState`
-and :class:`ManagedStateGroup` behave in three different ways, depending on
-context:
-
-1. During class definition, the state manager returns the managed state. All
-   methods on the state manager recognise these managed states and handle them
-   appropriately.
-
-2. After class definition, the state manager returns the result of calling the
-   managed state instance. If accessed via the class, the managed state returns
-   a SQLAlchemy filter condition.
-
-3. After class definition, if accessed via an instance, the managed state
-   returns itself wrapped in :class:`ManagedStateWrapper` (which holds context
-   for the instance). This is an object that evaluates to ``True`` if the state
-   is active, ``False`` otherwise. It also provides pass-through access to
-   all attributes of the managed state.
+This works because :class`ManagedState` implements SQLAlchemy's interfaces for casting
+into a SQL expression. When accessed via an instance, the managed state is wrapped in
+:class:`ManagedStateInstance`. This object can be cast into a boolean and evaluates to
+``True`` if the state is active, ``False`` otherwise. It also provides pass-through
+access to all attributes of the managed state.
 
 States can be changed via transitions, defined as methods with the
-:meth:`~StateManager.transition` decorator. They add more power and safeguards
-over direct state value changes:
+:meth:`~StateManager.transition` decorator. They add more power and safeguards over
+direct state value changes:
 
 1. Original and final states can be specified, prohibiting arbitrary state
    changes.
@@ -241,7 +231,7 @@ __all__ = [
     'ManagedStateGroup',
     'StateTransition',
     'StateManagerInstance',
-    'ManagedStateWrapperInstance',
+    'ManagedStateInstance',
     'StateTransitionWrapper',
     'StateTransitionError',
     'AbortTransition',
@@ -255,6 +245,8 @@ __all__ = [
 
 _T = t.TypeVar('_T')  # Type carrying a managed state
 _SM = t.TypeVar('_SM', bound='StateManager')
+_P = te.ParamSpec('_P')  # ParamSpec for wrapped functions
+_R = t.TypeVar('_R')  # Return type for wrapped functions
 
 
 @dataclass
@@ -263,7 +255,6 @@ class _TransitionPerStateManager:
 
     from_: t.Optional[t.Dict[t.Any, ManagedState]]
     to: t.Optional[ManagedState]
-    if_: t.List[t.Callable[[t.Any], bool]]
 
 
 # --- Signals --------------------------------------------------------------------------
@@ -369,7 +360,7 @@ class ManagedState:
         """
         return self.validator is None and not is_collection(self.value)
 
-    def is_current_in(self, obj: _T) -> bool:
+    def is_current_in(self, obj: t.Any) -> bool:
         """Test if the given object is currently in this state."""
         if is_collection(self.value):
             valuematch = self.statemanager._get_state_value(obj) in self.value
@@ -380,7 +371,7 @@ class ManagedState:
         return valuematch
 
     def __clause_element__(
-        self, cls: t.Optional[t.Type[_T]] = None
+        self, cls: t.Optional[t.Type] = None
     ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         if cls is None:
@@ -463,12 +454,12 @@ class ManagedStateGroup:
     def __repr__(self) -> str:
         return f'<ManagedStateGroup {self.statemanager.name}.{self.name}>'
 
-    def is_current_in(self, obj: _T) -> bool:
+    def is_current_in(self, obj: t.Any) -> bool:
         """Test if the given object is currently in any of this group of states."""
         return any(s.is_current_in(obj) for s in self.states)
 
     def __clause_element__(
-        self, cls: t.Optional[t.Type[_T]] = None
+        self, cls: t.Optional[t.Type] = None
     ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         return sa.or_(*(s.__clause_element__(cls) for s in self.states))
@@ -477,48 +468,7 @@ class ManagedStateGroup:
         return ~self.__clause_element__()
 
 
-class ManagedStateWrapper(t.Generic[_T]):
-    """
-    Provides runtime access to a managed state or group in the instance.
-
-    This class is automatically constructed by :class:`StateManager` when a state is
-    accessed from a class.
-    """
-
-    def __init__(
-        self,
-        mstate: t.Union[ManagedState, ManagedStateGroup],
-        cls: t.Type[_T],
-    ):
-        if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
-            raise TypeError(f"Parameter is not a managed state: {mstate!r}")
-        self._mstate = mstate
-        self._cls = cls
-
-    def __repr__(self) -> str:
-        return repr(self._mstate)
-
-    def __getattr__(self, attr: str) -> t.Any:
-        return getattr(self._mstate, attr)
-
-    def __clause_element__(self) -> sa.ColumnElement[bool]:
-        return self._mstate.__clause_element__(self._cls)
-
-    def __invert__(self) -> sa.ColumnElement[bool]:
-        return ~self._mstate.__clause_element__(self._cls)
-
-    def __eq__(self, other: t.Any) -> bool:
-        return (
-            isinstance(other, ManagedStateWrapper)
-            and self._mstate == other._mstate
-            and self._cls == other._cls
-        )
-
-    def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
-
-
-class ManagedStateWrapperInstance(ManagedStateWrapper, t.Generic[_T]):
+class ManagedStateInstance(t.Generic[_T]):
     """
     Provides runtime access to a managed state or group in the instance.
 
@@ -537,18 +487,27 @@ class ManagedStateWrapperInstance(ManagedStateWrapper, t.Generic[_T]):
         self._obj = obj
         self.cls = type(obj)
 
+    def __repr__(self) -> str:
+        return repr(self._mstate)
+
+    def __getattr__(self, attr: str) -> t.Any:
+        return getattr(self._mstate, attr)
+
     def __eq__(self, other: t.Any) -> bool:
         return (
-            isinstance(other, ManagedStateWrapperInstance)
+            isinstance(other, ManagedStateInstance)
             and self._mstate == other._mstate
             and self._obj == other._obj
         )
+
+    def __ne__(self, other: t.Any) -> bool:
+        return not self.__eq__(other)
 
     def __bool__(self) -> bool:
         return self._mstate.is_current_in(self._obj)
 
 
-class StateTransition:
+class StateTransition(t.Generic[_P, _R]):
     """
     Defines a transition from one state to another.
 
@@ -561,13 +520,10 @@ class StateTransition:
 
     def __init__(
         self,
-        func: t.Callable,  # TODO: Add ParamSpec here
+        func: t.Callable[te.Concatenate[t.Any, _P], _R],
         statemanager: StateManager,
         from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
         to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        if_: t.Optional[
-            t.Union[t.Callable[[t.Any], bool], t.List[t.Callable[[t.Any], bool]]]
-        ] = None,
         data: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> None:
         self.func = func
@@ -580,16 +536,13 @@ class StateTransition:
         # Repeated use of @StateManager.transition will update this dictionary
         # instead of replacing it
         self.data = {'name': self.name}
-        self.add_transition(statemanager, from_, to, if_, data)
+        self.add_transition(statemanager, from_, to, data)
 
     def add_transition(
         self,
         statemanager: StateManager,
         from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
         to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        if_: t.Optional[
-            t.Union[t.Callable[[t.Any], bool], t.List[t.Callable[[t.Any], bool]]]
-        ] = None,
         data: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> None:
         """Add a transition. For internal use by :meth:`ManagedState.transition`."""
@@ -617,11 +570,6 @@ class StateTransition:
                 raise TypeError("Invalid transition data parameter 'name'")
             self.data.update(data)
 
-        if if_ is None:
-            if_ = []
-        elif callable(if_):
-            if_ = [if_]
-
         if from_ is None:
             state_values: t.Optional[t.Dict[t.Any, ManagedState]] = None
         else:
@@ -642,39 +590,42 @@ class StateTransition:
                     state_values[mstate.value] = mstate
 
         self.transitions[statemanager] = _TransitionPerStateManager(
-            from_=state_values,  # Dict of scalar_value: ManagedState
+            from_=state_values,  # Dict of static_value: ManagedState
             to=to,  # ManagedState (is_static) of new state
-            if_=if_,  # Additional conditions that must ALL pass
         )
 
-    def __set_name__(self, _owner: t.Type[_T], name: str) -> None:  # pragma: no cover
+    def __set_name__(self, _owner: t.Type, name: str) -> None:  # pragma: no cover
         self.name = name
         self.data['name'] = name
 
     @overload
-    def __get__(self, obj: None, cls: t.Type[_T]) -> te.Self:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> StateTransitionWrapper[_T]:
+    def __get__(self, obj: _T, cls: t.Type[_T]) -> StateTransitionWrapper[_P, _R, _T]:
         ...
 
     def __get__(
         self, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[te.Self, StateTransitionWrapper[_T]]:  # TODO: Pass ParamSpec here
+    ) -> t.Union[te.Self, StateTransitionWrapper[_P, _R, _T]]:
         if obj is None:
             return self
         return StateTransitionWrapper(self, obj)
 
+    def __call__(self, obj, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+        """Call transition directly from the class with an instance parameter."""
+        return StateTransitionWrapper(self, obj)(*args, **kwargs)
 
-class StateTransitionWrapper(t.Generic[_T]):  # TODO: Add ParamSpec
+
+class StateTransitionWrapper(t.Generic[_P, _R, _T]):
     """
     Wraps :class:`StateTransition` with the context of the object it is accessed from.
 
     Automatically constructed by :class:`StateTransition`.
     """
 
-    def __init__(self, statetransition: StateTransition, obj: _T):
+    def __init__(self, statetransition: StateTransition[_P, _R], obj: _T):
         self.statetransition = statetransition
         self.obj = obj
 
@@ -698,8 +649,6 @@ class StateTransitionWrapper(t.Generic[_T]):  # TODO: Add ParamSpec
             else:
                 mstate = conditions.from_.get(current_state_value)
                 state_valid = mstate is not None and mstate.is_current_in(self.obj)
-            if state_valid and conditions.if_:
-                state_valid = all(v(self.obj) for v in conditions.if_)
             if not state_valid:
                 return (
                     statemanager,
@@ -717,8 +666,7 @@ class StateTransitionWrapper(t.Generic[_T]):  # TODO: Add ParamSpec
     def __getattr__(self, name: str) -> t.Any:
         return getattr(self.statetransition, name)
 
-    # TODO: Add ParamSpec and return type
-    def __call__(self, *args, **kwargs) -> t.Any:
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
         """Perform the state transition."""
         # Validate that each of the state managers is in the correct state
         state_invalid = self._validate_available()
@@ -753,7 +701,9 @@ class StateTransitionWrapper(t.Generic[_T]):  # TODO: Add ParamSpec
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
             if conditions.to is not None:  # Allow to=None for the @requires decorator
-                statemanager._set(self.obj, conditions.to.value)  # Change state
+                statemanager._set_state_value(
+                    self.obj, conditions.to.value
+                )  # Change state
         # Send a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
         return result
@@ -787,9 +737,9 @@ class StateManager:
     def __init__(
         self, propname, lenum: t.Type[LabeledEnum], doc: t.Optional[str] = None
     ) -> None:
-        self.owner = None  # Depend on __set_name__ or __get__ to correct
+        self.cls = object  # Depend on __set_name__ to update
         self.propname = propname
-        self.name = propname  # Incorrect, so we depend on __set_name__ to correct this
+        self.name = ''  # Currently unknown name, will only be known in __set_name__
         self.lenum = lenum
         self.__doc__ = doc
         self.states = {}
@@ -811,7 +761,9 @@ class StateManager:
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
-    def __set_name__(self, owner: t.Type[_T], name: str):
+    def __set_name__(self, owner: t.Type, name: str):
+        if self.cls is not object:
+            raise TypeError("This StateManager is already affiliated with a host class")
         self.cls = owner
         self.name = name
 
@@ -821,7 +773,7 @@ class StateManager:
         return f'<StateManager {self.name}>'  # type: ignore[unreachable]
 
     @overload
-    def __get__(self: _SM, obj: None, cls: t.Type[_T]) -> _SM:
+    def __get__(self: _SM, obj: None, cls: t.Type) -> _SM:
         ...
 
     @overload
@@ -840,19 +792,18 @@ class StateManager:
         obj.__dict__[self.name] = wrapper
         return wrapper
 
-    def __set__(self: _SM, obj: _T, value: t.Any) -> t.NoReturn:
+    def __set__(self, obj: t.Any, value: t.Any) -> t.NoReturn:
         raise AttributeError("StateManager cannot be set directly")
 
-    def _set(self, obj, value):
+    def _set_state_value(self, obj: t.Any, value: t.Any) -> None:
         """Set state; internal method called by meth:`StateTransition.__call__`."""
         if value not in self.lenum:
             raise ValueError(f"Not a valid value: {value!r}")
 
-        # FIXME: Why assume a descriptor? Why not call setattr?
-        type(obj).__dict__[self.propname].__set__(obj, value)
+        setattr(obj, self.propname, value)
 
-    def _get_state_value(self, obj: t.Optional[_T]) -> t.Any:
-        """Retrun current state's value for the given object."""
+    def _get_state_value(self, obj: t.Optional[t.Any]) -> t.Any:
+        """Get current state value given an instance, or state column in the class."""
         if obj is not None:
             return getattr(obj, self.propname)
         return getattr(self.cls, self.propname)
@@ -866,7 +817,7 @@ class StateManager:
         name: str,
         value: t.Union[int, t.Set[int]],
         label: t.Optional[t.Any] = None,  # TODO: Make label `str`
-        validator: t.Optional[t.Callable[[_T], bool]] = None,
+        validator: t.Optional[t.Callable[[t.Any], bool]] = None,
         class_validator: t.Optional[
             t.Callable[[t.Type], sa.ColumnElement[bool]]
         ] = None,
@@ -966,12 +917,11 @@ class StateManager:
         self,
         from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
         to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        # TODO: Remove `if_`, suggest conditional state instead
-        if_: t.Optional[
-            t.Union[t.Callable[[t.Any], bool], t.List[t.Callable[[t.Any], bool]]]
-        ] = None,
-        **data: t.Any,  # TODO: Type with ParamSpec
-    ) -> t.Callable[[t.Union[t.Callable, StateTransition]], StateTransition]:
+        **data: t.Any,
+    ) -> t.Callable[
+        [t.Callable[te.Concatenate[t.Any, _P], _R]],
+        StateTransition[_P, _R],
+    ]:
         """
         Decorate a method to transition from one state to another.
 
@@ -983,20 +933,18 @@ class StateManager:
         :param from_: Required state to allow this transition (can be a state group)
         :param to: The state of the object after this transition (automatically set if
             no exception is raised)
-        :param if_: Validator(s) that, given the object, must all return True for the
-            transition to proceed
         :param data: Additional metadata, stored on the `StateTransition` object as a
             :attr:`data` attribute
         """
 
         def decorator(
-            f: t.Union[t.Union[t.Callable, StateTransition], StateTransition]
-        ) -> StateTransition:
+            f: t.Union[StateTransition, t.Callable[te.Concatenate[t.Any, _P], _R]]
+        ) -> StateTransition[_P, _R]:
             if isinstance(f, StateTransition):
-                f.add_transition(self, from_, to, if_, data)
+                f.add_transition(self, from_, to, data)
                 st = f
             else:
-                st = StateTransition(f, self, from_, to, if_, data)
+                st = StateTransition(f, self, from_, to, data)
             self.transitions.append(st.name)
             return st
 
@@ -1005,23 +953,20 @@ class StateManager:
     def requires(
         self,
         from_: t.Union[ManagedState, ManagedStateGroup],
-        if_: t.Optional[
-            t.Union[t.Callable[[_T], bool], t.List[t.Callable[[_T], bool]]]
-        ] = None,
-        **data,  # TODO: Type with ParamSpec
-    ) -> t.Callable[[t.Union[t.Callable, StateTransition]], StateTransition]:
+        **data,
+    ) -> t.Callable[
+        [t.Callable[te.Concatenate[t.Any, _P], _R]], StateTransition[_P, _R]
+    ]:
         """
         Decorate a method to only be callable when the given state is currently active.
 
         Registers a transition internally, but does not change the state.
 
         :param from_: Required state to allow this call (can be a state group)
-        :param if_: Validator(s) that, given the object, must all return True for the
-            call to proceed
         :param data: Additional metadata, stored on the `StateTransition` object as a
             :attr:`data` attribute
         """
-        return self.transition(from_, None, if_, **data)
+        return self.transition(from_, None, **data)
 
     def group(
         self, items: t.Iterable[_T], keep_empty: bool = False
@@ -1123,29 +1068,27 @@ class StateManagerInstance(t.Generic[_SM, _T]):
         """Label for the current state's value (using :meth:`bestmatch`)."""
         return self.bestmatch().label
 
-    def bestmatch(self) -> ManagedStateWrapperInstance:
+    def bestmatch(self) -> ManagedStateInstance:
         """
         Return best matching current scalar state (direct or conditional).
 
         Only applicable when accessed via an instance.
         """
         for mstate in self.statemanager.all_states_by_value[self.value]:
-            msw = ManagedStateWrapperInstance(mstate, self.obj)
+            msw = ManagedStateInstance(mstate, self.obj)
             if msw:  # If the wrapper evaluates to True, it's our best match
                 return msw
         raise RuntimeError("Unknown state value")
 
-    def current(self) -> t.Dict[str, ManagedStateWrapperInstance]:
+    def current(self) -> t.Dict[str, ManagedStateInstance]:
         """Return all states and state groups that are currently active."""
         return {
-            name: ManagedStateWrapperInstance(mstate, self.obj)
+            name: ManagedStateInstance(mstate, self.obj)
             for name, mstate in self.statemanager.states.items()
             if mstate.is_current_in(self.obj)
         }
 
-    def transitions(
-        self, current: bool = True
-    ) -> t.Dict[str, StateTransitionWrapper[_T]]:
+    def transitions(self, current: bool = True) -> t.Dict[str, StateTransitionWrapper]:
         """
         Return available transitions for the current state.
 
@@ -1188,9 +1131,9 @@ class StateManagerInstance(t.Generic[_SM, _T]):
             }
         raise TypeError("Object is not an instance of RoleMixin")
 
-    def __getattr__(self, name: str) -> ManagedStateWrapperInstance[_T]:
+    def __getattr__(self, name: str) -> ManagedStateInstance[_T]:
         """Retrieve a state."""
         attr = getattr(self.statemanager, name)
         if isinstance(attr, (ManagedState, ManagedStateGroup)):
-            return ManagedStateWrapperInstance(attr, self.obj)
+            return ManagedStateInstance(attr, self.obj)
         return attr

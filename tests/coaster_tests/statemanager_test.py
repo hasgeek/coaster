@@ -11,8 +11,9 @@ from coaster.sqlalchemy import (
     AbortTransition,
     BaseMixin,
     LazyRoleSet,
-    ManagedStateWrapperInstance,
+    ManagedStateInstance,
     StateManager,
+    StateManagerInstance,
     StateTransitionError,
     with_roles,
 )
@@ -74,13 +75,13 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     # state manager instead.
 
     # Model's data columns (used for tests)
-    datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    published_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state(
         'RECENT',
         state.PUBLISHED,
-        lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
+        lambda post: post.published_at > datetime.utcnow() - timedelta(hours=1),
         label=NameTitle('recent', "Recently published"),
     )
 
@@ -108,7 +109,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
             raise AssertionError(
                 "We don't actually support transitioning from draft to published"
             )
-        self.datetime = datetime.utcnow()
+        self.published_at = datetime.utcnow()
 
     @with_roles(call={'author'})
     @state.transition(state.RECENT, state.PENDING, title="Undo")
@@ -126,22 +127,22 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     @reviewstate.transition(
         reviewstate.UNLOCKED,
         reviewstate.LOCKED,
-        if_=lambda p: p.state.PUBLISHED,
         title="Lock",
     )
+    @state.requires(state.PUBLISHED)
     def review_lock(self) -> None:
         """Add a validator for state transition."""
 
     @with_roles(call={'reviewer'})
     @reviewstate.transition(reviewstate.LOCKED, reviewstate.PENDING, title="Unlock")
-    def review_unlock(self):
+    def review_unlock(self) -> None:
         """Transition to unlocked state."""
 
     @with_roles(call={'reviewer'})
     @state.requires(state.PUBLISHED, title="Rewind 2 hours")
     def rewind(self) -> None:
         """Allow this method only in a given state."""
-        self.datetime = datetime.utcnow() - timedelta(hours=2)
+        self.published_at = datetime.utcnow() - timedelta(hours=2)
 
     @with_roles(call={'author'})
     @state.transition(
@@ -150,7 +151,7 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def abort(
         self, success: bool = False, empty_abort: bool = False
-    ) -> t.Tuple[bool, str]:
+    ) -> t.Optional[t.Tuple[bool, str]]:
         """Demonstrate use of AbortTransition."""
         if not success:
             if empty_abort:
@@ -177,7 +178,10 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
 class TestStateManager(AppTestCase):
     """Tests for StateManager."""
 
+    post: MyPost
+
     def setUp(self) -> None:
+        """Prepare testcase."""
         super().setUp()
         self.post = MyPost()
         self.session.add(self.post)
@@ -197,7 +201,7 @@ class TestStateManager(AppTestCase):
             state.add_conditional_state(
                 'TEST_STATE1', MY_STATE.DRAFT, lambda post: True
             )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not associated with this state manager"):
             state.add_conditional_state(
                 'TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True
             )
@@ -253,6 +257,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.DRAFT
         with pytest.raises(AttributeError):
             self.post.state = MY_STATE.PENDING
+        assert isinstance(self.post.state, StateManagerInstance)
         assert self.post.state.DRAFT
         self.post._state = MY_STATE.PENDING
         assert not self.post.state.DRAFT
@@ -261,10 +266,10 @@ class TestStateManager(AppTestCase):
     def test_change_state_invalid(self) -> None:
         """State cannot be changed to an invalid value."""
         state = MyPost.__dict__['state']
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Not a valid value"):
             # We'd never call this outside a test; it's only to test the validator
             # within
-            state._set(self.post, 100)
+            state._set_state_value(self.post, 100)
 
     def test_conditional_state(self) -> None:
         """
@@ -415,9 +420,9 @@ class TestStateManager(AppTestCase):
         assert self.post.state.DRAFT
         self.post.submit()
         assert self.post.state.PENDING
-        self.post.datetime = None
+        self.post.published_at = None
         self.post.publish()
-        assert self.post.datetime is not None
+        assert self.post.published_at is not None
 
     def test_requires(self) -> None:
         """
@@ -430,11 +435,11 @@ class TestStateManager(AppTestCase):
         self.post.submit()
         self.post.publish()
         assert self.post.state.PUBLISHED
-        d = self.post.datetime
+        d = self.post.published_at
         # Now we can call it
         self.post.rewind()
         assert self.post.state.PUBLISHED
-        assert self.post.datetime < d
+        assert self.post.published_at < d
 
     def test_state_labels(self) -> None:
         """
@@ -523,7 +528,7 @@ class TestStateManager(AppTestCase):
             self.post.undo()  # Undo isn't available now
 
     def test_transition_from_none(self) -> None:
-        """Transition from None ignores initial state"""
+        """Transition from None ignores initial state."""
         assert self.post.state.DRAFT
         self.post._reviewstate = REVIEW_STATE.LOCKED
         assert self.post.state.DRAFT
@@ -533,11 +538,11 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PENDING
 
     def test_transition_abort(self) -> None:
-        """Transitions can abort without changing state or raising an exception"""
+        """Transitions can abort without changing state or raising an exception."""
         assert self.post.state.DRAFT
 
         # A transition can abort returning a value (a 2-tuple here)
-        success, message = self.post.abort(success=False)
+        success, message = self.post.abort(success=False)  # type: ignore[misc]
         assert success is False
         assert message == "failed"
         assert self.post.state.DRAFT  # state has not changed
@@ -547,7 +552,7 @@ class TestStateManager(AppTestCase):
         assert result is None
         assert self.post.state.DRAFT  # state has not changed
 
-        success, message = self.post.abort(success=True)
+        success, message = self.post.abort(success=True)  # type: ignore[misc]
         assert success is True
         assert message == 'passed'
         assert self.post.state.PUBLISHED  # state has changed
@@ -649,7 +654,7 @@ class TestStateManager(AppTestCase):
     def test_managed_state_wrapper(self) -> None:
         """ManagedStateWrapper will only wrap a managed state or group"""
         draft = MyPost.__dict__['state'].DRAFT
-        wdraft = ManagedStateWrapperInstance(draft, self.post)
+        wdraft = ManagedStateInstance(draft, self.post)
         assert draft.value == wdraft.value
         assert wdraft  # Object is falsy
         assert self.post.state.DRAFT == wdraft
@@ -660,9 +665,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PENDING != wdraft  # These objects don't match
 
         with pytest.raises(TypeError):
-            ManagedStateWrapperInstance(
-                MY_STATE.DRAFT, self.post  # type: ignore[arg-type]
-            )
+            ManagedStateInstance(MY_STATE.DRAFT, self.post)  # type: ignore[arg-type]
 
     def test_role_proxy_transitions(self) -> None:
         """with_roles works on the transition decorator"""
