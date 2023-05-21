@@ -67,13 +67,13 @@ unicode_format_whitespace = (
 )
 
 ascii_whitespace = '\t\n\x0b\x0c\r\x1c\x1d\x1e\x1f '
-ascii_whitespace_without_newline = '\t\x0b\x0c\x1c\x1d\x1e\x1f '
+ascii_whitespace_without_newline = '\t\x1f '
 unicode_extended_whitespace = ascii_whitespace + unicode_format_whitespace
 
 re_singleline_spaces = re.compile(
     '[' + unicode_extended_whitespace + ']', re.UNICODE | re.MULTILINE
 )
-re_multiline_spaces = re.compile(
+re_multiline_spaces = re.compile(  # This is missing \u2028 and \u2029 (separators)
     '[' + ascii_whitespace_without_newline + unicode_format_whitespace + ']',
     re.UNICODE | re.MULTILINE,
 )

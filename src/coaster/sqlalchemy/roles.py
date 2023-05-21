@@ -121,9 +121,10 @@ Example use::
 
 from __future__ import annotations
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections import abc
 from copy import deepcopy
+from dataclasses import dataclass
 from itertools import chain
 from typing import overload
 import operator
@@ -132,6 +133,7 @@ import typing as t
 from flask import g
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
+    AppenderQuery,
     ColumnProperty,
     KeyFuncDict,
     MappedColumn,
@@ -147,7 +149,6 @@ from sqlalchemy.orm.collections import (
     InstrumentedList,
     InstrumentedSet,
 )
-from sqlalchemy.orm.dynamic import AppenderQuery
 from sqlalchemy.schema import SchemaItem
 import sqlalchemy as sa
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
@@ -166,7 +167,18 @@ __all__ = [
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
-__cache__: t.Dict[t.Any, t.Dict[str, set]] = {}
+__cache__: t.Dict[t.Any, _WithRolesData] = {}
+
+
+#: Mapping of a role in first object to one or more roles in second object
+#: (for parent->child role mappings)
+RoleOfferMap: te.TypeAlias = t.Dict[str, t.Set[str]]
+#: A relationship to an actor can be specified via the name of the attribute, or
+#: directly as the relationship object
+ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
+# FIXME: Drop support for non-str actor attrs as the implementation is unreadable.
+# The model should supply a property or virtual set (like DynamicAssociationProxy)
+# pointing directly at the attr
 
 
 class RoleAttrs(te.TypedDict, total=False):
@@ -178,19 +190,44 @@ class RoleAttrs(te.TypedDict, total=False):
     call: t.Set[str]
     grants: t.Set[str]
     granted_by: t.List[str]
-    granted_via: t.Dict[str, t.Union[None, str, QueryableAttribute]]
+    granted_via: t.Dict[str, t.Optional[ActorAttrType]]
+
+
+# TODO: Expand this class to (a) have nullable defaults, (b) merge missing values from
+# another instance, and (c) use in typing.Annotation
+@dataclass
+class _WithRolesData:
+    call: t.Set[str]
+    read: t.Set[str]
+    write: t.Set[str]
+    grants: t.Set[str]
+    grants_via: t.Dict[
+        t.Optional[ActorAttrType], t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap]
+    ]
+    datasets: t.Set[str]
+
+
+class ModelWithQuery(te.Protocol):
+    query: Query[te.Self]
+
+
+QueryModelType = t.TypeVar('QueryModelType', bound=ModelWithQuery)
+RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
 
 
 def _attrs_equal(
-    lhs: t.Union[str, QueryableAttribute], rhs: t.Union[str, QueryableAttribute]
+    lhs: t.Optional[ActorAttrType], rhs: t.Optional[ActorAttrType]
 ) -> bool:
     """
-    Compare two strings or two QueryableAttributes.
+    Compare two strings or two attributes.
 
     QueryableAttributes can't be compared with `==` to confirm both are same object.
     But strings can't be compared with `is` to confirm they are the same string.
-    We have to change the operator based on types being compared.
+    We have to change the operator based on types being compared. The data sources are
+    typed as Optional, so we also accept that and regard None as not matching.
     """
+    if lhs is None or rhs is None:
+        return False
     if isinstance(lhs, str) and isinstance(rhs, str):
         return lhs == rhs
     return lhs is rhs
@@ -205,7 +242,13 @@ def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
     return False
 
 
-def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
+def _roles_via_relationship(
+    actor: t.Any,
+    relationship: t.Any,
+    actor_attr: t.Optional[ActorAttrType],
+    roles: t.Union[t.Set[str], LazyRoleSet],
+    offer_map: t.Optional[RoleOfferMap],
+) -> t.Union[t.Set[str], LazyRoleSet]:
     """Find roles granted via a relationship."""
     relobj = None  # Role-granting object found via the relationship
 
@@ -213,8 +256,9 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
     # roles_for to get offered roles, then remap using the offer map.
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
+            offered_roles: t.Union[t.Set[str], LazyRoleSet]
             offered_roles = relationship.roles_for(actor)
-            if offer_map:
+            if offer_map is not None:
                 offered_roles = set(
                     chain.from_iterable(
                         offer_map[role] for role in offered_roles if role in offer_map
@@ -227,6 +271,8 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
 
     # We have a relationship. If it's a collection, find the item in it that relates
     # to the actor.
+
+    # TODO: Support WriteOnlyCollection
     if isinstance(relationship, (AppenderQuery, Query)):
         # Query-like relationship. Run a query. It is possible to have multiple matches
         # for the actor, so use .first()
@@ -237,22 +283,23 @@ def _roles_via_relationship(actor, relationship, actor_attr, roles, offer_map):
             relobj = relationship.filter(operator.eq(actor_attr, actor)).first()
         else:
             relobj = relationship.filter_by(**{actor_attr: actor}).first()
-    elif isinstance(relationship, abc.Iterable):
-        # List-like object. Scan through it looking for item related to actor.
-        # Note: strings are also collections. Checking for abc.Iterable is only safe
-        # here because of the unlikeliness of a string relationship. If that becomes
-        # necessary in future, add `and not isinstance(relationship, str)`
-        for relitem in relationship:
-            if getattr(relitem, actor_attr) == actor:
-                relobj = relitem
-                break
+    elif isinstance(actor_attr, str):
+        if isinstance(relationship, abc.Iterable):
+            # List-like object. Scan through it looking for item related to actor.
+            # Note: strings are also collections. Checking for abc.Iterable is only safe
+            # here because of the unlikeliness of a string relationship. If that becomes
+            # necessary in future, add `and not isinstance(relationship, str)`
+            for relitem in relationship:
+                if getattr(relitem, actor_attr) == actor:
+                    relobj = relitem
+                    break
 
-    # Not any sort of collection. May be a scalar relationship
-    elif getattr(relationship, actor_attr) == actor:
-        relobj = relationship
+        # Not any sort of collection. May be a scalar relationship
+        elif getattr(relationship, actor_attr) == actor:
+            relobj = relationship
     if not relobj:
         # Didn't find a relationship object. Actor gets no roles
-        return ()
+        return set()
 
     # We have a related object. Get roles from it
     if isinstance(relobj, RoleGrantABC):
@@ -277,9 +324,10 @@ class RoleGrantABC(metaclass=ABCMeta):
     """Base class for an object that grants roles to an actor."""
 
     @property
-    def offered_roles(self):  # pragma: no cover
+    @abstractmethod
+    def offered_roles(self) -> t.Set[str]:  # pragma: no cover
         """Roles offered by this object."""
-        return ()
+        return set()
 
     @classmethod
     def __subclasshook__(cls, c) -> bool:
@@ -294,28 +342,34 @@ class RoleGrantABC(metaclass=ABCMeta):
 class LazyRoleSet(abc.MutableSet):
     """Set that provides lazy evaluations for whether a role is present."""
 
-    def __init__(self, obj, actor, initial=()) -> None:
+    def __init__(
+        self, obj: RoleMixin, actor: t.Any, initial: t.Iterable[str] = ()
+    ) -> None:
         self.obj = obj
         self.actor = actor
         #: Roles that the actor has (make a copy of initial set as it will be mutated)
-        self._present: t.Set[t.Any] = set(initial)
+        self._present: t.Set[str] = set(initial)
         #: Roles the actor does not have
-        self._not_present: t.Set[t.Any] = set()
+        self._not_present: t.Set[str] = set()
         # Relationships that have been scanned already
         # Contains (relattr, actor_attr)
-        self._scanned_granted_via: t.Set[t.Tuple[str, str]] = set()
+        self._scanned_granted_via: t.Set[
+            t.Tuple[str, t.Optional[ActorAttrType]]
+        ] = set()
         self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
 
     def __repr__(self) -> str:  # pragma: no cover
         return f'LazyRoleSet({self.obj}, {self.actor})'
 
-    def _from_iterable(self, it) -> LazyRoleSet:  # pylint: disable=arguments-differ
+    def _from_iterable(  # pylint: disable=arguments-differ
+        self, it: t.Iterator[str]
+    ) -> LazyRoleSet:
         """Make a copy, as required by the `MutableSet` base class."""
         # MutableSet defines this as a classmethod. We need an instance method to get
         # self.obj and self.actor. Pylint doesn't like it and must be silenced
         return LazyRoleSet(self.obj, self.actor, it)
 
-    def _role_is_present(self, role) -> bool:
+    def _role_is_present(self, role: str) -> bool:
         """Test whether a role has been granted to the bound actor."""
         if role in self._present:
             return True
@@ -398,7 +452,7 @@ class LazyRoleSet(abc.MutableSet):
         self._not_present.add(role)
         return False
 
-    def _contents(self):
+    def _contents(self) -> t.Set[str]:
         """Return all available roles."""
         # Populate cache
         [  # pylint: disable=expression-not-assigned
@@ -406,46 +460,42 @@ class LazyRoleSet(abc.MutableSet):
         ]
         return self._present
 
-    def __contains__(self, key):
+    def __contains__(self, key: t.Any) -> bool:
         return self._role_is_present(key)
 
     def __iter__(self):
         return iter(self._contents())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._contents())
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         # Make bool() faster than len() by using the cache first
         return bool(self._present) or bool(self._contents())
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         if isinstance(other, LazyRoleSet):
-            return (
-                self.obj == other.obj
-                and self.actor == other.actor
-                and self._contents() == other._contents()
-            )
+            return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
 
-    def __ne__(self, other):
+    def __ne__(self, other: t.Any) -> bool:
         return not self.__eq__(other)
 
-    def add(self, value):
+    def add(self, value: str) -> None:
         """Add role `value` to the set."""
         self._present.add(value)
         self._not_present.discard(value)
 
-    def discard(self, value):
+    def discard(self, value: str) -> None:
         """Remove role `value` from the set if it is present."""
         self._present.discard(value)
         self._not_present.add(value)
 
-    def has_any(self, roles):
+    def has_any(self, roles: t.Iterable[str]) -> bool:
         """
         Check if any of the given roles is present in the set.
 
-        Convinience method, qquivalent of evaluating using either of these approaches:
+        Convenience method, equivalent of evaluating using either of these approaches:
 
         1. ``not roles.isdisjoint(lazy_role_set)``
         2. ``any(role in lazy_role_set for role in roles)``
@@ -460,7 +510,7 @@ class LazyRoleSet(abc.MutableSet):
     # The following are for transparent compatibility with sets,
     # with the most commonly used methods
 
-    def copy(self):
+    def copy(self) -> LazyRoleSet:
         """Return a shallow copy of the :class:`LazyRoleSet`."""
         result = LazyRoleSet(self.obj, self.actor, self._present)
         result._not_present = set(self._not_present)  # pylint: disable=protected-access
@@ -468,7 +518,7 @@ class LazyRoleSet(abc.MutableSet):
 
     # Set operators take a single `other` parameter while these methods
     # are required to take multiple `others` to be API-compatible with sets.
-    # The `nary_op` decorator does that
+    # `nary_op` converts a binary operator to an n-ary operator
     issubset = nary_op(abc.MutableSet.__le__)
     issuperset = nary_op(abc.MutableSet.__ge__)
     union = nary_op(abc.MutableSet.__or__)
@@ -486,7 +536,8 @@ class DynamicAssociationProxy:
     Association proxy for dynamic relationships.
 
     Use this instead of SQLAlchemy's `association_proxy` when the underlying
-    relationship uses `lazy='dynamic'`.
+    relationship uses `lazy='dynamic'`. This is not compatible with SQLAlchemy 2.0's
+    recommended `lazy='write_only'`.
 
     Usage::
 
@@ -498,7 +549,7 @@ class DynamicAssociationProxy:
             'child_relationship', 'attribute')
 
     This proxy does not provide access to the query capabilities of dynamic
-    relationships. It merely optimises for containment queries. A query like this::
+    relationships. It merely optimizes for containment queries. A query like this::
 
         Document.child_relationship.filter_by(attribute=value).exists()
 
@@ -510,25 +561,45 @@ class DynamicAssociationProxy:
     :param str attr: Attribute on the target of the relationship
     """
 
-    def __init__(self, rel, attr):
+    def __init__(self, rel: str, attr: str) -> None:
         self.rel = rel
         self.attr = attr
 
     def __repr__(self):
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
-    def __get__(self, obj, cls=None):
+    @overload
+    def __get__(self, obj: None, cls=None) -> te.Self:
+        ...
+
+    @overload
+    def __get__(
+        self, obj: QueryModelType, cls=None
+    ) -> DynamicAssociationProxyWrapper[QueryModelType]:
+        ...
+
+    def __get__(
+        self, obj: t.Optional[QueryModelType], cls=None
+    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[QueryModelType]]:
         if obj is None:
             return self
         return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
 
 
-class DynamicAssociationProxyWrapper(abc.Set):
+class DynamicAssociationProxyWrapper(abc.Set, t.Generic[QueryModelType]):
     """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
-    def __init__(self, obj, rel, attr):
+    relattr: AppenderQuery
+
+    def __init__(
+        self,
+        obj: QueryModelType,
+        rel: str,
+        attr: str,
+    ):
         self.obj = obj
         self.rel = rel
+        self.relattr = getattr(obj, rel)
         self.attr = attr
 
     def __repr__(self):
@@ -536,22 +607,24 @@ class DynamicAssociationProxyWrapper(abc.Set):
             f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
         )
 
-    def __contains__(self, member):
-        rel = getattr(self.obj, self.rel)
-        return rel.session.query(rel.filter_by(**{self.attr: member}).exists()).scalar()
+    def __contains__(self, value: t.Any) -> bool:
+        relattr = self.relattr
+        return relattr.session.query(
+            relattr.filter_by(**{self.attr: value}).exists()
+        ).scalar()
 
-    def __iter__(self):
-        for obj in getattr(self.obj, self.rel):
+    def __iter__(self) -> t.Iterator[t.Any]:
+        for obj in self.relattr:
             yield getattr(obj, self.attr)
 
-    def __len__(self):
-        return getattr(self.obj, self.rel).count()
+    def __len__(self) -> int:
+        return self.relattr.count()
 
-    def __bool__(self):
-        rel = getattr(self.obj, self.rel)
-        return rel.session.query(rel.exists()).scalar()
+    def __bool__(self) -> bool:
+        relattr = self.relattr
+        return relattr.session.query(relattr.exists()).scalar()
 
-    def __eq__(self, other):
+    def __eq__(self, other: t.Any) -> bool:
         return (
             isinstance(other, DynamicAssociationProxyWrapper)
             and self.obj == other.obj
@@ -559,12 +632,12 @@ class DynamicAssociationProxyWrapper(abc.Set):
             and self.attr == other.attr
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: t.Any) -> bool:
         # This method is required as abc.Set provides a less efficient version
         return not self.__eq__(other)
 
 
-class RoleAccessProxy(abc.Mapping):
+class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     """
     Provide restricted access to a wrapped object based on available roles.
 
@@ -597,14 +670,24 @@ class RoleAccessProxy(abc.Mapping):
     construct proxies for objects accessed via relationships.
     """
 
+    _obj: RoleMixinType
+    current_roles: InspectableSet[t.Union[LazyRoleSet, t.Set[str]]]
+    _actor: t.Any
+    _anchors: t.Iterable
+    _datasets: t.Optional[t.Sequence[str]]
+    _dataset_attrs: t.Optional[t.Set[str]]
+    _call: t.Set[str]
+    _read: t.Set[str]
+    _write: t.Set[str]
+
     def __init__(
         self,
-        obj: t.Any,
+        obj: RoleMixinType,
         roles: t.Union[LazyRoleSet, t.Set[str]],
         actor: t.Optional[t.Any],
         anchors: t.Iterable,
         datasets: t.Optional[t.Sequence[str]],
-    ):
+    ) -> None:
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
         object.__setattr__(self, '_actor', actor)
@@ -640,10 +723,10 @@ class RoleAccessProxy(abc.Mapping):
         object.__setattr__(self, '_read', read)
         object.__setattr__(self, '_write', write)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
-    def __get_processed_attr(self, name):
+    def __get_processed_attr(self, name: str) -> t.Any:
         attr = getattr(self._obj, name)
         # TODO: Implement 'write' permission control for collection relationships.
         # A proper take will require custom dict and list subclasses, similar to the
@@ -674,39 +757,39 @@ class RoleAccessProxy(abc.Mapping):
             )
         return attr
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> t.Any:
         # See also __getitem__, which doesn't consult _call
         if attr in self._read or attr in self._call:
             return self.__get_processed_attr(attr)
         raise AttributeError(f"{attr}; current roles {set(self.current_roles)!r}")
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: t.Any) -> None:
         # See also __setitem__
         if attr in self._write:
             return setattr(self._obj, attr, value)
         raise AttributeError(f"{attr}; current roles {set(self.current_roles)!r}")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> t.Any:
         # See also __getattr__, which also looks in _call
         if key in self._read:
             return self.__get_processed_attr(key)
         raise KeyError(f"{key}; current roles {set(self.current_roles)!r}")
 
-    def __len__(self):
+    def __len__(self) -> int:
         if self._dataset_attrs is not None:
             return len(self._read & self._dataset_attrs)
         return len(self._read)
 
-    def __contains__(self, key):
+    def __contains__(self, key: t.Any) -> bool:
         return key in self._read or key in self._call
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: str) -> None:
         # See also __setattr__
         if key in self._write:
             return setattr(self._obj, key, value)
         raise KeyError(f"{key}; current roles {set(self.current_roles)!r}")
 
-    def __iter__(self):
+    def __iter__(self) -> t.Iterator[str]:
         if self._dataset_attrs is not None:
             source = self._read & self._dataset_attrs
         else:
@@ -714,8 +797,11 @@ class RoleAccessProxy(abc.Mapping):
         yield from source
 
 
+_DA = t.TypeVar('_DA')  # Decorated attr
+
+
+@overload
 def with_roles(
-    obj=None,
     *,
     rw: t.Optional[t.Set[str]] = None,
     call: t.Optional[t.Set[str]] = None,
@@ -724,12 +810,51 @@ def with_roles(
     grants: t.Optional[t.Set[str]] = None,
     grants_via: t.Optional[
         t.Dict[
-            t.Union[None, str, QueryableAttribute, RelationshipProperty],
+            t.Optional[ActorAttrType],
             t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
-):
+) -> t.Callable[[_DA], _DA]:
+    ...
+
+
+@overload
+def with_roles(
+    __obj: _DA,
+    *,
+    rw: t.Optional[t.Set[str]] = None,
+    call: t.Optional[t.Set[str]] = None,
+    read: t.Optional[t.Set[str]] = None,
+    write: t.Optional[t.Set[str]] = None,
+    grants: t.Optional[t.Set[str]] = None,
+    grants_via: t.Optional[
+        t.Dict[
+            t.Optional[ActorAttrType],
+            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+        ]
+    ] = None,
+    datasets: t.Optional[t.Set[str]] = None,
+) -> _DA:
+    ...
+
+
+def with_roles(
+    __obj: t.Optional[_DA] = None,
+    *,
+    rw: t.Optional[t.Set[str]] = None,
+    call: t.Optional[t.Set[str]] = None,
+    read: t.Optional[t.Set[str]] = None,
+    write: t.Optional[t.Set[str]] = None,
+    grants: t.Optional[t.Set[str]] = None,
+    grants_via: t.Optional[
+        t.Dict[
+            t.Optional[ActorAttrType],
+            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
+        ]
+    ] = None,
+    datasets: t.Optional[t.Set[str]] = None,
+) -> t.Union[_DA, t.Callable[[_DA], _DA]]:
     """
     Define roles on an attribute and return the attribute.
 
@@ -824,41 +949,33 @@ def with_roles(
             }}
         )
     """
-    # pylint: disable=protected-access
-    # Convert lists and None values to sets
-    rw = set(rw) if rw else set()
-    call = set(call) if call else set()
-    read = set(read) if read else set()
-    write = set(write) if write else set()
-    grants = set(grants) if grants else set()
-    if not grants_via:
-        grants_via = {}
-    if not datasets:
-        datasets = set()
-    # `rw` is shorthand for read+write
-    read.update(rw)
-    write.update(rw)
 
-    def inner(attr):
+    def decorator(attr: _DA) -> _DA:
         if isinstance(attr, SynonymProperty):
             raise TypeError(
                 "Synonyms cannot have roles as they acquire from the underlying entity"
             )
-        data = {
-            'call': call,
-            'read': read,
-            'write': write,
-            'grants': grants,
-            'grants_via': grants_via,
-            'datasets': datasets,
-        }
+        data = _WithRolesData(
+            call=set(call) if call is not None else set(),
+            read=set(read) if read is not None else set(),
+            write=set(write) if write is not None else set(),
+            grants=set(grants) if grants is not None else set(),
+            grants_via={} if grants_via is None else grants_via,
+            datasets=set() if datasets is None else datasets,
+        )
+        if rw is not None:
+            # `rw` is shorthand for read+write
+            data.read.update(rw)
+            data.write.update(rw)
+
+        # pylint: disable=protected-access
         if attr in __cache__:
             raise TypeError("Duplicate use of with_roles for this attribute")
         __cache__[attr] = data
         if isinstance(attr, MappedColumn):
             if hasattr(attr.column, '_coaster_roles'):
                 raise TypeError("Duplicate use of with_roles for this attribute")
-            attr.column._coaster_roles = data  # pylint: disable=protected-access
+            attr.column._coaster_roles = data  # type: ignore[attr-defined]
         elif isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
             if '_coaster_roles' in attr.info:
                 raise TypeError("Duplicate use of with_roles for this attribute")
@@ -867,20 +984,22 @@ def with_roles(
             try:
                 if hasattr(attr, '_coaster_roles'):
                     raise TypeError("Duplicate use of with_roles for this attribute")
-                attr._coaster_roles = data  # pylint: disable=protected-access
+                attr._coaster_roles = data  # type: ignore[attr-defined]
                 # If the attr has a restrictive __slots__, we'll get an attribute error.
-                # Unfortunately, because of the way SQLAlchemy works, by copying objects
+                # Unfortunately, because of the way SQLAlchemy works by copying objects
                 # into subclasses, the cache alone is not a reliable mechanism. We need
                 # both
             except AttributeError:
                 pass
         return attr
 
-    if obj is not None:
-        if isinstance(obj, (str, bytes, int, float, bool, tuple)):
-            raise TypeError(f"with_roles needs an object as parameter, not {type(obj)}")
-        return inner(obj)
-    return inner
+    if __obj is not None:
+        if isinstance(__obj, (str, bytes, int, float, bool, tuple)):
+            raise TypeError(
+                f"with_roles needs an object as parameter, not {type(__obj)}"
+            )
+        return decorator(__obj)
+    return decorator
 
 
 @declarative_mixin
@@ -915,9 +1034,9 @@ class RoleMixin:
     # Datasets to use when rendering to JSON
     __json_datasets__: t.Sequence[str] = ()
     # Relationship role offer map (used by LazyRoleSet)
-    __relationship_role_offer_map__: t.Dict[str, t.Set[str]] = {}
+    __relationship_role_offer_map__: t.Dict[str, RoleOfferMap] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__: t.Dict[str, t.Dict[str, t.Set[str]]] = {}
+    __relationship_reversed_role_offer_map__: t.Dict[str, RoleOfferMap] = {}
 
     def roles_for(
         self, actor: t.Optional[t.Any] = None, anchors: t.Iterable = ()
@@ -1079,7 +1198,7 @@ class RoleMixin:
                     if obj is not None:
                         # What kind of object is this related item?
                         # 1. Declaration said it has an actor attribute
-                        if actor_attr:
+                        if actor_attr is not None:
                             # 1a. Does this have offered_roles? Re-confirm it actually
                             #     offers the role we're looking for
                             if isinstance(obj, RoleGrantABC):
@@ -1206,7 +1325,7 @@ class RoleMixin:
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(mapper_, cls):
+def _configure_roles(mapper_, cls: RoleMixin) -> None:
     """
     Configure roles on all models when configuring SQLAlchemy mappers.
 
@@ -1240,7 +1359,7 @@ def _configure_roles(mapper_, cls):
     processed = set()
 
     # Loop through all attributes in this and base classes, looking for role annotations
-    for base in cls.__mro__:
+    for base in cls.__mro__:  # type: ignore[attr-defined]
         for name, attr in base.__dict__.items():
             # pylint: disable=protected-access
             if name in processed or name.startswith('__'):
@@ -1256,40 +1375,42 @@ def _configure_roles(mapper_, cls):
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
             elif hasattr(attr, '_coaster_roles'):
-                data = attr._coaster_roles
+                data = t.cast(_WithRolesData, attr._coaster_roles)
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
                 if attr.property in __cache__:
-                    data = __cache__[attr.property]
+                    data = t.cast(_WithRolesData, __cache__[attr.property])
                 elif '_coaster_roles' in attr.info:
-                    data = attr.info['_coaster_roles']
+                    data = t.cast(_WithRolesData, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):
-                    data = attr.property._coaster_roles
+                    data = t.cast(_WithRolesData, attr.property._coaster_roles)
                 else:
                     data = None
             else:
                 data = None
             if data is not None:
-                for role in data.get('call', ()):
+                for role in data.call:
                     cls.__roles__.setdefault(role, {}).setdefault('call', set()).add(
                         name
                     )
-                for role in data.get('read', ()):
+                for role in data.read:
                     cls.__roles__.setdefault(role, {}).setdefault('read', set()).add(
                         name
                     )
-                for role in data.get('write', ()):
+                for role in data.write:
                     cls.__roles__.setdefault(role, {}).setdefault('write', set()).add(
                         name
                     )
-                for role in data.get('grants', ()):
+                for role in data.grants:
                     granted_by = cls.__roles__.setdefault(role, {}).setdefault(
                         'granted_by', []  # List as it needs to be ordered
                     )
                     if name not in granted_by:
                         granted_by.append(name)
-                for actor_attr, roles in data.get('grants_via', {}).items():
+                for actor_attr, roles in data.grants_via.items():
+                    offer_map: t.Optional[RoleOfferMap]
+                    reverse_offer_map: t.Optional[RoleOfferMap]
                     if isinstance(roles, dict):
                         offer_map = {
                             k: {v} if isinstance(v, str) else set(v)
@@ -1300,31 +1421,45 @@ def _configure_roles(mapper_, cls):
                             for role in rhs:
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
                         roles = set(reverse_offer_map.keys())
-                    elif isinstance(roles, str):
+                    elif isinstance(roles, set):
+                        offer_map = None
+                        reverse_offer_map = None
+                    elif isinstance(roles, str):  # type: ignore[unreachable]
+                        # Safety check
                         _decl = {actor_attr: roles}
                         raise TypeError(
                             f"grants_via declaration {_decl!r} on {cls.__name__}.{name}"
                             f" is using a string but needs to be a set or dict"
                         )
                     else:
-                        offer_map = None
-                        reverse_offer_map = None
-                    if actor_attr and isinstance(actor_attr, str) and '.' in actor_attr:
-                        parts = actor_attr.split('.')
-                        dotted_name = '.'.join([name] + parts[:-1])
-                        actor_attr = parts[-1]
+                        raise TypeError(
+                            f"Unrecognised value for roles in with_roles[grants_via] on"
+                            f" {cls!r}.{name}: {roles!r}"
+                        )
+                    # Rewrite the pair of attr name and actor_attr for dotted access:
+                    # Example: for (attr_name, actor_attr) -> (dotted_name, attr)
+                    # ('project', 'membership.user') -> ('project.membership', 'user')
+                    if (
+                        actor_attr is not None
+                        and isinstance(actor_attr, str)
+                        and '.' in actor_attr
+                    ):
+                        dotted_name, actor_attr = actor_attr.rsplit('.', 1)
+                        dotted_name = name + '.' + dotted_name
                     else:
                         dotted_name = name
-                    cls.__relationship_role_offer_map__[dotted_name] = offer_map
-                    cls.__relationship_reversed_role_offer_map__[
-                        dotted_name
-                    ] = reverse_offer_map
+                    if offer_map is not None:
+                        cls.__relationship_role_offer_map__[dotted_name] = offer_map
+                    if reverse_offer_map is not None:
+                        cls.__relationship_reversed_role_offer_map__[
+                            dotted_name
+                        ] = reverse_offer_map
                     for role in roles:
                         granted_via = cls.__roles__.setdefault(role, {}).setdefault(
                             'granted_via', {}
                         )
                         if dotted_name not in granted_via:
                             granted_via[dotted_name] = actor_attr
-                for dataset in data.get('datasets', ()):
+                for dataset in data.datasets:
                     cls.__datasets__.setdefault(dataset, set()).add(name)
                 processed.add(name)

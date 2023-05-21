@@ -209,7 +209,7 @@ class UuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(postgresql.UUID, primary_key=True)  # noqa: A003
+    id = db.Column(sa.Uuid, primary_key=True)  # noqa: A003
 
 
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -648,7 +648,7 @@ class TestCoasterModels(AppTestCase):
         d2.title = "Auto name"
         self.session.add_all([d1, d2])
         assert d1.url_id is None
-        assert d2.url_id is None
+        assert d2.url_id is None  # type: ignore[unreachable]
         self.session.commit()
         assert d1.url_id == 1
         assert d2.url_id == 1

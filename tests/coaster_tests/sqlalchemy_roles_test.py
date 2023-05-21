@@ -15,6 +15,7 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 import pytest
+import sqlalchemy as sa
 
 from coaster.sqlalchemy import (
     BaseMixin,
@@ -164,21 +165,21 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'relationship_parent'
 
-    children_list = db.relationship(RelationshipChild, backref='parent')
-    children_list_lazy = db.relationship(
+    children_list = sa.orm.relationship(RelationshipChild, backref='parent')
+    children_list_lazy = sa.orm.relationship(
         RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
     )
-    children_set = db.relationship(
+    children_set = sa.orm.relationship(
         RelationshipChild,
         collection_class=set,
         overlaps='children_list,children_list_lazy,parent',
     )
-    children_dict_attr = db.relationship(
+    children_dict_attr = sa.orm.relationship(
         RelationshipChild,
         collection_class=attribute_keyed_dict('name'),
         overlaps='children_list,children_list_lazy,children_set,parent',
     )
-    children_dict_column = db.relationship(
+    children_dict_column = sa.orm.relationship(
         RelationshipChild,
         collection_class=column_keyed_dict(
             RelationshipChild.name  # type: ignore[arg-type]
@@ -243,12 +244,12 @@ class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'role_user'
 
     doc_id = db.Column(None, db.ForeignKey('role_grant_many.id'))
-    doc = db.relationship(
+    doc = sa.orm.relationship(
         RoleGrantMany,
         foreign_keys=[doc_id],
         backref=db.backref('primary_users', lazy='dynamic'),
     )
-    secondary_docs = db.relationship(
+    secondary_docs = sa.orm.relationship(
         RoleGrantMany, secondary=granted_users, backref='secondary_users'
     )
 
@@ -259,7 +260,7 @@ class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'role_grant_one'
 
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
-    user = with_roles(db.relationship(RoleUser), grants={'creator'})
+    user = with_roles(sa.orm.relationship(RoleUser), grants={'creator'})
 
 
 class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -279,10 +280,10 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'role_membership'
 
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
-    user = db.relationship(RoleUser)
+    user = sa.orm.relationship(RoleUser)
 
     doc_id = db.Column(None, db.ForeignKey('multirole_document.id'))
-    doc = db.relationship('MultiroleDocument')
+    doc = sa.orm.relationship('MultiroleDocument')
 
     role1 = db.Column(db.Boolean, default=False)
     role2 = db.Column(db.Boolean, default=False)
@@ -306,7 +307,7 @@ class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'multirole_parent'
     user_id = db.Column(None, db.ForeignKey('role_user.id'))
-    user = with_roles(db.relationship(RoleUser), grants={'prole1', 'prole2'})
+    user = with_roles(sa.orm.relationship(RoleUser), grants={'prole1', 'prole2'})
 
 
 class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -316,7 +317,7 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     parent_id = db.Column(None, db.ForeignKey('multirole_parent.id'))
     parent = with_roles(
-        db.relationship(MultiroleParent),
+        sa.orm.relationship(MultiroleParent),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
         # and not via parent.`actor_attr`. While other roles may also be granted by
         # parent.roles_for(), we only want one, and we want to give it a different name
@@ -341,12 +342,12 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     # Grant via a query relationship
     rel_lazy = with_roles(
-        db.relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
+        sa.orm.relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
         grants_via={RoleMembership.user: {'role2'}},
     )
     # Grant via a list-like relationship
     rel_list = with_roles(
-        db.relationship(RoleMembership, overlaps='doc,rel_lazy'),
+        sa.orm.relationship(RoleMembership, overlaps='doc,rel_lazy'),
         grants_via={'user': {'role3'}},
     )
 
@@ -363,7 +364,7 @@ class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'multirole_child'
     parent_id = db.Column(None, db.ForeignKey('multirole_document.id'))
     parent = with_roles(
-        db.relationship(MultiroleDocument),
+        sa.orm.relationship(MultiroleDocument),
         grants_via={
             'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
@@ -629,7 +630,7 @@ class TestCoasterRoles(AppTestCase):
         """Prevent with_roles from being used with a positional parameter"""
         with pytest.raises(TypeError):
 
-            @with_roles({'all'})
+            @with_roles({'all'})  # type: ignore[operator]
             def f():
                 pass
 

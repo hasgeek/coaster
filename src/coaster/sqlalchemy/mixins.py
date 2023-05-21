@@ -29,7 +29,6 @@ from uuid import UUID, uuid4
 import typing as t
 
 from flask import Flask, current_app, url_for
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
@@ -107,7 +106,7 @@ class IdMixin:
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return sa.orm.mapped_column(
-                postgresql.UUID, default=uuid4, primary_key=True, nullable=False
+                sa.Uuid, default=uuid4, primary_key=True, nullable=False
             )
 
         return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
@@ -177,9 +176,7 @@ class UuidMixin:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
-        return sa.orm.mapped_column(
-            postgresql.UUID, default=uuid4, unique=True, nullable=False
-        )
+        return sa.orm.mapped_column(sa.Uuid, default=uuid4, unique=True, nullable=False)
 
     @hybrid_property
     def uuid_hex(self) -> str:
@@ -319,26 +316,29 @@ class UrlDictStub:
         return UrlDict(obj)
 
 
+_UR = t.TypeVar('_UR', bound='NoIdMixin')
+
+
 class UrlDict(abc.Mapping):
     """Provides dictionary access to an object's URLs."""
 
-    def __init__(self, obj):
+    def __init__(self, obj: _UR) -> None:
         self.obj = obj
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> str:
         try:
             return self.obj.url_for(key, _external=True)
         except BuildError as exc:
             raise KeyError(key) from exc
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.obj.url_for_endpoints[None]) + (
             len(self.obj.url_for_endpoints.get(current_app._get_current_object(), {}))
             if current_app
             else 0
         )
 
-    def __iter__(self):
+    def __iter__(self) -> t.Iterator[str]:
         # 1. Iterate through all actions available to the None app and to current_app
         # 2. If the action requires specific roles, confirm overlap with current_roles
         # 3. Confirm the action does not require additional parameters
@@ -957,7 +957,7 @@ class BaseScopedIdMixin(BaseMixin):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
-    def url_id(cls) -> Mapped[int]:
+    def url_id(cls) -> Mapped[int]:  # type: ignore[override]
         """Column for an id number that is unique within the parent container."""
         return sa.orm.mapped_column(sa.Integer, nullable=False)
 

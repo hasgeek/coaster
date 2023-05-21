@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 import typing as t
+import warnings
 
 import typing_extensions as te
 
@@ -52,6 +53,9 @@ class _LabeledEnumMeta(type):
                 }
 
         if '__order__' in attrs:
+            warnings.warn(
+                "LabeledEnum.__order__ is obsolete in Python >= 3.6", stacklevel=2
+            )
             ordered_labels = {}
             ordered_names = {}
             for value in attrs['__order__']:
@@ -206,6 +210,9 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         >>> list(RSVP_EXTRA.__names__.keys())
         ['RSVP_Y', 'RSVP_N', 'RSVP_M', 'RSVP_U', 'RSVP_A', 'UNCERTAIN']
     """
+
+    __labels__: t.ClassVar[t.Dict[t.Any, t.Any]]
+    __names__: t.ClassVar[t.Dict[str, t.Any]]
 
     @classmethod
     def get(cls, key, default=None):

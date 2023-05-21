@@ -112,7 +112,7 @@ def _configure_annotations(mapper_, cls):
                 elif '_coaster_annotations' in attr.info:
                     data = attr.info['_coaster_annotations']
                 elif hasattr(attr.property, '_coaster_annotations'):
-                    data = getattr(attr.property, '_coaster_annotations')
+                    data = attr.property._coaster_annotations
                 else:
                     data = None
             else:
