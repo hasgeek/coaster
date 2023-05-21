@@ -57,7 +57,7 @@ def _make_immutable(cls: t.Type) -> None:
             target: sa.orm.InstanceState,
             value: t.Any,
             old_value: t.Any,
-            initiator: t.Any,
+            _initiator: t.Any,
         ) -> None:
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in

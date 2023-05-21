@@ -2,7 +2,6 @@
 # pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
-import typing as t
 
 import pytest
 
@@ -177,7 +176,7 @@ def test_registry_reuse_error() -> None:
     with pytest.raises(RuntimeError):
 
         class RegistryUser:
-            a = b = Registry[t.Any]()
+            a = b = Registry()
 
 
 def test_registry_reuse_okay() -> None:

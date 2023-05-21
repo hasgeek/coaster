@@ -1325,7 +1325,7 @@ class RoleMixin:
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(mapper_, cls: RoleMixin) -> None:
+def _configure_roles(_mapper, cls: RoleMixin) -> None:
     """
     Configure roles on all models when configuring SQLAlchemy mappers.
 

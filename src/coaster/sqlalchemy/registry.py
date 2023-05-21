@@ -37,8 +37,10 @@ from functools import partial
 from threading import Lock
 from typing import overload
 import typing as t
+import warnings
 
 from sqlalchemy.orm import declarative_mixin
+import sqlalchemy as sa
 import typing_extensions as te
 
 from ..typing import ReturnDecorator, WrappedFunc
@@ -47,10 +49,10 @@ __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
 _marker = object()
 
-_T = t.TypeVar('_T', bound=t.Any)
+_T = t.TypeVar('_T')
 
 
-class Registry(t.Generic[_T]):
+class Registry:
     """
     A registry provides a plugin namespace within another class.
 
@@ -194,29 +196,33 @@ class Registry(t.Generic[_T]):
         return decorator
 
     @overload
-    def __get__(self, obj: None, cls: t.Optional[t.Type[_T]] = None) -> Registry:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
-    def __get__(
-        self, obj: _T, cls: t.Optional[t.Type[_T]] = None
-    ) -> InstanceRegistry[_T]:
+    def __get__(self, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_T]:
         ...
 
     def __get__(
-        self, obj: t.Optional[_T], cls: t.Optional[t.Type[_T]] = None
-    ) -> t.Union[Registry, InstanceRegistry[_T]]:
+        self, obj: t.Optional[_T], cls: t.Type[_T]
+    ) -> t.Union[te.Self, InstanceRegistry[_T]]:
         """Access at runtime."""
         if obj is None:
             return self
 
         cache = obj.__dict__  # This assumes a class without __slots__
         name = self._name
+        if name is None:
+            raise RuntimeError(
+                "This registry was not bound to a class using registry.__set_name__"
+                "(owner, name)"
+            )
         with self._lock:
-            ir = cache.get(name, _marker)
-            if ir is _marker:
+            if name not in cache:
                 ir = InstanceRegistry(self, obj)
                 cache[name] = ir
+            else:
+                ir = cache[name]
 
         # Subsequent accesses will bypass this __get__ method and use the instance
         # that was saved to obj.__dict__
@@ -237,7 +243,7 @@ class InstanceRegistry(t.Generic[_T]):
     in an ``obj`` parameter when called.
     """
 
-    def __init__(self, registry: Registry[_T], obj: _T):
+    def __init__(self, registry: Registry, obj: _T):
         """Prepare to serve a registry member."""
         # This would previously be cause for a memory leak due to being a cyclical
         # reference, and would have needed a weakref. However, this is no longer a
@@ -279,27 +285,36 @@ class InstanceRegistry(t.Generic[_T]):
 @declarative_mixin
 class RegistryMixin:
     """
-    Adds common registries to a model.
-
-    Included:
+    Creates common registries in a SQLAlchemy mapped model.
 
     * ``forms`` registry, for WTForms forms
     * ``views`` registry for view classes and helper functions
     * ``features`` registry for feature availability test functions.
 
     The forms registry passes the instance to the registered form as an ``obj`` keyword
-    argument. The other registries pass it as the first positional argument.
+    parameter. The other registries pass it as the first positional argument.
+
+    Subclasses of a model (typically used for SQLAlchemy polymorphic inheritance) will
+    not receive their own registries. If desired, the subclass may declare its own
+    registry.
     """
 
-    forms: t.ClassVar[Registry[te.Self]]
-    views: t.ClassVar[Registry[te.Self]]
-    features: t.ClassVar[Registry[te.Self]]
+    forms: t.ClassVar[Registry]
+    views: t.ClassVar[Registry]
+    features: t.ClassVar[Registry]
 
-    def __init_subclass__(cls, **kwargs) -> None:
-        cls.forms = Registry(kwarg='obj')
-        cls.forms.__set_name__(cls, 'forms')
-        cls.views = Registry()
-        cls.views.__set_name__(cls, 'views')
-        cls.features = Registry()
-        cls.features.__set_name__(cls, 'features')
-        return super().__init_subclass__(**kwargs)
+
+@sa.event.listens_for(RegistryMixin, 'after_mapper_constructed', propagate=True)
+def _create_registries(_mapper, cls) -> None:
+    """Create the default registries in a mapped class using RegistryMixin."""
+    for registry, kwarg in [('forms', 'obj'), ('views', None), ('features', None)]:
+        if hasattr(cls, registry):
+            if not isinstance(getattr(cls, registry), Registry):
+                warnings.warn(
+                    f"{cls!r}.{registry} is a non-registry overriding"
+                    f" RegistryMixin.{registry}",
+                    stacklevel=2,
+                )
+        else:
+            setattr(cls, registry, Registry(kwarg=kwarg))
+            getattr(cls, registry).__set_name__(cls, registry)

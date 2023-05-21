@@ -73,7 +73,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @sa.event.listens_for(Mapper, 'mapper_configured')
-def _configure_annotations(mapper_, cls):
+def _configure_annotations(_mapper, cls):
     """
     Extract annotations from attributes.
 

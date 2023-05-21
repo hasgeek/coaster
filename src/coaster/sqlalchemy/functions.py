@@ -190,7 +190,7 @@ def add_primary_relationship(
     setattr(parent, childrel, rel)
 
     @sa.event.listens_for(rel, 'set')
-    def _validate_child(target, value, oldvalue, initiator):
+    def _validate_child(target, value, _oldvalue, _initiator):
         if value and getattr(value, parentrel) != target:
             raise ValueError("The target is not affiliated with this parent")
 
@@ -269,7 +269,7 @@ def auto_init_default(
         default = column.default
 
     @sa.event.listens_for(column, 'init_scalar', retval=True, propagate=True)
-    def init_scalar(target, value, dict_):
+    def init_scalar(_target, value, dict_):
         # A subclass may override the column and not provide a default. Watch out for
         # that.
         if default:
