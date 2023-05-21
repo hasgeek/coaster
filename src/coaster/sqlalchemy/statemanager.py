@@ -362,6 +362,7 @@ class ManagedState:
 
     def is_current_in(self, obj: t.Any) -> bool:
         """Test if the given object is currently in this state."""
+        # pylint: disable=protected-access
         if is_collection(self.value):
             valuematch = self.statemanager._get_state_value(obj) in self.value
         else:
@@ -378,6 +379,7 @@ class ManagedState:
             cls = self.statemanager.cls
         if cls is None:
             raise RuntimeError("This state is not affiliated with a host class")
+        # pylint: disable=protected-access
         if is_collection(self.value):
             valuematch = self.statemanager._get_state_value(None).in_(self.value)
         else:
@@ -394,7 +396,7 @@ class ManagedState:
         return valuematch
 
     def __invert__(self) -> sa.ColumnElement[bool]:
-        return ~self.__clause_element__()
+        return ~self.__clause_element__()  # pylint: disable=invalid-unary-operand-type
 
 
 class ManagedStateGroup:
@@ -465,7 +467,7 @@ class ManagedStateGroup:
         return sa.or_(*(s.__clause_element__(cls) for s in self.states))
 
     def __invert__(self) -> sa.ColumnElement[bool]:
-        return ~self.__clause_element__()
+        return ~self.__clause_element__()  # pylint: disable=invalid-unary-operand-type
 
 
 class ManagedStateInstance(t.Generic[_T]):
@@ -643,6 +645,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
         :return: Tuple of (state manager, current state, label for current state)
         """
         for statemanager, conditions in self.statetransition.transitions.items():
+            # pylint: disable=protected-access
             current_state_value = statemanager._get_state_value(self.obj)
             if conditions.from_ is None:
                 state_valid = True
@@ -808,7 +811,7 @@ class StateManager:
             return getattr(obj, self.propname)
         return getattr(self.cls, self.propname)
 
-    def current(self) -> t.NoReturn:
+    def current(self) -> t.NoReturn:  # pylint: disable=no-self-use
         """Get current state (not available without an instance)."""
         raise TypeError("Current state requires an instance")
 

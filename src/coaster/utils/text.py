@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from functools import partial
 from html import unescape
+from xml.etree.ElementTree import Element  # nosec B405
 import re
 import string
 import typing as t
@@ -216,7 +217,9 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
     doc = html5lib.parseFragment(html_text)
     blocks = []
 
-    def subloop(parent_tag, element, lastchild=False):
+    def subloop(
+        parent_tag: t.Optional[str], element: Element, lastchild: bool = False
+    ) -> None:
         if callable(
             element.tag
         ):  # Comments have a callable tag. TODO: Find out, anything else?
@@ -224,9 +227,8 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
             text = ''
             tail = element.tail or ''
         else:
-            tag = element.tag.split('}')[
-                -1
-            ]  # Extract tag from namespace: {http://www.w3.org/1999/xhtml}html
+            # Extract tag from namespace: "{http://www.w3.org/1999/xhtml}html"
+            tag = element.tag.split('}')[-1]
             text = element.text or ''
             tail = element.tail or ''
 
@@ -235,10 +237,9 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
 
         if tag in blockish_tags or tag == 'DOCUMENT_FRAGMENT':
             text = text.lstrip()  # Leading whitespace is insignificant in a block tag
-            if not len(element):
-                text = (
-                    text.rstrip()
-                )  # No children? Then trailing whitespace is insignificant
+            if len(element) == 0:
+                # No children? Then trailing whitespace is insignificant
+                text = text.rstrip()
             # If there's text, add it.
             # If there's no text but the next element is not a block tag, add a blank
             # anyway (unless it's a pre tag and we want to skip_pre, in which case
@@ -265,16 +266,14 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
             subloop(tag, element[-1], lastchild=True)
 
         if tag in blockish_tags:
-            tail = (
-                tail.lstrip()
-            )  # Leading whitespace is insignificant after a block tag
+            # Leading whitespace is insignificant after a block tag
+            tail = tail.lstrip()
             if tail:
                 blocks.append(tail)
         else:
             if parent_tag in blockish_tags and lastchild:
-                tail = (
-                    tail.rstrip()
-                )  # Trailing whitespace is insignificant before a block tag end
+                # Trailing whitespace is insignificant before a block tag end
+                tail = tail.rstrip()
             if not blocks:
                 if tail:
                     blocks.append(tail)

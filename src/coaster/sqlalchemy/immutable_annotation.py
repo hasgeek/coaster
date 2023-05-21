@@ -53,7 +53,7 @@ class ImmutableColumnError(AttributeError):
 def _make_immutable(cls: t.Type) -> None:
     def add_immutable_event(attr: str, col: t.Any) -> None:
         @sa.event.listens_for(col, 'set', raw=True)
-        def immutable_column_set_listener(
+        def immutable_column_set_listener(  # skipcq: PTC-W0065
             target: sa.orm.InstanceState,
             value: t.Any,
             old_value: t.Any,

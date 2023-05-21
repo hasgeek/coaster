@@ -112,6 +112,7 @@ def _configure_annotations(_mapper, cls):
                 elif '_coaster_annotations' in attr.info:
                     data = attr.info['_coaster_annotations']
                 elif hasattr(attr.property, '_coaster_annotations'):
+                    # pylint: disable=protected-access
                     data = attr.property._coaster_annotations
                 else:
                     data = None
@@ -158,6 +159,7 @@ def annotation_wrapper(
             attr.info.setdefault('_coaster_annotations', []).append(annotation)
         else:
             try:
+                # pylint: disable=protected-access
                 if not hasattr(attr, '_coaster_annotations'):
                     attr._coaster_annotations = []
                 attr._coaster_annotations.append(annotation)

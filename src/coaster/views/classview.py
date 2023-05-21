@@ -129,7 +129,7 @@ def viewdata(**kwargs) -> ViewHandler:
 
     This data is accessible as the ``data`` attribute on the view handler.
     """
-    return ViewHandler(None, viewdata=kwargs)
+    return ViewHandler(None, data=kwargs)
 
 
 def rulejoin(class_rule: str, method_rule: str) -> str:
@@ -176,13 +176,13 @@ class ViewHandler(  # pylint: disable=too-many-instance-attributes
         self,
         rule: t.Optional[str],
         rule_options: t.Optional[t.Dict[str, t.Any]] = None,
-        viewdata: t.Optional[t.Dict[str, t.Any]] = None,
+        data: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> None:
         if rule is not None:
             self.routes = [(rule, rule_options or {})]
         else:
             self.routes = []
-        self.data = viewdata or {}
+        self.data = data or {}
         self.endpoints: t.Set[str] = set()
 
     @t.no_type_check

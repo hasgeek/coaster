@@ -968,13 +968,13 @@ def with_roles(
             data.read.update(rw)
             data.write.update(rw)
 
-        # pylint: disable=protected-access
         if attr in __cache__:
             raise TypeError("Duplicate use of with_roles for this attribute")
         __cache__[attr] = data
         if isinstance(attr, MappedColumn):
             if hasattr(attr.column, '_coaster_roles'):
                 raise TypeError("Duplicate use of with_roles for this attribute")
+            # pylint: disable=protected-access
             attr.column._coaster_roles = data  # type: ignore[attr-defined]
         elif isinstance(attr, (SchemaItem, ColumnProperty, MapperProperty)):
             if '_coaster_roles' in attr.info:
@@ -984,6 +984,7 @@ def with_roles(
             try:
                 if hasattr(attr, '_coaster_roles'):
                     raise TypeError("Duplicate use of with_roles for this attribute")
+                # pylint: disable=protected-access
                 attr._coaster_roles = data  # type: ignore[attr-defined]
                 # If the attr has a restrictive __slots__, we'll get an attribute error.
                 # Unfortunately, because of the way SQLAlchemy works by copying objects
@@ -1375,6 +1376,7 @@ def _configure_roles(_mapper, cls: RoleMixin) -> None:
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
             elif hasattr(attr, '_coaster_roles'):
+                # pylint: disable=protected-access
                 data = t.cast(_WithRolesData, attr._coaster_roles)
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
@@ -1384,6 +1386,7 @@ def _configure_roles(_mapper, cls: RoleMixin) -> None:
                 elif '_coaster_roles' in attr.info:
                     data = t.cast(_WithRolesData, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):
+                    # pylint: disable=protected-access
                     data = t.cast(_WithRolesData, attr.property._coaster_roles)
                 else:
                     data = None
