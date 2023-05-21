@@ -6,6 +6,7 @@ SQLAlchemy column types
 from __future__ import annotations
 
 from collections.abc import Mapping
+import json
 import typing as t
 
 from furl import furl
@@ -44,6 +45,20 @@ class JsonDict(TypeDecorator):
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(postgresql.JSONB)  # type: ignore[arg-type]
         return dialect.type_descriptor(self.impl)  # type: ignore[arg-type]
+
+    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+        if value is not None:
+            value = json.dumps(value, default=str)  # Callable default
+        return value
+
+    def process_result_value(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+        if value is not None and isinstance(value, str):
+            # Psycopg2 >= 2.5 will auto-decode JSON columns, so
+            # we only attempt decoding if the value is a string.
+            # Since this column stores dicts only, processed values
+            # can never be strings.
+            value = json.loads(value)
+        return value
 
 
 class MutableDict(Mutable, dict):
