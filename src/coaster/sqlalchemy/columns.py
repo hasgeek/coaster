@@ -72,8 +72,11 @@ class MutableDict(Mutable, dict):
                 return MutableDict(value)
             if isinstance(value, str):
                 # Got a string, attempt to parse as JSON
-                return MutableDict(json.loads(value))
-            raise ValueError(f"Value is not dict-like: {value}")
+                try:
+                    return MutableDict(json.loads(value))
+                except ValueError:
+                    raise ValueError(f"Invalid JSON string: {value!r}") from None
+            raise ValueError(f"Value is not dict-like: {value!r}")
         return value
 
     def __setitem__(self, key: t.Any, value: t.Any) -> None:

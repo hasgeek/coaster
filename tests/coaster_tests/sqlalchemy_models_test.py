@@ -718,8 +718,10 @@ class TestCoasterModels(AppTestCase):
         assert m1.data == {}
         db.session.commit()
         assert m1.data == {}
+        with pytest.raises(ValueError, match="Invalid JSON string"):
+            MyData(data="This is not JSON")
         with pytest.raises(ValueError, match="Value is not dict-like"):
-            MyData(data='NonDict')
+            MyData(data=object())
         m1.data = None
         self.session.commit()
         assert m1.data is None
