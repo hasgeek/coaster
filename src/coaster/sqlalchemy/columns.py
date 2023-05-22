@@ -70,7 +70,13 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, Mapping):
                 return MutableDict(value)
-            raise ValueError(f"Value is not dict-like: {value}")
+            if isinstance(value, str):
+                # Got a string, attempt to parse as JSON
+                try:
+                    return MutableDict(json.loads(value))
+                except ValueError:
+                    raise ValueError(f"Invalid JSON string: {value!r}") from None
+            raise ValueError(f"Value is not dict-like: {value!r}")
         return value
 
     def __setitem__(self, key: t.Any, value: t.Any) -> None:
