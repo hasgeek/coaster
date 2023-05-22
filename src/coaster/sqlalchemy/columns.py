@@ -70,6 +70,9 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, Mapping):
                 return MutableDict(value)
+            if isinstance(value, str):
+                # Got a string, attempt to parse as JSON
+                return MutableDict(json.loads(value))
             raise ValueError(f"Value is not dict-like: {value}")
         return value
 
