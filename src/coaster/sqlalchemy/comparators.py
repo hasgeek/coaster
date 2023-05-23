@@ -175,7 +175,7 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
             return sa.sql.expression.true()
         return self.__clause_element__() != other
 
-    def in_(self, other: t.Any) -> sa.BinaryExpression[bool]:
+    def in_(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         """Check if self is present in the other."""
 
         def errordecode(otherlist: t.Any) -> t.Iterator[str]:
@@ -185,9 +185,12 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
                 except (ValueError, TypeError):
                     pass
 
-        return self.__clause_element__().in_(  # type: ignore[attr-defined]
-            errordecode(other)
-        )
+        valid_values = list(errordecode(other))
+        if not valid_values:
+            # If none of the elements could be decoded, return false
+            return sa.sql.expression.false()
+
+        return self.__clause_element__().in_(valid_values)  # type: ignore[attr-defined]
 
 
 class SqlSplitIdComparator(SplitIndexComparator):
@@ -196,14 +199,27 @@ class SqlSplitIdComparator(SplitIndexComparator):
 
     Also supports ``text-id``, ``text-text-id`` or other specific locations for the id
     if specified as a `splitindex` parameter to the constructor.
+
+    This comparator will not attempt to decode non-string values, and will attempt to
+    support all operators, accepting SQL expressions for :attr:`other`.
     """
 
-    def _decode(self, other: t.Optional[str]) -> t.Optional[int]:
-        if other is None:
-            return None
-        if self.splitindex is not None and isinstance(other, str):
-            return int(other.split(self.separator)[self.splitindex])
-        return int(other)
+    def _decode(self, other: t.Any) -> t.Union[int, t.Any]:
+        if isinstance(other, str):
+            if self.splitindex is not None:
+                return int(other.split(self.separator)[self.splitindex])
+            return int(other)
+        return other
+
+    # FIXME: The type of `op` is not known as the sample code is not type-annotated in
+    # https://docs.sqlalchemy.org/en/20/orm/extensions/hybrid.html
+    # #building-custom-comparators
+    def operate(self, op: t.Any, *other: t.Any, **kwargs) -> sa.ColumnElement[t.Any]:
+        """Perform SQL operation on decoded value for other."""
+        # If `other` cannot be decoded, this operation will raise a Python exception
+        return op(
+            self.__clause_element__(), *(self._decode(o) for o in other), **kwargs
+        )
 
 
 class SqlUuidHexComparator(SplitIndexComparator):
