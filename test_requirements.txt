@@ -1,6 +1,6 @@
 coverage
 coveralls
-psycopg2
+psycopg
 Pygments
 pylint
 pytest

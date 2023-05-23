@@ -18,7 +18,7 @@ db = SQLAlchemy()
 def sqlalchemy_uri() -> str:
     """Return SQLAlchemy database URI (deferring to value in environment)."""
     return environ.get(
-        'FLASK_SQLALCHEMY_DATABASE_URI', 'postgresql://localhost/coaster_test'
+        'FLASK_SQLALCHEMY_DATABASE_URI', 'postgresql+psycopg://localhost/coaster_test'
     )
 
 
