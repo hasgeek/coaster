@@ -51,7 +51,7 @@ def parse_isoformat(text: str, naive: bool = True, delimiter: str = 'T') -> date
     except NotImplementedError:
         # aniso8601 misinterprets junk data and returns NotImplementedError with
         # "ISO 8601 extended year representation not supported"
-        raise ParseError(f"Unparseable datetime {text}")
+        raise ParseError(f"Unparseable datetime {text}") from None
     if dt.tzinfo is not None and naive:
         dt = dt.astimezone(utc).replace(tzinfo=None)
     return dt
@@ -89,8 +89,7 @@ def isoweek_datetime(
         dt = naivedt.replace(tzinfo=tz).astimezone(utc)
     if naive:
         return dt.replace(tzinfo=None)
-    else:
-        return dt
+    return dt
 
 
 def midnight_to_utc(
@@ -178,6 +177,7 @@ def sorted_timezones() -> t.List[t.Tuple[str, str]]:
     presorted = [
         (
             delta,
+            # pylint: disable=consider-using-f-string
             '{sign}{offset} – {country}{zone} ({tzname})'.format(
                 sign=(
                     (delta.days < 0 and '-')

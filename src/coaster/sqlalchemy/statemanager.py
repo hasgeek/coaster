@@ -25,36 +25,51 @@ inspection, and to control state change via transitions. Sample usage::
 
         # The underlying state value columns
         # (more than one state variable can exist)
-        _state = db.Column('state', db.Integer,
+        _state: Mapped[int] = sa.orm.mapped_column(
+            'state',
+            sa.Integer,
             StateManager.check_constraint('state', MY_STATE),
-            default=MY_STATE.DRAFT, nullable=False)
-        _reviewstate = db.Column('reviewstate', db.Integer,
+            default=MY_STATE.DRAFT,
+            nullable=False
+        )
+        _reviewstate: Mapped[int] = sa.orm.mapped_column(
+            'reviewstate',
+            sa.Integer,
             StateManager.check_constraint('state', REVIEW_STATE),
-            default=REVIEW_STATE.UNSUBMITTED, nullable=False)
+            default=REVIEW_STATE.UNSUBMITTED,
+            nullable=False
+        )
 
         # The state managers controlling the columns
         state = StateManager('_state', MY_STATE, doc="The post's state")
-        reviewstate = StateManager('_reviewstate', REVIEW_STATE,
-            doc="Reviewer's state")
+        reviewstate = StateManager(
+            '_reviewstate', REVIEW_STATE, doc="Reviewer's state"
+        )
 
         # Datetime for the additional states and transitions
-        datetime = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+        timestamp: Mapped[datetime] = sa.orm.mapped_column(
+            sa.DateTime, default=datetime.utcnow, nullable=False
+        )
 
         # Additional states:
 
         # RECENT = PUBLISHED + in the last one hour
-        state.add_conditional_state('RECENT', state.PUBLISHED,
-            lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1))
+        state.add_conditional_state(
+            'RECENT',
+            state.PUBLISHED,
+            lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1)
+        )
 
         # REDRAFTABLE = DRAFT or PENDING or RECENT
-        state.add_state_group('REDRAFTABLE',
-            state.DRAFT, state.PENDING, state.RECENT)
+        state.add_state_group(
+            'REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT
+        )
 
         # Transitions change FROM one state TO another, and can require another state
         # manager to be in a specific state
         @state.transition(state.DRAFT, state.PENDING)
         @reviewstate.requires(reviewstate.UNSUBMITTED)
-        def submit(self):
+        def submit(self) -> None:
             pass
 
         # Transitions can coordinate across state managers. All of them must be in a
@@ -64,27 +79,27 @@ inspection, and to control state change via transitions. Sample usage::
         # as `publish.data`
         @state.transition(state.UNPUBLISHED, state.PUBLISHED, title="Publish")
         @reviewstate.transition(reviewstate.UNSUBMITTED, reviewstate.PENDING)
-        def publish(self):
+        def publish(self) -> None:
             # A transition can do additional housekeeping
-            self.datetime = datetime.utcnow()
+            self.timestamp = datetime.utcnow()
 
         # A transition can use a conditional state. The condition is evaluated before
         # the transition can proceed
         @state.transition(state.RECENT, state.PENDING)
         @reviewstate.transition(reviewstate.PENDING, reviewstate.UNSUBMITTED)
-        def undo(self):
+        def undo(self) -> None:
             pass
 
         # Transitions can be defined FROM a group of states, but the TO state must
         # always be an individual state
         @state.transition(state.REDRAFTABLE, state.DRAFT)
-        def redraft(self):
+        def redraft(self) -> None:
             pass
 
         # Transitions can abort without changing state, with or without raising an
         # exception to the caller
         @state.transition(state.REDRAFTABLE, state.DRAFT)
-        def faulty_transition_examples(self):
+        def faulty_transition_examples(self) -> Union[str, Tuple[bool, str], dict]:
             # Cancel the transition, but don't raise an exception to the caller
             raise AbortTransition()
             # Cancel the transition and return a result to the caller
@@ -98,7 +113,7 @@ inspection, and to control state change via transitions. Sample usage::
         # The requires decorator specifies a transition that does not change
         # state. It can be used to limit a method's availability
         @state.requires(state.PUBLISHED)
-        def send_email_alert(self):
+        def send_email_alert(self) -> None:
             pass
 
 
@@ -815,7 +830,7 @@ class StateManager:
             return getattr(obj, self.propname)
         return getattr(self.cls, self.propname)
 
-    def current(self) -> t.NoReturn:  # pylint: disable=no-self-use
+    def current(self) -> t.NoReturn:  # skipcq: PYL-R6301
         """Get current state (not available without an instance)."""
         raise TypeError("Current state requires an instance")
 
@@ -1020,9 +1035,9 @@ class StateManager:
         containing valid values. Usage::
 
             class MyModel(db.Model):
-                _state = db.Column(
+                _state: Mapped[int] = sa.orm.mapped_column(
                     'state',
-                    db.Integer,
+                    sa.Integer,
                     StateManager.check_constraint('state', MY_ENUM),
                     default=MY_ENUM.DEFAULT
                 )

@@ -1,5 +1,6 @@
 """Test SQLAlchemy model mixins."""
-# pylint: disable=too-many-lines
+# pylint: disable=attribute-defined-outside-init,comparison-with-callable
+# pylint: disable=not-callable
 
 from datetime import datetime, timedelta
 from time import sleep
@@ -8,9 +9,8 @@ import typing as t
 
 from pytz import utc
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound, StatementError
 from sqlalchemy.orm import Mapped, relationship, synonym
-from sqlalchemy.orm.exc import MultipleResultsFound
 from werkzeug.routing import BuildError
 import pytest
 import sqlalchemy as sa
@@ -209,7 +209,9 @@ class UuidKey(BaseMixin, db.Model):  # type: ignore[name-defined]
 class UuidKeyNoDefault(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'uuid_key_no_default'
     __uuid_primary_key__ = True
-    id = db.Column(sa.Uuid, primary_key=True)  # noqa: A003
+    id: Mapped[UUID] = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
+        sa.Uuid, primary_key=True
+    )
 
 
 class UuidForeignKey1(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -257,11 +259,11 @@ class ParentForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 class ChildForPrimary(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'child_for_primary'
-    parent_for_primary_id = sa.Column(
+    parent_for_primary_id: Mapped[int] = sa.orm.mapped_column(
         sa.Integer, sa.ForeignKey('parent_for_primary.id'), nullable=False
     )
-    parent_for_primary = db.relationship(ParentForPrimary)
-    parent = db.synonym('parent_for_primary')
+    parent_for_primary: Mapped[ParentForPrimary] = sa.orm.relationship(ParentForPrimary)
+    parent = sa.orm.synonym('parent_for_primary')
 
 
 add_primary_relationship(
@@ -280,7 +282,7 @@ parent_child_primary = db.Model.metadata.tables[
 
 class DefaultValue(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'default_value'
-    value = db.Column(db.Unicode(100), default='default')
+    value = sa.orm.mapped_column(sa.Unicode(100), default='default')
 
 
 auto_init_default(DefaultValue.value)
@@ -704,6 +706,9 @@ class TestCoasterModels(AppTestCase):
             d.url_for()
 
     def test_jsondict(self) -> None:
+        # pylint: disable=unsupported-assignment-operation,unsubscriptable-object
+        # pylint: disable=use-implicit-booleaness-not-comparison
+        # pylint: disable=unsupported-delete-operation
         m1 = MyData(data={'value': 'foo'})
         self.session.add(m1)
         self.session.commit()
@@ -909,6 +914,7 @@ class TestCoasterModels(AppTestCase):
 
         assert u1.url_id == str(i1)
 
+        # pylint: disable=unsupported-membership-test
         assert isinstance(i2, UUID)
         assert u2.url_id == i2.hex
         assert len(u2.url_id) == 32  # This is a 32-byte hex representation
@@ -1009,6 +1015,8 @@ class TestCoasterModels(AppTestCase):
             == "uuid_key.id IN ('74d58857-4a76-11e7-8c27-c38403d0935c',"
             " '74d58857-4a76-11e7-8c27-c38403d0935c')"
         )
+
+        # pylint: disable=singleton-comparison
 
         # None value
         assert (
@@ -1147,7 +1155,7 @@ class TestCoasterModels(AppTestCase):
         # All queries work for None values as well
         assert (
             str(
-                (NonUuidMixinKey.buid == None).compile(  # noqa: E711
+                (NonUuidMixinKey.buid.is_(None)).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             )
@@ -1155,7 +1163,7 @@ class TestCoasterModels(AppTestCase):
         )
         assert (
             str(
-                (UuidMixinKey.buid == None).compile(  # noqa: E711
+                (UuidMixinKey.buid.is_(None)).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             )
@@ -1163,7 +1171,7 @@ class TestCoasterModels(AppTestCase):
         )
         assert (
             str(
-                (NonUuidMixinKey.uuid_b58 == None).compile(  # noqa: E711
+                (NonUuidMixinKey.uuid_b58.is_(None)).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             )
@@ -1171,7 +1179,7 @@ class TestCoasterModels(AppTestCase):
         )
         assert (
             str(
-                (UuidMixinKey.uuid_b58 == None).compile(  # noqa: E711
+                (UuidMixinKey.uuid_b58.is_(None)).compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             )

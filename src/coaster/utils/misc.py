@@ -423,6 +423,7 @@ def format_currency(value: t.Union[int, float], decimals: int = 2) -> str:
     >>> format_currency(123456789.123456789)
     '123,456,789.12'
     """
+    # pylint: disable=consider-using-f-string
     number, decimal = (('%%.%df' % decimals) % value).split('.')
     parts = []
     while len(number) > 3:
@@ -432,8 +433,7 @@ def format_currency(value: t.Union[int, float], decimals: int = 2) -> str:
     parts.reverse()
     if int(decimal) == 0:
         return ','.join(parts)
-    else:
-        return ','.join(parts) + '.' + decimal
+    return ','.join(parts) + '.' + decimal
 
 
 def md5sum(data: str) -> str:
@@ -478,7 +478,7 @@ def getbool(value: t.Union[str, int, bool, None]) -> t.Optional[bool]:
     value = str(value).lower()
     if value in ['1', 't', 'true', 'y', 'yes']:
         return True
-    elif value in ['0', 'f', 'false', 'n', 'no']:
+    if value in ['0', 'f', 'false', 'n', 'no']:
         return False
     return None
 

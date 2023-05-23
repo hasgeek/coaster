@@ -27,7 +27,7 @@ T = t.TypeVar('T')
 # Provide sqlalchemy.func.utcnow()
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
-class UtcNow(sa.sql.functions.GenericFunction):
+class UtcNow(sa.sql.functions.GenericFunction):  # pylint: disable=abstract-method
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
     type = sa.TIMESTAMP()  # noqa: A003
@@ -298,7 +298,7 @@ def auto_init_default(
     helper fixes that. Usage::
 
         class MyModel(db.Model):
-            column = db.Column(Type, default="value")
+            column: Mapped[PyType] = sa.orm.mapped_column(SqlType, default="value")
 
         auto_init_default(MyModel.column)
     """

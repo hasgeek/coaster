@@ -23,7 +23,7 @@ __all__ = ['JsonDict', 'UrlType']
 # #establishing-mutability-on-scalar-column-values
 
 
-class JsonDict(TypeDecorator):
+class JsonDict(TypeDecorator):  # pylint: disable=abstract-method
     """
     Represents a JSON data structure.
 
@@ -37,21 +37,28 @@ class JsonDict(TypeDecorator):
     regardless of the backing data type.
     """
 
-    impl = sa.types.JSON
-    cache_ok = True
+    # TypeDecorator replaces the Type with an instance of the type in the instance
+    impl: sa.types.JSON = sa.types.JSON  # type: ignore[assignment]
+    cache_ok = False
 
     def load_dialect_impl(self, dialect: sa.Dialect) -> sa.types.TypeEngine:
         """Use JSONB column in PostgreSQL."""
         if dialect.name == 'postgresql':
             return dialect.type_descriptor(postgresql.JSONB)  # type: ignore[arg-type]
-        return dialect.type_descriptor(self.impl)  # type: ignore[arg-type]
+        return dialect.type_descriptor(self.impl)
+
+    def coerce_compared_value(self, op: t.Any, value: t.Any) -> sa.types.TypeEngine:
+        """Coerce an incoming value using the JSON type's default handler."""
+        return self.impl.coerce_compared_value(op, value)
 
     def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+        """Convert a Python value into a JSON string for the database."""
         if value is not None:
             value = json.dumps(value, default=str)  # Callable default
         return value
 
     def process_result_value(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+        """Convert a JSON string from the database into a dict."""
         if value is not None and isinstance(value, str):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
             # we only attempt decoding if the value is a string.
@@ -93,7 +100,7 @@ class MutableDict(Mutable, dict):
 MutableDict.associate_with(JsonDict)
 
 
-class UrlType(UrlTypeBase):
+class UrlType(UrlTypeBase):  # pylint: disable=abstract-method
     """
     Extension of URLType_ from SQLAlchemy-Utils that ensures URLs are well formed.
 

@@ -6,7 +6,9 @@ import typing as t
 
 from flask import Flask, g, has_request_context, render_template_string
 from flask.ctx import RequestContext
+from sqlalchemy.orm import Mapped
 import pytest
+import sqlalchemy as sa
 
 from coaster.auth import (
     add_auth_anchor,
@@ -65,8 +67,8 @@ def models() -> SimpleNamespace:
         """Test user model."""
 
         __tablename__ = 'authenticated_user'
-        username = db.Column(db.Unicode(80))
-        fullname = db.Column(db.Unicode(80))
+        username: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
+        fullname: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
 
         def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'
@@ -94,21 +96,21 @@ def models() -> SimpleNamespace:
 
 
 @pytest.fixture()
-def login_manager(app: Flask):
+def login_manager(app: Flask) -> t.Iterator[LoginManager]:
     """Login manager fixture."""
     yield LoginManager(app)
     del app.login_manager
 
 
 @pytest.fixture()
-def flask_login_manager(app: Flask):
+def flask_login_manager(app: Flask) -> t.Iterator[FlaskLoginManager]:
     """Flask-Login style login manager fixture."""
     yield FlaskLoginManager(app)
     del app.login_manager
 
 
 @pytest.fixture()
-def request_ctx(app: Flask):
+def request_ctx(app: Flask) -> t.Iterator:
     """Request context with database models."""
     ctx = t.cast(RequestContext, app.test_request_context())
     ctx.push()

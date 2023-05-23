@@ -614,8 +614,7 @@ class ClassView:
                 processed.add(name)
                 if isinstance(attr, ViewHandler):
                     if base != cls:  # Copy ViewHandler instances into subclasses
-                        # TODO: Don't do this during init_app. Use a metaclass
-                        # and do this when the class is defined.
+                        # FIXME: Don't do this during init_app. Use __init__subclass__
                         attr = attr.copy_for_subclass()
                         setattr(cls, name, attr)
                         attr.__set_name__(cls, name)
@@ -822,7 +821,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
         """Register view on an app."""
 
         def register_view_on_model(  # pylint: disable=too-many-arguments
-            cls: ClassView,
+            cls: t.Type[ClassView],
             callback: t.Optional[InitAppCallback],
             app: t.Union[Flask, Blueprint],
             rule: str,
@@ -843,20 +842,24 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 )
                 # Make a subset of cls.route_model_map with the required variables
                 params = {
-                    v: t.cast(ModelView, cls).route_model_map[v]
+                    v: t.cast(t.Type[ModelView], cls).route_model_map[v]
                     for v in rulevars
-                    if v in t.cast(ModelView, cls).route_model_map
+                    if v in t.cast(t.Type[ModelView], cls).route_model_map
                 }
                 # Register endpoint with the view function's name, endpoint name and
                 # parameters
-                t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_endpoint(
+                t.cast(
+                    t.Type[UrlForMixin], t.cast(t.Type[ModelView], cls).model
+                ).register_endpoint(
                     action=view_func.__name__,
                     endpoint=reg_endpoint,
                     app=reg_app,
                     roles=getattr(view_func, 'requires_roles', None),
                     paramattrs=params,
                 )
-                t.cast(UrlForMixin, t.cast(ModelView, cls).model).register_view_for(
+                t.cast(
+                    t.Type[UrlForMixin], t.cast(t.Type[ModelView], cls).model
+                ).register_view_for(
                     app=reg_app,
                     action=view_func.__name__,
                     classview=cls,

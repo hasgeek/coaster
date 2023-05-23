@@ -200,7 +200,7 @@ class TestUrlFor(TestUrlForBase):
         assert doc1.urls != {}
         assert doc1.urls['view'] == 'http://localhost/document1'
         with pytest.raises(KeyError):
-            doc1.urls['random']
+            doc1.urls['random']  # pylint: disable=pointless-statement
 
         # The len() count includes the doc_with view, but it is excluded from actual
         # enumeration because it requires additional keyword parameters, which cannot

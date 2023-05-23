@@ -106,7 +106,7 @@ class TestCoasterApp(unittest.TestCase):
         logger_init_app(self.another_app)
         for handler in self.another_app.logger.handlers:
             try:
-                raise Exception
+                raise Exception  # pylint: disable=broad-exception-raised
             except Exception:  # noqa: B902 # pylint: disable=W0703
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):

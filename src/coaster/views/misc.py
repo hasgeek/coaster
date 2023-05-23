@@ -120,12 +120,10 @@ def get_next_url(
     if referrer and request.referrer:
         if external:
             return request.referrer
-        else:
-            return _clean_external_url(request.referrer) or (
-                default if default is not None else _index_url()
-            )
-    else:
-        return default if default is not None else _index_url()
+        return _clean_external_url(request.referrer) or (
+            default if default is not None else _index_url()
+        )
+    return default if default is not None else _index_url()
 
 
 def jsonp(*args: t.Any, **kwargs: t.Any) -> Response:

@@ -137,7 +137,25 @@ disable = [
   'fixme',
   'invalid-name',
   'no-member',
+  'too-few-public-methods',
+  'too-many-ancestors',
+  'too-many-arguments',
+  'too-many-instance-attributes',
+  'too-many-lines',
+  'too-many-locals',
+  'too-many-public-methods',
   'unused-argument',
+  # These need some serious refactoring, so disabled for now
+  'too-many-branches',
+  'too-many-nested-blocks',
+  'too-many-statements',
+  # Let Black and isort handle these
+  'line-too-long',
+  'wrong-import-position',
+  # Let flake8 handle these
+  'missing-class-docstring',
+  'missing-function-docstring',
+  'missing-module-docstring',
 ]
 
 [tool.mypy]

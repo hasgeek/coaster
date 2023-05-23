@@ -29,7 +29,7 @@ __all__ = [
 _T = t.TypeVar('_T', bound=t.Any)
 
 
-class Query(QueryBase[_T]):  # skipcq: PYL-W0223
+class Query(QueryBase[_T]):  # pylint: disable=abstract-method
     """Extends SQLAlchemy's Query to add additional helper methods."""
 
     def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:
@@ -69,6 +69,8 @@ class Query(QueryBase[_T]):  # skipcq: PYL-W0223
             return self.one()
         except (sa.exc.NoResultFound, sa.exc.MultipleResultsFound):
             abort(404, description=description)
+        # Pylint doesn't know abort is NoReturn
+        return None  # type: ignore[unreachable]
 
     def notempty(self) -> bool:
         """
@@ -143,7 +145,7 @@ class QueryProperty(t.Generic[_T]):
         return cls.query_class(cls, session=cls.__fsa__.session())
 
 
-class SplitIndexComparator(sa.ext.hybrid.Comparator):
+class SplitIndexComparator(sa.ext.hybrid.Comparator):  # pylint: disable=abstract-method
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(
@@ -167,6 +169,8 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
             return sa.sql.expression.false()
         return self.__clause_element__() == other
 
+    is_ = __eq__  # type: ignore[assignment]
+
     def __ne__(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
             other = self._decode(other)
@@ -174,6 +178,9 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
             # If other could not be decoded, we are not equal.
             return sa.sql.expression.true()
         return self.__clause_element__() != other
+
+    isnot = __ne__  # type: ignore[assignment]
+    is_not = __ne__  # type: ignore[assignment]
 
     def in_(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         """Check if self is present in the other."""
@@ -193,7 +200,7 @@ class SplitIndexComparator(sa.ext.hybrid.Comparator):
         return self.__clause_element__().in_(valid_values)  # type: ignore[attr-defined]
 
 
-class SqlSplitIdComparator(SplitIndexComparator):
+class SqlSplitIdComparator(SplitIndexComparator):  # pylint: disable=abstract-method
     """
     Given an ``id-text`` string, split out the integer id and allows comparison on it.
 
@@ -222,7 +229,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
         )
 
 
-class SqlUuidHexComparator(SplitIndexComparator):
+class SqlUuidHexComparator(SplitIndexComparator):  # pylint: disable=abstract-method
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 
@@ -242,7 +249,7 @@ class SqlUuidHexComparator(SplitIndexComparator):
         return other
 
 
-class SqlUuidB64Comparator(SplitIndexComparator):
+class SqlUuidB64Comparator(SplitIndexComparator):  # pylint: disable=abstract-method
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 
@@ -266,7 +273,7 @@ class SqlUuidB64Comparator(SplitIndexComparator):
         return other
 
 
-class SqlUuidB58Comparator(SplitIndexComparator):
+class SqlUuidB58Comparator(SplitIndexComparator):  # pylint: disable=abstract-method
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 
