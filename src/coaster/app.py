@@ -9,6 +9,7 @@ from collections import abc
 from typing import NamedTuple
 import json
 import os
+import types
 import typing as t
 
 from flask import Flask
@@ -16,26 +17,32 @@ from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
 
-try:  # pragma: no cover
-    import tomllib  # Python >= 3.11
-except ModuleNotFoundError:
-    try:
-        import toml as tomllib  # type: ignore[no-redef]
-    except ModuleNotFoundError:
-        tomllib = None  # type: ignore[assignment]
-    # tomli is not supported as it requires files to be opened in binary mode, but
-    # Flask's ``app.config.from_file(path, loader)`` gives the loader a file opened in
-    # text mode
-
-
-try:  # pragma: no cover
-    import yaml
-except ModuleNotFoundError:
-    yaml = None  # type: ignore[assignment]
-
 from . import logger
 from .auth import current_auth
 from .views import current_view
+
+mod_toml: t.Optional[types.ModuleType] = None
+mod_tomllib: t.Optional[types.ModuleType] = None
+mod_tomli: t.Optional[types.ModuleType] = None
+mod_yaml: t.Optional[types.ModuleType] = None
+
+try:  # pragma: no cover
+    import toml as mod_toml  # type: ignore[no-redef]
+except ModuleNotFoundError:
+    try:
+        import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
+    except ModuleNotFoundError:
+        try:
+            import tomli as mod_tomli  # type: ignore[no-redef]
+        except ModuleNotFoundError:
+            pass
+
+
+try:  # pragma: no cover
+    import yaml as mod_yaml
+except ModuleNotFoundError:
+    pass
+
 
 __all__ = [
     'KeyRotationWrapper',
@@ -50,6 +57,7 @@ class ConfigLoader(NamedTuple):
 
     extn: t.Optional[str]
     loader: t.Optional[t.Callable]
+    text: t.Optional[bool] = None
 
 
 _additional_config = {
@@ -65,12 +73,19 @@ _config_loaders: t.Dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
 }
-if tomllib is not None:
-    _config_loaders['toml'] = ConfigLoader(extn='.toml', loader=tomllib.load)
-
-if yaml is not None:
-    _config_loaders['yaml'] = ConfigLoader(extn='.yaml', loader=yaml.safe_load)
-    _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=yaml.safe_load)
+if mod_toml is not None:
+    _config_loaders['toml'] = ConfigLoader(extn='.toml', loader=mod_toml.load)
+elif mod_tomllib is not None:
+    _config_loaders['toml'] = ConfigLoader(
+        extn='.toml', loader=mod_tomllib.load, text=False
+    )
+elif mod_tomli is not None:
+    _config_loaders['toml'] = ConfigLoader(
+        extn='.toml', loader=mod_tomli.load, text=False
+    )
+if mod_yaml is not None:
+    _config_loaders['yaml'] = ConfigLoader(extn='.yaml', loader=mod_yaml.safe_load)
+    _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=mod_yaml.safe_load)
 
 
 _S = t.TypeVar('_S', bound=itsdangerous.Serializer)
@@ -208,6 +223,7 @@ def init_app(
                 app,
                 'settings' + t.cast(str, _config_loaders[config_option].extn),
                 load=_config_loaders[config_option].loader,
+                text=_config_loaders[config_option].text,
             )
 
     # Load additional settings from the app's environment-specific config file(s): Flask
@@ -224,6 +240,7 @@ def init_app(
                     app,
                     additional + t.cast(str, _config_loaders[config_option].extn),
                     load=_config_loaders[config_option].loader,
+                    text=_config_loaders[config_option].text,
                 )
 
     if init_logging:
@@ -231,12 +248,20 @@ def init_app(
 
 
 def load_config_from_file(
-    app: Flask, filepath: str, load: t.Optional[t.Callable] = None
+    app: Flask,
+    filepath: str,
+    load: t.Optional[t.Callable] = None,
+    text: t.Optional[bool] = None,
 ) -> bool:
     """Load config from a specified file with a specified loader (default Python)."""
     try:
         if load is None:
             return app.config.from_pyfile(filepath)
+        # The `text` parameter requires Flask 2.3. We still support Flask 2.2
+        if text is not None:
+            return app.config.from_file(  # type: ignore[attr-defined]
+                filepath, load=load, text=text
+            )
         return app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
     except OSError:
         app.logger.warning(
