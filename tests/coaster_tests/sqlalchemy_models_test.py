@@ -936,14 +936,14 @@ class TestCoasterModels(AppTestCase):
             )
             == "non_uuid_key.id = 1"
         )
-        # We don't check the data type here, leaving that to the engine
+        # Given a string value, it will be recast to int
         assert (
             str(
                 (NonUuidKey.url_id == '1').compile(
                     dialect=postgresql.dialect(), compile_kwargs={'literal_binds': True}
                 )
             )
-            == "non_uuid_key.id = '1'"
+            == "non_uuid_key.id = 1"
         )
 
         # With UUID primary keys, `url_id` casts the value into a UUID

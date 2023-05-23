@@ -123,13 +123,14 @@ class IdMixin:
                 """URL-safe representation of the UUID id as a hex value."""
                 return t.cast(UUID, self.id).hex
 
-            def url_id_uuid_is(cls: t.Type) -> SqlUuidHexComparator:
+            def url_id_uuid_comparator(cls: t.Type) -> SqlUuidHexComparator:
                 """Compare two hex UUID values."""
                 return SqlUuidHexComparator(cls.id)
 
             url_id_uuid_func.__name__ = 'url_id'
+            url_id_uuid_func.__doc__ = url_id_uuid_func.__doc__
             url_id_property = hybrid_property(url_id_uuid_func).comparator(
-                url_id_uuid_is
+                url_id_uuid_comparator
             )
             return url_id_property  # type: ignore[return-value]
 
@@ -137,13 +138,14 @@ class IdMixin:
             """URL-safe representation of the integer id as a string."""
             return str(self.id)
 
-        def url_id_int_expression(cls: t.Type) -> sa.orm.InstrumentedAttribute:
-            """Database column for id, for SQL expressions."""
-            return cls.id
+        def url_id_int_comparator(cls: t.Type) -> SqlSplitIdComparator:
+            """Compare two integer id values."""
+            return SqlSplitIdComparator(cls.id)
 
         url_id_int_func.__name__ = 'url_id'
-        url_id_property = hybrid_property(url_id_int_func).expression(
-            url_id_int_expression
+        url_id_int_func.__doc__ = url_id_int_func.__doc__
+        url_id_property = hybrid_property(url_id_int_func).comparator(
+            url_id_int_comparator
         )
         return url_id_property  # type: ignore[return-value]
 

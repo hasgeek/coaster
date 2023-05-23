@@ -153,7 +153,11 @@ def t_id_named_document(
 
 @load_models(
     (Container, {'name': 'container'}, 'container'),
-    (ScopedIdDocument, {'id': 'document', 'container': 'container'}, 'document'),
+    (
+        ScopedIdDocument,
+        {'url_id': lambda r, p: int(p['document']), 'container': 'container'},
+        'document',
+    ),
 )
 def t_scoped_id_document(
     container: Container, document: ScopedIdDocument
