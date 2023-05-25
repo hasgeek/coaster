@@ -1,10 +1,12 @@
 """Tests for StateManager."""
+# pylint: disable=protected-access,comparison-with-callable
 
 from datetime import datetime, timedelta
 import types
 import typing as t
 
 import pytest
+import sqlalchemy as sa
 
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (
@@ -53,16 +55,16 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'my_post'
     # Database state columns
-    _state = db.Column(
+    _state = sa.orm.mapped_column(
         'state',
-        db.Integer,
+        sa.Integer,
         StateManager.check_constraint('state', MY_STATE),
         default=MY_STATE.DRAFT,
         nullable=False,
     )
-    _reviewstate = db.Column(
+    _reviewstate = sa.orm.mapped_column(
         'reviewstate',
-        db.Integer,
+        sa.Integer,
         StateManager.check_constraint('state', REVIEW_STATE),
         default=REVIEW_STATE.UNSUBMITTED,
         nullable=False,
@@ -75,7 +77,9 @@ class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
     # state manager instead.
 
     # Model's data columns (used for tests)
-    published_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    published_at = sa.orm.mapped_column(
+        sa.DateTime, default=datetime.utcnow, nullable=False
+    )
 
     # Conditional states (adds ManagedState instances)
     state.add_conditional_state(
@@ -249,7 +253,7 @@ class TestStateManager(AppTestCase):
     def test_has_nonstate(self) -> None:
         """Test that StateManagerWrapper is only a proxy to StateManager's attrs."""
         with pytest.raises(AttributeError):
-            self.post.state.does_not_exist
+            self.post.state.does_not_exist  # pylint: disable=pointless-statement
         assert isinstance(self.post.state.transition, types.MethodType)
 
     def test_readonly(self) -> None:

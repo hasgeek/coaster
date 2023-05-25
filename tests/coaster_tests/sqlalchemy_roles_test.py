@@ -1,4 +1,6 @@
 """Tests for `RoleMixin`."""
+# pylint: disable=protected-access,use-implicit-booleaness-not-comparison
+# pylint: disable=comparison-with-callable
 
 from __future__ import annotations
 
@@ -8,6 +10,7 @@ import unittest
 
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import (
+    DynamicMapped,
     Mapped,
     attribute_keyed_dict,
     column_keyed_dict,
@@ -45,24 +48,24 @@ class DeclaredAttrMixin:
     @declared_attr
     def mixed_in1(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` inside a `declared_attr`."""
-        return with_roles(db.Column(db.Unicode(250)), rw={'owner'})
+        return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
     def mixed_in2(cls) -> Mapped[t.Optional[str]]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
-        return db.Column(db.Unicode(250))
+        return sa.orm.mapped_column(sa.Unicode(250))
 
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
     def mixed_in3(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` to wrap a `declared_attr`."""
-        return db.Column(db.Unicode(250))
+        return sa.orm.mapped_column(sa.Unicode(250))
 
     # A regular column from the mixin
-    mixed_in4 = db.Column(db.Unicode(250))
+    mixed_in4 = sa.orm.mapped_column(sa.Unicode(250))
     mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
@@ -82,18 +85,20 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
-    id = db.Column(db.Integer, primary_key=True)  # noqa: A003
+    id = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     name = with_roles(
-        db.Column(db.Unicode(250)), rw={'owner'}
+        sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'}
     )  # Specify read+write access
 
     title: Mapped[str] = with_roles(
-        mapped_column(db.Unicode(250)),
+        mapped_column(sa.Unicode(250)),
         write={'owner', 'editor'},
         datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
     )  # Grant 'owner' and 'editor' write but not read access
 
-    defval = with_roles(db.deferred(db.Column(db.Unicode(250))), rw={'owner'})
+    defval = with_roles(
+        sa.orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}
+    )
 
     @with_roles(call={'all'})  # 'call' grants call access to the decorated method
     def hello(self) -> str:
@@ -124,10 +129,10 @@ class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
 
     # This model doesn't specify __roles__. It only uses with_roles.
     # It should still work
-    id = db.Column(db.Integer, primary_key=True)  # noqa: A003
+    id = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     with_roles(id, read={'all'})
 
-    name = db.Column(db.Unicode(250))
+    name = sa.orm.mapped_column(sa.Unicode(250))
     with_roles(name, rw={'owner'}, read={'all'})
 
     __datasets__ = {'default': {'name'}}
@@ -151,7 +156,9 @@ class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'relationship_child'
 
-    parent_id = db.Column(None, db.ForeignKey('relationship_parent.id'), nullable=False)
+    parent_id = sa.orm.mapped_column(
+        None, sa.ForeignKey('relationship_parent.id'), nullable=False
+    )
 
     __roles__ = {'all': {'read': {'name', 'title', 'parent'}}}
     __datasets__ = {
@@ -165,21 +172,23 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'relationship_parent'
 
-    children_list = sa.orm.relationship(RelationshipChild, backref='parent')
-    children_list_lazy = sa.orm.relationship(
+    children_list: Mapped[t.List[RelationshipChild]] = sa.orm.relationship(
+        RelationshipChild, backref='parent'
+    )
+    children_list_lazy: DynamicMapped[t.List[RelationshipChild]] = sa.orm.relationship(
         RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
     )
-    children_set = sa.orm.relationship(
+    children_set: Mapped[t.MutableSet[RelationshipChild]] = sa.orm.relationship(
         RelationshipChild,
         collection_class=set,
         overlaps='children_list,children_list_lazy,parent',
     )
-    children_dict_attr = sa.orm.relationship(
+    children_dict_attr: Mapped[t.Dict[str, RelationshipChild]] = sa.orm.relationship(
         RelationshipChild,
         collection_class=attribute_keyed_dict('name'),
         overlaps='children_list,children_list_lazy,children_set,parent',
     )
-    children_dict_column = sa.orm.relationship(
+    children_dict_column: Mapped[t.Dict[str, RelationshipChild]] = sa.orm.relationship(
         RelationshipChild,
         collection_class=column_keyed_dict(
             RelationshipChild.name  # type: ignore[arg-type]
@@ -214,11 +223,11 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     }
 
 
-granted_users = db.Table(
+granted_users = sa.Table(
     'granted_users',
     db.Model.metadata,
-    db.Column('role_grant_many_id', None, db.ForeignKey('role_grant_many.id')),
-    db.Column('role_user_id', None, db.ForeignKey('role_user.id')),
+    sa.Column('role_grant_many_id', None, sa.ForeignKey('role_grant_many.id')),
+    sa.Column('role_user_id', None, sa.ForeignKey('role_user.id')),
 )
 
 
@@ -243,11 +252,11 @@ class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'role_user'
 
-    doc_id = db.Column(None, db.ForeignKey('role_grant_many.id'))
+    doc_id = sa.orm.mapped_column(None, sa.ForeignKey('role_grant_many.id'))
     doc = sa.orm.relationship(
         RoleGrantMany,
         foreign_keys=[doc_id],
-        backref=db.backref('primary_users', lazy='dynamic'),
+        backref=sa.orm.backref('primary_users', lazy='dynamic'),
     )
     secondary_docs = sa.orm.relationship(
         RoleGrantMany, secondary=granted_users, backref='secondary_users'
@@ -259,7 +268,7 @@ class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'role_grant_one'
 
-    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
     user = with_roles(sa.orm.relationship(RoleUser), grants={'creator'})
 
 
@@ -269,9 +278,9 @@ class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'role_grant_synonym'
 
     # Base column has roles defined
-    datacol = with_roles(db.Column(db.Unicode()), rw={'owner'})
+    datacol = with_roles(sa.orm.mapped_column(sa.Unicode()), rw={'owner'})
     # Synonym cannot have independent roles and will mirror the target
-    altcol = db.synonym('datacol')
+    altcol = sa.orm.synonym('datacol')
 
 
 class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
@@ -279,15 +288,15 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'role_membership'
 
-    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
     user = sa.orm.relationship(RoleUser)
 
-    doc_id = db.Column(None, db.ForeignKey('multirole_document.id'))
+    doc_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
     doc = sa.orm.relationship('MultiroleDocument')
 
-    role1 = db.Column(db.Boolean, default=False)
-    role2 = db.Column(db.Boolean, default=False)
-    role3 = db.Column(db.Boolean, default=False)
+    role1 = sa.orm.mapped_column(sa.Boolean, default=False)
+    role2 = sa.orm.mapped_column(sa.Boolean, default=False)
+    role3 = sa.orm.mapped_column(sa.Boolean, default=False)
 
     @property
     def offered_roles(self) -> t.Set[str]:
@@ -306,7 +315,7 @@ class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Test model to serve as a role granter to the child model."""
 
     __tablename__ = 'multirole_parent'
-    user_id = db.Column(None, db.ForeignKey('role_user.id'))
+    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
     user = with_roles(sa.orm.relationship(RoleUser), grants={'prole1', 'prole2'})
 
 
@@ -315,7 +324,7 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     __tablename__ = 'multirole_document'
 
-    parent_id = db.Column(None, db.ForeignKey('multirole_parent.id'))
+    parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_parent.id'))
     parent = with_roles(
         sa.orm.relationship(MultiroleParent),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
@@ -341,12 +350,12 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
     }
 
     # Grant via a query relationship
-    rel_lazy = with_roles(
+    rel_lazy: DynamicMapped[t.List[RoleMembership]] = with_roles(
         sa.orm.relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
         grants_via={RoleMembership.user: {'role2'}},
     )
     # Grant via a list-like relationship
-    rel_list = with_roles(
+    rel_list: Mapped[t.List[RoleMembership]] = with_roles(
         sa.orm.relationship(RoleMembership, overlaps='doc,rel_lazy'),
         grants_via={'user': {'role3'}},
     )
@@ -362,7 +371,7 @@ class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
     """Model that inherits roles from its parent."""
 
     __tablename__ = 'multirole_child'
-    parent_id = db.Column(None, db.ForeignKey('multirole_document.id'))
+    parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
     parent = with_roles(
         sa.orm.relationship(MultiroleDocument),
         grants_via={
@@ -589,9 +598,9 @@ class TestCoasterRoles(AppTestCase):
         proxy['title'] = 'Changed again'
         assert rm.title == 'Changed again'
         with pytest.raises(AttributeError):
-            proxy.title
+            proxy.title  # pylint: disable=pointless-statement
         with pytest.raises(KeyError):
-            proxy['title']
+            proxy['title']  # pylint: disable=pointless-statement
 
     def test_no_write(self) -> None:
         """A proxy will disallow writes if the role doesn't permit it"""
@@ -913,7 +922,7 @@ class TestCoasterRoles(AppTestCase):
         p1b = parent1.children_names
         assert p1a is not p1b
         assert p1a == p1b  # Test __eq__
-        assert not (p1a != p1b)  # Test __ne__
+        assert not p1a != p1b  # Test __ne__
         assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
 
     def test_granted_via(self) -> None:
@@ -1073,7 +1082,7 @@ class TestCoasterRoles(AppTestCase):
         self.session.add_all([user, document, membership])
         roles = document.roles_for(user)
         with pytest.raises(TypeError):
-            'incorrectly_specified_role' in roles
+            'incorrectly_specified_role' in roles  # pylint: disable=pointless-statement
 
     def test_actors_from_granted_via(self) -> None:
         """

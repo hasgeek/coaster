@@ -1,5 +1,5 @@
 """Registry and RegistryMixin tests."""
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name,protected-access
 
 from types import SimpleNamespace
 import typing as t
@@ -107,6 +107,8 @@ def registry_member():
 @pytest.fixture(scope='session')
 def registrymixin_models():
     """Fixtures for RegistryMixin tests."""
+    # pylint: disable=possibly-unused-variable
+
     # We have two sample models and two registered items to test that
     # the registry is unique to each model and is not a global registry
     # in the base RegistryMixin class.
@@ -162,7 +164,7 @@ def test_registry_set_name() -> None:
     # Registry has no name unless added to a class
     assert Registry()._name is None
 
-    class RegistryUser:
+    class RegistryUser:  # pylint: disable=unused-variable
         reg1: Registry = Registry()
         reg2: Registry = Registry()
 
@@ -176,7 +178,7 @@ def test_registry_reuse_error() -> None:
     # RuntimeError
     with pytest.raises(RuntimeError):
 
-        class RegistryUser:
+        class RegistryUser:  # pylint: disable=unused-variable
             a = b = Registry()
 
 

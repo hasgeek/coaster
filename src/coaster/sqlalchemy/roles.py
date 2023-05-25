@@ -39,13 +39,12 @@ Example use::
         demonstrating two ways to use `with_roles`.
         '''
         @with_roles(rw={'owner'})
-        def mixed_in1(cls):
-            return db.Column(db.Unicode(250))
+        def mixed_in1(cls) -> Mapped[str]:
+            return sa.orm.mapped_column(sa.Unicode(250))
 
         @declared_attr
-        def mixed_in2(cls):
-            return with_roles(db.Column(db.Unicode(250)),
-                rw={'owner'})
+        def mixed_in2(cls) -> Mapped[str]:
+            return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
 
     class RoleModel(ColumnMixin, RoleMixin, db.Model):
@@ -69,13 +68,18 @@ Example use::
         # using `with_roles`. These annotations are added to `__roles__` when
         # SQLAlchemy configures mappers.
 
-        id = db.Column(db.Integer, primary_key=True)
-        name = with_roles(db.Column(db.Unicode(250)),
-            rw={'owner'})  # Specify read+write access
+        id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)
+        name: Mapped[str] = with_roles(  # Specify read+write access
+            sa.orm.mapped_column(sa.Unicode(250)),
+            rw={'owner'}
+        )
 
-        user_id = db.Column(None, db.ForeignKey('user.id'), nullable=False)
-        user = with_roles(
-            db.relationship(User),
+        user_id: Mapped[int] = sa.orm.mapped_column(
+            sa.ForeignKey('user.id'),
+            nullable=False
+        )
+        user: Mapped[User] = with_roles(
+            sa.relationship(User),
             grants={'owner'},  # Use `grants` here or `granted_by` in `__roles__`
             )
 
@@ -83,14 +87,14 @@ Example use::
         # properties, where roles must be assigned after the property is
         # fully described:
 
-        _title = db.Column('title', db.Unicode(250))
+        _title: Mapped[str] = sa.orm.mapped_column('title', sa.Unicode(250))
 
         @property
-        def title(self):
+        def title(self) -> str:
             return self._title
 
         @title.setter
-        def title(self, value):
+        def title(self, value: str) -> None:
             self._title = value
 
         # This grants 'owner' and 'editor' write but not read access
@@ -100,7 +104,7 @@ Example use::
         # access is controlled with the 'call' action.
 
         @with_roles(call={'all'})
-        def hello(self):
+        def hello(self) -> str:
             return "Hello!"
 
         # `RoleMixin` will grant roles by examining relationships specified in the
@@ -108,7 +112,9 @@ Example use::
         # to `roles_for` must be present in the relationship. You can augment this
         # by providing a custom `roles_for` method:
 
-        def roles_for(self, actor=None, anchors=()) -> LazyRoleSet:
+        def roles_for(
+            self, actor: Optional[User] = None, anchors: Sequence = ()
+        ) -> LazyRoleSet:
             # Calling super gives us a LazyRoleSet with the standard roles
             # and with lazy evaluation of of other roles from `granted_by`
             roles = super().roles_for(actor, anchors)
@@ -124,9 +130,9 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from collections import abc
 from copy import deepcopy
-from dataclasses import dataclass
 from itertools import chain
 from typing import overload
+import dataclasses
 import operator
 import typing as t
 
@@ -167,7 +173,7 @@ __all__ = [
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
-__cache__: t.Dict[t.Any, _WithRolesData] = {}
+__cache__: t.Dict[t.Any, WithRoles] = {}
 
 
 #: Mapping of a role in first object to one or more roles in second object
@@ -193,21 +199,40 @@ class RoleAttrs(te.TypedDict, total=False):
     granted_via: t.Dict[str, t.Optional[ActorAttrType]]
 
 
-# TODO: Expand this class to (a) have nullable defaults, (b) merge missing values from
-# another instance, and (c) use in typing.Annotation
-@dataclass
-class _WithRolesData:
-    call: t.Set[str]
-    read: t.Set[str]
-    write: t.Set[str]
-    grants: t.Set[str]
+@dataclasses.dataclass
+class WithRoles:
+    """Role annotations for an attribute."""
+
+    read: t.Set[str] = dataclasses.field(default_factory=set)
+    write: t.Set[str] = dataclasses.field(default_factory=set)
+    call: t.Set[str] = dataclasses.field(default_factory=set)
+    grants: t.Set[str] = dataclasses.field(default_factory=set)
     grants_via: t.Dict[
         t.Optional[ActorAttrType], t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap]
-    ]
-    datasets: t.Set[str]
+    ] = dataclasses.field(default_factory=dict)
+    datasets: t.Set[str] = dataclasses.field(default_factory=set)
+    rw: dataclasses.InitVar[t.Optional[t.Set[str]]] = None
+
+    def __post_init__(self, rw: t.Optional[t.Set[str]] = None) -> None:
+        if rw is not None:
+            self.read.update(rw)
+            self.write.update(rw)
+
+    def __or__(self, other: WithRoles) -> WithRoles:
+        """Merge two instances of WithRoles into a new instance."""
+        return WithRoles(
+            read=self.read | other.read,
+            write=self.write | other.write,
+            call=self.call | other.call,
+            grants=self.grants | other.grants,
+            grants_via={**self.grants_via, **other.grants_via},
+            datasets=self.datasets | other.datasets,
+        )
 
 
 class ModelWithQuery(te.Protocol):
+    """Model that has a query property."""
+
     query: Query[te.Self]
 
 
@@ -390,65 +415,63 @@ class LazyRoleSet(abc.MutableSet):
             # 3. By being a `RoleMixin` instance that has a `roles_for` method.
 
             # pylint: disable=protected-access
-            if 'granted_via' in self.obj.__roles__[role]:
-                for relattr, actor_attr in self.obj.__roles__[role][
-                    'granted_via'
-                ].items():
-                    offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
-                    if (relattr, actor_attr) not in self._scanned_granted_via:
-                        relationship = self.obj._get_relationship(relattr)
-                        if relationship is not None:
-                            # Optimization: does the same relationship grant other roles
-                            # via the same actor_attr? Gather those roles and check all
-                            # of them together. However, we will use a single role
-                            # offer map and not consult the one specified on the other
-                            # roles. They are expected to be identical. This is
-                            # guaranteed if the offer map was specified using
-                            # `with_roles(grants_via=)` but not if specified directly
-                            # in `__roles__[role]['granted_via']`.
-                            possible_roles = {role}
-                            for arole, actions in self.obj.__roles__.items():
-                                if (
-                                    arole != role
-                                    and 'granted_via' in actions
-                                    and relattr in actions['granted_via']
-                                    and _attrs_equal(
-                                        actions['granted_via'][relattr], actor_attr
-                                    )
-                                ):
-                                    possible_roles.add(arole)
+            for relattr, actor_attr in (
+                self.obj.__roles__[role].get('granted_via', {}).items()
+            ):
+                offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
+                if (relattr, actor_attr) not in self._scanned_granted_via:
+                    relationship = self.obj._get_relationship(relattr)
+                    if relationship is not None:
+                        # Optimization: does the same relationship grant other roles
+                        # via the same actor_attr? Gather those roles and check all
+                        # of them together. However, we will use a single role
+                        # offer map and not consult the one specified on the other
+                        # roles. They are expected to be identical. This is
+                        # guaranteed if the offer map was specified using
+                        # `with_roles(grants_via=)` but not if specified directly
+                        # in `__roles__[role]['granted_via']`.
+                        possible_roles = {role}
+                        for arole, actions in self.obj.__roles__.items():
+                            if (
+                                arole != role
+                                and 'granted_via' in actions
+                                and relattr in actions['granted_via']
+                                and _attrs_equal(
+                                    actions['granted_via'][relattr], actor_attr
+                                )
+                            ):
+                                possible_roles.add(arole)
 
-                            granted_roles = _roles_via_relationship(
-                                self.actor,
-                                relationship,
-                                actor_attr,
-                                possible_roles,
-                                offer_map,
-                            )
-                            self._present.update(granted_roles)
-                            self._scanned_granted_via.add((relattr, actor_attr))
-                            if role in granted_roles:
-                                return True
+                        granted_roles = _roles_via_relationship(
+                            self.actor,
+                            relationship,
+                            actor_attr,
+                            possible_roles,
+                            offer_map,
+                        )
+                        self._present.update(granted_roles)
+                        self._scanned_granted_via.add((relattr, actor_attr))
+                        if role in granted_roles:
+                            return True
             # granted_by says a role is granted by the actor being present in a
             # relationship
-            if 'granted_by' in self.obj.__roles__[role]:
-                for relattr in self.obj.__roles__[role]['granted_by']:
-                    if relattr not in self._scanned_granted_by:
-                        relationship = self.obj._get_relationship(relattr)
-                        is_present = _actor_in_relationship(self.actor, relationship)
-                        if is_present:
-                            self._present.add(role)
-                            # Optimization: does this relationship grant other roles?
-                            # Get them rightaway. Don't query again later.
-                            for arole, actions in self.obj.__roles__.items():
-                                if (
-                                    arole != role
-                                    and 'granted_by' in actions
-                                    and relattr in actions['granted_by']
-                                ):
-                                    self._present.add(arole)
-                            return True
-                        self._scanned_granted_by.add(relattr)
+            for relattr in self.obj.__roles__[role].get('granted_by', ()):
+                if relattr not in self._scanned_granted_by:
+                    relationship = self.obj._get_relationship(relattr)
+                    is_present = _actor_in_relationship(self.actor, relationship)
+                    if is_present:
+                        self._present.add(role)
+                        # Optimization: does this relationship grant other roles?
+                        # Get them rightaway. Don't query again later.
+                        for arole, actions in self.obj.__roles__.items():
+                            if (
+                                arole != role
+                                and 'granted_by' in actions
+                                and relattr in actions['granted_by']
+                            ):
+                                self._present.add(arole)
+                        return True
+                    self._scanned_granted_by.add(relattr)
         self._not_present.add(role)
         return False
 
@@ -542,7 +565,7 @@ class DynamicAssociationProxy:
     Usage::
 
         # Assuming a relationship like this:
-        Document.child_relationship = db.relationship(ChildDocument, lazy='dynamic')
+        Document.child_relationship = sa.orm.relationship(ChildDocument, lazy='dynamic')
 
         # Proxy to an attribute on the target of the relationship:
         Document.child_attributes = DynamicAssociationProxy(
@@ -866,25 +889,25 @@ def with_roles(
 
     Examples::
 
-        id = db.Column(Integer, primary_key=True)
+        id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)
         with_roles(id, read={'all'})
 
-        title = with_roles(db.Column(db.Unicode), read={'all'})
+        title: Mapped[str] = with_roles(sa.orm.mapped_column(sa.Unicode), read={'all'})
 
         @with_roles(read={'all'})
         @hybrid_property
-        def url_id(self):
+        def url_id(self) -> str:
             return str(self.id)
 
     When used with properties, with_roles must always be applied after the
     property is fully described::
 
         @property
-        def title(self):
+        def title(self) -> str:
             return self._title
 
         @title.setter
-        def title(self, value):
+        def title(self, value: str) -> None:
             self._title = value
 
         # Either of the following is fine, since with_roles annotates objects
@@ -907,14 +930,18 @@ def with_roles(
     ``grants_via`` is typically used like this::
 
         class RoleModel(db.Model):
-            user_id = db.Column(None, db.ForeignKey('user.id'))
-            user = db.relationship(UserModel)
+            user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
+            user: Mappeed[UserModel] = sa.orm.relationship(UserModel)
 
-            document_id = db.Column(None, db.ForeignKey('document.id'))
-            document = db.relationship(DocumentModel)
+            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
+                'document.id'
+            ))
+            document: Mapped[DocumentModel] = sa.orm.relationship(DocumentModel)
 
-        DocumentModel.rolemodels = with_roles(db.relationship(RoleModel),
-            grants_via={'user': {'role1', 'role2'}})
+        DocumentModel.rolemodels = with_roles(
+            sa.orm.relationship(RoleModel),
+            grants_via={'user': {'role1', 'role2'}}
+        )
 
     In this example, a user gets roles 'role1' and 'role2' on DocumentModel via the
     secondary RoleModel. Grants are recorded in ``__roles__['role1']['granted_via']``
@@ -924,14 +951,16 @@ def with_roles(
     model has variable roles and offers them via a property named ``offered_roles``::
 
         class RoleModel(db.Model):
-            user_id = db.Column(None, db.ForeignKey('user.id'))
-            user = db.relationship(UserModel)
+            user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
+            user: Mapped[UserModel] = sa.orm.relationship(UserModel)
 
-            has_role1 = db.Column(db.Boolean)
-            has_role2 = db.Column(db.Boolean)
+            has_role1: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
+            has_role2: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
 
-            document_id = db.Column(None, db.ForeignKey('document.id'))
-            document = db.relationship(DocumentModel)
+            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
+                'document.id'
+            ))
+            document: Mapped[DocumentModel] = sa.orm.relationship(DocumentModel)
 
             @property
             def offered_roles(self):
@@ -942,7 +971,8 @@ def with_roles(
                     roles.add('role2')
                 return roles
 
-        DocumentModel.rolemodels = with_roles(db.relationship(RoleModel),
+        DocumentModel.rolemodels = with_roles(
+            sa.orm.relationship(RoleModel),
             grants_via={'user': {
                 'role1': 'renamed_role1,
                 'role2': {'renamed_role2', 'also_role2'}
@@ -955,18 +985,15 @@ def with_roles(
             raise TypeError(
                 "Synonyms cannot have roles as they acquire from the underlying entity"
             )
-        data = _WithRolesData(
+        data = WithRoles(
+            rw=set(rw) if rw is not None else set(),
             call=set(call) if call is not None else set(),
             read=set(read) if read is not None else set(),
             write=set(write) if write is not None else set(),
             grants=set(grants) if grants is not None else set(),
-            grants_via={} if grants_via is None else grants_via,
-            datasets=set() if datasets is None else datasets,
+            grants_via=dict(grants_via) if grants_via is not None else {},
+            datasets=set(datasets) if datasets is not None else set(),
         )
-        if rw is not None:
-            # `rw` is shorthand for read+write
-            data.read.update(rw)
-            data.write.update(rw)
 
         if attr in __cache__:
             raise TypeError("Duplicate use of with_roles for this attribute")
@@ -1328,7 +1355,7 @@ class RoleMixin:
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(_mapper: t.Any, cls: RoleMixin) -> None:
+def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
     """
     Configure roles on all models when configuring SQLAlchemy mappers.
 
@@ -1362,7 +1389,7 @@ def _configure_roles(_mapper: t.Any, cls: RoleMixin) -> None:
     processed = set()
 
     # Loop through all attributes in this and base classes, looking for role annotations
-    for base in cls.__mro__:  # type: ignore[attr-defined]
+    for base in cls.__mro__:
         for name, attr in base.__dict__.items():
             # pylint: disable=protected-access
             if name in processed or name.startswith('__'):
@@ -1377,19 +1404,23 @@ def _configure_roles(_mapper: t.Any, cls: RoleMixin) -> None:
 
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
+            elif isinstance(attr, MappedColumn) and hasattr(
+                attr.column, '_coaster_roles'
+            ):
+                data = t.cast(WithRoles, attr.column._coaster_roles)
             elif hasattr(attr, '_coaster_roles'):
                 # pylint: disable=protected-access
-                data = t.cast(_WithRolesData, attr._coaster_roles)
+                data = t.cast(WithRoles, attr._coaster_roles)
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
                 if attr.property in __cache__:
-                    data = t.cast(_WithRolesData, __cache__[attr.property])
+                    data = t.cast(WithRoles, __cache__[attr.property])
                 elif '_coaster_roles' in attr.info:
-                    data = t.cast(_WithRolesData, attr.info['_coaster_roles'])
+                    data = t.cast(WithRoles, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):
                     # pylint: disable=protected-access
-                    data = t.cast(_WithRolesData, attr.property._coaster_roles)
+                    data = t.cast(WithRoles, attr.property._coaster_roles)
                 else:
                     data = None
             else:

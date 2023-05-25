@@ -1,4 +1,5 @@
 """Test classviews."""
+# pylint: disable=comparison-with-callable
 
 import typing as t
 import unittest
@@ -6,8 +7,10 @@ import unittest
 from flask import Flask, json
 from flask.ctx import RequestContext
 from flask.typing import ResponseReturnValue
+from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden
 import pytest
+import sqlalchemy as sa
 
 from coaster.app import JSONProvider
 from coaster.auth import add_auth_attribute
@@ -75,11 +78,13 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
 class ScopedViewDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-defined]
     __tablename__ = 'scoped_view_document'
-    parent_id = db.Column(None, db.ForeignKey('view_document.id'), nullable=False)
-    view_document = db.relationship(
-        ViewDocument, backref=db.backref('children', cascade='all, delete-orphan')
+    parent_id: Mapped[int] = sa.orm.mapped_column(
+        sa.ForeignKey('view_document.id'), nullable=False
     )
-    parent = db.synonym('view_document')
+    view_document: Mapped[ViewDocument] = sa.orm.relationship(
+        ViewDocument, backref=sa.orm.backref('children', cascade='all, delete-orphan')
+    )
+    parent = sa.orm.synonym('view_document')
 
     __roles__ = {'all': {'read': {'name', 'title', 'doctype'}}}
 
@@ -101,30 +106,34 @@ class RenameableDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-define
 
 @route('/')
 class IndexView(ClassView):
+    """Test ClassView."""
+
     @route('')
     @viewdata(title="Index")
-    def index(self):
+    def index(self) -> str:
         return 'index'
 
     @viewdata(title="Page")
     @route('page')
-    def page(self):
+    def page(self) -> str:
         return 'page'
 
     @route('current_view')
-    def current_view_is_self(self):
+    def current_view_is_self(self) -> str:
         return str(current_view == self)
 
     @route('current_view/current_handler_is_self')
-    def current_handler_is_self(self):
+    def current_handler_is_self(self) -> str:
         return str(current_view.current_handler.name == 'current_handler_is_self')
 
     @route('current_view/current_handler_is_wrapper')
-    def current_handler_is_wrapper(self):
+    def current_handler_is_wrapper(self) -> str:
+        # pylint: disable=comparison-with-callable
         return str(current_view.current_handler == self.current_handler_is_wrapper)
 
     @route('view_args/<one>/<two>')
-    def view_args_are_received(self, **kwargs):
+    def view_args_are_received(self, **kwargs) -> str:
+        # pylint: disable=consider-using-f-string
         return '{one}/{two}'.format(**self.view_args)
 
 
@@ -133,6 +142,8 @@ IndexView.init_app(app)
 
 @route('/doc/<name>')
 class DocumentView(ClassView):
+    """Test ClassView for ViewDocument."""
+
     @route('')
     @render_with(json=True)
     def view(self, name):
@@ -153,26 +164,28 @@ DocumentView.init_app(app)
 
 
 class BaseView(ClassView):
+    """Test ClassView base class."""
+
     @route('')
     @viewdata(title="First")
-    def first(self):
+    def first(self) -> str:
         return 'first'
 
     @viewdata(title="Second")
     @route('second')
-    def second(self):
+    def second(self) -> str:
         return 'second'
 
     @route('third')
-    def third(self):
+    def third(self) -> str:
         return 'third'
 
     @route('inherited')
-    def inherited(self):
+    def inherited(self) -> str:
         return 'inherited'
 
     @route('also-inherited')
-    def also_inherited(self):
+    def also_inherited(self) -> str:
         return 'also_inherited'
 
     def latent_route(self) -> str:
@@ -181,6 +194,8 @@ class BaseView(ClassView):
 
 @route('/subclasstest')
 class SubView(BaseView):
+    """Test subclass of a ClassView."""
+
     @viewdata(title="Still first")
     @BaseView.first.reroute
     def first(self):
@@ -204,6 +219,8 @@ SubView.init_app(app)
 
 @route('/secondsub')
 class AnotherSubView(BaseView):
+    """Test second subclass of a ClassView."""
+
     @route('2-2')
     @BaseView.second.reroute
     def second(self):
@@ -215,6 +232,8 @@ AnotherSubView.init_app(app)
 
 @route('/model/<document>')
 class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
+    """Test ModelView."""
+
     model = ViewDocument
     route_model_map = {'document': 'name'}
 
@@ -251,6 +270,8 @@ ModelDocumentView.init_app(app)
 
 @route('/model/<parent>/<document>')
 class ScopedDocumentView(ModelDocumentView):
+    """Test subclass of a ModelView."""
+
     model = ScopedViewDocument
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
@@ -261,6 +282,8 @@ ScopedDocumentView.init_app(app)
 
 @route('/rename/<document>')
 class RenameableDocumentView(UrlChangeCheck, UrlForView, InstanceLoader, ModelView):
+    """Test ModelView for a document that will auto-redirect if the URL changes."""
+
     model = RenameableDocument
     route_model_map = {'document': 'url_name'}
 
@@ -276,6 +299,8 @@ RenameableDocumentView.init_app(app)
 
 @route('/multi/<doc1>/<doc2>')
 class MultiDocumentView(UrlForView, ModelView):
+    """Test ModelView that has multiple documents."""
+
     model = ViewDocument
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
@@ -295,6 +320,8 @@ MultiDocumentView.init_app(app)
 
 @route('/gated/<document>')
 class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
+    """Test ModelView that has an intercept in before_request."""
+
     model = ViewDocument
     route_model_map = {'document': 'name'}
 
@@ -347,6 +374,8 @@ GatedDocumentView.init_app(app)
 
 
 class TestClassView(unittest.TestCase):
+    """Tests for ClassView and ModelView."""
+
     app = app
     ctx: RequestContext
 

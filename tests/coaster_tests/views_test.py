@@ -146,6 +146,7 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?callback=callback'):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
+            # pylint: disable=consider-using-f-string
             response = (
                 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'
                 % ('lang', kwargs['lang'], 'query', kwargs['query'])
@@ -169,6 +170,7 @@ class TestCoasterViews(unittest.TestCase):
             assert resp['param2'] == param2
 
     def test_requestargs(self) -> None:
+        # pylint: disable=no-value-for-parameter
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
             assert requestargs_test1() == ('1', 3, [1, 2])
 

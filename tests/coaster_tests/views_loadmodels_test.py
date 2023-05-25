@@ -1,5 +1,5 @@
 """Test @load_models view helper."""
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name,no-value-for-parameter
 
 import typing as t
 

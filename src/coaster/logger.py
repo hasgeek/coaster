@@ -281,6 +281,7 @@ class SlackHandler(logging.Handler):
                 sections = []
 
             data = {
+                # pylint: disable=consider-using-f-string
                 'text': "*{levelname}* in {name}: {message}: `{info}`".format(
                     levelname=record.levelname,
                     name=self.app_name,
@@ -339,6 +340,7 @@ class TelegramHandler(logging.Handler):
             (datetime.utcnow() - error_throttle_timestamp_telegram[throttle_key])
             > timedelta(minutes=5)
         ):
+            # pylint: disable=consider-using-f-string
             text = '<b>{levelname}</b> in <b>{name}</b>: {message}'.format(
                 levelname=escape(record.levelname, False),
                 name=escape(self.app_name, False),
@@ -457,7 +459,7 @@ def init_app(app: Flask) -> None:
             app.config.get('MAIL_SERVER', 'localhost'),
             mail_sender,
             app.config['ADMINS'],
-            "{name} failure".format(name=app.config.get('SITE_ID') or app.name),
+            f"{app.config.get('SITE_ID') or app.name} failure",
             credentials=credentials,
         )
         mail_handler.setFormatter(formatter)

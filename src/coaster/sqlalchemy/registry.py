@@ -305,7 +305,7 @@ class RegistryMixin:
 
 
 @sa.event.listens_for(RegistryMixin, 'after_mapper_constructed', propagate=True)
-def _create_registries(_mapper: t.Any, cls: RegistryMixin) -> None:
+def _create_registries(_mapper: t.Any, cls: t.Type[RegistryMixin]) -> None:
     """Create the default registries in a mapped class using RegistryMixin."""
     for registry, kwarg in [('forms', 'obj'), ('views', None), ('features', None)]:
         if hasattr(cls, registry):

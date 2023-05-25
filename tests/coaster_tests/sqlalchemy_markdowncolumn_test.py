@@ -31,6 +31,7 @@ class FakeMarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
 
 class TestMarkdownColumn(AppTestCase):
     def test_markdown_column(self) -> None:
+        # pylint: disable=unnecessary-dunder-call
         text = """# this is going to be h1.\n- Now a list. \n- 1\n- 2\n- 3"""
         data = MarkdownData(value=text)
         self.session.add(data)
@@ -41,6 +42,7 @@ class TestMarkdownColumn(AppTestCase):
         assert data.value.__html__() == markdown(text)
 
     def test_does_not_render_on_load(self) -> None:
+        # pylint: disable=unnecessary-dunder-call
         text = "This is the text"
         real_html = markdown(text)
         fake_html = "This is not the text"
@@ -48,7 +50,7 @@ class TestMarkdownColumn(AppTestCase):
         self.session.add(data1)
 
         # Insert fake rendered data for commit to db
-        data1.value._html = fake_html
+        data1.value._html = fake_html  # pylint: disable=protected-access
         data1.value.changed()
         self.session.commit()
         del data1

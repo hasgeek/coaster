@@ -1,5 +1,7 @@
 """Test CoordinatesMixin class."""
 
+import sqlalchemy as sa
+
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
 from .conftest import AppTestCase, db
@@ -21,8 +23,8 @@ class TestCoordinatesColumn(AppTestCase):
 
     def test_columns_created(self) -> None:
         table = CoordinatesData.__table__
-        assert isinstance(table.c.latitude.type, db.Numeric)
-        assert isinstance(table.c.longitude.type, db.Numeric)
+        assert isinstance(table.c.latitude.type, sa.Numeric)
+        assert isinstance(table.c.longitude.type, sa.Numeric)
 
     def test_columns_when_null(self) -> None:
         data = CoordinatesData()

@@ -73,7 +73,11 @@ class MarkdownComposite(MutableComposite):
         # function declaration
         self._html = self.markdown(
             self._text,  # type: ignore[arg-type]
-            **(self.options() if callable(self.options) else self.options),
+            **(
+                self.options()  # pylint: disable=not-callable
+                if callable(self.options)
+                else self.options
+            ),
         )
         self.changed()
 

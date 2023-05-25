@@ -20,7 +20,7 @@ class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
     def __new__(
-        cls: t.Type,
+        mcs: t.Type,  # noqa: N804
         name: str,
         bases: t.Tuple[t.Type, ...],
         attrs: t.Dict[str, t.Any],
@@ -53,7 +53,7 @@ class _LabeledEnumMeta(type):
 
         attrs['__labels__'] = labels
         attrs['__names__'] = names
-        return type.__new__(cls, name, bases, attrs)
+        return type.__new__(mcs, name, bases, attrs)
 
     def __getitem__(cls, key: t.Union[str, tuple]) -> t.Any:
         return cls.__labels__[key]  # type: ignore[attr-defined]
@@ -198,6 +198,7 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
                 return key
+        return None
 
     @classmethod
     def nametitles(cls) -> t.List[NameTitle]:

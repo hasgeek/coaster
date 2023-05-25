@@ -17,15 +17,22 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
-try:
-    from psycopg2.extensions import connection as PostgresConnection  # noqa: N812
+from .sqlalchemy import Query
+
+try:  # pragma: no cover
+    from psycopg2.extensions import connection as Psycopg2Connection  # noqa: N812
 except ModuleNotFoundError:
-    PostgresConnection = None
+    Psycopg2Connection = None
+
+try:  # pragma: no cover
+    from psycopg import Connection as Psycopg3Connection
+except ModuleNotFoundError:
+    Psycopg3Connection = None  # type: ignore[assignment,misc]
 
 __all__ = ['SQLAlchemy', 'db']
 
 
-db = SQLAlchemy()
+db = SQLAlchemy(query_class=Query)  # type: ignore[arg-type]
 
 
 @event.listens_for(Engine, 'connect')
@@ -33,11 +40,14 @@ def _emit_engine_directives(dbapi_connection: t.Any, _connection_record: t.Any) 
     if isinstance(dbapi_connection, SQLite3Connection):  # pragma: no cover
         # Enable foreign key support in SQLite3. The command must
         # be issued once per connection.
-        cursor = dbapi_connection.cursor()
+        cursor: t.Any = dbapi_connection.cursor()
         cursor.execute('PRAGMA foreign_keys=ON;')
         cursor.close()
-    if PostgresConnection is not None and isinstance(
-        dbapi_connection, PostgresConnection
+    if (
+        Psycopg2Connection is not None
+        and isinstance(dbapi_connection, Psycopg2Connection)
+        or Psycopg3Connection is not None
+        and isinstance(dbapi_connection, Psycopg3Connection)
     ):
         # Always use UTC timezone on PostgreSQL
         cursor = dbapi_connection.cursor()

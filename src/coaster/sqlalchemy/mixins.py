@@ -519,13 +519,13 @@ class UrlForMixin:
 
     def view_for(self, action: str = 'view') -> t.Any:
         """Return the classview viewhandler that handles the specified action."""
-        app = current_app._get_current_object()
+        app = current_app._get_current_object()  # pylint: disable=protected-access
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
     def classview_for(self, action: str = 'view') -> t.Any:
         """Return the classview containing the viewhandler for the specified action."""
-        app = current_app._get_current_object()
+        app = current_app._get_current_object()  # pylint: disable=protected-access
         return self.view_for_endpoints[app][action][0](self)
 
 
@@ -638,7 +638,7 @@ class BaseNameMixin(BaseMixin):
         """Insert or update an instance."""
         instance = cls.get(name)
         if instance is not None:
-            instance._set_fields(fields)
+            instance._set_fields(fields)  # pylint: disable=protected-access
         else:
             instance = cls(name=name, **fields)
             instance = failsafe_add(cls.query.session, instance, name=name)
@@ -659,12 +659,11 @@ class BaseNameMixin(BaseMixin):
             if sa.inspect(self).has_identity:  # type: ignore[union-attr]
 
                 def checkused(c: str) -> bool:
+                    # pylint: disable=comparison-with-callable
                     return bool(
                         c in reserved
                         or c in self.reserved_names
-                        or self.__class__.query.filter(  # pylint: disable=W0143
-                            self.__class__.id != self.id
-                        )
+                        or self.__class__.query.filter(self.__class__.id != self.id)
                         .filter_by(name=c)
                         .notempty()
                     )
@@ -697,10 +696,12 @@ class BaseScopedNameMixin(BaseMixin):
 
         class Event(BaseScopedNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
-            organizer = db.relationship(Organizer)
-            parent = db.synonym('organizer')
-            __table_args__ = (db.UniqueConstraint('organizer_id', 'name'),)
+            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
+                'organizer.id'
+            ))
+            organizer: Mapped[Organizer] = sa.orm.relationship(Organizer)
+            parent = sa.orm.synonym('organizer')
+            __table_args__ = (sa.UniqueConstraint('organizer_id', 'name'),)
 
     .. versionchanged:: 0.5.0
         If you used BaseScopedNameMixin in your app before Coaster 0.5.0:
@@ -775,7 +776,7 @@ class BaseScopedNameMixin(BaseMixin):
         """Insert or update an instance."""
         instance = cls.get(parent, name)
         if instance is not None:
-            instance._set_fields(fields)
+            instance._set_fields(fields)  # pylint: disable=protected-access
         else:
             instance = cls(parent=parent, name=name, **fields)
             instance = failsafe_add(
@@ -856,7 +857,7 @@ class BaseScopedNameMixin(BaseMixin):
         """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
-        elif self.parent is not None and isinstance(self.parent, PermissionMixin):
+        if self.parent is not None and isinstance(self.parent, PermissionMixin):
             return self.parent.permissions(actor) | super().permissions(actor)
         return super().permissions(actor)
 
@@ -984,10 +985,10 @@ class BaseScopedIdMixin(BaseMixin):
 
         class Issue(BaseScopedIdMixin, db.Model):
             __tablename__ = 'issue'
-            event_id = db.Column(None, db.ForeignKey('event.id'))
-            event = db.relationship(Event)
-            parent = db.synonym('event')
-            __table_args__ = (db.UniqueConstraint('event_id', 'url_id'),)
+            event_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('event.id'))
+            event: Mapped[Event] = sa.orm.relationship(Event)
+            parent = sa.orm.synonym('event')
+            __table_args__ = (sa.UniqueConstraint('event_id', 'url_id'),)
     """
 
     #: Specify expected type for a 'parent' attr
@@ -1019,6 +1020,7 @@ class BaseScopedIdMixin(BaseMixin):
         """Create a new URL id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
             self.url_id = (  # type: ignore[unreachable]
+                # pylint: disable=not-callable
                 select(func.coalesce(func.max(self.__class__.url_id + 1), 1))
                 .where(
                     self.__class__.parent == self.parent,
@@ -1048,10 +1050,12 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
         class Event(BaseScopedIdNameMixin, db.Model):
             __tablename__ = 'event'
-            organizer_id = db.Column(None, db.ForeignKey('organizer.id'))
-            organizer = db.relationship(Organizer)
-            parent = db.synonym('organizer')
-            __table_args__ = (db.UniqueConstraint('organizer_id', 'url_id'),)
+            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
+                'organizer.id'
+            ))
+            organizer: Mapped[Organizer] = sa.orm.relationship(Organizer)
+            parent = sa.orm.synonym('organizer')
+            __table_args__ = (sa.UniqueConstraint('organizer_id', 'url_id'),)
 
     .. versionchanged:: 0.5.0
         If you used BaseScopedIdNameMixin in your app before Coaster 0.5.0:
@@ -1130,7 +1134,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
 
     def make_name(self) -> None:
         """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
-        if self.title:
+        if self.title:  # pylint: disable=using-constant-test
             self.name = make_name(
                 self.title_for_name, maxlength=self.__name_length__ or 250
             )
