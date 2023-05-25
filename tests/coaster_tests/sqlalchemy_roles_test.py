@@ -852,10 +852,10 @@ class TestCoasterRoles(AppTestCase):
 
     def test_actors_with_invalid(self) -> None:
         m1 = RoleGrantMany()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="parameter must be a list or set"):
             # Parameter can't be a string. Because actors_with is a generator,
             # we have to extract a value from it to trigger the exception
-            next(m1.actors_with('owner'))
+            next(m1.actors_with('owner'))  # skipcq: PTC-W0063
 
     def test_role_grant_synonyms(self) -> None:
         """Test that synonyms reflect the underlying attribute"""

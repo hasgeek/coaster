@@ -60,14 +60,18 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import overload
+import datetime
 import typing as t
+import uuid
 import warnings
 
 from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Query as QueryBase
+from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship as relationship_base
 from sqlalchemy.orm.dynamic import AppenderMixin
 import sqlalchemy as sa
@@ -76,7 +80,12 @@ import typing_extensions as te
 _T = t.TypeVar('_T', bound=t.Any)
 
 __all__ = [
-    'CoasterModelWarning',
+    'ModelWarning',
+    'int_pkey',
+    'uuid4_pkey',
+    'timestamp',
+    'timestamp_now',
+    'jsonb',
     'Query',
     'ModelBase',
     'DeclarativeBase',
@@ -84,8 +93,26 @@ __all__ = [
 ]
 
 
-class CoasterModelWarning(UserWarning):
-    """Warning for problematic use of ModelBase."""
+class ModelWarning(UserWarning):
+    """Warning for problematic use of ModelBase and relationship."""
+
+
+int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True, init=False)]
+uuid4_pkey: te.TypeAlias = te.Annotated[
+    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4, init=False)
+]
+timestamp: te.TypeAlias = te.Annotated[
+    datetime.datetime, mapped_column(sa.TIMESTAMP(timezone=True))
+]
+timestamp_now: te.TypeAlias = te.Annotated[
+    datetime.datetime,
+    mapped_column(
+        sa.TIMESTAMP(timezone=True), server_default=sa.func.CURRENT_TIMESTAMP()
+    ),
+]
+jsonb: te.TypeAlias = te.Annotated[
+    dict, mapped_column(sa.JSON().with_variant(postgresql.JSONB, 'postgresql'))
+]
 
 
 class Query(QueryBase[_T]):  # pylint: disable=abstract-method
@@ -136,7 +163,7 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
         Return `True` if the query has non-zero results.
 
         Does the equivalent of ``bool(query.count())`` but using an efficient
-        SQL EXISTS function, so the database stops counting after the first result
+        SQL EXISTS operator, so the database stops counting after the first result
         is found.
         """
         return self.session.query(self.exists()).scalar()
@@ -146,7 +173,7 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
         Return `True` if the query has zero results.
 
         Does the equivalent of ``not bool(query.count())`` but using an efficient
-        SQL EXISTS function, so the database stops counting after the first result
+        SQL EXISTS operator, so the database stops counting after the first result
         is found.
         """
         return not self.session.query(self.exists()).scalar()
@@ -243,15 +270,13 @@ class ModelBase:
                 f" instead: class {cls.__name__}({baserepr}, bind_key"
                 f"={cls.__bind_key__!r})"
             )
+        if bind_key is not None and ModelBase not in cls.__bases__:
+            raise TypeError("bind_key should only be specified in the base class")
         super().__init_subclass__(**kwargs)
         if ModelBase in cls.__bases__:
-            # Only configure bind key in the root base class
-            if bind_key is not None and '__bind_key__' in cls.__dict__:
-                raise TypeError(f"{cls!r} has both __bind_key__ and bind_key in bases")
+            # Only configure bind key in the base class
             cls.__bind_key__ = bind_key
             cls.metadata.info['bind_key'] = cls.__bind_key__
-        elif bind_key is not None:
-            raise TypeError("bind_key should be specified only in the base class")
 
     @classmethod
     def init_flask_sqlalchemy(cls, fsa: SQLAlchemy) -> None:
@@ -282,9 +307,9 @@ class ModelBase:
                     f"(metadata={cls.__name__}.metadata)`` to avoid this error"
                 )
             raise TypeError(
-                f"Flask-SQLAlchemy has different metadata from {cls!r} for"
-                f" __bind_key__={cls.__bind_key__!r}. Mixed use of {cls!r} and db.Model"
-                f" is not supported"
+                f"Flask-SQLAlchemy has different metadata from {cls.__name__} for"
+                f" __bind_key__={cls.__bind_key__!r}. db.Model can only be used after"
+                f" init_flask_sqlalchemy has been called"
             )
         if cls.__bind_key__ not in fsa.metadatas:
             fsa.metadatas[cls.__bind_key__] = cls.metadata
@@ -311,6 +336,8 @@ _P = te.ParamSpec('_P')
 # This wrapper exists solely for type hinting tools as @wraps itself does not
 # provide type hints indicating that the function's type signature is unchanged
 def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
+    """Create a wrapper for relationship."""
+
     @wraps(f)
     def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         """Insert a default query_class when constructing a relationship."""
@@ -320,7 +347,7 @@ def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
             warnings.warn(
                 "backref is not compatible with type hinting. Use back_populates:"
                 " https://docs.sqlalchemy.org/en/20/orm/backref.html",
-                CoasterModelWarning,
+                ModelWarning,
                 stacklevel=2,
             )
         return f(*args, **kwargs)

@@ -125,24 +125,28 @@ configure_mappers()
 
 
 def test_has_annotations() -> None:
+    """Annotations on the models were processed."""
     for model in (IdOnly, IdUuid, UuidOnly):
         assert hasattr(model, '__column_annotations__')
         assert hasattr(model, '__column_annotations_by_attr__')
 
 
 def test_annotation_in_annotations() -> None:
+    """Annotations were discovered."""
     for model in (IdOnly, IdUuid, UuidOnly):
         for annotation in (immutable, cached):
             assert annotation.__name__ in model.__column_annotations__
 
 
 def test_attr_in_annotations() -> None:
+    """Annotated attributes were discovered and documented."""
     for model in (IdOnly, IdUuid, UuidOnly):
         assert 'is_immutable' in model.__column_annotations__['immutable']
         assert 'is_cached' in model.__column_annotations__['cached']
 
 
 def test_base_attrs_in_annotations() -> None:
+    """Annotations in the base class were also discovered and added to subclass."""
     for model in (IdOnly, IdUuid, UuidOnly):
         for attr in ('created_at', 'id'):
             assert attr in model.__column_annotations__['immutable']
@@ -150,6 +154,8 @@ def test_base_attrs_in_annotations() -> None:
 
 
 class TestCoasterAnnotations(AppTestCase):
+    """Tests for annotations."""
+
     def test_init_immutability(self) -> None:
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
