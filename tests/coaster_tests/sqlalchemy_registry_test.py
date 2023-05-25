@@ -9,7 +9,7 @@ import pytest
 from coaster.sqlalchemy import BaseMixin
 from coaster.sqlalchemy.registry import Registry
 
-from .conftest import db
+from .conftest import Model
 
 # --- Fixtures -------------------------------------------------------------------------
 
@@ -114,13 +114,13 @@ def registrymixin_models():
     # in the base RegistryMixin class.
 
     # Sample model 1
-    class RegistryTest1(BaseMixin, db.Model):
+    class RegistryTest1(BaseMixin, Model):
         """Registry test model 1."""
 
         __tablename__ = 'registry_test1'
 
     # Sample model 2
-    class RegistryTest2(BaseMixin, db.Model):
+    class RegistryTest2(BaseMixin, Model):
         """Registry test model 2."""
 
         __tablename__ = 'registry_test2'

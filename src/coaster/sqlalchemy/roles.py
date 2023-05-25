@@ -79,7 +79,7 @@ Example use::
             nullable=False
         )
         user: Mapped[User] = with_roles(
-            sa.relationship(User),
+            relationship(User),
             grants={'owner'},  # Use `grants` here or `granted_by` in `__roles__`
             )
 
@@ -138,17 +138,9 @@ import typing as t
 
 from flask import g
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import (
-    AppenderQuery,
-    ColumnProperty,
-    KeyFuncDict,
-    MappedColumn,
-    MapperProperty,
-    Query,
-    RelationshipProperty,
-    SynonymProperty,
-    declarative_mixin,
-)
+from sqlalchemy.orm import ColumnProperty, KeyFuncDict, MappedColumn, MapperProperty
+from sqlalchemy.orm import Query as QueryBase
+from sqlalchemy.orm import RelationshipProperty, SynonymProperty, declarative_mixin
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
@@ -162,6 +154,7 @@ import typing_extensions as te
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
+from .model import AppenderQuery
 
 __all__ = [
     'RoleGrantABC',
@@ -185,6 +178,9 @@ ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
 # FIXME: Drop support for non-str actor attrs as the implementation is unreadable.
 # The model should supply a property or virtual set (like DynamicAssociationProxy)
 # pointing directly at the attr
+
+RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
+_T = t.TypeVar('_T')
 
 
 class RoleAttrs(te.TypedDict, total=False):
@@ -230,16 +226,6 @@ class WithRoles:
         )
 
 
-class ModelWithQuery(te.Protocol):
-    """Model that has a query property."""
-
-    query: Query[te.Self]
-
-
-QueryModelType = t.TypeVar('QueryModelType', bound=ModelWithQuery)
-RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
-
-
 def _attrs_equal(
     lhs: t.Optional[ActorAttrType], rhs: t.Optional[ActorAttrType]
 ) -> bool:
@@ -262,7 +248,7 @@ def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
-    if isinstance(relationship, (AppenderQuery, Query, abc.Container)):
+    if isinstance(relationship, (QueryBase, abc.Container)):
         return actor in relationship
     return False
 
@@ -298,7 +284,7 @@ def _roles_via_relationship(
     # to the actor.
 
     # TODO: Support WriteOnlyCollection
-    if isinstance(relationship, (AppenderQuery, Query)):
+    if isinstance(relationship, QueryBase):
         # Query-like relationship. Run a query. It is possible to have multiple matches
         # for the actor, so use .first()
         # TODO: Consider retrieving all and consolidating roles from across them in case
@@ -565,7 +551,7 @@ class DynamicAssociationProxy:
     Usage::
 
         # Assuming a relationship like this:
-        Document.child_relationship = sa.orm.relationship(ChildDocument, lazy='dynamic')
+        Document.child_relationship = relationship(ChildDocument, lazy='dynamic')
 
         # Proxy to an attribute on the target of the relationship:
         Document.child_attributes = DynamicAssociationProxy(
@@ -592,31 +578,29 @@ class DynamicAssociationProxy:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
+    def __get__(self, obj: None, cls: t.Type[_T]) -> te.Self:
         ...
 
     @overload
-    def __get__(
-        self, obj: QueryModelType, cls: t.Type
-    ) -> DynamicAssociationProxyWrapper[QueryModelType]:
+    def __get__(self, obj: _T, cls: t.Type[_T]) -> DynamicAssociationProxyWrapper[_T]:
         ...
 
     def __get__(
-        self, obj: t.Optional[QueryModelType], cls: t.Type
-    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[QueryModelType]]:
+        self, obj: t.Optional[_T], cls: t.Type[_T]
+    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[_T]]:
         if obj is None:
             return self
         return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
 
 
-class DynamicAssociationProxyWrapper(abc.Set, t.Generic[QueryModelType]):
+class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
     """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
     relattr: AppenderQuery
 
     def __init__(
         self,
-        obj: QueryModelType,
+        obj: _T,
         rel: str,
         attr: str,
     ) -> None:
@@ -767,7 +751,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             }
         if isinstance(
             attr,
-            (InstrumentedList, InstrumentedSet, AppenderQuery, OrderingList, Query),
+            (InstrumentedList, InstrumentedSet, OrderingList, QueryBase),
         ):
             # InstrumentedSet is converted into a tuple because the role access proxy
             # isn't hashable and can't be placed in a set. This is a side-effect of
@@ -931,16 +915,15 @@ def with_roles(
 
         class RoleModel(db.Model):
             user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
-            user: Mappeed[UserModel] = sa.orm.relationship(UserModel)
+            user: Mapped[UserModel] = relationship(UserModel)
 
             document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'document.id'
             ))
-            document: Mapped[DocumentModel] = sa.orm.relationship(DocumentModel)
+            document: Mapped[DocumentModel] = relationship(DocumentModel)
 
         DocumentModel.rolemodels = with_roles(
-            sa.orm.relationship(RoleModel),
-            grants_via={'user': {'role1', 'role2'}}
+            relationship(RoleModel), grants_via={'user': {'role1', 'role2'}}
         )
 
     In this example, a user gets roles 'role1' and 'role2' on DocumentModel via the
@@ -952,7 +935,7 @@ def with_roles(
 
         class RoleModel(db.Model):
             user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
-            user: Mapped[UserModel] = sa.orm.relationship(UserModel)
+            user: Mapped[UserModel] = relationship(UserModel)
 
             has_role1: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
             has_role2: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
@@ -960,7 +943,7 @@ def with_roles(
             document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'document.id'
             ))
-            document: Mapped[DocumentModel] = sa.orm.relationship(DocumentModel)
+            document: Mapped[DocumentModel] = relationship(DocumentModel)
 
             @property
             def offered_roles(self):
@@ -972,7 +955,7 @@ def with_roles(
                 return roles
 
         DocumentModel.rolemodels = with_roles(
-            sa.orm.relationship(RoleModel),
+            relationship(RoleModel),
             grants_via={'user': {
                 'role1': 'renamed_role1,
                 'role2': {'renamed_role2', 'also_role2'}
@@ -1201,7 +1184,7 @@ class RoleMixin:
             # Scan granted_by declarations
             for relattr in self.__roles__.get(role, {}).get('granted_by', []):
                 relationship = getattr(self, relattr)
-                if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
+                if isinstance(relationship, (QueryBase, abc.Iterable)):
                     for actor in relationship:
                         if is_new(actor):
                             yield (actor, role) if with_role else actor
@@ -1218,7 +1201,7 @@ class RoleMixin:
                 # What kind of relationship is this?
                 # 1. It's a collection of some sort
                 # 2. It's scalar item (either the 1 side of 1:n, or a property)
-                if isinstance(relationship, (AppenderQuery, Query, abc.Iterable)):
+                if isinstance(relationship, (QueryBase, abc.Iterable)):
                     iterable = relationship
                 else:
                     iterable = [relationship]

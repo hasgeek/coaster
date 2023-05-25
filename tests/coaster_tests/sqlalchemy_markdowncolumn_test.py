@@ -1,29 +1,42 @@
 """Test Markdown composite column."""
 
+import typing as t
 
 from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
 
-from .conftest import AppTestCase, db
+from .conftest import AppTestCase, Model, db
 
 
-class MarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MarkdownData(BaseMixin, Model):
     __tablename__ = 'md_data'
+    __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
+
     value = MarkdownColumn('value', nullable=False)
+    value_text: t.Optional[str]
+    value_html: t.Optional[str]
 
 
-class MarkdownHtmlData(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MarkdownHtmlData(BaseMixin, Model):
     __tablename__ = 'md_html_data'
+    __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
+
     value = MarkdownColumn('value', nullable=False, options={'html': True})
+    value_text: t.Optional[str]
+    value_html: t.Optional[str]
 
 
 def fake_markdown(text: str) -> str:
     return 'fake-markdown'
 
 
-class FakeMarkdownData(BaseMixin, db.Model):  # type: ignore[name-defined]
+class FakeMarkdownData(BaseMixin, Model):
     __tablename__ = 'fake_md_data'
+    __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
+
     value = MarkdownColumn('value', nullable=False, markdown=fake_markdown)
+    value_text: t.Optional[str]
+    value_html: t.Optional[str]
 
 
 # -- Tests --------------------------------------------------------------------

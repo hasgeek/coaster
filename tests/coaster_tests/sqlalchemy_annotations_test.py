@@ -1,7 +1,7 @@
 import typing as t
 import warnings
 
-from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import Mapped, configure_mappers
 from sqlalchemy.orm.attributes import NO_VALUE
 import pytest
 import sqlalchemy as sa
@@ -13,18 +13,19 @@ from coaster.sqlalchemy import (
     UuidMixin,
     cached,
     immutable,
+    relationship,
 )
 
-from .conftest import AppTestCase, db
+from .conftest import AppTestCase, Model
 
 # --- Models ---------------------------------------------------------------------------
 
 
-class ReferralTarget(BaseMixin, db.Model):  # type: ignore[name-defined]
+class ReferralTarget(BaseMixin, Model):
     __tablename__ = 'referral_target'
 
 
-class IdOnly(BaseMixin, db.Model):  # type: ignore[name-defined]
+class IdOnly(BaseMixin, Model):
     __tablename__ = 'id_only'
     __uuid_primary_key__ = False
 
@@ -36,12 +37,10 @@ class IdOnly(BaseMixin, db.Model):  # type: ignore[name-defined]
     referral_target_id: Mapped[t.Optional[int]] = immutable(
         sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
     )
-    referral_target: Mapped[t.Optional[ReferralTarget]] = sa.orm.relationship(
-        ReferralTarget
-    )
+    referral_target: Mapped[t.Optional[ReferralTarget]] = relationship(ReferralTarget)
 
 
-class IdUuid(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
+class IdUuid(UuidMixin, BaseMixin, Model):
     __tablename__ = 'id_uuid'
     __uuid_primary_key__ = False
 
@@ -56,11 +55,11 @@ class IdUuid(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
         sa.ForeignKey('referral_target.id'), nullable=True
     )
     referral_target: Mapped[t.Optional[ReferralTarget]] = immutable(
-        sa.orm.relationship(ReferralTarget)
+        relationship(ReferralTarget)
     )
 
 
-class UuidOnly(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
+class UuidOnly(UuidMixin, BaseMixin, Model):
     __tablename__ = 'uuid_only'
     __uuid_primary_key__ = True
 
@@ -75,11 +74,11 @@ class UuidOnly(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
         sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
     )
     referral_target: Mapped[t.Optional[ReferralTarget]] = immutable(
-        sa.orm.relationship(ReferralTarget)
+        relationship(ReferralTarget)
     )
 
 
-class PolymorphicParent(BaseMixin, db.Model):  # type: ignore[name-defined]
+class PolymorphicParent(BaseMixin, Model):
     __tablename__ = 'polymorphic_parent'
     ptype = immutable(sa.orm.mapped_column('type', sa.Unicode(30), index=True))
     is_immutable = immutable(
@@ -111,7 +110,7 @@ class PolymorphicChild(PolymorphicParent):
 warnings.resetwarnings()
 
 
-class SynonymAnnotation(BaseMixin, db.Model):  # type: ignore[name-defined]
+class SynonymAnnotation(BaseMixin, Model):
     __tablename__ = 'synonym_annotation'
     col_regular = sa.orm.mapped_column(sa.Unicode())
     col_immutable = immutable(sa.orm.mapped_column(sa.Unicode()))
@@ -120,31 +119,37 @@ class SynonymAnnotation(BaseMixin, db.Model):  # type: ignore[name-defined]
     syn_to_immutable = sa.orm.synonym('col_immutable')
 
 
+configure_mappers()
+
 # --- Tests ----------------------------------------------------------------------------
 
 
+def test_has_annotations() -> None:
+    for model in (IdOnly, IdUuid, UuidOnly):
+        assert hasattr(model, '__column_annotations__')
+        assert hasattr(model, '__column_annotations_by_attr__')
+
+
+def test_annotation_in_annotations() -> None:
+    for model in (IdOnly, IdUuid, UuidOnly):
+        for annotation in (immutable, cached):
+            assert annotation.__name__ in model.__column_annotations__
+
+
+def test_attr_in_annotations() -> None:
+    for model in (IdOnly, IdUuid, UuidOnly):
+        assert 'is_immutable' in model.__column_annotations__['immutable']
+        assert 'is_cached' in model.__column_annotations__['cached']
+
+
+def test_base_attrs_in_annotations() -> None:
+    for model in (IdOnly, IdUuid, UuidOnly):
+        for attr in ('created_at', 'id'):
+            assert attr in model.__column_annotations__['immutable']
+    assert 'uuid' in IdUuid.__column_annotations__['immutable']
+
+
 class TestCoasterAnnotations(AppTestCase):
-    def test_has_annotations(self) -> None:
-        for model in (IdOnly, IdUuid, UuidOnly):
-            assert hasattr(model, '__column_annotations__')
-            assert hasattr(model, '__column_annotations_by_attr__')
-
-    def test_annotation_in_annotations(self) -> None:
-        for model in (IdOnly, IdUuid, UuidOnly):
-            for annotation in (immutable, cached):
-                assert annotation.__name__ in model.__column_annotations__
-
-    def test_attr_in_annotations(self) -> None:
-        for model in (IdOnly, IdUuid, UuidOnly):
-            assert 'is_immutable' in model.__column_annotations__['immutable']
-            assert 'is_cached' in model.__column_annotations__['cached']
-
-    def test_base_attrs_in_annotations(self) -> None:
-        for model in (IdOnly, IdUuid, UuidOnly):
-            for attr in ('created_at', 'id'):
-                assert attr in model.__column_annotations__['immutable']
-        assert 'uuid' in IdUuid.__column_annotations__['immutable']
-
     def test_init_immutability(self) -> None:
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
@@ -276,21 +281,15 @@ class TestCoasterAnnotations(AppTestCase):
 
         # Confirm there is no value for is_immutable
         assert (
-            sa.inspect(
-                pi1
-            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            sa.inspect(pi1).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
             is NO_VALUE
         )
         assert (
-            sa.inspect(
-                pi2
-            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            sa.inspect(pi2).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
             is NO_VALUE
         )
         assert (
-            sa.inspect(
-                pi3
-            ).attrs.is_immutable.loaded_value  # type: ignore[attr-defined]
+            sa.inspect(pi3).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
             is NO_VALUE
         )
 

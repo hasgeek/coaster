@@ -4,12 +4,10 @@ import sqlalchemy as sa
 
 from coaster.sqlalchemy import BaseMixin, CoordinatesMixin
 
-from .conftest import AppTestCase, db
+from .conftest import AppTestCase, Model, db
 
 
-class CoordinatesData(
-    BaseMixin, CoordinatesMixin, db.Model  # type: ignore[name-defined]
-):
+class CoordinatesData(BaseMixin, CoordinatesMixin, Model):
     """Test model for coordinates data."""
 
     __tablename__ = 'coordinates_data'

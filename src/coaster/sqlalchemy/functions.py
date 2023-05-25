@@ -9,8 +9,10 @@ from typing import overload
 import typing as t
 
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import DeclarativeBase
 import sqlalchemy as sa
-import typing_extensions as te
+
+from .model import relationship
 
 __all__ = [
     'make_timestamp_columns',
@@ -143,16 +145,10 @@ def failsafe_add(
     return None
 
 
-class _ModelType(te.Protocol):
-    __tablename__: t.ClassVar[str]
-    __with_timezone__: t.ClassVar[bool]
-    metadata: t.ClassVar[sa.MetaData]
-
-
 def add_primary_relationship(
-    parent: t.Type[_ModelType],
+    parent: t.Type[DeclarativeBase],
     childrel: str,
-    child: t.Type[_ModelType],
+    child: t.Type[DeclarativeBase],
     parentrel: str,
     parentcol: str,
 ) -> sa.Table:
@@ -182,8 +178,8 @@ def add_primary_relationship(
         that refers back to the parent model
     :return: Secondary table that was created
     """
-    parent_table_name = parent.__tablename__
-    child_table_name = child.__tablename__
+    parent_table_name = t.cast(str, parent.__tablename__)
+    child_table_name = t.cast(str, child.__tablename__)
     primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
     parent_id_columns = [
         c.name for c in sa.inspect(parent).primary_key  # type: ignore[union-attr]
@@ -214,14 +210,18 @@ def add_primary_relationship(
         ]
         + t.cast(
             t.List[sa.Column],
-            list(make_timestamp_columns(timezone=parent.__with_timezone__)),
+            list(
+                make_timestamp_columns(
+                    timezone=getattr(parent, '__with_timezone__', False)
+                )
+            ),
         )
     )
 
     primary_table = sa.Table(
         primary_table_name, parent.metadata, *primary_table_columns
     )
-    rel = sa.orm.relationship(child, uselist=False, secondary=primary_table)
+    rel = relationship(child, uselist=False, secondary=primary_table)
     setattr(parent, childrel, rel)
 
     @sa.event.listens_for(rel, 'set')

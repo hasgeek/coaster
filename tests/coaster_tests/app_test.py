@@ -193,12 +193,12 @@ def test_app_key_rotation() -> None:
     app.session_interface = RotatingKeySecureCookieSessionInterface()
 
     @app.route('/set')
-    def route_set():
+    def route_set() -> str:
         session['test'] = 'value'
         return 'set'
 
     @app.route('/get')
-    def route_get():
+    def route_get() -> str:
         return str(session.get('test') == 'value')
 
     app.config['SECRET_KEYS'] = ['key1', 'key2']

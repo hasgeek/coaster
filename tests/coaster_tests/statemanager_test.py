@@ -21,7 +21,7 @@ from coaster.sqlalchemy import (
 )
 from coaster.utils import LabeledEnum, NameTitle
 
-from .conftest import AppTestCase, db
+from .conftest import AppTestCase, Model
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ class REVIEW_STATE(LabeledEnum):  # noqa: N801
     UNLOCKED = {UNSUBMITTED, PENDING}
 
 
-class MyPost(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MyPost(BaseMixin, Model):
     """Class for testing StateManager."""
 
     __tablename__ = 'my_post'

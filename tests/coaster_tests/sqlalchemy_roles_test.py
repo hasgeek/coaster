@@ -29,11 +29,12 @@ from coaster.sqlalchemy import (
     RoleGrantABC,
     RoleMixin,
     UuidMixin,
+    relationship,
     with_roles,
 )
 from coaster.utils import InspectableSet
 
-from .conftest import AppTestCase, db
+from .conftest import AppTestCase, Model
 
 # --- Models ---------------------------------------------------------------------------
 
@@ -69,7 +70,7 @@ class DeclaredAttrMixin:
     mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
-class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-defined]
+class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     """Test model for role definitions."""
 
     __tablename__ = 'role_model'
@@ -122,7 +123,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, db.Model):  # type: ignore[name-de
         return roles
 
 
-class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
+class AutoRoleModel(RoleMixin, Model):
     """Test model for automatic enumeration of roles using only `with_roles`."""
 
     __tablename__ = 'auto_role_model'
@@ -139,26 +140,27 @@ class AutoRoleModel(RoleMixin, db.Model):  # type: ignore[name-defined]
     __json_datasets__ = ('default',)
 
 
-class BaseModel(BaseMixin, db.Model):  # type: ignore[name-defined]
+class BaseModel(BaseMixin, Model):
     """Test model using `BaseMixin`."""
 
     __tablename__ = 'base_model'
 
 
-class UuidModel(UuidMixin, BaseMixin, db.Model):  # type: ignore[name-defined]
+class UuidModel(UuidMixin, BaseMixin, Model):
     """Test model using `UuidMixin`."""
 
     __tablename__ = 'uuid_model'
 
 
-class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
+class RelationshipChild(BaseNameMixin, Model):
     """Test model for a relationship child."""
 
     __tablename__ = 'relationship_child'
 
-    parent_id = sa.orm.mapped_column(
-        None, sa.ForeignKey('relationship_parent.id'), nullable=False
+    parent_id: Mapped[int] = sa.orm.mapped_column(
+        sa.ForeignKey('relationship_parent.id'), nullable=False
     )
+    parent: Mapped[RelationshipParent] = relationship(back_populates='children_list')
 
     __roles__ = {'all': {'read': {'name', 'title', 'parent'}}}
     __datasets__ = {
@@ -167,28 +169,28 @@ class RelationshipChild(BaseNameMixin, db.Model):  # type: ignore[name-defined]
     }
 
 
-class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
+class RelationshipParent(BaseNameMixin, Model):
     """Test model for a relationship parent."""
 
     __tablename__ = 'relationship_parent'
 
-    children_list: Mapped[t.List[RelationshipChild]] = sa.orm.relationship(
-        RelationshipChild, backref='parent'
+    children_list: Mapped[t.List[RelationshipChild]] = relationship(
+        RelationshipChild, back_populates='parent'
     )
-    children_list_lazy: DynamicMapped[t.List[RelationshipChild]] = sa.orm.relationship(
+    children_list_lazy: DynamicMapped[t.List[RelationshipChild]] = relationship(
         RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
     )
-    children_set: Mapped[t.MutableSet[RelationshipChild]] = sa.orm.relationship(
+    children_set: Mapped[t.MutableSet[RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=set,
         overlaps='children_list,children_list_lazy,parent',
     )
-    children_dict_attr: Mapped[t.Dict[str, RelationshipChild]] = sa.orm.relationship(
+    children_dict_attr: Mapped[t.Dict[str, RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=attribute_keyed_dict('name'),
         overlaps='children_list,children_list_lazy,children_set,parent',
     )
-    children_dict_column: Mapped[t.Dict[str, RelationshipChild]] = sa.orm.relationship(
+    children_dict_column: Mapped[t.Dict[str, RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=column_keyed_dict(
             RelationshipChild.name  # type: ignore[arg-type]
@@ -197,6 +199,7 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
             'children_dict_attr,children_list,children_list_lazy,children_set,parent'
         ),
     )
+    children_names = DynamicAssociationProxy('children_list_lazy', 'name')
 
     __roles__ = {
         'all': {
@@ -225,18 +228,13 @@ class RelationshipParent(BaseNameMixin, db.Model):  # type: ignore[name-defined]
 
 granted_users = sa.Table(
     'granted_users',
-    db.Model.metadata,
+    Model.metadata,
     sa.Column('role_grant_many_id', None, sa.ForeignKey('role_grant_many.id')),
     sa.Column('role_user_id', None, sa.ForeignKey('role_user.id')),
 )
 
 
-RelationshipParent.children_names = DynamicAssociationProxy(
-    'children_list_lazy', 'name'
-)
-
-
-class RoleGrantMany(BaseMixin, db.Model):  # type: ignore[name-defined]
+class RoleGrantMany(BaseMixin, Model):
     """Test model for granting roles to users in via SQLAlchemy relationships."""
 
     __tablename__ = 'role_grant_many'
@@ -246,33 +244,37 @@ class RoleGrantMany(BaseMixin, db.Model):  # type: ignore[name-defined]
         'secondary_role': {'granted_by': ['secondary_users']},
     }
 
+    secondary_users: Mapped[t.List[RoleUser]] = relationship(
+        secondary=granted_users, back_populates='secondary_docs'
+    )
 
-class RoleUser(BaseMixin, db.Model):  # type: ignore[name-defined]
+
+class RoleUser(BaseMixin, Model):
     """Test model to represent a user who has roles."""
 
     __tablename__ = 'role_user'
 
     doc_id = sa.orm.mapped_column(None, sa.ForeignKey('role_grant_many.id'))
-    doc = sa.orm.relationship(
+    doc = relationship(
         RoleGrantMany,
         foreign_keys=[doc_id],
         backref=sa.orm.backref('primary_users', lazy='dynamic'),
     )
-    secondary_docs = sa.orm.relationship(
-        RoleGrantMany, secondary=granted_users, backref='secondary_users'
+    secondary_docs = relationship(
+        RoleGrantMany, secondary=granted_users, back_populates='secondary_users'
     )
 
 
-class RoleGrantOne(BaseMixin, db.Model):  # type: ignore[name-defined]
+class RoleGrantOne(BaseMixin, Model):
     """Test model for granting roles to users in a one-to-many relationship."""
 
     __tablename__ = 'role_grant_one'
 
     user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = with_roles(sa.orm.relationship(RoleUser), grants={'creator'})
+    user = with_roles(relationship(RoleUser), grants={'creator'})
 
 
-class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
+class RoleGrantSynonym(BaseMixin, Model):
     """Test model for granting roles to synonyms."""
 
     __tablename__ = 'role_grant_synonym'
@@ -283,16 +285,16 @@ class RoleGrantSynonym(BaseMixin, db.Model):  # type: ignore[name-defined]
     altcol = sa.orm.synonym('datacol')
 
 
-class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
+class RoleMembership(BaseMixin, Model):
     """Test model that grants multiple roles."""
 
     __tablename__ = 'role_membership'
 
     user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = sa.orm.relationship(RoleUser)
+    user = relationship(RoleUser)
 
     doc_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
-    doc = sa.orm.relationship('MultiroleDocument')
+    doc = relationship('MultiroleDocument')
 
     role1 = sa.orm.mapped_column(sa.Boolean, default=False)
     role2 = sa.orm.mapped_column(sa.Boolean, default=False)
@@ -311,22 +313,22 @@ class RoleMembership(BaseMixin, db.Model):  # type: ignore[name-defined]
         return roles
 
 
-class MultiroleParent(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MultiroleParent(BaseMixin, Model):
     """Test model to serve as a role granter to the child model."""
 
     __tablename__ = 'multirole_parent'
     user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = with_roles(sa.orm.relationship(RoleUser), grants={'prole1', 'prole2'})
+    user = with_roles(relationship(RoleUser), grants={'prole1', 'prole2'})
 
 
-class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MultiroleDocument(BaseMixin, Model):
     """Test model that grants multiple roles via RoleMembership."""
 
     __tablename__ = 'multirole_document'
 
     parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_parent.id'))
     parent = with_roles(
-        sa.orm.relationship(MultiroleParent),
+        relationship(MultiroleParent),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
         # and not via parent.`actor_attr`. While other roles may also be granted by
         # parent.roles_for(), we only want one, and we want to give it a different name
@@ -351,12 +353,12 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
 
     # Grant via a query relationship
     rel_lazy: DynamicMapped[t.List[RoleMembership]] = with_roles(
-        sa.orm.relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
+        relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
         grants_via={RoleMembership.user: {'role2'}},
     )
     # Grant via a list-like relationship
     rel_list: Mapped[t.List[RoleMembership]] = with_roles(
-        sa.orm.relationship(RoleMembership, overlaps='doc,rel_lazy'),
+        relationship(RoleMembership, overlaps='doc,rel_lazy'),
         grants_via={'user': {'role3'}},
     )
 
@@ -367,13 +369,13 @@ class MultiroleDocument(BaseMixin, db.Model):  # type: ignore[name-defined]
     # The only way to make an entry there is via with_roles.
 
 
-class MultiroleChild(BaseMixin, db.Model):  # type: ignore[name-defined]
+class MultiroleChild(BaseMixin, Model):
     """Model that inherits roles from its parent."""
 
     __tablename__ = 'multirole_child'
     parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
     parent = with_roles(
-        sa.orm.relationship(MultiroleDocument),
+        relationship(MultiroleDocument),
         grants_via={
             'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
@@ -457,6 +459,7 @@ class TestCoasterRoles(AppTestCase):
         A model with UuidMixin provides 'all' read access to uuid, uuid_b58 and uuid_b64
         among others.
         """
+        assert 'read' in UuidModel.__roles__['all']
         assert {'uuid', 'buid', 'uuid_b58', 'uuid_b64'} <= UuidModel.__roles__['all'][
             'read'
         ]
@@ -944,13 +947,24 @@ class TestCoasterRoles(AppTestCase):
         self.session.add_all([u1, u2, u3, u4, parent, document, child, m1, m2, m3, m4])
         self.session.commit()
 
-        # All three memberships appear in both relationships
-        assert m1 in document.rel_lazy
+        # All four memberships appear in both relationships
+        assert m1 in document.rel_lazy  # type: ignore[operator]
         assert m1 in document.rel_list
-        assert m2 in document.rel_lazy
+        assert m2 in document.rel_lazy  # type: ignore[operator]
         assert m2 in document.rel_list
-        assert m3 in document.rel_lazy
+        assert m3 in document.rel_lazy  # type: ignore[operator]
         assert m3 in document.rel_list
+        assert m4 in document.rel_lazy  # type: ignore[operator]
+        assert m4 in document.rel_list
+        # Just to be sure the `in` operator works, the relationships don't contain users
+        assert u1 not in document.rel_lazy  # type: ignore[operator]
+        assert u1 not in document.rel_list
+        assert u2 not in document.rel_lazy  # type: ignore[operator]
+        assert u2 not in document.rel_list
+        assert u3 not in document.rel_lazy  # type: ignore[operator]
+        assert u3 not in document.rel_list
+        assert u4 not in document.rel_lazy  # type: ignore[operator]
+        assert u4 not in document.rel_list
 
         # u1 gets 'parent_role' via parent, but u2 and u3 don't
         assert 'parent_role' in document.roles_for(u1)

@@ -14,8 +14,8 @@ from sqlite3 import Connection as SQLite3Connection
 import typing as t
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
-import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 
 from .sqlalchemy import Query
 
