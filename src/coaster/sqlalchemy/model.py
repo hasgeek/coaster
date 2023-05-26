@@ -265,24 +265,45 @@ class ModelBase:
     query_class: t.ClassVar[type[Query]] = Query
     query: t.ClassVar[Query[te.Self]] = QueryProperty()  # type: ignore[assignment]
 
-    def __init_subclass__(
-        cls, bind_key: t.Optional[str] = None, **kwargs: t.Any
-    ) -> None:
+    # FIXME: Drop bind_key arg, Mypy cannot understand it when there's a missing import,
+    # including in pre-commit checks within this repository itself
+    def __init_subclass__(cls) -> None:
         """Configure a declarative base class."""
-        if '__bind_key__' in cls.__dict__:
-            baserepr = ', '.join(b.__name__ for b in cls.__bases__)
-            raise TypeError(
-                f"This class has __bind_key__. Specify bind_key in base classes"
-                f" instead: class {cls.__name__}({baserepr}, bind_key"
-                f"={cls.__bind_key__!r})"
-            )
-        if bind_key is not None and ModelBase not in cls.__bases__:
-            raise TypeError("bind_key should only be specified in the base class")
-        super().__init_subclass__(**kwargs)
         if ModelBase in cls.__bases__:
-            # Only configure bind key in the base class
-            cls.__bind_key__ = bind_key
+            # If this is the base class (ModelBase is its immediate base class), set
+            # cls.__bind_key__ to None
+            if '__bind_key__' not in cls.__dict__:
+                cls.__bind_key__ = None
+            # Call super() to create a metadata (if not already specified in the class)
+            super().__init_subclass__()
+            # Replicate cls.__bind_key__ into the metadata's info dict, matching
+            # Flask-SQLAlchemy's behaviour
             cls.metadata.info['bind_key'] = cls.__bind_key__
+            return
+        # This is a subclass. Get the effective __bind_key__, then find the top-level
+        # base class that's the first descended from ModelBase and confirm it has the
+        # same bind_key. There will be a mismatch if:
+        #
+        # 1. The subclass directly specifies __bind_key__ and it's different
+        # 2. A mixin class introduced a different value for __bind_key__
+        # 3. The value of __bind_key__ in an ancestor was changed after
+        #    __init_subclass__ scanned it. We can't stop a programmer from shooting
+        #   their own foot. At best, we can warn of an accidental error.
+        bind_key = cls.__bind_key__
+        for base in cls.mro():
+            if ModelBase in base.__bases__:
+                # We've found the direct subclass of ModelBase...
+                base = t.cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet
+                if base.__bind_key__ == bind_key:
+                    # There's a match. All good. Stop iterating through bases
+                    break
+                # The base class has a different bind key
+                raise TypeError(
+                    f"`{cls.__name__}.__bind_key__ = {bind_key!r}` does not match"
+                    f" base class `{base.__name__}.__bind_key__ = "
+                    f"{base.__bind_key__!r}`"
+                )
+        super().__init_subclass__()
 
     @classmethod
     def init_flask_sqlalchemy(cls, fsa: SQLAlchemy) -> None:
@@ -291,7 +312,7 @@ class ModelBase:
 
         This classmethod must be called alongside db.init_app(app).
         """
-        if '__bind_key__' not in cls.__dict__:
+        if ModelBase not in cls.__bases__:
             raise TypeError(
                 "init_flask_sqlalchemy must be called on your base class only, not on"
                 " ModelBase or a model"
