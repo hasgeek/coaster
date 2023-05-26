@@ -68,7 +68,7 @@ def test_disallow_bind_key_in_bases_of_subclass() -> None:
     assert Model.__bind_key__ is None
     with pytest.raises(TypeError, match="base class"):
 
-        class _TestModel(Model, bind_key='test'):  # type: ignore[call-arg]
+        class _TestModel(Model, bind_key='test'):
             """Model that is not base with bind_key."""
 
             __tablename__ = 'test_model'
@@ -77,7 +77,7 @@ def test_disallow_bind_key_in_bases_of_subclass() -> None:
 def test_allow_bind_key_in_bases() -> None:
     """Bind key may be specified in bases of the base class."""
 
-    class Model(ModelBase, DeclarativeBase, bind_key='test'):  # type: ignore[call-arg]
+    class Model(ModelBase, DeclarativeBase, bind_key='test'):
         """Test model base."""
 
     assert Model.__bind_key__ == 'test'
@@ -89,9 +89,7 @@ def test_bind_key_metadata_isolation() -> None:
     class Model(ModelBase, DeclarativeBase):
         """Test model base."""
 
-    class BindModel(  # type: ignore[call-arg]
-        ModelBase, DeclarativeBase, bind_key='test'
-    ):
+    class BindModel(ModelBase, DeclarativeBase, bind_key='test'):
         """Test bind model base."""
 
     assert Model.__bind_key__ is None
@@ -162,9 +160,7 @@ def test_init_sqlalchemy_bind_key_before_init() -> None:
     class Model(ModelBase, DeclarativeBase):
         """Test model base."""
 
-    class BindModel(  # type: ignore[call-arg]
-        ModelBase, DeclarativeBase, bind_key='test'
-    ):
+    class BindModel(ModelBase, DeclarativeBase, bind_key='test'):
         """Test bind model base."""
 
     db = SQLAlchemy(metadata=Model.metadata)
@@ -187,9 +183,7 @@ def test_init_sqlalchemy_bind_key_after_init() -> None:
     class Model(ModelBase, DeclarativeBase):
         """Test model base."""
 
-    class BindModel(  # type: ignore[call-arg]
-        ModelBase, DeclarativeBase, bind_key='test'
-    ):
+    class BindModel(ModelBase, DeclarativeBase, bind_key='test'):
         """Test bind model base."""
 
     db = SQLAlchemy(metadata=Model.metadata)

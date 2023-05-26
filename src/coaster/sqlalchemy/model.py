@@ -81,6 +81,8 @@ _T = t.TypeVar('_T', bound=t.Any)
 
 __all__ = [
     'ModelWarning',
+    'bigint',
+    'smallint',
     'int_pkey',
     'uuid4_pkey',
     'timestamp',
@@ -97,6 +99,8 @@ class ModelWarning(UserWarning):
     """Warning for problematic use of ModelBase and relationship."""
 
 
+bigint: te.TypeAlias = te.Annotated[int, mapped_column(sa.BigInteger())]
+smallint: te.TypeAlias = te.Annotated[int, mapped_column(sa.SmallInteger())]
 int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True, init=False)]
 uuid4_pkey: te.TypeAlias = te.Annotated[
     uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4, init=False)
@@ -107,7 +111,9 @@ timestamp: te.TypeAlias = te.Annotated[
 timestamp_now: te.TypeAlias = te.Annotated[
     datetime.datetime,
     mapped_column(
-        sa.TIMESTAMP(timezone=True), server_default=sa.func.CURRENT_TIMESTAMP()
+        sa.TIMESTAMP(timezone=True),
+        server_default=sa.func.CURRENT_TIMESTAMP(),
+        nullable=False,
     ),
 ]
 jsonb: te.TypeAlias = te.Annotated[

@@ -8,6 +8,7 @@ from __future__ import annotations
 from uuid import UUID
 import typing as t
 
+from sqlalchemy.ext.hybrid import Comparator
 import sqlalchemy as sa
 
 from ..utils import uuid_from_base58, uuid_from_base64
@@ -24,7 +25,7 @@ __all__ = [
 _T = t.TypeVar('_T', bound=t.Any)
 
 
-class SplitIndexComparator(sa.ext.hybrid.Comparator):  # pylint: disable=abstract-method
+class SplitIndexComparator(Comparator):  # pylint: disable=abstract-method
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(
