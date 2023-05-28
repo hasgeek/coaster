@@ -64,12 +64,12 @@ def test_bind_key_must_match_base() -> None:
     class BindModel(ModelBase, DeclarativeBase):
         """Test bind model base."""
 
-        __bind_key__: t.Optional[str] = 'test'
+        __bind_key__: t.ClassVar[t.Optional[str]] = 'test'
 
     class Mixin:
         """Mixin that replaces bind_key."""
 
-        __bind_key__: t.Optional[str] = 'other'
+        __bind_key__: t.ClassVar[t.Optional[str]] = 'other'
 
     assert Model.__bind_key__ is None
     with pytest.raises(TypeError, match="__bind_key__.*does not match base class"):
@@ -108,7 +108,7 @@ def test_repeat_bind_key() -> None:
     class BindModel(ModelBase, DeclarativeBase):
         """Test bind model base."""
 
-        __bind_key__: t.Optional[str] = 'test'
+        __bind_key__ = 'test'
 
     assert Model.__bind_key__ is None
     assert BindModel.__bind_key__ == 'test'

@@ -241,7 +241,7 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
     query_class = Query  # type: ignore[assignment]
 
 
-class QueryProperty(t.Generic[_T]):
+class QueryProperty:
     """A class property that creates a query object for a model."""
 
     @overload
@@ -260,10 +260,10 @@ class ModelBase:
     """Flask-SQLAlchemy compatible base class that supports PEP 484 type hinting."""
 
     __fsa__: t.ClassVar[SQLAlchemy]
-    __bind_key__: t.Optional[str]
+    __bind_key__: t.ClassVar[t.Optional[str]]
     metadata: t.ClassVar[sa.MetaData]
     query_class: t.ClassVar[type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]] = QueryProperty()  # type: ignore[assignment]
+    query: t.ClassVar[QueryProperty] = QueryProperty()
 
     # FIXME: Drop bind_key arg, Mypy cannot understand it when there's a missing import,
     # including in pre-commit checks within this repository itself

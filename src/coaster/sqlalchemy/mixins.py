@@ -56,7 +56,7 @@ from .comparators import (
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
-from .model import Query
+from .model import Query, QueryProperty
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
@@ -97,7 +97,7 @@ class IdMixin:
     """
 
     query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]]
+    query: t.ClassVar[QueryProperty]
     __column_annotations__: dict
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database
@@ -238,7 +238,7 @@ class TimestampMixin:
     """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
     query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]]
+    query: t.ClassVar[QueryProperty]
     __with_timezone__: t.ClassVar[bool] = False
     __column_annotations__: t.ClassVar[dict]
 
@@ -627,11 +627,7 @@ class BaseNameMixin(BaseMixin):
     @classmethod
     def get(cls, name: str) -> t.Optional[te.Self]:
         """Get an instance matching the name."""
-        # Mypy is confused by te.Self: Incompatible return value type
-        # (got "Optional[BaseNameMixin]", expected "Optional[Self]")  [return-value]
-        return cls.query.filter_by(  # type: ignore[return-value]
-            name=name
-        ).one_or_none()
+        return cls.query.filter_by(name=name).one_or_none()
 
     @classmethod
     def upsert(cls, name: str, **fields) -> te.Self:
@@ -767,9 +763,7 @@ class BaseScopedNameMixin(BaseMixin):
     @classmethod
     def get(cls, parent: t.Any, name: str) -> t.Optional[te.Self]:
         """Get an instance matching the parent and name."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, name=name
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, name=name).one_or_none()
 
     @classmethod
     def upsert(cls, parent: t.Any, name: str, **fields) -> te.Self:
@@ -1012,9 +1006,7 @@ class BaseScopedIdMixin(BaseMixin):
     @classmethod
     def get(cls, parent: t.Any, url_id: t.Union[str, int]) -> t.Optional[te.Self]:
         """Get an instance matching the parent and url_id."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, url_id=url_id
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_id(self) -> None:
         """Create a new URL id that is unique to the parent container."""
@@ -1128,9 +1120,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @classmethod
     def get(cls, parent: t.Any, url_id: t.Union[int, str]) -> t.Optional[te.Self]:
         """Get an instance matching the parent and name."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, url_id=url_id
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_name(self) -> None:
         """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
