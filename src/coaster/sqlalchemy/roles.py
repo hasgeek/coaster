@@ -353,6 +353,15 @@ class RoleGrantABC(metaclass=ABCMeta):
 class LazyRoleSet(abc.MutableSet):
     """Set that provides lazy evaluations for whether a role is present."""
 
+    __slots__ = (
+        'obj',
+        'actor',
+        '_present',
+        '_not_present',
+        '_scanned_granted_via',
+        '_scanned_granted_by',
+    )
+
     def __init__(
         self, obj: RoleMixin, actor: t.Any, initial: t.Iterable[str] = ()
     ) -> None:
@@ -570,6 +579,8 @@ class DynamicAssociationProxy:
     :param str attr: Attribute on the target of the relationship
     """
 
+    __slots__ = ('rel', 'attr')
+
     def __init__(self, rel: str, attr: str) -> None:
         self.rel = rel
         self.attr = attr
@@ -596,6 +607,7 @@ class DynamicAssociationProxy:
 class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
     """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
+    __slots__ = ('obj', 'rel', 'relattr', 'attr')
     relattr: AppenderQuery
 
     def __init__(
@@ -677,6 +689,17 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     construct proxies for objects accessed via relationships.
     """
 
+    __slots__ = (
+        '_obj',
+        'current_roles',
+        '_actor',
+        '_anchors',
+        '_datasets',
+        '_dataset_attrs',
+        '_call',
+        '_read',
+        '_write',
+    )
     _obj: RoleMixinType
     current_roles: InspectableSet[t.Union[LazyRoleSet, t.Set[str]]]
     _actor: t.Any
@@ -686,6 +709,14 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     _call: t.Set[str]
     _read: t.Set[str]
     _write: t.Set[str]
+
+    @property  # type: ignore[override]
+    def __class__(self) -> t.Type[RoleMixinType]:
+        return self._obj.__class__
+
+    @__class__.setter
+    def __class__(self, value: t.Any) -> t.NoReturn:  # noqa: F811
+        raise TypeError("__class__ cannot be set")
 
     def __init__(
         self,
@@ -733,11 +764,17 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
+    def current_access(self, datasets: t.Optional[t.Sequence[str]] = None) -> te.Self:
+        """Mimic :meth:`RoleMixin.current_access`, but simply return self."""
+        return self
+
     def __get_processed_attr(self, name: str) -> t.Any:
         attr = getattr(self._obj, name)
         # TODO: Implement 'write' permission control for collection relationships.
         # A proper take will require custom dict and list subclasses, similar to the
         # role access proxy itself.
+        if type(attr) is RoleAccessProxy:  # pylint: disable=unidiomatic-typecheck
+            return attr
         if isinstance(attr, RoleMixin):
             return attr.access_for(
                 actor=self._actor, anchors=self._anchors, datasets=self._datasets
@@ -802,6 +839,22 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         else:
             source = self._read
         yield from source
+
+    def __eq__(self, other: t.Any) -> bool:
+        if other == self._obj:
+            return True
+        if (
+            type(other) is RoleAccessProxy  # pylint: disable=unidiomatic-typecheck
+            and other._obj == self._obj
+        ):
+            return True
+        return super().__eq__(other)
+
+    def __ne__(self, other: t.Any) -> bool:
+        return not self.__eq__(other)
+
+    def __bool__(self) -> bool:
+        return bool(self._obj)
 
 
 _DA = t.TypeVar('_DA')  # Decorated attr
@@ -1130,18 +1183,18 @@ class RoleMixin:
     @overload
     def actors_with(
         self, roles: t.Iterable[str], with_role: te.Literal[False] = False
-    ) -> t.Any:
+    ) -> t.Iterator[t.Any]:
         ...
 
     @overload
     def actors_with(
         self, roles: t.Iterable[str], with_role: te.Literal[True] = True
-    ) -> t.Tuple[t.Any, str]:
+    ) -> t.Iterator[t.Tuple[t.Any, str]]:
         ...
 
     def actors_with(
         self, roles: t.Iterable[str], with_role: bool = False
-    ) -> t.Union[t.Any, t.Tuple[str, t.Any]]:
+    ) -> t.Iterator[t.Union[t.Any, t.Tuple[str, t.Any]]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
 
