@@ -67,6 +67,8 @@ def test_bind_key_must_match_base() -> None:
         __bind_key__: t.Optional[str] = 'test'
 
     class Mixin:
+        """Mixin that replaces bind_key."""
+
         __bind_key__: t.Optional[str] = 'other'
 
     assert Model.__bind_key__ is None
