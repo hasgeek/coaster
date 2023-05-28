@@ -59,7 +59,6 @@ created.
 from __future__ import annotations
 
 from functools import wraps
-from typing import overload
 import datetime
 import typing as t
 import uuid
@@ -244,15 +243,7 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
 class QueryProperty:
     """A class property that creates a query object for a model."""
 
-    @overload
-    def __get__(self, obj: None, cls: t.Type[_T]) -> Query[_T]:
-        ...
-
-    @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> Query[_T]:
-        ...
-
-    def __get__(self, obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
+    def __get__(self, _obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
         return cls.query_class(cls, session=cls.__fsa__.session())
 
 
