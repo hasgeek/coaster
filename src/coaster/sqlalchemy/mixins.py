@@ -30,6 +30,7 @@ from uuid import UUID, uuid4
 import typing as t
 
 from flask import Flask, current_app, url_for
+from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
@@ -56,7 +57,7 @@ from .comparators import (
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
-from .model import Query
+from .model import Query, QueryProperty
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
@@ -97,11 +98,10 @@ class IdMixin:
     """
 
     query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]]
-    __column_annotations__: dict
+    query: t.ClassVar[QueryProperty]
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database
-    __uuid_primary_key__ = False
+    __uuid_primary_key__: t.ClassVar[bool] = False
 
     @immutable
     @declared_attr
@@ -172,6 +172,8 @@ class UuidMixin:
     code.
     """
 
+    __uuid_primary_key__: t.ClassVar[bool]
+
     @immutable
     @with_roles(read={'all'})
     @declared_attr
@@ -238,9 +240,8 @@ class TimestampMixin:
     """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
     query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]]
+    query: t.ClassVar[QueryProperty]
     __with_timezone__: t.ClassVar[bool] = False
-    __column_annotations__: t.ClassVar[dict]
 
     @immutable
     @declared_attr
@@ -375,11 +376,13 @@ class UrlForMixin:
     #: strings. The same action can point to different endpoints in different apps. The
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
-    url_for_endpoints: t.Dict[t.Optional[Flask], t.Dict[str, UrlEndpointData]] = {
-        None: {}
-    }
+    url_for_endpoints: t.ClassVar[
+        t.Dict[t.Optional[Flask], t.Dict[str, UrlEndpointData]]
+    ] = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
-    view_for_endpoints: t.Dict[t.Optional[Flask], t.Dict[str, t.Tuple[t.Any, str]]] = {}
+    view_for_endpoints: t.ClassVar[
+        t.Dict[t.Optional[Flask], t.Dict[str, t.Tuple[t.Any, str]]]
+    ] = {}
 
     #: Dictionary of URLs available on this object
     urls = UrlDictStub()
@@ -578,12 +581,12 @@ class BaseNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: t.Collection[str] = []
+    reserved_names: t.ClassVar[t.Collection[str]] = []
     #: Allow blank names after all?
-    __name_blank_allowed__ = False
+    __name_blank_allowed__: t.ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.Optional[int] = 250
-    __title_length__: t.Optional[int] = 250
+    __name_length__: t.ClassVar[t.Optional[int]] = 250
+    __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
     def name(cls) -> Mapped[str]:
@@ -627,11 +630,7 @@ class BaseNameMixin(BaseMixin):
     @classmethod
     def get(cls, name: str) -> t.Optional[te.Self]:
         """Get an instance matching the name."""
-        # Mypy is confused by te.Self: Incompatible return value type
-        # (got "Optional[BaseNameMixin]", expected "Optional[Self]")  [return-value]
-        return cls.query.filter_by(  # type: ignore[return-value]
-            name=name
-        ).one_or_none()
+        return cls.query.filter_by(name=name).one_or_none()
 
     @classmethod
     def upsert(cls, name: str, **fields) -> te.Self:
@@ -722,15 +721,15 @@ class BaseScopedNameMixin(BaseMixin):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: t.Collection[str] = []
+    reserved_names: t.ClassVar[t.Collection[str]] = []
     #: Allow blank names after all?
-    __name_blank_allowed__ = False
+    __name_blank_allowed__: t.ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.Optional[int] = 250
-    __title_length__: t.Optional[int] = 250
+    __name_length__: t.ClassVar[t.Optional[int]] = 250
+    __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     #: Specify expected type for a 'parent' attr
-    parent: Mapped[t.Any]
+    parent: t.Any
 
     @declared_attr
     def name(cls) -> Mapped[str]:
@@ -767,9 +766,7 @@ class BaseScopedNameMixin(BaseMixin):
     @classmethod
     def get(cls, parent: t.Any, name: str) -> t.Optional[te.Self]:
         """Get an instance matching the parent and name."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, name=name
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, name=name).one_or_none()
 
     @classmethod
     def upsert(cls, parent: t.Any, name: str, **fields) -> te.Self:
@@ -886,10 +883,10 @@ class BaseIdNameMixin(BaseMixin):
     """
 
     #: Allow blank names after all?
-    __name_blank_allowed__ = False
+    __name_blank_allowed__: t.ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.Optional[int] = 250
-    __title_length__: t.Optional[int] = 250
+    __name_length__: t.ClassVar[t.Optional[int]] = 250
+    __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
     def name(cls) -> Mapped[str]:
@@ -992,7 +989,7 @@ class BaseScopedIdMixin(BaseMixin):
     """
 
     #: Specify expected type for a 'parent' attr
-    parent: Mapped[t.Any]
+    parent: t.Any
 
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
@@ -1012,9 +1009,7 @@ class BaseScopedIdMixin(BaseMixin):
     @classmethod
     def get(cls, parent: t.Any, url_id: t.Union[str, int]) -> t.Optional[te.Self]:
         """Get an instance matching the parent and url_id."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, url_id=url_id
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_id(self) -> None:
         """Create a new URL id that is unique to the parent container."""
@@ -1076,10 +1071,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     """
 
     #: Allow blank names after all?
-    __name_blank_allowed__ = False
+    __name_blank_allowed__: t.ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.Optional[int] = 250
-    __title_length__: t.Optional[int] = 250
+    __name_length__: t.ClassVar[t.Optional[int]] = 250
+    __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
     def name(cls) -> Mapped[str]:
@@ -1128,9 +1123,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     @classmethod
     def get(cls, parent: t.Any, url_id: t.Union[int, str]) -> t.Optional[te.Self]:
         """Get an instance matching the parent and name."""
-        return cls.query.filter_by(  # type: ignore[return-value]
-            parent=parent, url_id=url_id
-        ).one_or_none()
+        return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_name(self) -> None:
         """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
@@ -1230,10 +1223,8 @@ def _configure_uuid_listener(mapper: t.Any, class_: UuidMixin) -> None:
     auto_init_default(mapper.column_attrs.uuid)
 
 
-sa.event.listen(IdMixin, 'mapper_configured', _configure_id_listener, propagate=True)
-sa.event.listen(
-    UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate=True
-)
+event.listen(IdMixin, 'mapper_configured', _configure_id_listener, propagate=True)
+event.listen(UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate=True)
 
 
 # Populate name and url_id columns
@@ -1256,9 +1247,9 @@ def _make_scoped_id(
         target.make_id()  # type: ignore[unreachable]
 
 
-sa.event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)
-sa.event.listen(BaseIdNameMixin, 'before_insert', _make_name, propagate=True)
-sa.event.listen(BaseScopedIdMixin, 'before_insert', _make_scoped_id, propagate=True)
-sa.event.listen(BaseScopedNameMixin, 'before_insert', _make_scoped_name, propagate=True)
-sa.event.listen(BaseScopedIdNameMixin, 'before_insert', _make_scoped_id, propagate=True)
-sa.event.listen(BaseScopedIdNameMixin, 'before_insert', _make_name, propagate=True)
+event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)
+event.listen(BaseIdNameMixin, 'before_insert', _make_name, propagate=True)
+event.listen(BaseScopedIdMixin, 'before_insert', _make_scoped_id, propagate=True)
+event.listen(BaseScopedNameMixin, 'before_insert', _make_scoped_name, propagate=True)
+event.listen(BaseScopedIdNameMixin, 'before_insert', _make_scoped_id, propagate=True)
+event.listen(BaseScopedIdNameMixin, 'before_insert', _make_name, propagate=True)

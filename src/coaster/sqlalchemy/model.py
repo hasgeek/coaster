@@ -59,7 +59,6 @@ created.
 from __future__ import annotations
 
 from functools import wraps
-from typing import overload
 import datetime
 import typing as t
 import uuid
@@ -241,18 +240,10 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
     query_class = Query  # type: ignore[assignment]
 
 
-class QueryProperty(t.Generic[_T]):
+class QueryProperty:
     """A class property that creates a query object for a model."""
 
-    @overload
-    def __get__(self, obj: None, cls: t.Type[_T]) -> Query[_T]:
-        ...
-
-    @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> Query[_T]:
-        ...
-
-    def __get__(self, obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
+    def __get__(self, _obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
         return cls.query_class(cls, session=cls.__fsa__.session())
 
 
@@ -260,13 +251,14 @@ class ModelBase:
     """Flask-SQLAlchemy compatible base class that supports PEP 484 type hinting."""
 
     __fsa__: t.ClassVar[SQLAlchemy]
-    __bind_key__: t.Optional[str]
+    __bind_key__: t.ClassVar[t.Optional[str]]
     metadata: t.ClassVar[sa.MetaData]
     query_class: t.ClassVar[type[Query]] = Query
-    query: t.ClassVar[Query[te.Self]] = QueryProperty()  # type: ignore[assignment]
+    query: t.ClassVar[QueryProperty] = QueryProperty()
+    # Added by Coaster annotations
+    __column_annotations__: t.ClassVar[t.Dict[str, t.List[str]]]
+    __column_annotations_by_attr__: t.ClassVar[t.Dict[str, t.List[str]]]
 
-    # FIXME: Drop bind_key arg, Mypy cannot understand it when there's a missing import,
-    # including in pre-commit checks within this repository itself
     def __init_subclass__(cls) -> None:
         """Configure a declarative base class."""
         if ModelBase in cls.__bases__:
