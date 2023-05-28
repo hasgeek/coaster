@@ -638,8 +638,18 @@ class TestCoasterRoles(AppTestCase):
         proxy = rm.access_for(roles={'all'})
         assert proxy == {'id': None, 'name': 'test', 'title': 'Test', 'mixed_in2': None}
 
+    def test_proxy_class(self) -> None:
+        """The proxy should mimic the class of the wrapped object."""
+        rm = RoleModel(name='test', title='Test')
+        proxy = rm.access_for(roles={'all'})
+        proxy2 = rm.access_for(roles={'auth'})
+        assert proxy == rm
+        assert proxy == proxy2
+        assert proxy.__class__ is RoleModel
+        assert type(proxy) is RoleAccessProxy  # pylint: disable=unidiomatic-typecheck
+
     def test_bad_decorator(self) -> None:
-        """Prevent with_roles from being used with a positional parameter"""
+        """Prevent with_roles from being used with a positional parameter."""
         with pytest.raises(TypeError):
 
             @with_roles({'all'})  # type: ignore[operator]
