@@ -19,6 +19,7 @@ from coaster.sqlalchemy import (
     BaseNameMixin,
     BaseScopedNameMixin,
     LazyRoleSet,
+    relationship,
 )
 from coaster.utils import InspectableSet
 from coaster.views import (
@@ -37,7 +38,7 @@ from coaster.views import (
     viewdata,
 )
 
-from .conftest import db, sqlalchemy_uri
+from .conftest import Model, db, sqlalchemy_uri
 
 app = Flask(__name__)
 app.json = JSONProvider(app)
@@ -50,7 +51,7 @@ db.init_app(app)
 # --- Models ---------------------------------------------------------------------------
 
 
-class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
+class ViewDocument(BaseNameMixin, Model):
     __tablename__ = 'view_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
@@ -76,12 +77,12 @@ class ViewDocument(BaseNameMixin, db.Model):  # type: ignore[name-defined]
         return roles
 
 
-class ScopedViewDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-defined]
+class ScopedViewDocument(BaseScopedNameMixin, Model):
     __tablename__ = 'scoped_view_document'
     parent_id: Mapped[int] = sa.orm.mapped_column(
         sa.ForeignKey('view_document.id'), nullable=False
     )
-    view_document: Mapped[ViewDocument] = sa.orm.relationship(
+    view_document: Mapped[ViewDocument] = relationship(
         ViewDocument, backref=sa.orm.backref('children', cascade='all, delete-orphan')
     )
     parent = sa.orm.synonym('view_document')
@@ -93,7 +94,7 @@ class ScopedViewDocument(BaseScopedNameMixin, db.Model):  # type: ignore[name-de
         return 'scoped-doc'
 
 
-class RenameableDocument(BaseIdNameMixin, db.Model):  # type: ignore[name-defined]
+class RenameableDocument(BaseIdNameMixin, Model):
     __tablename__ = 'renameable_document'
     __uuid_primary_key__ = (
         False  # So that we can get consistent `1-<name>` url_name in tests
@@ -272,7 +273,7 @@ ModelDocumentView.init_app(app)
 class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
-    model = ScopedViewDocument
+    model = ScopedViewDocument  # type: ignore[assignment]
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
@@ -305,9 +306,9 @@ class MultiDocumentView(UrlForView, ModelView):
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
     def loader(self, doc1: str, doc2: str) -> t.Tuple[ViewDocument, RenameableDocument]:
-        doc1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
-        doc2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
-        return (doc1, doc2)
+        obj1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
+        obj2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
+        return (obj1, obj2)
 
     @route('')
     @requires_permission('view')

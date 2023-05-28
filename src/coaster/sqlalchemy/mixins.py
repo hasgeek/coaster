@@ -49,7 +49,6 @@ from ..utils import (
 )
 from ..utils.misc import _punctuation_re
 from .comparators import (
-    Query,
     SqlSplitIdComparator,
     SqlUuidB58Comparator,
     SqlUuidB64Comparator,
@@ -57,6 +56,7 @@ from .comparators import (
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
+from .model import Query
 from .registry import RegistryMixin
 from .roles import RoleMixin, with_roles
 
@@ -239,8 +239,8 @@ class TimestampMixin:
 
     query_class: t.ClassVar[t.Type[Query]] = Query
     query: t.ClassVar[Query[te.Self]]
-    __with_timezone__ = False
-    __column_annotations__: dict
+    __with_timezone__: t.ClassVar[bool] = False
+    __column_annotations__: t.ClassVar[dict]
 
     @immutable
     @declared_attr
@@ -699,7 +699,7 @@ class BaseScopedNameMixin(BaseMixin):
             organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'organizer.id'
             ))
-            organizer: Mapped[Organizer] = sa.orm.relationship(Organizer)
+            organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa.orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'name'),)
 
@@ -986,7 +986,7 @@ class BaseScopedIdMixin(BaseMixin):
         class Issue(BaseScopedIdMixin, db.Model):
             __tablename__ = 'issue'
             event_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('event.id'))
-            event: Mapped[Event] = sa.orm.relationship(Event)
+            event: Mapped[Event] = relationship(Event)
             parent = sa.orm.synonym('event')
             __table_args__ = (sa.UniqueConstraint('event_id', 'url_id'),)
     """
@@ -1053,7 +1053,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'organizer.id'
             ))
-            organizer: Mapped[Organizer] = sa.orm.relationship(Organizer)
+            organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa.orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'url_id'),)
 

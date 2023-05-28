@@ -3,6 +3,7 @@
 
 .. toctree::
 
+   model
    mixins
    columns
    functions

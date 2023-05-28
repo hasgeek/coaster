@@ -18,7 +18,7 @@ from coaster.auth import (
 )
 from coaster.sqlalchemy import BaseMixin
 
-from .conftest import db
+from .conftest import Model, db
 from .sqlalchemy_models_test import User
 
 # The unused imports above are present to mitigate a bug in sqlalchemy2-stubs for mypy
@@ -63,7 +63,7 @@ def models() -> SimpleNamespace:
     """Model fixtures."""
     # pylint: disable=possibly-unused-variable
 
-    class User(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class User(BaseMixin, Model):
         """Test user model."""
 
         __tablename__ = 'authenticated_user'
@@ -73,7 +73,7 @@ def models() -> SimpleNamespace:
         def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'
 
-    class AnonUser(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class AnonUser(BaseMixin, Model):
         """Test anonymous user model."""
 
         __tablename__ = 'anon_user'
@@ -84,7 +84,7 @@ def models() -> SimpleNamespace:
         def __repr__(self) -> str:
             return f'AnonUser(username={self.username!r}, fullname={self.fullname!r})'
 
-    class Client(BaseMixin, db.Model):  # type: ignore[name-defined]
+    class Client(BaseMixin, Model):
         """Test client model."""
 
         __tablename__ = 'client'

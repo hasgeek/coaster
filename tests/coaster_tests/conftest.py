@@ -11,7 +11,15 @@ from flask_sqlalchemy import SQLAlchemy
 import pytest
 import sqlalchemy as sa
 
-db = SQLAlchemy()
+from coaster.sqlalchemy import DeclarativeBase, ModelBase, Query
+
+
+class Model(ModelBase, DeclarativeBase):
+    """Model base class for test models."""
+
+
+db = SQLAlchemy(query_class=Query, metadata=Model.metadata)  # type: ignore[arg-type]
+Model.init_flask_sqlalchemy(db)
 
 
 # This is NOT a fixture

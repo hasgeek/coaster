@@ -359,13 +359,14 @@ def load_models(
                 if not isinstance(models, (list, tuple)):
                     models = (models,)
                 item = None
+                url_check = False
+                url_check_paramvalues = {}
                 for model in models:
                     query = model.query
-                    url_check = False
-                    url_check_paramvalues = {}
                     for k, v in attributes.items():
                         if callable(v):
-                            query = query.filter_by(**{k: v(result, kwargs)})
+                            val = v(result, kwargs)
+                            query = query.filter_by(**{k: val})
                         else:
                             if '.' in v:
                                 first, attrs = v.split('.', 1)
