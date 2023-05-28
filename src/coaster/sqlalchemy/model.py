@@ -264,9 +264,10 @@ class ModelBase:
     metadata: t.ClassVar[sa.MetaData]
     query_class: t.ClassVar[type[Query]] = Query
     query: t.ClassVar[QueryProperty] = QueryProperty()
+    # Added by Coaster annotations
+    __column_annotations__: t.ClassVar[t.Dict[str, t.List[str]]]
+    __column_annotations_by_attr__: t.ClassVar[t.Dict[str, t.List[str]]]
 
-    # FIXME: Drop bind_key arg, Mypy cannot understand it when there's a missing import,
-    # including in pre-commit checks within this repository itself
     def __init_subclass__(cls) -> None:
         """Configure a declarative base class."""
         if ModelBase in cls.__bases__:

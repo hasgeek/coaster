@@ -158,6 +158,7 @@ def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
             ):
                 data = attr.column._coaster_annotations
             elif hasattr(attr, '_coaster_annotations'):
+                # pylint: disable=protected-access
                 data = attr._coaster_annotations
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
