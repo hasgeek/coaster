@@ -187,8 +187,7 @@ def init_app(
     Loads settings from environment variables, Python files or JSON/YAML/TOML files,
     allowing for additional files and environment prefixes based on the ``FLASK_ENV``
     environment variable. Flask 2.3 drops support for ``FLASK_ENV``, but this function
-    continues to support it and will set the app's testing and debug flags accordingly.
-    Typical usage::
+    continues to support it. Typical usage::
 
         from flask import Flask
         import coaster.app
