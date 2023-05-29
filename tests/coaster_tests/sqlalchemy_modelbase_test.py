@@ -325,7 +325,7 @@ def test_relationship_query_class() -> None:
 
         __tablename__ = 'test_model'
         pkey: Mapped[int_pkey]
-        related: DynamicMapped[t.List[RelatedModel]] = relationship(
+        related: DynamicMapped[RelatedModel] = relationship(
             lazy='dynamic', back_populates='test'
         )
 
