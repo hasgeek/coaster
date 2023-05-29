@@ -177,7 +177,7 @@ class RelationshipParent(BaseNameMixin, Model):
     children_list: Mapped[t.List[RelationshipChild]] = relationship(
         RelationshipChild, back_populates='parent'
     )
-    children_list_lazy: DynamicMapped[t.List[RelationshipChild]] = relationship(
+    children_list_lazy: DynamicMapped[RelationshipChild] = relationship(
         RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
     )
     children_set: Mapped[t.MutableSet[RelationshipChild]] = relationship(
@@ -352,10 +352,10 @@ class MultiroleDocument(BaseMixin, Model):
     }
 
     # Grant via a query relationship
-    rel_lazy: DynamicMapped[t.List[RoleMembership]] = with_roles(
-        relationship(RoleMembership, lazy='dynamic', overlaps='doc'),
-        grants_via={RoleMembership.user: {'role2'}},
+    rel_lazy: DynamicMapped[RoleMembership] = relationship(
+        RoleMembership, lazy='dynamic', overlaps='doc'
     )
+    with_roles(rel_lazy, grants_via={RoleMembership.user: {'role2'}})
     # Grant via a list-like relationship
     rel_list: Mapped[t.List[RoleMembership]] = with_roles(
         relationship(RoleMembership, overlaps='doc,rel_lazy'),

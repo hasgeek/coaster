@@ -39,7 +39,7 @@ Replace with::
 
         # Coaster's relationship supplies a default query_class matching
         # Flask-SQLAlchemy's, with methods like first_or_404 and one_or_404
-        others: DynamicMapped[List['Other']] = relationship('Other', lazy='dynamic')
+        others: DynamicMapped[Other] = relationship('Other', lazy='dynamic')
 
     class MyBindModel(BindModel):
         __tablename__ = 'my_bind_model'
@@ -90,6 +90,7 @@ __all__ = [
     'jsonb',
     'Query',
     'QueryProperty',
+    'AppenderQuery',
     'ModelBase',
     'DeclarativeBase',
     'relationship',
