@@ -113,7 +113,6 @@ required_plugins = [
 minversion = '6.0'
 addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
-filterwarnings = ['ignore::DeprecationWarning', 'ignore::UserWarning']
 env = ['FLASK_ENV=testing']
 remote_data_strict = true
 
