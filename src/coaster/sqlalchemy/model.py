@@ -90,6 +90,7 @@ __all__ = [
     'jsonb',
     'Query',
     'QueryProperty',
+    'AppenderQuery',
     'ModelBase',
     'DeclarativeBase',
     'relationship',
