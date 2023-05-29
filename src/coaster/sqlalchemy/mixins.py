@@ -1126,7 +1126,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
     def make_name(self) -> None:
-        """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name)."""
+        """Autogenerate :attr:`name` from :attr:`title` (via :attr:`title_for_name`)."""
         if self.title:  # pylint: disable=using-constant-test
             self.name = make_name(
                 self.title_for_name, maxlength=self.__name_length__ or 250
