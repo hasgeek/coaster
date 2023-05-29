@@ -100,6 +100,77 @@ class TestCoasterApp(unittest.TestCase):
             "list": ["list", "in", "dict"],
         }
 
+    def test_init_app_config_env_custom_prefix(self) -> None:
+        """Test for config loaded from environment vars with a custom prefix."""
+        environ['APP_SETTINGS_STR'] = "env-var"
+        environ['APP_SETTINGS_QSTR'] = '"qenv-var"'
+        environ['APP_SETTINGS_INT'] = "2"
+        environ['APP_SETTINGS_FLOAT'] = "3.1"
+        environ['APP_SETTINGS_BOOL'] = "false"
+        environ['APP_SETTINGS_NONE'] = "null"
+        environ['APP_SETTINGS_DICT'] = '{"json": "dict"}'
+        environ['APP_SETTINGS_DICT__str'] = "string-in-dict"
+        environ['APP_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
+        init_app(self.app, ['env'], env_prefix='APP')
+        assert self.app.config['SETTINGS_STR'] == "env-var"
+        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_INT'] == 2
+        assert self.app.config['SETTINGS_FLOAT'] == 3.1
+        assert self.app.config['SETTINGS_BOOL'] is False
+        assert self.app.config['SETTINGS_NONE'] is None
+        assert self.app.config['SETTINGS_DICT'] == {
+            "json": "dict",
+            "str": "string-in-dict",
+            "list": ["list", "in", "dict"],
+        }
+
+    def test_init_app_config_env_overlapping_prefix(self) -> None:
+        """When using multiple env prefixes, they must not overlap."""
+        with pytest.raises(
+            ValueError, match="Env prefix FLASK_APP is overlapping an earlier prefix"
+        ):
+            init_app(self.app, env_prefix=['FLASK', 'FLASK_APP'])
+        with pytest.raises(
+            ValueError, match="Env prefix FLASK is overlapping an earlier prefix"
+        ):
+            init_app(self.app, env_prefix=['FLASK_APP', 'FLASK'])
+        # No error because no overlap when an underscore is suffixed
+        init_app(self.app, env_prefix=['FLASK', 'FLASKAPP'])
+
+    def test_init_app_config_env_multi_prefix(self) -> None:
+        """Test for config loaded from environment vars with multiple prefixes."""
+        environ['FLASK_SETTINGS_STR'] = "env-var"
+        environ['FLASK_SETTINGS_QSTR'] = '"qenv-var"'
+        environ['FLASK_SETTINGS_INT'] = "2"
+        environ['APP_SETTINGS_INT'] = "3"
+        environ['FLASK_SETTINGS_FLOAT'] = "3.1"
+        environ['FLASK_SETTINGS_BOOL'] = "false"
+        environ['FLASK_SETTINGS_NONE'] = "null"
+        environ['FLASK_SETTINGS_DICT'] = '{"json": "dict"}'
+        environ['FLASK_SETTINGS_DICT__str'] = "string-in-dict"
+        environ['FLASK_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
+        environ['APP_SETTINGS_DICT__int'] = "3"
+        init_app(self.app, ['env'], env_prefix=['FLASK', 'APP'])
+        assert self.app.config['SETTINGS_STR'] == "env-var"
+        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_INT'] == 3
+        assert self.app.config['SETTINGS_FLOAT'] == 3.1
+        assert self.app.config['SETTINGS_BOOL'] is False
+        assert self.app.config['SETTINGS_NONE'] is None
+        assert self.app.config['SETTINGS_DICT'] == {
+            "json": "dict",
+            "str": "string-in-dict",
+            "list": ["list", "in", "dict"],
+            "int": 3,
+        }
+
+    def test_init_app_config_unknown_type(self) -> None:
+        """Config must use one of the known types."""
+        with pytest.raises(
+            ValueError, match="exotic is not a recognized type of config"
+        ):
+            init_app(self.app, ['exotic'])  # type: ignore[list-item]
+
     def test_logging_handler(self) -> None:
         """Test that a logging handler is installed."""
         load_config_from_file(self.another_app, 'testing.py')
@@ -185,6 +256,13 @@ def test_key_rotation_wrapper() -> None:
         KeyRotationWrapper(
             itsdangerous.URLSafeSerializer, 'secret_key'  # type: ignore[arg-type]
         )
+
+    # If KeyRotationWrapper somehow loses its engines, we'll get a RuntimeError instead
+    # of BadSignature:
+    loads = serializer1a.loads
+    serializer1a._engines = []  # pylint: disable=protected-access
+    with pytest.raises(RuntimeError):
+        loads(out1)
 
 
 def test_app_key_rotation() -> None:

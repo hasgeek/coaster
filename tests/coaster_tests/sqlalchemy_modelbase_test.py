@@ -352,7 +352,7 @@ def test_backref_query_class() -> None:
         __tablename__ = 'test_model'
         pkey: Mapped[int_pkey]
 
-    class RelatedModel(Model):  # pylint: disable=unused-variable # skipcq: PTC-W0065
+    class RelatedModel(Model):  # pylint: disable=unused-variable  # skipcq: PTC-W0065
         """Related model."""
 
         __tablename__ = 'related_model'

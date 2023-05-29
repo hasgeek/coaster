@@ -16,6 +16,7 @@ from flask import Flask
 from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
 import itsdangerous
+import typing_extensions as te
 
 from . import logger
 from .auth import current_auth
@@ -91,6 +92,9 @@ if mod_yaml is not None:
 _S = t.TypeVar('_S', bound=itsdangerous.Serializer)
 
 
+_sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engines.")
+
+
 class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
     """
     Wrapper to support multiple secret keys in itsdangerous.
@@ -123,12 +127,14 @@ class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-metho
 
     def _make_wrapper(self, attr: str) -> t.Callable:
         def wrapper(*args: t.Any, **kwargs: t.Any) -> t.Any:
+            saved_exc: Exception = _sentinel_keyrotation_exception
             for engine in self._engines:
                 try:
                     return getattr(engine, attr)(*args, **kwargs)
                 except itsdangerous.BadSignature as exc:
                     saved_exc = exc
-            # We've run out of engines.
+            # We've run out of engines and all of them reported BadSignature.
+            # If there were no engines, the sentinel RuntimeError exception is used
             raise saved_exc
 
         return wrapper
@@ -169,34 +175,53 @@ class JSONProvider(DefaultJSONProvider):
 
 
 def init_app(
-    app: Flask, config: t.Optional[t.List[str]] = None, init_logging: bool = True
+    app: Flask,
+    config: t.Optional[t.List[te.Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
+    *,
+    env_prefix: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+    init_logging: bool = True,
 ) -> None:
     """
-    Configure an app depending on the environment.
+    Configure an app depending on the runtime environment.
 
-    Loads settings from a file named ``settings.py`` in the instance folder, followed
-    by additional settings from one of ``development.py``, ``production.py`` or
-    ``testing.py``. Can also load from JSON, TOML or YAML files if requested. Typical
-    usage::
+    Loads settings from environment variables, Python files or JSON/YAML/TOML files,
+    allowing for additional files and environment prefixes based on the ``FLASK_ENV``
+    environment variable. Flask 2.3 drops support for ``FLASK_ENV``, but this function
+    continues to support it. Typical usage::
 
         from flask import Flask
         import coaster.app
 
         app = Flask(__name__, instance_relative_config=True)
         # Any one of the following lines. Runtime environment will be as per FLASK_ENV
-        coaster.app.init_app(app)  # Load config from Python files
+        coaster.app.init_app(app)  # Load config from environment and Python files
         coaster.app.init_app(app, config=['json'])  # Load config from JSON files
         coaster.app.init_app(app, config=['toml'])  # Load config from TOML files
         coaster.app.init_app(app, config=['yaml'])  # Load config from YAML files
         coaster.app.init_app(app, config=['py', 'toml'])  # Both Python & TOML config
+        coaster.app.init_app(app, config=['env'], env_prefix=['FLASK', 'FLASK_EXTRA'])
+
+    When using the file loaders, additional files named ``testing.*``, ``development.*``
+    or ``production.*`` will be loaded depending on the value of ``FLASK_ENV``.
 
     :func:`init_app` also configures logging by calling
-    :func:`coaster.logger.init_app`.
+    :func:`coaster.logger.init_app` unless ``init_logging`` is False.
 
     :param app: App to be configured
-    :param config: Types of config files, one or more of of ``py`` (default), ``json``,
+    :param config: Types of config sources, one or more of of ``env``, ``py``, ``json``,
         ``toml`` and ``yaml``
     :param bool init_logging: Call `coaster.logger.init_app` (default `True`)
+
+    .. note::
+        YAML support requires PyYAML_. TOML requires toml_ with Flask 2.2, or tomli_
+        with Flask 2.3, or Python's inbuilt tomllib_ with Flask 2.3 and Python 3.11.
+        tomli_ and tomllib_ are not compatible with Flask 2.2 as they require the file
+        to be opened in binary mode, an optional flag introduced in Flask 2.3.
+
+    .. _PyYAML: https://pypi.org/project/PyYAML/
+    .. _toml: https://pypi.org/project/toml/
+    .. _tomli: https://pypi.org/project/tomli/
+    .. _tomllib: https://docs.python.org/3/library/tomllib.html
     """
     if not config:
         config = ['env', 'py']
@@ -215,7 +240,25 @@ def init_app(
     # Load config from the app's settings[.py]
     for config_option in config:
         if config_option == 'env':
-            app.config.from_prefixed_env()  # type: ignore[attr-defined]
+            if env_prefix is None:
+                # Use Flask's default env prefix
+                app.config.from_prefixed_env()  # type: ignore[attr-defined]
+            elif isinstance(env_prefix, str):
+                # Use the app's requested env prefix
+                app.config.from_prefixed_env(env_prefix)  # type: ignore[attr-defined]
+            else:
+                # Load config for each of the requested prefixes, checking for overlaps
+                # in prefix names
+                used_prefixes: t.Set[str] = set()
+                for prefix in env_prefix:
+                    if any(
+                        prefix.startswith(used + '_') for used in used_prefixes
+                    ) or any(used.startswith(prefix + '_') for used in used_prefixes):
+                        raise ValueError(
+                            f"Env prefix {prefix} is overlapping an earlier prefix"
+                        )
+                    app.config.from_prefixed_env(prefix)  # type: ignore[attr-defined]
+                    used_prefixes.add(prefix)
         elif config_option not in _config_loaders:
             raise ValueError(f"{config_option} is not a recognized type of config")
         else:
