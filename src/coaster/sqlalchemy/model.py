@@ -70,6 +70,7 @@ from flask_sqlalchemy.pagination import Pagination, QueryPagination
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Query as QueryBase
+from sqlalchemy.orm import backref as backref_base
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship as relationship_base
 from sqlalchemy.orm.dynamic import AppenderMixin
@@ -88,9 +89,11 @@ __all__ = [
     'timestamp_now',
     'jsonb',
     'Query',
+    'QueryProperty',
     'ModelBase',
     'DeclarativeBase',
     'relationship',
+    'backref',
 ]
 
 
@@ -377,3 +380,4 @@ def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
 #: Wrap :func:`~sqlalchemy.orm.relationship` to insert a default query_class compatible
 #: with Flask-SQLAlchemy's
 relationship = _create_relationship_wrapper(relationship_base)
+backref = _create_relationship_wrapper(backref_base)

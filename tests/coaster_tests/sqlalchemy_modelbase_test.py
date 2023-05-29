@@ -16,6 +16,7 @@ from coaster.sqlalchemy import (
     ModelBase,
     ModelWarning,
     Query,
+    backref,
     int_pkey,
     relationship,
 )
@@ -337,6 +338,32 @@ def test_relationship_query_class() -> None:
         test: Mapped[TestModel] = relationship(back_populates='related')
 
     assert isinstance(TestModel().related, Query)
+
+
+def test_backref_query_class() -> None:
+    """Relationships via backref get Coaster's Query."""
+
+    class Model(ModelBase, DeclarativeBase):
+        """Test Model base."""
+
+    class TestModel(Model):
+        """Test model."""
+
+        __tablename__ = 'test_model'
+        pkey: Mapped[int_pkey]
+
+    class RelatedModel(Model):  # pylint: disable=unused-variable # skipcq: PTC-W0065
+        """Related model."""
+
+        __tablename__ = 'related_model'
+        pkey: Mapped[int_pkey]
+        test_id: Mapped[int] = mapped_column(sa.ForeignKey('test_model.pkey'))
+        with pytest.warns(ModelWarning):
+            test: Mapped[TestModel] = relationship(
+                backref=backref('related', lazy='dynamic')
+            )
+
+    assert isinstance(TestModel().related, Query)  # type: ignore[attr-defined]
 
 
 def test_backref_warning() -> None:
