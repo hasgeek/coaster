@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'coaster'
-copyright = '2012-22, Hasgeek'  # pylint: disable=W0622
+copyright = '2010-23, Hasgeek'  # pylint: disable=W0622
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -96,7 +96,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'alabaster'
+html_theme = 'furo'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -134,17 +134,6 @@ html_static_path = ['_static']
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
 # html_use_smartypants = True
-
-# Custom sidebar templates, maps document names to template names.
-html_sidebars = {
-    '**': [
-        'about.html',
-        'navigation.html',
-        'relations.html',
-        'searchbox.html',
-        'donate.html',
-    ]
-}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -257,8 +246,11 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-    'https://docs.python.org/3/': None,
-    'https://flask.palletsprojects.com/en/2.3.x/': None,
-    'http://docs.sqlalchemy.org/en/20/': None,
-    'https://flask-sqlalchemy.palletsprojects.com/en/3.0.x/': None,
+    'python': ('https://docs.python.org/3/', None),
+    'flask': ('https://flask.palletsprojects.com/en/2.3.x/', None),
+    'sqlalchemy': ('http://docs.sqlalchemy.org/en/20/', None),
+    'flask-sqlalchemy': (
+        'https://flask-sqlalchemy.palletsprojects.com/en/3.0.x/',
+        None,
+    ),
 }
