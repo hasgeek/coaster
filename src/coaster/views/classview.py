@@ -868,8 +868,8 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                     reg_options.setdefault('subdomain', state.subdomain)
                 else:
                     reg_options = options
-                reg_endpoint = (
-                    f'{state.name_prefix}.{state.name}' f'.{endpoint}'.lstrip('.')
+                reg_endpoint = f'{state.name_prefix}.{state.name}.{endpoint}'.lstrip(
+                    '.'
                 )
                 register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
 
