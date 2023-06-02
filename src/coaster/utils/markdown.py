@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from html import unescape
-from typing import overload
+from typing import cast, overload
 from xml.etree.ElementTree import Element  # nosec B405
 import typing as t
 
@@ -47,7 +47,7 @@ __all__ = [
 # --- Constants ------------------------------------------------------------------------
 
 MARKDOWN_HTML_TAGS = deepcopy(VALID_TAGS)
-t.cast(t.Dict, MARKDOWN_HTML_TAGS).update(
+cast(t.Dict, MARKDOWN_HTML_TAGS).update(
     {
         # For tables:
         'table': ['align', 'bgcolor', 'border', 'cellpadding', 'cellspacing', 'width'],
@@ -222,14 +222,14 @@ def markdown(
                     output_format='html',
                     extensions=extensions,
                     extension_configs=extension_configs,
-                ).convert(t.cast(str, text)),
+                ).convert(cast(str, text)),
                 valid_tags=valid_tags,
                 linkify=linkify,
             )
         )
     output = Markdown(
         output_format='html', extensions=extensions, extension_configs=extension_configs
-    ).convert(t.cast(str, text))
+    ).convert(cast(str, text))
     if linkify:
         output = linkify_processor(
             output,

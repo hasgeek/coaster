@@ -228,7 +228,7 @@ direct state value changes:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import overload
+from typing import cast, overload
 import functools
 import typing as t
 
@@ -402,7 +402,7 @@ class ManagedState:
 
         cv = self.class_validator
         if cv is None:
-            cv = t.cast(
+            cv = cast(
                 t.Optional[t.Callable[[t.Type], sa.ColumnElement[bool]]],
                 self.validator,
             )
@@ -442,7 +442,7 @@ class ManagedStateGroup:
 
         if t.TYPE_CHECKING:
             # Tell Mypy that we only have ManagedState in the list now
-            states = t.cast(t.Iterable[ManagedState], states)
+            states = cast(t.Iterable[ManagedState], states)
 
         # Second, separate conditional from regular states (regular states may still be
         # grouped states)

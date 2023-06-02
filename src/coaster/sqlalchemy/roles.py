@@ -131,7 +131,7 @@ from abc import ABCMeta, abstractmethod
 from collections import abc
 from copy import deepcopy
 from itertools import chain
-from typing import overload
+from typing import cast, overload
 import dataclasses
 import operator
 import typing as t
@@ -1443,20 +1443,20 @@ def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
             elif isinstance(attr, MappedColumn) and hasattr(
                 attr.column, '_coaster_roles'
             ):
-                data = t.cast(WithRoles, attr.column._coaster_roles)
+                data = cast(WithRoles, attr.column._coaster_roles)
             elif hasattr(attr, '_coaster_roles'):
                 # pylint: disable=protected-access
-                data = t.cast(WithRoles, attr._coaster_roles)
+                data = cast(WithRoles, attr._coaster_roles)
             elif isinstance(
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
                 if attr.property in __cache__:
-                    data = t.cast(WithRoles, __cache__[attr.property])
+                    data = cast(WithRoles, __cache__[attr.property])
                 elif '_coaster_roles' in attr.info:
-                    data = t.cast(WithRoles, attr.info['_coaster_roles'])
+                    data = cast(WithRoles, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):
                     # pylint: disable=protected-access
-                    data = t.cast(WithRoles, attr.property._coaster_roles)
+                    data = cast(WithRoles, attr.property._coaster_roles)
                 else:
                     data = None
             else:

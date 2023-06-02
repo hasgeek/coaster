@@ -1,6 +1,7 @@
 """Test classviews."""
 # pylint: disable=comparison-with-callable
 
+from typing import cast
 import typing as t
 import unittest
 
@@ -381,7 +382,7 @@ class TestClassView(unittest.TestCase):
     ctx: RequestContext
 
     def setUp(self) -> None:
-        self.ctx = t.cast(RequestContext, self.app.test_request_context())
+        self.ctx = cast(RequestContext, self.app.test_request_context())
         self.ctx.push()
         db.create_all()
         self.session = db.session

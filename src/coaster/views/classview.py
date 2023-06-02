@@ -8,8 +8,7 @@ Group related views into a class for easier management.
 from __future__ import annotations
 
 from functools import partial, update_wrapper, wraps
-from types import SimpleNamespace
-from typing import overload
+from typing import cast, overload
 import asyncio
 import typing as t
 
@@ -92,22 +91,13 @@ class ViewFuncProtocol(te.Protocol):  # pylint: disable=too-few-public-methods
 
 # --- Class views and utilities --------------------------------------------------------
 
-#: A proxy object that holds the currently executing :class:`ClassView` instance,
-#: for use in templates as context. Exposed to templates by
-#: :func:`coaster.app.init_app`. Note that the current view handler method within the
-#: class is named :attr:`~current_view.current_handler`, so to examine it, use
-#: :attr:`current_view.current_handler`.
-current_view = LocalProxy(
-    lambda: getattr(g, '_current_view', None) if has_app_context() else None
-)
-
 
 def _get_arguments_from_rule(
     rule: str, endpoint: str, options: t.Dict[str, t.Any], url_map: WzMap
 ) -> t.List[str]:
     """Get arguments from a URL rule."""
     obj = WzRule(rule, endpoint=endpoint, **options)
-    obj.bind(SimpleNamespace(**url_map.__dict__))
+    obj.bind(url_map)
     return list(obj.arguments)
 
 
@@ -189,7 +179,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         r = type(self)(None)
         r.routes = self.routes
         r.data = self.data
-        return t.cast(te.Self, r(f))
+        return cast(te.Self, r(f))
 
     def copy_for_subclass(self) -> te.Self:
         """Make a copy of this ViewHandler, for use in a subclass."""
@@ -287,7 +277,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         """
 
         def view_func(**view_args) -> BaseResponse:
-            this = t.cast(ViewFuncProtocol, view_func)
+            this = cast(ViewFuncProtocol, view_func)
             # view_func does not make any reference to variables from init_app to avoid
             # creating a closure. Instead, the code further below sticks all relevant
             # variables into view_func's namespace.
@@ -799,7 +789,7 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
         use_wrapper = async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
         use_wrapper.requires_roles = roles  # type: ignore[attr-defined]
         use_wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return t.cast(tc.WrappedFunc, use_wrapper)
+        return cast(tc.WrappedFunc, use_wrapper)
 
     return decorator
 
@@ -827,7 +817,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             rule: str,
             endpoint: str,
             view_func: t.Callable,
-            **options: t.Dict[str, t.Any],
+            **options: t.Any,
         ) -> None:
             def register_paths_from_app(
                 reg_app: Flask,
@@ -842,14 +832,14 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 )
                 # Make a subset of cls.route_model_map with the required variables
                 params = {
-                    v: t.cast(t.Type[ModelView], cls).route_model_map[v]
+                    v: cast(t.Type[ModelView], cls).route_model_map[v]
                     for v in rulevars
-                    if v in t.cast(t.Type[ModelView], cls).route_model_map
+                    if v in cast(t.Type[ModelView], cls).route_model_map
                 }
                 # Register endpoint with the view function's name, endpoint name and
                 # parameters
-                t.cast(
-                    t.Type[UrlForMixin], t.cast(t.Type[ModelView], cls).model
+                cast(
+                    t.Type[UrlForMixin], cast(t.Type[ModelView], cls).model
                 ).register_endpoint(
                     action=view_func.__name__,
                     endpoint=reg_endpoint,
@@ -857,8 +847,8 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                     roles=getattr(view_func, 'requires_roles', None),
                     paramattrs=params,
                 )
-                t.cast(
-                    t.Type[UrlForMixin], t.cast(t.Type[ModelView], cls).model
+                cast(
+                    t.Type[UrlForMixin], cast(t.Type[ModelView], cls).model
                 ).register_view_for(
                     app=reg_app,
                     action=view_func.__name__,
@@ -879,8 +869,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 else:
                     reg_options = options
                 reg_endpoint = (
-                    f'{state.name_prefix}.{state.name}'  # type: ignore[attr-defined]
-                    f'.{endpoint}'.lstrip('.')
+                    f'{state.name_prefix}.{state.name}' f'.{endpoint}'.lstrip('.')
                 )
                 register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
 
@@ -963,7 +952,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
             return retval
         return await f(self, *args, **kwargs)
 
-    return t.cast(
+    return cast(
         tc.WrappedFunc, async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
     )
 
@@ -1055,3 +1044,18 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
             obj = query.one_or_404()
             return obj
         return None
+
+
+# --- Proxy ----------------------------------------------------------------------------
+
+#: A proxy object that holds the currently executing :class:`ClassView` instance,
+#: for use in templates as context. Exposed to templates by
+#: :func:`coaster.app.init_app`. Note that the current view handler method within the
+#: class is named :attr:`~current_view.current_handler`, so to examine it, use
+#: :attr:`current_view.current_handler`.
+current_view = cast(
+    ClassView,
+    LocalProxy(
+        lambda: getattr(g, '_current_view', None) if has_app_context() else None
+    ),
+)

@@ -3,6 +3,7 @@ import unittest
 
 from flask import Flask, Response, jsonify
 from jinja2 import TemplateNotFound
+from werkzeug.wrappers import Response as BaseResponse
 import pytest
 
 from coaster.views import render_with
@@ -12,15 +13,15 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: t.Dict[str, str]) -> Response:
+def viewcallable(data: t.Dict[str, str]) -> BaseResponse:
     return Response(repr(data), mimetype='text/plain')
 
 
-def anycallable(data):
+def anycallable(data) -> BaseResponse:
     return Response(repr(data), mimetype='*/*')
 
 
-def returns_string(data):
+def returns_string(data) -> str:
     return f"Not of Response: {data!r}"
 
 
@@ -73,7 +74,7 @@ def view_for_star() -> t.Tuple[dict, int]:
 class TestLoadModels(unittest.TestCase):
     def setUp(self) -> None:
         app.testing = True
-        self.app = app.test_client()
+        self.client = app.test_client()
 
     def test_render(self) -> None:
         """Test rendered views."""
@@ -82,7 +83,7 @@ class TestLoadModels(unittest.TestCase):
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the
         # missing template is the one that was supposed to be rendered.
         try:
-            rv = self.app.get('/renderedview1')
+            rv = self.client.get('/renderedview1')
         except TemplateNotFound as e:
             assert str(e) == 'renderedview1.html'
         else:
@@ -97,7 +98,9 @@ class TestLoadModels(unittest.TestCase):
             ),
         ]:
             try:
-                rv = self.app.get('/renderedview2', headers=[('Accept', acceptheader)])
+                rv = self.client.get(
+                    '/renderedview2', headers=[('Accept', acceptheader)]
+                )
             except TemplateNotFound as e:
                 assert str(e) == template
             else:
@@ -107,20 +110,20 @@ class TestLoadModels(unittest.TestCase):
 
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.
-        response = self.app.get(
+        response = self.client.get(
             '/renderedview2', headers=[('Accept', 'application/json')]
         )
-        assert isinstance(response, Response)
+        assert isinstance(response, BaseResponse)
         assert response.mimetype == 'application/json'
         with app.test_request_context():
             # jsonify needs a request context
             assert response.data == jsonify({"data": "value"}).data
-        response = self.app.get('/renderedview2', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, Response)
+        response = self.client.get('/renderedview2', headers=[('Accept', 'text/plain')])
+        assert isinstance(response, BaseResponse)
         assert response.data.decode('utf-8') == "{'data': 'value'}"
-        response = self.app.get('/renderedview3', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, Response)
-        resp = self.app.get('/renderedview4', headers=[('Accept', 'text/plain')])
+        response = self.client.get('/renderedview3', headers=[('Accept', 'text/plain')])
+        assert isinstance(response, BaseResponse)
+        resp = self.client.get('/renderedview4', headers=[('Accept', 'text/plain')])
         assert resp.headers['Referrer'] == "http://example.com"
         # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])
         # self.assertEqual(resp.status_code, 201)

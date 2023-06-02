@@ -5,7 +5,7 @@ Helper functions
 
 from __future__ import annotations
 
-from typing import overload
+from typing import cast, overload
 import typing as t
 
 from sqlalchemy.ext.compiler import compiles
@@ -178,8 +178,8 @@ def add_primary_relationship(
         that refers back to the parent model
     :return: Secondary table that was created
     """
-    parent_table_name = t.cast(str, parent.__tablename__)
-    child_table_name = t.cast(str, child.__tablename__)
+    parent_table_name = cast(str, parent.__tablename__)
+    child_table_name = cast(str, child.__tablename__)
     primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
     parent_id_columns = [
         c.name for c in sa.inspect(parent).primary_key  # type: ignore[union-attr]
@@ -208,7 +208,7 @@ def add_primary_relationship(
             )
             for name in child_id_columns
         ]
-        + t.cast(
+        + cast(
             t.List[sa.Column],
             list(
                 make_timestamp_columns(
