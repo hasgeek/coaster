@@ -1,3 +1,6 @@
+"""Tests for endpoint_for view helper."""
+
+from typing import cast
 import typing as t
 import unittest
 
@@ -7,7 +10,7 @@ from flask.ctx import RequestContext
 from coaster.views import endpoint_for
 
 
-def view():
+def view() -> str:
     return "view"
 
 
@@ -26,7 +29,7 @@ class TestScaffolding(unittest.TestCase):
         if self.server_name:
             self.app.config['SERVER_NAME'] = self.server_name
 
-        self.ctx = t.cast(RequestContext, self.app.test_request_context())
+        self.ctx = cast(RequestContext, self.app.test_request_context())
         self.ctx.push()
 
     def tearDown(self) -> None:

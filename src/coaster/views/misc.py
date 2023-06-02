@@ -9,6 +9,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
+from typing import cast
 from urllib.parse import urlsplit
 import asyncio
 import re
@@ -18,7 +19,7 @@ from flask import Response, current_app, json, request
 from flask import session as request_session
 from flask import url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
-from werkzeug.routing import RequestRedirect
+from werkzeug.routing import MapAdapter, RequestRedirect, Rule
 
 try:  # pragma: no cover
     from asgiref.sync import async_to_sync
@@ -81,7 +82,7 @@ def get_current_url() -> str:
         return request.url
 
     url = (
-        url_for(request.endpoint, **request.view_args)
+        url_for(request.endpoint, **(request.view_args or {}))
         if request.endpoint is not None  # Will be None in a 404 handler
         else request.url
     )
@@ -149,7 +150,7 @@ def endpoint_for(
     method: t.Optional[str] = None,
     return_rule: bool = False,
     follow_redirects: bool = True,
-) -> t.Tuple[t.Optional[str], t.Dict[str, t.Any]]:  # TODO: Union for rule in return
+) -> t.Tuple[t.Optional[t.Union[Rule, str]], t.Dict[str, t.Any]]:
     """
     Retrieve endpoint or rule and view arguments given an absolute URL.
 
@@ -175,7 +176,7 @@ def endpoint_for(
     # Create a new request with this environment...
     url_request = current_app.request_class(environ)
     # ...and a URL adapter with the new request.
-    url_adapter = current_app.create_url_adapter(url_request)
+    url_adapter = cast(MapAdapter, current_app.create_url_adapter(url_request))
 
     # Run three hostname tests, one of which must pass:
 
@@ -202,7 +203,9 @@ def endpoint_for(
 
     # Now retrieve the endpoint or rule, watching for redirects or resolution failures
     try:
-        return url_adapter.match(parsed_url.path, method, return_rule=return_rule)
+        return url_adapter.match(  # type: ignore[call-overload]
+            parsed_url.path, method, return_rule=return_rule
+        )
     except RequestRedirect as r:
         # A redirect typically implies `/folder` -> `/folder/`
         # This will not be a redirect response from a view, since the view isn't being
@@ -223,7 +226,7 @@ def endpoint_for(
 def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
     """Help use Flask's ensure_sync outside a request context."""
     if current_app:
-        return current_app.ensure_sync(func)
+        return cast(tc.WrappedFunc, current_app.ensure_sync(func))
 
     if not asyncio.iscoroutinefunction(func):
         return func
@@ -231,7 +234,7 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
     if async_to_sync is not None:
         return async_to_sync(func)  # type: ignore[return-value]
 
-    return t.cast(  # type: ignore[unreachable]
+    return cast(  # type: ignore[unreachable]
         tc.WrappedFunc,
         lambda *args, **kwargs: (asyncio.run(func(*args, **kwargs))),
     )

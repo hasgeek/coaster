@@ -218,7 +218,7 @@ class LocalVarFormatter(logging.Formatter):
             print('\n----------\n', file=sio)  # noqa: T201
             print("Session cookie contents:", file=sio)  # noqa: T201
             try:
-                pprint_with_indent(session, sio)
+                pprint_with_indent(dict(session), sio)
             except Exception:  # noqa: B902  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
 

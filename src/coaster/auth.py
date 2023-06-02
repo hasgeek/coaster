@@ -20,6 +20,7 @@ request processing.
 from __future__ import annotations
 
 from threading import Lock
+from typing import cast
 import typing as t
 
 from flask import Flask, current_app, g, request
@@ -284,4 +285,4 @@ def _get_current_auth() -> CurrentAuth:
 #:             return "We have a user"
 #:         else:
 #:             return "User not logged in"
-current_auth: CurrentAuth = t.cast(CurrentAuth, LocalProxy(_get_current_auth))
+current_auth: CurrentAuth = cast(CurrentAuth, LocalProxy(_get_current_auth))

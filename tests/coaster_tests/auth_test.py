@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 from types import SimpleNamespace
+from typing import cast
 import typing as t
 
 from flask import Flask, g, has_request_context, render_template_string
@@ -30,7 +31,7 @@ class LoginManager:  # pylint: disable=too-few-public-methods
     """Test login manager implementing _load_user method."""
 
     def __init__(self, _app: Flask) -> None:
-        _app.login_manager = self
+        _app.login_manager = self  # type: ignore[attr-defined]
         self.user: t.Optional[User] = None
 
     def set_user_for_testing(self, user: User, load: bool = False) -> None:
@@ -99,20 +100,20 @@ def models() -> SimpleNamespace:
 def login_manager(app: Flask) -> t.Iterator[LoginManager]:
     """Login manager fixture."""
     yield LoginManager(app)
-    del app.login_manager
+    del app.login_manager  # type: ignore[attr-defined]
 
 
 @pytest.fixture()
 def flask_login_manager(app: Flask) -> t.Iterator[FlaskLoginManager]:
     """Flask-Login style login manager fixture."""
     yield FlaskLoginManager(app)
-    del app.login_manager
+    del app.login_manager  # type: ignore[attr-defined]
 
 
 @pytest.fixture()
 def request_ctx(app: Flask) -> t.Iterator:
     """Request context with database models."""
-    ctx = t.cast(RequestContext, app.test_request_context())
+    ctx = cast(RequestContext, app.test_request_context())
     ctx.push()
     db.create_all()
     yield ctx

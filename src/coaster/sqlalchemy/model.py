@@ -59,6 +59,7 @@ created.
 from __future__ import annotations
 
 from functools import wraps
+from typing import cast
 import datetime
 import typing as t
 import uuid
@@ -289,7 +290,7 @@ class ModelBase:
         for base in cls.mro():
             if ModelBase in base.__bases__:
                 # We've found the direct subclass of ModelBase...
-                base = t.cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet
+                base = cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet
                 if base.__bind_key__ == bind_key:
                     # There's a match. All good. Stop iterating through bases
                     break

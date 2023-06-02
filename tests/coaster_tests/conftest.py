@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name
 
 from os import environ
-import typing as t
+from typing import cast
 import unittest
 
 from flask import Flask
@@ -57,10 +57,10 @@ class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
 
     def setUp(self) -> None:
         """Prepare test context."""
-        self.ctx = t.cast(RequestContext, self.app.test_request_context())
+        self.ctx = cast(RequestContext, self.app.test_request_context())
         self.ctx.push()
         db.create_all()
-        self.session = t.cast(sa.orm.Session, db.session)
+        self.session = cast(sa.orm.Session, db.session)
         # SQLAlchemy doesn't fire mapper_configured events until the first time a
         # mapping is used
         db.configure_mappers()

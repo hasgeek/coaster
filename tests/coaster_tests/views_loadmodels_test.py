@@ -311,9 +311,9 @@ class TestLoadModels(AppTestCase):
 
     @pytest.mark.flaky()
     def test_container(self) -> None:
-        assert self.app.login_manager is not None
+        assert self.app.login_manager is not None  # type: ignore[attr-defined]
         with self.app.test_request_context():
-            self.app.login_manager.set_user_for_testing(
+            self.app.login_manager.set_user_for_testing(  # type: ignore[attr-defined]
                 User(username='test'), load=True
             )
             assert t_container(container='c') == self.container
@@ -449,7 +449,9 @@ class TestLoadModels(AppTestCase):
     @pytest.mark.flaky()
     def test_loadmodel_permissions(self) -> None:
         with self.app.test_request_context():
-            self.app.login_manager.set_user_for_testing(User(username='foo'), load=True)
+            self.app.login_manager.set_user_for_testing(  # type: ignore[attr-defined]
+                User(username='foo'), load=True
+            )
             assert t_dotted_document_view(document='parent', child=1) == self.child1
             assert t_dotted_document_edit(document='parent', child=1) == self.child1
             with pytest.raises(Forbidden):

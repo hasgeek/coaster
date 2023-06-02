@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections import abc, namedtuple
 from datetime import datetime
 from decimal import Decimal
-from typing import overload
+from typing import cast, overload
 from uuid import UUID, uuid4
 import typing as t
 
@@ -121,7 +121,7 @@ class IdMixin:
 
             def url_id_uuid_func(self: te.Self) -> str:
                 """URL-safe representation of the UUID id as a hex value."""
-                return t.cast(UUID, self.id).hex
+                return cast(UUID, self.id).hex
 
             def url_id_uuid_comparator(cls: t.Type) -> SqlUuidHexComparator:
                 """Compare two hex UUID values."""
@@ -346,8 +346,13 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
             raise KeyError(key) from exc
 
     def __len__(self) -> int:
+        # pylint: disable=protected-access
         return len(self.obj.url_for_endpoints[None]) + (
-            len(self.obj.url_for_endpoints.get(current_app._get_current_object(), {}))
+            len(
+                self.obj.url_for_endpoints.get(
+                    current_app._get_current_object(), {}  # type: ignore[attr-defined]
+                )
+            )
             if current_app
             else 0
         )
@@ -359,8 +364,11 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
         # 4. Yield whatever passes the tests
         current_roles = self.obj.roles_for(current_auth.actor)
         for app, app_actions in self.obj.url_for_endpoints.items():
+            # pylint: disable=protected-access
             if app is None or (
-                current_app and app is current_app._get_current_object()
+                current_app
+                and app
+                is current_app._get_current_object()  # type: ignore[attr-defined]
             ):
                 for action, epdata in app_actions.items():
                     if not epdata.requires_kwargs and (
@@ -389,8 +397,9 @@ class UrlForMixin:
 
     def url_for(self, action: str = 'view', **kwargs) -> str:
         """Return public URL to this instance for a given action (default 'view')."""
+        # pylint: disable=protected-access
         app = (
-            current_app._get_current_object()  # pylint: disable=protected-access
+            current_app._get_current_object()  # type: ignore[attr-defined]
             if current_app
             else None
         )
@@ -522,13 +531,15 @@ class UrlForMixin:
 
     def view_for(self, action: str = 'view') -> t.Any:
         """Return the classview viewhandler that handles the specified action."""
-        app = current_app._get_current_object()  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        app = current_app._get_current_object()  # type: ignore[attr-defined]
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
     def classview_for(self, action: str = 'view') -> t.Any:
         """Return the classview containing the viewhandler for the specified action."""
-        app = current_app._get_current_object()  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        app = current_app._get_current_object()  # type: ignore[attr-defined]
         return self.view_for_endpoints[app][action][0](self)
 
 

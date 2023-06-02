@@ -10,6 +10,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 from __future__ import annotations
 
 from functools import wraps
+from typing import cast
 import typing as t
 
 from flask import (
@@ -35,6 +36,7 @@ from ..utils import InspectableSet, is_collection
 from .misc import ensure_sync
 
 __all__ = [
+    'ReturnRenderWith',
     'RequestTypeError',
     'RequestValueError',
     'requestargs',
@@ -199,7 +201,7 @@ def requestargs(
             except TypeError as e:
                 raise RequestTypeError(str(e)) from e
 
-        return t.cast(tc.WrappedFunc, wrapper)
+        return cast(tc.WrappedFunc, wrapper)
 
     return decorator
 
@@ -388,7 +390,7 @@ def load_models(
 
                 if hasattr(item, 'redirect_view_args'):
                     # This item is a redirect object. Redirect to destination
-                    view_args = dict(request.view_args)
+                    view_args = dict(request.view_args or {})
                     view_args.update(item.redirect_view_args())
                     location = url_for(request_endpoint, **view_args)
                     if request.query_string:
@@ -419,7 +421,7 @@ def load_models(
                         if getattr(item, k) != uvalue:
                             url_redirect = True
                             if view_args is None:
-                                view_args = dict(request.view_args)
+                                view_args = dict(request.view_args or {})
                             view_args[uparam] = getattr(item, k)
                     if url_redirect:
                         if view_args is None:
@@ -569,6 +571,7 @@ def render_with(
                 return result
 
             headers: t.Optional[ReturnRenderWithHeaders]
+            status_code: t.Optional[int]
 
             # Did the result include status code and headers?
             if isinstance(result, tuple):
@@ -587,7 +590,7 @@ def render_with(
                         status_code = status_or_headers
                         headers = None
                 elif len(resultset) == 3:
-                    status_code = resultset[1]  # type: ignore[misc]
+                    status_code = resultset[1]  # type: ignore[assignment,misc]
                     headers = resultset[2]  # type: ignore[misc]
                 else:
                     raise TypeError("View's response is an oversized tuple")
@@ -629,7 +632,7 @@ def render_with(
             if headers is not None:
                 response.headers.extend(headers)
             if vary_accept:
-                response.vary.add('Accept')  # type: ignore[union-attr]
+                response.vary.add('Accept')
             return response
 
         return wrapper
@@ -736,14 +739,14 @@ def cors(
             if max_age:
                 resp.headers['Access-Control-Max-Age'] = str(max_age)
             # Add 'Origin' to the Vary header since response will vary by origin
-            resp.vary.add('Origin')  # type: ignore[union-attr]
+            resp.vary.add('Origin')
 
             return resp
 
         wrapper.provide_automatic_options = False  # type: ignore[attr-defined]
         wrapper.required_methods = ['OPTIONS']  # type: ignore[attr-defined]
 
-        return t.cast(tc.WrappedFunc, wrapper)
+        return cast(tc.WrappedFunc, wrapper)
 
     return decorator
 
@@ -785,6 +788,6 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
 
         wrapper.requires_permission = permission  # type: ignore[attr-defined]
         wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return t.cast(tc.WrappedFunc, wrapper)
+        return cast(tc.WrappedFunc, wrapper)
 
     return decorator

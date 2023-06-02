@@ -958,13 +958,13 @@ class TestCoasterRoles(AppTestCase):
         self.session.commit()
 
         # All four memberships appear in both relationships
-        assert m1 in document.rel_lazy  # type: ignore[operator]
+        assert m1 in document.rel_lazy
         assert m1 in document.rel_list
-        assert m2 in document.rel_lazy  # type: ignore[operator]
+        assert m2 in document.rel_lazy
         assert m2 in document.rel_list
-        assert m3 in document.rel_lazy  # type: ignore[operator]
+        assert m3 in document.rel_lazy
         assert m3 in document.rel_list
-        assert m4 in document.rel_lazy  # type: ignore[operator]
+        assert m4 in document.rel_lazy
         assert m4 in document.rel_list
         # Just to be sure the `in` operator works, the relationships don't contain users
         assert u1 not in document.rel_lazy  # type: ignore[operator]

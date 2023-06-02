@@ -6,7 +6,7 @@ App configuration
 from __future__ import annotations
 
 from collections import abc
-from typing import NamedTuple
+from typing import NamedTuple, cast
 import json
 import os
 import types
@@ -107,6 +107,17 @@ class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-metho
     :param kwargs: Arguments to pass to each signer/serializer
     """
 
+    @property
+    def __class__(self) -> t.Type:
+        """Mimic wrapped engine's class."""
+        if self._engines:
+            return type(self._engines[0])
+        return super().__class__
+
+    @__class__.setter
+    def __class__(self, value: t.Any) -> t.NoReturn:  # noqa: F811
+        raise TypeError("__class__ cannot be set.")
+
     def __init__(
         self,
         cls: t.Type[_S],
@@ -143,7 +154,9 @@ class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-metho
 class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
-    def get_signing_serializer(self, app: Flask) -> t.Optional[KeyRotationWrapper]:
+    def get_signing_serializer(  # type: ignore[override]
+        self, app: Flask
+    ) -> t.Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None
@@ -242,10 +255,10 @@ def init_app(
         if config_option == 'env':
             if env_prefix is None:
                 # Use Flask's default env prefix
-                app.config.from_prefixed_env()  # type: ignore[attr-defined]
+                app.config.from_prefixed_env()
             elif isinstance(env_prefix, str):
                 # Use the app's requested env prefix
-                app.config.from_prefixed_env(env_prefix)  # type: ignore[attr-defined]
+                app.config.from_prefixed_env(env_prefix)
             else:
                 # Load config for each of the requested prefixes, checking for overlaps
                 # in prefix names
@@ -257,14 +270,14 @@ def init_app(
                         raise ValueError(
                             f"Env prefix {prefix} is overlapping an earlier prefix"
                         )
-                    app.config.from_prefixed_env(prefix)  # type: ignore[attr-defined]
+                    app.config.from_prefixed_env(prefix)
                     used_prefixes.add(prefix)
         elif config_option not in _config_loaders:
             raise ValueError(f"{config_option} is not a recognized type of config")
         else:
             load_config_from_file(
                 app,
-                'settings' + t.cast(str, _config_loaders[config_option].extn),
+                'settings' + cast(str, _config_loaders[config_option].extn),
                 load=_config_loaders[config_option].loader,
                 text=_config_loaders[config_option].text,
             )
@@ -281,7 +294,7 @@ def init_app(
             if config_option != 'env':
                 load_config_from_file(
                     app,
-                    additional + t.cast(str, _config_loaders[config_option].extn),
+                    additional + cast(str, _config_loaders[config_option].extn),
                     load=_config_loaders[config_option].loader,
                     text=_config_loaders[config_option].text,
                 )
@@ -302,10 +315,10 @@ def load_config_from_file(
             return app.config.from_pyfile(filepath)
         # The `text` parameter requires Flask 2.3. We still support Flask 2.2
         if text is not None:
-            return app.config.from_file(  # type: ignore[attr-defined]
+            return app.config.from_file(  # type: ignore[call-arg]
                 filepath, load=load, text=text
             )
-        return app.config.from_file(filepath, load=load)  # type: ignore[attr-defined]
+        return app.config.from_file(filepath, load=load)
     except OSError:
         app.logger.warning(
             "Did not find settings file %s for additional settings, skipping it",
