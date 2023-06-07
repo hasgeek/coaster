@@ -22,12 +22,15 @@ defined like this::
 
 Replace with::
 
+    from __future__ import annotations
     from typing import List
-    from sqlalchemy.orm import DeclarativeBase, DynamicMapped
+    from sqlalchemy.orm import DeclarativeBase
     from flask_sqlalchemy import SQLAlchemy
-    from coaster.sqlalchemy import ModelBase, DeclarativeBase, relationship
+    from coaster.sqlalchemy import (
+        DeclarativeBase, DynamicMapped, ModelBase, relationship
+    )
 
-    class Model(ModelBase, DeclarativeBase):  # ModelBase must be first
+    class Model(ModelBase, DeclarativeBase):  # ModelBase must be before DeclarativeBase
         pass
 
     class BindModel(ModelBase, DeclarativeBase):
@@ -38,8 +41,10 @@ Replace with::
         __tablename__ = 'my_model'
 
         # Coaster's relationship supplies a default query_class matching
-        # Flask-SQLAlchemy's, with methods like first_or_404 and one_or_404
-        others: DynamicMapped[Other] = relationship('Other', lazy='dynamic')
+        # Flask-SQLAlchemy's for dynamic relationships, with methods like first_or_404
+        # and one_or_404. To get the correct type hints, DynamicMapped must also be
+        # imported from Coaster
+        others: DynamicMapped[Other] = relationship(lazy='dynamic')
 
     class MyBindModel(BindModel):
         __tablename__ = 'my_bind_model'
@@ -69,8 +74,11 @@ from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DynamicMapped as DynamicMappedBase
 from sqlalchemy.orm import Query as QueryBase
+from sqlalchemy.orm import Relationship as RelationshipBase
 from sqlalchemy.orm import backref as backref_base
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship as relationship_base
@@ -94,14 +102,20 @@ __all__ = [
     'AppenderQuery',
     'ModelBase',
     'DeclarativeBase',
+    'DynamicMapped',
+    'Relationship',
     'relationship',
     'backref',
 ]
+
+# --- Warnings -------------------------------------------------------------------------
 
 
 class ModelWarning(UserWarning):
     """Warning for problematic use of ModelBase and relationship."""
 
+
+# --- SQLAlchemy type aliases ----------------------------------------------------------
 
 bigint: te.TypeAlias = te.Annotated[int, mapped_column(sa.BigInteger())]
 smallint: te.TypeAlias = te.Annotated[int, mapped_column(sa.SmallInteger())]
@@ -124,9 +138,16 @@ jsonb: te.TypeAlias = te.Annotated[
     dict, mapped_column(sa.JSON().with_variant(postgresql.JSONB, 'postgresql'))
 ]
 
+# --- Query class and property ---------------------------------------------------------
+
 
 class Query(QueryBase[_T]):  # pylint: disable=abstract-method
     """Extends SQLAlchemy's :class:`~sqlalchemy.orm.Query` with additional methods."""
+
+    if t.TYPE_CHECKING:
+
+        def get(self, ident: t.Any) -> t.Optional[_T]:
+            """Provide typehint certifying that `get` returns _T."""
 
     def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:
         """
@@ -135,7 +156,7 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
         :param ident: The primary key to query
         :param description: A custom message to show on the error page
         """
-        rv = self.get(ident)
+        rv = self.get(ident)  # pylint: disable=assignment-from-no-return
 
         if rv is None:
             abort(404, description=description)
@@ -157,13 +178,18 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
 
     def one_or_404(self, description: t.Optional[str] = None) -> _T:
         """
-        Like :meth:`~sqlalchemy.orm.Query.one` but aborts with 404 instead of erroring.
+        Like :meth:`~sqlalchemy.orm.Query.one`, but aborts with 404 for NoResultFound.
 
-        :param description: A custom message to show on the error page.
+        Unlike Flask-SQLAlchemy's implementation,
+        :exc:`~sqlalchemy.exc.MultipleResultsFound` is not recast as 404 and will cause
+        a 500 error if not handled. The query may need additional filters to target a
+        single result.
+
+        :param description: A custom message to show on the error page
         """
         try:
             return self.one()
-        except (sa.exc.NoResultFound, sa.exc.MultipleResultsFound):
+        except NoResultFound:
             abort(404, description=description)
         # Pylint doesn't know abort is NoReturn
         return None  # type: ignore[unreachable]
@@ -250,6 +276,9 @@ class QueryProperty:
 
     def __get__(self, _obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
         return cls.query_class(cls, session=cls.__fsa__.session())
+
+
+# --- Model base for Flask-SQLAlchemy compatibility ------------------------------------
 
 
 class ModelBase:
@@ -354,16 +383,49 @@ class ModelBase:
         return f'<{type(self).__name__} {pk}>'
 
 
+# --- Relationship and backref wrappers for lazy='dynamic' -----------------------------
+
+# DynamicMapped and Relationship are redefined from the original in SQLAlchemy to offer
+# a type hint to Coaster's AppenderQuery's, which in turn wraps Coaster's Query with its
+# additional methods
+
+
+class DynamicMapped(DynamicMappedBase[_T]):
+    """Represent the ORM mapped attribute type for a "dynamic" relationship."""
+
+    __slots__ = ()
+
+    if t.TYPE_CHECKING:
+
+        def __get__(  # type: ignore[override]
+            self, instance: t.Optional[object], owner: t.Any
+        ) -> AppenderQuery[_T]:
+            ...
+
+        def __set__(self, instance: t.Any, value: t.Collection[_T]) -> None:
+            ...
+
+
+class Relationship(  # type: ignore[misc]  # pylint: disable=abstract-method
+    RelationshipBase[_T], DynamicMapped[_T]
+):
+    """Wraps Relationship with the updated version of DynamicMapped."""
+
+    __slots__ = ()
+
+
 _P = te.ParamSpec('_P')
 
 
 # This wrapper exists solely for type hinting tools as @wraps itself does not
 # provide type hints indicating that the function's type signature is unchanged
-def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
+def _create_relationship_wrapper(
+    f: t.Callable[_P, t.Any]
+) -> t.Callable[_P, Relationship]:
     """Create a wrapper for relationship."""
 
     @wraps(f)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Relationship:
         """Insert a default query_class when constructing a relationship."""
         if 'query_class' not in kwargs:
             kwargs['query_class'] = AppenderQuery
@@ -374,6 +436,20 @@ def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
                 ModelWarning,
                 stacklevel=2,
             )
+        return t.cast(Relationship, f(*args, **kwargs))
+
+    return wrapper
+
+
+# Backref does not change return type, unlike relationship
+def _create_backref_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
+    """Create a wrapper for backref."""
+
+    @wraps(f)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+        """Insert a default query_class when constructing a backref."""
+        if 'query_class' not in kwargs:
+            kwargs['query_class'] = AppenderQuery
         return f(*args, **kwargs)
 
     return wrapper
@@ -384,4 +460,4 @@ def _create_relationship_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
 relationship = _create_relationship_wrapper(relationship_base)
 #: Wrap :func:`~sqlalchemy.orm.backref` to insert :class:`Query` as the default
 #: value for :attr:`query_class`
-backref = _create_relationship_wrapper(backref_base)
+backref = _create_backref_wrapper(backref_base)

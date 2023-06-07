@@ -86,8 +86,8 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
-    id = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    name = with_roles(
+    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
+    name: Mapped[str] = with_roles(
         sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'}
     )  # Specify read+write access
 
@@ -97,7 +97,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
         datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
     )  # Grant 'owner' and 'editor' write but not read access
 
-    defval = with_roles(
+    defval: Mapped[str] = with_roles(
         sa.orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}
     )
 
@@ -130,10 +130,10 @@ class AutoRoleModel(RoleMixin, Model):
 
     # This model doesn't specify __roles__. It only uses with_roles.
     # It should still work
-    id = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
+    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     with_roles(id, read={'all'})
 
-    name = sa.orm.mapped_column(sa.Unicode(250))
+    name: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
     with_roles(name, rw={'owner'}, read={'all'})
 
     __datasets__ = {'default': {'name'}}
@@ -254,13 +254,15 @@ class RoleUser(BaseMixin, Model):
 
     __tablename__ = 'role_user'
 
-    doc_id = sa.orm.mapped_column(None, sa.ForeignKey('role_grant_many.id'))
-    doc = relationship(
+    doc_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+        sa.ForeignKey('role_grant_many.id')
+    )
+    doc: Mapped[t.Optional[RoleGrantMany]] = relationship(
         RoleGrantMany,
         foreign_keys=[doc_id],
         backref=sa.orm.backref('primary_users', lazy='dynamic'),
     )
-    secondary_docs = relationship(
+    secondary_docs: Mapped[t.List[RoleGrantMany]] = relationship(
         RoleGrantMany, secondary=granted_users, back_populates='secondary_users'
     )
 
@@ -270,8 +272,12 @@ class RoleGrantOne(BaseMixin, Model):
 
     __tablename__ = 'role_grant_one'
 
-    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = with_roles(relationship(RoleUser), grants={'creator'})
+    user_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+        sa.ForeignKey('role_user.id')
+    )
+    user: Mapped[t.Optional[RoleUser]] = with_roles(
+        relationship(RoleUser), grants={'creator'}
+    )
 
 
 class RoleGrantSynonym(BaseMixin, Model):
@@ -280,9 +286,11 @@ class RoleGrantSynonym(BaseMixin, Model):
     __tablename__ = 'role_grant_synonym'
 
     # Base column has roles defined
-    datacol = with_roles(sa.orm.mapped_column(sa.Unicode()), rw={'owner'})
+    datacol: Mapped[t.Optional[str]] = with_roles(
+        sa.orm.mapped_column(sa.Unicode()), rw={'owner'}
+    )
     # Synonym cannot have independent roles and will mirror the target
-    altcol = sa.orm.synonym('datacol')
+    altcol: Mapped[t.Optional[str]] = sa.orm.synonym('datacol')
 
 
 class RoleMembership(BaseMixin, Model):
@@ -290,15 +298,19 @@ class RoleMembership(BaseMixin, Model):
 
     __tablename__ = 'role_membership'
 
-    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = relationship(RoleUser)
+    user_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+        sa.ForeignKey('role_user.id')
+    )
+    user: Mapped[t.Optional[RoleUser]] = relationship(RoleUser)
 
-    doc_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
-    doc = relationship('MultiroleDocument')
+    doc_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+        sa.ForeignKey('multirole_document.id')
+    )
+    doc: Mapped[t.Optional[MultiroleDocument]] = relationship('MultiroleDocument')
 
-    role1 = sa.orm.mapped_column(sa.Boolean, default=False)
-    role2 = sa.orm.mapped_column(sa.Boolean, default=False)
-    role3 = sa.orm.mapped_column(sa.Boolean, default=False)
+    role1: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
+    role2: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
+    role3: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
 
     @property
     def offered_roles(self) -> t.Set[str]:
@@ -317,8 +329,10 @@ class MultiroleParent(BaseMixin, Model):
     """Test model to serve as a role granter to the child model."""
 
     __tablename__ = 'multirole_parent'
-    user_id = sa.orm.mapped_column(None, sa.ForeignKey('role_user.id'))
-    user = with_roles(relationship(RoleUser), grants={'prole1', 'prole2'})
+    user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('role_user.id'))
+    user: Mapped[RoleUser] = with_roles(
+        relationship(RoleUser), grants={'prole1', 'prole2'}
+    )
 
 
 class MultiroleDocument(BaseMixin, Model):
@@ -326,8 +340,8 @@ class MultiroleDocument(BaseMixin, Model):
 
     __tablename__ = 'multirole_document'
 
-    parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_parent.id'))
-    parent = with_roles(
+    parent_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('multirole_parent.id'))
+    parent: Mapped[MultiroleParent] = with_roles(
         relationship(MultiroleParent),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
         # and not via parent.`actor_attr`. While other roles may also be granted by
@@ -373,8 +387,10 @@ class MultiroleChild(BaseMixin, Model):
     """Model that inherits roles from its parent."""
 
     __tablename__ = 'multirole_child'
-    parent_id = sa.orm.mapped_column(None, sa.ForeignKey('multirole_document.id'))
-    parent = with_roles(
+    parent_id: Mapped[int] = sa.orm.mapped_column(
+        sa.ForeignKey('multirole_document.id')
+    )
+    parent: Mapped[MultiroleDocument] = with_roles(
         relationship(MultiroleDocument),
         grants_via={
             'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
@@ -395,6 +411,7 @@ class JsonTestEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
     def default(self, o: t.Any) -> t.Any:
+        """Encode JSON."""
         if isinstance(o, RoleAccessProxy):
             return dict(o)
         return super().default(o)
@@ -404,6 +421,7 @@ class JsonProtocolEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
     def default(self, o: t.Any) -> t.Any:
+        """Encode JSON."""
         if hasattr(o, '__json__'):
             return o.__json__()
         return super().default(o)
