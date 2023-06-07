@@ -74,6 +74,7 @@ from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import DynamicMapped as DynamicMappedBase
 from sqlalchemy.orm import Query as QueryBase
@@ -177,13 +178,18 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
 
     def one_or_404(self, description: t.Optional[str] = None) -> _T:
         """
-        Like :meth:`~sqlalchemy.orm.Query.one` but aborts with 404 instead of erroring.
+        Like :meth:`~sqlalchemy.orm.Query.one`, but aborts with 404 for NoResultFound.
 
-        :param description: A custom message to show on the error page.
+        Unlike Flask-SQLAlchemy's implementation,
+        :exc:`~sqlalchemy.exc.MultipleResultsFound` is not recast as 404 and will cause
+        a 500 error if not handled. The query may need additional filters to target a
+        single result.
+
+        :param description: A custom message to show on the error page
         """
         try:
             return self.one()
-        except (sa.exc.NoResultFound, sa.exc.MultipleResultsFound):
+        except NoResultFound:
             abort(404, description=description)
         # Pylint doesn't know abort is NoReturn
         return None  # type: ignore[unreachable]
