@@ -1,15 +1,15 @@
 """Reusable fixtures for Coaster tests."""
 # pylint: disable=redefined-outer-name
 
+import unittest
 from os import environ
 from typing import cast
-import unittest
 
+import pytest
+import sqlalchemy as sa
 from flask import Flask
 from flask.ctx import RequestContext
 from flask_sqlalchemy import SQLAlchemy
-import pytest
-import sqlalchemy as sa
 
 from coaster.sqlalchemy import DeclarativeBase, ModelBase, Query
 

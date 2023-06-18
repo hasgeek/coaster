@@ -1,12 +1,12 @@
 """Tests for urlForMixin."""
 
-from typing import cast
 import unittest
+from typing import cast
 
+import pytest
 from flask import Flask
 from flask.ctx import RequestContext
 from werkzeug.routing import BuildError
-import pytest
 
 from .conftest import sqlalchemy_uri
 from .sqlalchemy_models_test import Container, NamedDocument, ScopedNamedDocument, db

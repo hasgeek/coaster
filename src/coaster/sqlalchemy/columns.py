@@ -5,16 +5,16 @@ SQLAlchemy column types
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import json
 import typing as t
+from collections.abc import Mapping
 
+import sqlalchemy as sa
 from furl import furl
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy_utils.types import URLType as UrlTypeBase
-import sqlalchemy as sa
 
 __all__ = ['JsonDict', 'UrlType']
 

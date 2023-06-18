@@ -33,15 +33,15 @@ for ``new`` and ``edit`` actions could use those names instead.
 
 from __future__ import annotations
 
+import typing as t
+import typing_extensions as te
+import warnings
 from functools import partial
 from threading import Lock
 from typing import overload
-import typing as t
-import warnings
 
-from sqlalchemy.orm import declarative_mixin
 import sqlalchemy as sa
-import typing_extensions as te
+from sqlalchemy.orm import declarative_mixin
 
 from ..typing import ReturnDecorator, WrappedFunc
 

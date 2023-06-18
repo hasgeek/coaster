@@ -5,18 +5,18 @@ App configuration
 
 from __future__ import annotations
 
-from collections import abc
-from typing import NamedTuple, cast
 import json
 import os
 import types
 import typing as t
+import typing_extensions as te
+from collections import abc
+from typing import NamedTuple, cast
 
+import itsdangerous
 from flask import Flask
 from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
-import itsdangerous
-import typing_extensions as te
 
 from . import logger
 from .auth import current_auth

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import typing as t
 
+import sqlalchemy as sa
 from markupsafe import Markup
 from sqlalchemy.ext.mutable import MutableComposite
 from sqlalchemy.orm import Composite, composite
-import sqlalchemy as sa
 
 from ..utils import markdown as markdown_processor
 

@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import typing as t
 
+import pytest
+import sqlalchemy as sa
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DynamicMapped, Mapped, mapped_column
-import pytest
-import sqlalchemy as sa
 
 from coaster.sqlalchemy import (
     DeclarativeBase,

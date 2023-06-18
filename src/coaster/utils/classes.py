@@ -5,11 +5,10 @@ Utility classes
 
 from __future__ import annotations
 
-from collections import namedtuple
 import typing as t
-import warnings
-
 import typing_extensions as te
+import warnings
+from collections import namedtuple
 
 __all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
 

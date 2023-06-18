@@ -9,15 +9,20 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
-from typing import cast
-from urllib.parse import urlsplit
 import asyncio
 import re
 import typing as t
+from typing import cast
+from urllib.parse import urlsplit
 
-from flask import Response, current_app, json, request
-from flask import session as request_session
-from flask import url_for
+from flask import (
+    Response,
+    current_app,
+    json,
+    request,
+    session as request_session,
+    url_for,
+)
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import MapAdapter, RequestRedirect, Rule
 

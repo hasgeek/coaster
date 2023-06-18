@@ -1,9 +1,9 @@
 """Tests for StateManager."""
 # pylint: disable=protected-access,comparison-with-callable
 
-from datetime import datetime, timedelta
 import types
 import typing as t
+from datetime import datetime, timedelta
 
 import pytest
 import sqlalchemy as sa

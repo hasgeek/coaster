@@ -127,20 +127,30 @@ Example use::
 
 from __future__ import annotations
 
+import dataclasses
+import operator
+import typing as t
+import typing_extensions as te
 from abc import ABCMeta, abstractmethod
 from collections import abc
 from copy import deepcopy
 from itertools import chain
 from typing import cast, overload
-import dataclasses
-import operator
-import typing as t
 
+import sqlalchemy as sa
+import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 from flask import g
 from sqlalchemy.ext.orderinglist import OrderingList
-from sqlalchemy.orm import ColumnProperty, KeyFuncDict, MappedColumn, MapperProperty
-from sqlalchemy.orm import Query as QueryBase
-from sqlalchemy.orm import RelationshipProperty, SynonymProperty, declarative_mixin
+from sqlalchemy.orm import (
+    ColumnProperty,
+    KeyFuncDict,
+    MappedColumn,
+    MapperProperty,
+    Query as QueryBase,
+    RelationshipProperty,
+    SynonymProperty,
+    declarative_mixin,
+)
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
@@ -148,9 +158,6 @@ from sqlalchemy.orm.collections import (
     InstrumentedSet,
 )
 from sqlalchemy.schema import SchemaItem
-import sqlalchemy as sa
-import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
-import typing_extensions as te
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op

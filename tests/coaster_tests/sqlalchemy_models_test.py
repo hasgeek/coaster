@@ -4,19 +4,19 @@
 
 from __future__ import annotations
 
+import typing as t
 from datetime import datetime, timedelta
 from time import sleep
 from uuid import UUID
-import typing as t
 
+import pytest
+import sqlalchemy as sa
 from furl import furl
 from pytz import utc
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, StatementError
 from sqlalchemy.orm import Mapped, configure_mappers
 from werkzeug.routing import BuildError
-import pytest
-import sqlalchemy as sa
 
 from coaster.sqlalchemy import (
     BaseIdNameMixin,

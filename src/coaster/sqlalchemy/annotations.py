@@ -43,9 +43,10 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 
 from __future__ import annotations
 
-from collections.abc import Hashable
 import typing as t
+from collections.abc import Hashable
 
+import sqlalchemy as sa
 from sqlalchemy.orm import (
     ColumnProperty,
     MappedColumn,
@@ -56,7 +57,6 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.schema import SchemaItem
-import sqlalchemy as sa
 
 from ..signals import coaster_signals
 

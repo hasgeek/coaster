@@ -7,10 +7,11 @@ Group related views into a class for easier management.
 
 from __future__ import annotations
 
-from functools import partial, update_wrapper, wraps
-from typing import cast, overload
 import asyncio
 import typing as t
+import typing_extensions as te
+from functools import partial, update_wrapper, wraps
+from typing import cast, overload
 
 from flask import (
     Blueprint,
@@ -29,10 +30,8 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
 from sqlalchemy.orm.properties import RelationshipProperty
 from werkzeug.local import LocalProxy
-from werkzeug.routing import Map as WzMap
-from werkzeug.routing import Rule as WzRule
+from werkzeug.routing import Map as WzMap, Rule as WzRule
 from werkzeug.wrappers import Response as BaseResponse
-import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth

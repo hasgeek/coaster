@@ -22,21 +22,21 @@ Mixin classes must always appear *before* ``db.Model`` in your model's base clas
 
 from __future__ import annotations
 
+import typing as t
+import typing_extensions as te
 from collections import abc, namedtuple
 from datetime import datetime
 from decimal import Decimal
 from typing import cast, overload
 from uuid import UUID, uuid4
-import typing as t
 
+import sqlalchemy as sa
 from flask import Flask, current_app, url_for
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
 from sqlalchemy.sql import func, select
 from werkzeug.routing import BuildError
-import sqlalchemy as sa
-import typing_extensions as te
 
 from ..auth import current_auth
 from ..typing import ReturnDecorator, WrappedFunc

@@ -19,9 +19,9 @@ request processing.
 
 from __future__ import annotations
 
+import typing as t
 from threading import Lock
 from typing import cast
-import typing as t
 
 from flask import Flask, current_app, g, request
 from werkzeug.local import LocalProxy

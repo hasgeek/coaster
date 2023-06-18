@@ -5,6 +5,13 @@ Miscellaneous utilities
 
 from __future__ import annotations
 
+import email.utils
+import hashlib
+import re
+import time
+import typing as t
+import typing_extensions as te
+import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import abc
 from datetime import datetime
@@ -13,17 +20,10 @@ from random import SystemRandom
 from secrets import token_bytes
 from typing import overload
 from urllib.parse import urlparse
-import email.utils
-import hashlib
-import re
-import time
-import typing as t
-import uuid
 
-from unidecode import unidecode
 import base58
 import tldextract
-import typing_extensions as te
+from unidecode import unidecode
 
 __all__ = [
     'base_domain_matches',

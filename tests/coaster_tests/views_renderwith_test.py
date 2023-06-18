@@ -1,10 +1,10 @@
 import typing as t
 import unittest
 
+import pytest
 from flask import Flask, Response, jsonify
 from jinja2 import TemplateNotFound
 from werkzeug.wrappers import Response as BaseResponse
-import pytest
 
 from coaster.views import render_with
 

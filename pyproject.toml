@@ -92,16 +92,25 @@ exclude = '''
 '''
 
 [tool.isort]
+# Some isort functionality is replicated in ruff, which should have matching config
+profile = 'black'
 multi_line_output = 3
 include_trailing_comma = true
 line_length = 88
 order_by_type = true
 use_parentheses = true
-from_first = true
-known_future_library = ['__future__']
+combine_as_imports = true
+split_on_trailing_comma = false
+extra_standard_library = ['typing_extensions']
 known_first_party = ['coaster']
 default_section = 'THIRDPARTY'
-sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
+sections = [
+  'FUTURE',
+  'STDLIB',
+  'THIRDPARTY',
+  'FIRSTPARTY',
+  'LOCALFOLDER'
+]
 
 [tool.pytest.ini_options]
 pythonpath = 'src'
@@ -148,9 +157,10 @@ disable = [
   'too-many-branches',
   'too-many-nested-blocks',
   'too-many-statements',
-  # Let Black and isort handle these
+  # Let Black, isort and ruff handle these
   'line-too-long',
   'wrong-import-position',
+  'wrong-import-order',
   # Let flake8 handle these
   'missing-class-docstring',
   'missing-function-docstring',
@@ -223,3 +233,14 @@ target-version = "py37"
 [tool.ruff.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
+
+[tool.ruff.isort]
+# These config options should match isort config above under [tool.isort]
+combine-as-imports = true
+extra-standard-library = ['typing_extensions']
+split-on-trailing-comma = false
+relative-imports-order = 'furthest-to-closest'
+known-first-party = ['coaster']
+section-order = [
+  'future', 'standard-library', 'third-party', 'first-party', 'repo', 'local-folder'
+]

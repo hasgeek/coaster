@@ -9,11 +9,6 @@ this is done automatically for you.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from html import escape
-from io import StringIO
-from pprint import pprint
-from threading import Lock
 import logging
 import logging.handlers
 import re
@@ -21,13 +16,18 @@ import textwrap
 import traceback
 import types
 import typing as t
+from datetime import datetime, timedelta
+from html import escape
+from io import StringIO
+from pprint import pprint
+from threading import Lock
 
 if t.TYPE_CHECKING:
     from logging import _SysExcInfoType
 
+import requests
 from flask import Flask, g, request, session
 from flask.config import Config
-import requests
 
 from .auth import current_auth
 
