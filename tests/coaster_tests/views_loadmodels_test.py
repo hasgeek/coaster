@@ -3,12 +3,12 @@
 
 import typing as t
 
+import pytest
+import sqlalchemy as sa
 from flask import g
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden, NotFound
 from werkzeug.wrappers import Response
-import pytest
-import sqlalchemy as sa
 
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin, relationship
 from coaster.views import load_model, load_models

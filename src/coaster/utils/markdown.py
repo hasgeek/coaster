@@ -14,11 +14,11 @@ to auto-render HTML from Markdown text.
 
 from __future__ import annotations
 
+import typing as t
 from copy import deepcopy
 from html import unescape
 from typing import cast, overload
 from xml.etree.ElementTree import Element  # nosec B405
-import typing as t
 
 from bleach import linkify as linkify_processor
 from markdown import Markdown

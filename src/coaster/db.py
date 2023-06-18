@@ -10,8 +10,8 @@ Flask-SQLAlchemy instance
 
 from __future__ import annotations
 
-from sqlite3 import Connection as SQLite3Connection
 import typing as t
+from sqlite3 import Connection as SQLite3Connection
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event

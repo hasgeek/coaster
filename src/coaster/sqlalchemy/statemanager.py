@@ -227,14 +227,14 @@ direct state value changes:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import cast, overload
 import functools
 import typing as t
-
-from werkzeug.exceptions import BadRequest
-import sqlalchemy as sa
 import typing_extensions as te
+from dataclasses import dataclass
+from typing import cast, overload
+
+import sqlalchemy as sa
+from werkzeug.exceptions import BadRequest
 
 from ..signals import coaster_signals
 from ..utils import LabeledEnum, NameTitle, is_collection

@@ -1,12 +1,12 @@
 """Tests for app."""
 
-from os import environ
 import sys
 import unittest
+from os import environ
 
-from flask import Flask, render_template_string, session
 import itsdangerous
 import pytest
+from flask import Flask, render_template_string, session
 
 from coaster.app import (
     KeyRotationWrapper,
@@ -16,8 +16,7 @@ from coaster.app import (
     init_app,
     load_config_from_file,
 )
-from coaster.logger import LocalVarFormatter
-from coaster.logger import init_app as logger_init_app
+from coaster.logger import LocalVarFormatter, init_app as logger_init_app
 
 
 class TestCoasterApp(unittest.TestCase):

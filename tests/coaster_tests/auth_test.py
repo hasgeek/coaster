@@ -1,15 +1,15 @@
 """Test current_auth."""
 # pylint: disable=redefined-outer-name
 
+import typing as t
 from types import SimpleNamespace
 from typing import cast
-import typing as t
 
+import pytest
+import sqlalchemy as sa
 from flask import Flask, g, has_request_context, render_template_string
 from flask.ctx import RequestContext
 from sqlalchemy.orm import Mapped
-import pytest
-import sqlalchemy as sa
 
 from coaster.auth import (
     add_auth_anchor,

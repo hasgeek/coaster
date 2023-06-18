@@ -63,28 +63,30 @@ created.
 
 from __future__ import annotations
 
-from functools import wraps
-from typing import cast
 import datetime
 import typing as t
+import typing_extensions as te
 import uuid
 import warnings
+from functools import wraps
+from typing import cast
 
+import sqlalchemy as sa
 from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.orm import DynamicMapped as DynamicMappedBase
-from sqlalchemy.orm import Query as QueryBase
-from sqlalchemy.orm import Relationship as RelationshipBase
-from sqlalchemy.orm import backref as backref_base
-from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import relationship as relationship_base
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    DynamicMapped as DynamicMappedBase,
+    Query as QueryBase,
+    Relationship as RelationshipBase,
+    backref as backref_base,
+    mapped_column,
+    relationship as relationship_base,
+)
 from sqlalchemy.orm.dynamic import AppenderMixin
-import sqlalchemy as sa
-import typing_extensions as te
 
 _T = t.TypeVar('_T', bound=t.Any)
 

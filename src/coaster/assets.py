@@ -13,9 +13,9 @@ be careful about assumptions you make around them.
 
 from __future__ import annotations
 
-from collections import defaultdict
 import re
 import typing as t
+from collections import defaultdict
 
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version

@@ -1,8 +1,8 @@
 """Registry and RegistryMixin tests."""
 # pylint: disable=redefined-outer-name,protected-access
 
-from types import SimpleNamespace
 import typing as t
+from types import SimpleNamespace
 
 import pytest
 

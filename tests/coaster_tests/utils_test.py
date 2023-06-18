@@ -1,10 +1,10 @@
-from collections.abc import MutableSet
 import datetime
 import typing as t
 import unittest
+from collections.abc import MutableSet
 
-from pytz import UTC, common_timezones
 import pytest
+from pytz import UTC, common_timezones
 
 from coaster.utils import (
     InspectableSet,

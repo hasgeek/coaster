@@ -5,11 +5,11 @@ Enhanced query and custom comparators
 
 from __future__ import annotations
 
-from uuid import UUID
 import typing as t
+from uuid import UUID
 
-from sqlalchemy.ext.hybrid import Comparator
 import sqlalchemy as sa
+from sqlalchemy.ext.hybrid import Comparator
 
 from ..utils import uuid_from_base58, uuid_from_base64
 

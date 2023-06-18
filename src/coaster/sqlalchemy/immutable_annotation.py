@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import typing as t
 
-from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 import sqlalchemy as sa
+from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 from .annotations import annotation_wrapper, annotations_configured
 

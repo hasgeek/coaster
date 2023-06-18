@@ -1,11 +1,11 @@
 import typing as t
 import warnings
 
-from sqlalchemy.orm import Mapped, configure_mappers
-from sqlalchemy.orm.attributes import NO_VALUE
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.exc
+from sqlalchemy.orm import Mapped, configure_mappers
+from sqlalchemy.orm.attributes import NO_VALUE
 
 from coaster.sqlalchemy import (
     BaseMixin,

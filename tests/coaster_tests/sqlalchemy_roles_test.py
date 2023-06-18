@@ -8,6 +8,8 @@ import json
 import typing as t
 import unittest
 
+import pytest
+import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import (
     DynamicMapped,
@@ -17,8 +19,6 @@ from sqlalchemy.orm import (
     declarative_mixin,
     mapped_column,
 )
-import pytest
-import sqlalchemy as sa
 
 from coaster.sqlalchemy import (
     BaseMixin,

@@ -9,9 +9,10 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
+import typing as t
+import typing_extensions as te
 from functools import wraps
 from typing import cast
-import typing as t
 
 from flask import (
     Response,
@@ -28,7 +29,6 @@ from flask.typing import ResponseReturnValue
 from werkzeug.datastructures import Headers, MIMEAccept
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
-import typing_extensions as te
 
 from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth

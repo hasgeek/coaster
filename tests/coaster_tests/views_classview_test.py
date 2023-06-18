@@ -1,17 +1,17 @@
 """Test classviews."""
 # pylint: disable=comparison-with-callable
 
-from typing import cast
 import typing as t
 import unittest
+from typing import cast
 
+import pytest
+import sqlalchemy as sa
 from flask import Flask, json
 from flask.ctx import RequestContext
 from flask.typing import ResponseReturnValue
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden
-import pytest
-import sqlalchemy as sa
 
 from coaster.app import JSONProvider
 from coaster.auth import add_auth_attribute

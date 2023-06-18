@@ -5,12 +5,12 @@ Helper functions
 
 from __future__ import annotations
 
-from typing import cast, overload
 import typing as t
+from typing import cast, overload
 
+import sqlalchemy as sa
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
-import sqlalchemy as sa
 
 from .model import relationship
 

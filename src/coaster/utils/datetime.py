@@ -5,14 +5,14 @@ Date, time and timezone utilities
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, tzinfo
 import typing as t
+from datetime import date, datetime, timedelta, tzinfo
 
+import isoweek
+import pytz
 from aniso8601 import parse_datetime, parse_duration
 from aniso8601.exceptions import ISOFormatError as ParseError
 from pytz import BaseTzInfo, utc
-import isoweek
-import pytz
 
 __all__ = [
     'utcnow',

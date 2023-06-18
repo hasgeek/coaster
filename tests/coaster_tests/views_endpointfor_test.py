@@ -1,8 +1,8 @@
 """Tests for endpoint_for view helper."""
 
-from typing import cast
 import typing as t
 import unittest
+from typing import cast
 
 from flask import Flask
 from flask.ctx import RequestContext
