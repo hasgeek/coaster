@@ -2,21 +2,30 @@
 Assets
 ======
 
-Coaster provides a simple asset management system for semantically versioned
-assets using the semantic_version_ and webassets_ libraries. Many popular
-libraries such as jQuery are not semantically versioned, so you will have to
-be careful about assumptions you make around them.
+Coaster provides a simple asset management system for semantically versioned assets
+using the semantic_version_ and webassets_ libraries. Many popular libraries such as
+jQuery are not semantically versioned, so you will have to be careful about assumptions
+you make around them.
+
+Coaster also provides a WebpackManifest extension for Flask if your assets are
+built through Webpack_ and referenced in a manifest.json file. This file is expected to
+be found in your app's static folder, alongside the built assets.
 
 .. _semantic_version: http://python-semanticversion.readthedocs.org/en/latest/
 .. _webassets: http://elsdoerfer.name/docs/webassets/
+.. _Webpack: https://webpack.js.org/
 """
 
 from __future__ import annotations
 
+import os.path
 import re
 import typing as t
+import warnings
 from collections import defaultdict
+from collections.abc import Mapping
 
+from flask import Flask, current_app
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version
 
@@ -182,3 +191,200 @@ class VersionedAssets(defaultdict):
                 if name not in blacklist
             )
         )
+
+
+MANIFEST_KEY = 'manifest.json'
+DEFAULT_VALUE = 'data:,'
+
+
+class WebpackManifest(Mapping):
+    """
+    Webpack asset manifest extension for Flask and Jinj2.
+
+    WebpackManifest loads a ``manifest.json`` file produced by Webpack_, and makes the
+    contents available to Jinja2 templates as ``{{ manifest['asset_name.ext'] }}``. Call
+    syntax is also supported, allowing for use as ``{{ 'asset_name.ext'|manifest }}``.
+
+    WebpackManifest searches for the file at these locations relative to the app folder:
+
+    1. ``static/manifest.json``
+    2. ``static/build/manifest.json``
+
+    To look elsewhere, provide a list of paths as the :attr:`search_paths` parameter.
+    Webpack plugins and cache can sometimes interfere with asset names. An asset named
+    ``app.scss`` may remain ``app.scss`` on a clean build, but turn into ``app.css`` on
+    a rebuild. To counter this, WebpackManifest allows for asset name substitutions via
+    the :attr:`substitutions` parameter. This is a list of tuples of regex pattern and
+    substitute strings. The default substitutions are:
+
+    1. ``.scss`` -> ``.css``
+    2. ``.sass`` -> ``.css``
+    3. ``.ts`` -> ``.js``
+
+    Substitutions complement the original asset names, which continue to be available.
+    If a substitute overlaps an existing asset, the original is preserved and a
+    :warn:`RuntimeWarning` is emitted.
+
+    WebpackManifest does not hold the asset data. It loads and stores it as
+    ``app.config['manifest.json']`` during the :meth:`init_app` call, and therefore
+    requires an app context to retrieve the path. If an unknown asset is requested, it
+    will return the static string ``data:,`` instead of raising an exception. Browsers
+    should parse this as a valid URI with an empty body.
+
+    :param app: Flask app, can be supplied later by calling :meth:`init_app`
+    :param search_paths: Paths to the ``manifest.json`` file, relative to app folder
+    :param substitutes: Regex substitutions for asset names
+    :param detect_legacy_webpack: Older Webpack versions produce a manifest that has a
+        single top-level ``assets`` key and all assets under that. Set this to False to
+        turn off auto-detection
+
+    .. _Webpack: https://webpack.js.org/
+    """
+
+    search_paths: t.Sequence[str] = [
+        'static/manifest.json',
+        'static/build/manifest.json',
+    ]
+    substitutes: t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]] = [
+        (r'\.scss$', '.css'),
+        (r'\.sass$', '.css'),
+        (r'\.ts$', '.js'),
+    ]
+
+    def __init__(
+        self,
+        app: t.Optional[Flask] = None,
+        search_paths: t.Optional[t.Sequence[str]] = None,
+        substitutes: t.Optional[
+            t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]]
+        ] = None,
+        base_path: t.Optional[str] = None,
+        detect_legacy_webpack: bool = True,
+    ) -> None:
+        if search_paths is not None:
+            self.search_paths = search_paths
+        if substitutes is not None:
+            self.substitutes = substitutes
+        self.base_path = base_path
+        self.detect_legacy_webpack = detect_legacy_webpack
+        if app is not None:
+            self.init_app(app, _warning_stack_level=3)
+
+    def init_app(self, app: Flask, _warning_stack_level: int = 2) -> None:
+        """Configure WebpackManifest on a Flask app."""
+        if 'manifest.json' in app.config:
+            warnings.warn(
+                f"`app.config[{MANIFEST_KEY!r}]` already exists and will be overridden",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+        app.config[MANIFEST_KEY] = {}
+        # Install as both a Jinja2 global and filter. These are different namespaces.
+        # Global: {{ manifest['...'] }} or {{ manifest('...') }}
+        # Filter: {{ '...'|manifest }}
+        app.jinja_env.globals['manifest'] = app.jinja_env.filters['manifest'] = self
+
+        resource = None
+        path = None
+        for path in self.search_paths:
+            try:
+                resource = app.open_resource(path)
+            except FileNotFoundError:
+                continue
+            else:
+                break
+        if resource is None:
+            raise FileNotFoundError(
+                f"No asset manifest found in locations {self.search_paths!r}"
+            )
+
+        # Use ``json.loads`` because a substitute JSON implementation (eg: orjson) may
+        # not support the ``load`` method
+        manifest = app.json.loads(resource.read())
+        resource.close()
+        if not isinstance(manifest, dict):
+            raise ValueError(f"File `{path}` must contain a JSON object at root level")
+        if (
+            self.detect_legacy_webpack
+            and 'assets' in manifest
+            # Use [] instead of .get so mypy and pyright will detect the type correctly
+            and isinstance(manifest['assets'], dict)
+        ):
+            # Legacy Webpack manifest.json has all assets in a sub-object named 'assets'
+            manifest = manifest['assets']
+
+        for asset_name, asset_value in list(manifest.items()):
+            if not isinstance(asset_value, str):
+                raise ValueError(
+                    f"Expected string value for `{path}:{asset_name}`, got"
+                    f" {asset_value!r}"
+                )
+            for sub_re, sub_replacement in self.substitutes:
+                if isinstance(sub_re, re.Pattern):
+                    new_name = sub_re.sub(sub_replacement, asset_name)
+                else:
+                    new_name = re.sub(sub_re, sub_replacement, asset_name)
+                if new_name != asset_name:
+                    # Only process if there's a match
+                    if new_name in manifest:
+                        warnings.warn(
+                            f"Asset {asset_name} substitute {new_name} is already in"
+                            f" the manifest",
+                            RuntimeWarning,
+                            stacklevel=_warning_stack_level,
+                        )
+                    else:
+                        manifest[new_name] = asset_value
+
+        app.config[MANIFEST_KEY].update(manifest)
+
+    def __call__(self, asset: str) -> str:
+        """Return an asset path. In future this may accept options."""
+        return self[asset]
+
+    def __getitem__(self, key: str) -> str:
+        """Return an asset value, falling back to a safe default."""
+        if not current_app:
+            return DEFAULT_VALUE
+        assets = current_app.config.get(MANIFEST_KEY, {})
+        asset_value = assets.get(key)
+        if asset_value is None:
+            return DEFAULT_VALUE
+        if self.base_path is not None:
+            return os.path.join(self.base_path, asset_value)
+        return asset_value
+
+    def get(self, key: str, default: t.Optional[t.Any] = None) -> t.Any:
+        """
+        Get an asset if it exists, returning default otherwise.
+
+        Unlike :meth:`__getitem__`, this method's default is `None`, matching the
+        behaviour of :meth:`collections.defaultdict.get`.
+        """
+        if not current_app:
+            return default
+        assets = current_app.config.get(MANIFEST_KEY, {})
+        if key not in assets:
+            return default
+        asset_value = assets[key]
+        if self.base_path is not None:
+            return os.path.join(self.base_path, asset_value)
+        return asset_value
+
+    # These methods will typically not be used but are present for the Mapping ABC
+
+    def __contains__(self, key: t.Any) -> bool:
+        if not current_app:
+            return False
+        return key in current_app.config.get(MANIFEST_KEY, {})
+
+    def __iter__(self) -> t.Iterator[str]:
+        if not current_app:
+            return iter({})
+        return iter(current_app.config.get(MANIFEST_KEY, {}))
+
+    def __len__(self) -> int:
+        if not current_app:
+            return 0
+        return len(current_app.config.get(MANIFEST_KEY, {}))
