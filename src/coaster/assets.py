@@ -202,6 +202,11 @@ class VersionedAssets(defaultdict):
 EXTENSION_KEY = 'manifest.json'
 
 
+def _get_assets_for_current_app() -> t.Dict[str, str]:
+    """Get assets from current_app's extension registry (internal use only)."""
+    return current_app.extensions.get(EXTENSION_KEY, {})
+
+
 class WebpackManifest(Mapping):
     """
     Webpack asset manifest extension for Flask and Jinja2.
@@ -345,15 +350,11 @@ class WebpackManifest(Mapping):
 
         app.extensions[EXTENSION_KEY] = assets
 
-    def _get_assets_for_current_app(self) -> t.Dict[str, str]:
-        """Get assets from current_app's config (internal use only)."""
-        return current_app.extensions.get(EXTENSION_KEY, {})
-
     def __getitem__(self, key: str) -> str:
         """Return an asset path if present, or log an app error and raise KeyError."""
         if not current_app:
             raise KeyError(key)
-        assets = self._get_assets_for_current_app()
+        assets = _get_assets_for_current_app()
         try:
             if self.urlpath is not None:
                 return urljoin(self.urlpath, assets[key])
@@ -383,7 +384,7 @@ class WebpackManifest(Mapping):
         """
         if not current_app:
             return default
-        assets = self._get_assets_for_current_app()
+        assets = _get_assets_for_current_app()
         if key not in assets:
             return default
         asset_value = assets[key]
@@ -396,14 +397,14 @@ class WebpackManifest(Mapping):
     def __contains__(self, key: t.Any) -> bool:
         if not current_app:
             return False
-        return key in self._get_assets_for_current_app()
+        return key in _get_assets_for_current_app()
 
     def __iter__(self) -> t.Iterator[str]:
         if not current_app:
             return iter({})
-        return iter(self._get_assets_for_current_app())
+        return iter(_get_assets_for_current_app())
 
     def __len__(self) -> int:
         if not current_app:
             return 0
-        return len(self._get_assets_for_current_app())
+        return len(_get_assets_for_current_app())
