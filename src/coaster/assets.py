@@ -276,9 +276,9 @@ class WebpackManifest(Mapping):
         jinja_global: t.Optional[str] = 'manifest',
     ) -> None:
         self.filepath = filepath
+        self.urlpath = urlpath
         if substitutes is not None:
             self.substitutes = substitutes
-        self.urlpath = urlpath
         self.detect_legacy_webpack = detect_legacy_webpack
         self.jinja_global = jinja_global
         if app is not None:
