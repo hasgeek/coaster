@@ -197,7 +197,7 @@ class WebpackManifest(Mapping):
     """
     Webpack asset manifest extension for Flask and Jinja2.
 
-    WebpackManifest loads a ``manifest.json`` file produced by Webpack_, and makes the
+    WebpackManifest loads a ``manifest.json`` file produced by Webpack_ and makes the
     contents available to Jinja2 templates as ``{{ manifest['asset_name.ext'] }}``. Call
     syntax is also supported and accepts an optional default for missing assets,
     defaulting to a browser-friendly empty value ``data:,``. The standard dictionary
@@ -230,9 +230,7 @@ class WebpackManifest(Mapping):
 
     WebpackManifest does not hold the asset data. It loads and stores it as
     ``app.config['manifest.json']`` during the :meth:`init_app` call, and therefore
-    requires an app context to retrieve the path. If an unknown asset is requested, it
-    will return the static string ``data:,`` instead of raising an exception. Browsers
-    should parse this as a valid URI with an empty body.
+    requires an app context at runtime.
 
     :param app: Flask app, can be supplied later by calling :meth:`init_app`
     :param filepath: Path to the manifest JSON file relative to the app folder
