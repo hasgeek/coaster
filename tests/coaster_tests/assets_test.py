@@ -247,7 +247,7 @@ def test_manifest_limited_to_app_with_context(app1: Flask, app2: Flask) -> None:
     with app2.app_context():
         assert len(manifest) == 0
         # But we can fake the content and the extension works
-        app2.config['manifest.json'] = {'test-entry': 'test-value'}
+        app2.extensions['manifest.json'] = {'test-entry': 'test-value'}
         assert len(manifest) == 1
         assert manifest['test-entry'] == '/test-prefix/test-value'
 
