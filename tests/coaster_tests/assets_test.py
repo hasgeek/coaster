@@ -1,7 +1,8 @@
 """Tests for asset management helpers."""
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name,pointless-statement
 
 import json
+import logging
 import re
 import typing as t
 from io import StringIO
@@ -9,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 from flask import Flask, render_template_string
+from jinja2.exceptions import UndefinedError
 
 from coaster.assets import AssetNotFound, Version, VersionedAssets, WebpackManifest
 
@@ -145,10 +147,12 @@ def test_create_empty_manifest() -> None:
     assert len(manifest) == 0
     assert not list(iter(manifest))
     assert 'random' not in manifest
-    assert manifest['random'] == 'data:,'
     assert manifest('random') == 'data:,'
+    assert manifest('random', 'default-value') == 'default-value'
     assert manifest.get('random') is None
     assert manifest.get('random', 'default-value') == 'default-value'
+    with pytest.raises(KeyError):
+        manifest['random']
 
 
 def test_unaffiliated_manifest(app1: Flask) -> None:
@@ -157,49 +161,35 @@ def test_unaffiliated_manifest(app1: Flask) -> None:
     with app1.app_context():
         assert len(manifest) == 0
         assert not list(iter(manifest))
-        assert 'random' not in manifest
-        assert manifest['random'] == 'data:,'
         assert manifest('random') == 'data:,'
+        assert manifest('random', 'default-value') == 'default-value'
         assert manifest.get('random') is None
         assert manifest.get('random', 'default-value') == 'default-value'
+        with pytest.raises(KeyError):
+            manifest['random']
 
 
 @pytest.mark.parametrize(
-    ('search_paths', 'error'),
+    ('filepath', 'error'),
     [
-        (
-            None,
-            re.escape(
-                "No asset manifest found in locations"
-                " ['static/manifest.json', 'static/build/manifest.json']"
-            ),
-        ),
-        (
-            ['does-not-exist.json'],
-            re.escape("No asset manifest found in locations ['does-not-exist.json']"),
-        ),
+        (None, "No such file or directory: '.*?/static/manifest.json'"),
+        ('does-not-exist.json', "No such file or directory: '.*?/does-not-exist.json'"),
     ],
 )
-def test_manifest_search_paths(
-    app1: Flask, search_paths: t.Optional[str], error: str
-) -> None:
-    """The search paths can be customized and will be replayed in FileNotFoundError."""
-    with pytest.raises(FileNotFoundError, match=error):
-        WebpackManifest(app1, search_paths=search_paths)
-
-
-def test_load_manifest_from_file_as_secondary_search_path(app1: Flask) -> None:
-    """Given multiple search paths, the file can be found anywhere in the list."""
-    manifest = WebpackManifest(
-        app1, search_paths=['does-not-exist.json', 'test-manifest.json']
-    )
-    with app1.app_context():
-        assert len(manifest) == 6
+def test_manifest_filepath(app1: Flask, filepath: t.Optional[str], error: str) -> None:
+    """If the manifest file is missing, FileNotFoundError is raised."""
+    if filepath is None:
+        with pytest.raises(FileNotFoundError, match=error):
+            # Confirm the error message indicates the default filepath
+            WebpackManifest(app1)
+    else:
+        with pytest.raises(FileNotFoundError, match=error):
+            WebpackManifest(app1, filepath=filepath)
 
 
 def test_load_manifest_from_file(app1: Flask) -> None:
     """A test manifest file is loaded correctly, with substitutions."""
-    manifest = WebpackManifest(app1, search_paths=['test-manifest.json'])
+    manifest = WebpackManifest(app1, filepath='test-manifest.json')
     assert len(manifest) == 0
     with app1.app_context():
         assert len(manifest) == 6
@@ -211,7 +201,7 @@ def test_load_manifest_from_file(app1: Flask) -> None:
             manifest['test.css']
             == manifest('test.css')
             == manifest.get('test.css')
-            == 'test-file-does-not-really-exist.css'
+            == 'test-asset.css'
         )
         assert (
             manifest['index.scss']
@@ -220,7 +210,7 @@ def test_load_manifest_from_file(app1: Flask) -> None:
             == manifest['index.css']
             == manifest('index.css')
             == manifest.get('index.css')
-            == 'this-is-index.css'
+            == 'test-index.css'
         )
         # Call iter(manifest) to confirm it works, then recast as set for comparison
         assert set(iter(manifest)) == {
@@ -232,15 +222,18 @@ def test_load_manifest_from_file(app1: Flask) -> None:
             'test.png',
         }
         # Since other.css is not present, a default value is returned
-        assert manifest['other.css'] == manifest('other.css') == 'data:,'
+        assert manifest('other.css') == 'data:,'
+        assert manifest('other.css', 'default-value') == 'default-value'
         assert manifest.get('other.css') is None
         assert manifest.get('other.css', 'default-value') == 'default-value'
+        with pytest.raises(KeyError):
+            manifest['other.css']
 
 
 def test_manifest_limited_to_app_with_context(app1: Flask, app2: Flask) -> None:
     """A manifest loaded for one app is not available in another app's context."""
     manifest = WebpackManifest(
-        app1, search_paths=['test-manifest.json'], base_path='/test-prefix'
+        app1, filepath='test-manifest.json', urlpath='/test-prefix/'
     )
     assert len(manifest) == 0
     with app1.app_context():
@@ -249,7 +242,7 @@ def test_manifest_limited_to_app_with_context(app1: Flask, app2: Flask) -> None:
             manifest['test.css']
             == manifest('test.css')
             == manifest.get('test.css')
-            == '/test-prefix/test-file-does-not-really-exist.css'
+            == '/test-prefix/test-asset.css'
         )
     with app2.app_context():
         assert len(manifest) == 0
@@ -262,11 +255,9 @@ def test_manifest_limited_to_app_with_context(app1: Flask, app2: Flask) -> None:
 # --- Tests for options: custom base path, substitute asset names
 
 
-def test_load_manifest_from_file_with_custom_base_path(app1: Flask) -> None:
+def test_load_manifest_from_file_with_custom_basepath(app1: Flask) -> None:
     """A base path is added to the values in the manifest."""
-    manifest = WebpackManifest(
-        app1, search_paths=['test-manifest.json'], base_path='/static'
-    )
+    manifest = WebpackManifest(app1, filepath='test-manifest.json', urlpath='/static/')
     assert len(manifest) == 0
     with app1.app_context():
         assert len(manifest) == 6
@@ -278,7 +269,7 @@ def test_load_manifest_from_file_with_custom_base_path(app1: Flask) -> None:
             manifest['test.css']
             == manifest('test.css')
             == manifest.get('test.css')
-            == '/static/test-file-does-not-really-exist.css'
+            == '/static/test-asset.css'
         )
         assert (
             manifest['index.scss']
@@ -287,19 +278,22 @@ def test_load_manifest_from_file_with_custom_base_path(app1: Flask) -> None:
             == manifest['index.css']
             == manifest('index.css')
             == manifest.get('index.css')
-            == '/static/this-is-index.css'
+            == '/static/test-index.css'
         )
         # Since other.css is not present, the base path is not prefixed to default value
-        assert manifest['other.css'] == manifest('other.css') == 'data:,'
+        assert manifest('other.css') == 'data:,'
+        assert manifest('other.css', 'default-value') == 'default-value'
         assert manifest.get('other.css') is None
         assert manifest.get('other.css', 'default-value') == 'default-value'
+        with pytest.raises(KeyError):
+            manifest['other.css']
 
 
 def test_manifest_disable_substitutions(app1: Flask, app2: Flask) -> None:
     """Asset name substitutions can be disabled by passing an empty list."""
-    manifest1 = WebpackManifest(app1, search_paths=['test-manifest.json'])
+    manifest1 = WebpackManifest(app1, filepath='test-manifest.json')
     manifest2 = WebpackManifest(
-        app2, search_paths=['test-manifest.json'], substitutes=[], base_path='/nosub'
+        app2, filepath='test-manifest.json', substitutes=[], urlpath='/nosub/'
     )
     # Manifest instances can be used interchangeably with app instances
     # Manifest1 is linked to App1 with default substitutions and no base path
@@ -307,28 +301,28 @@ def test_manifest_disable_substitutions(app1: Flask, app2: Flask) -> None:
     with app1.app_context():
         assert len(manifest1) == 6
         assert len(manifest2) == 6
-        assert manifest1['test.css'] == 'test-file-does-not-really-exist.css'
-        assert manifest2['test.css'] == '/nosub/test-file-does-not-really-exist.css'
+        assert manifest1['test.css'] == 'test-asset.css'
+        assert manifest2['test.css'] == '/nosub/test-asset.css'
         assert 'index.css' in manifest1
         assert 'index.css' in manifest2
-        assert manifest1['index.scss'] == manifest1['index.css'] == 'this-is-index.css'
+        assert manifest1['index.scss'] == manifest1['index.css'] == 'test-index.css'
         assert (
-            manifest2['index.scss']
-            == manifest2['index.css']
-            == '/nosub/this-is-index.css'
+            manifest2['index.scss'] == manifest2['index.css'] == '/nosub/test-index.css'
         )
     # App2 will not have the substitutes
     with app2.app_context():
         assert len(manifest1) == 5
         assert len(manifest2) == 5
-        assert manifest1['test.css'] == 'test-file-does-not-really-exist.css'
-        assert manifest2['test.css'] == '/nosub/test-file-does-not-really-exist.css'
+        assert manifest1['test.css'] == 'test-asset.css'
+        assert manifest2['test.css'] == '/nosub/test-asset.css'
         assert 'index.css' not in manifest1
         assert 'index.css' not in manifest2
-        assert manifest1['index.scss'] == 'this-is-index.css'
-        assert manifest1['index.css'] == 'data:,'
-        assert manifest2['index.scss'] == '/nosub/this-is-index.css'
-        assert manifest2['index.css'] == 'data:,'
+        assert manifest1['index.scss'] == 'test-index.css'
+        assert manifest2['index.scss'] == '/nosub/test-index.css'
+        with pytest.raises(KeyError):
+            manifest1['index.css']
+        with pytest.raises(KeyError):
+            manifest2['index.css']
 
 
 def test_compiled_regex_substitutes(app1: Flask) -> None:
@@ -396,27 +390,27 @@ def test_substitute_overlap_warning(app1: Flask) -> None:
 
 def test_dupe_init_app(app1: Flask) -> None:
     """Calling init_app twice will raise a warning but will work."""
-    manifest1 = WebpackManifest(
-        app1, search_paths=['test-manifest.json'], substitutes=[]
-    )
+    manifest1 = WebpackManifest(app1, filepath='test-manifest.json', substitutes=[])
     with app1.app_context():
         assert len(manifest1) == 5
-        assert manifest1['index.css'] == 'data:,'
+        assert 'index.css' not in manifest1
 
     with pytest.warns(RuntimeWarning):
         manifest1.init_app(app1)
     with app1.app_context():
         assert len(manifest1) == 5
 
-    manifest2 = WebpackManifest(search_paths=['test-manifest.json'], base_path='/2')
+    manifest2 = WebpackManifest(filepath='test-manifest.json', urlpath='/2/')
     with pytest.warns(RuntimeWarning):
         manifest2.init_app(app1)
 
     with app1.app_context():
         assert len(manifest1) == 6  # Length increased because manifest2 added a subst.
         assert len(manifest2) == 6
-        assert manifest1['index.css'] == 'this-is-index.css'
-        assert manifest2['index.css'] == '/2/this-is-index.css'
+        assert 'index.css' in manifest1
+        assert 'index.css' in manifest2
+        assert manifest1['index.css'] == 'test-index.css'
+        assert manifest2['index.css'] == '/2/test-index.css'
 
 
 def test_manifest_must_be_valid_json(app1: Flask) -> None:
@@ -432,7 +426,7 @@ def test_manifest_json_must_be_dict(app1: Flask) -> None:
     with patch('flask.app.Flask.open_resource') as mock:
         mock.return_value = StringIO(json.dumps(["This", "is", "a", "list"]))
         with pytest.raises(
-            ValueError, match='must contain a JSON object at root level'
+            ValueError, match='must contain a JSON object at the root level'
         ):
             WebpackManifest(app1)
 
@@ -456,7 +450,7 @@ def test_legacy_no_false_alarm(app1: Flask) -> None:
         mock.return_value = StringIO(
             json.dumps({'assets': 'why-is-this-called-assets.css'})
         )
-        manifest1 = WebpackManifest(app1, base_path='/test')
+        manifest1 = WebpackManifest(app1, urlpath='/test/')
         with app1.app_context():
             assert len(manifest1) == 1
             assert set(manifest1) == {'assets'}
@@ -472,7 +466,7 @@ def test_legacy_detection_disabled_on_legacy_file(app1: Flask) -> None:
         # If legacy detection is disabled, WebpackManifest will complain that the value
         # is not a string
         with pytest.raises(
-            ValueError, match="Expected string value for `static/manifest.json:assets`"
+            ValueError, match="Expected a string for `static/manifest.json:assets`"
         ):
             WebpackManifest(app1, detect_legacy_webpack=False)
 
@@ -480,9 +474,9 @@ def test_legacy_detection_disabled_on_legacy_file(app1: Flask) -> None:
 # --- Tests for use in Jinja2 templates
 
 
-def test_jinja2_filter(app1: Flask) -> None:
-    """A Jinja2 filter is installed and can be used."""
-    manifest = WebpackManifest(app1, search_paths=['test-manifest.json'])
+def test_jinja2_global(app1: Flask) -> None:
+    """A Jinja2 global var is installed and can be used in templates."""
+    manifest = WebpackManifest(app1, filepath='test-manifest.json')
     with app1.app_context():
         assert 'test.css' in manifest
         assert (
@@ -495,26 +489,103 @@ def test_jinja2_filter(app1: Flask) -> None:
             == render_template_string(
                 '''<link rel="stylesheet" src="{{ manifest.get('test.css') }}" />'''
             )
-            == render_template_string(
-                '''<link rel="stylesheet" src="{{ 'test.css'|manifest }}" />'''
-            )
-            == '<link rel="stylesheet" src="test-file-does-not-really-exist.css" />'
+            == '<link rel="stylesheet" src="test-asset.css" />'
         )
-
         assert 'unknown.css' not in manifest
+        # Jinja2 will cast KeyError as an Undefined type, represented as an empty string
         assert (
             render_template_string(
                 '''<link rel="stylesheet" src="{{ manifest['unknown.css'] }}" />'''
             )
-            == render_template_string(
+            == '<link rel="stylesheet" src="" />'
+        )
+        # Call access will return a default value ``'data:,'`` for missing assets
+        assert (
+            render_template_string(
                 '''<link rel="stylesheet" src="{{ manifest('unknown.css') }}" />'''
             )
             == render_template_string(
                 '''<link rel="stylesheet" src="{{ manifest.get('unknown.css','''
                 ''' 'data:,') }}" />'''
             )
-            == render_template_string(
-                '''<link rel="stylesheet" src="{{ 'unknown.css'|manifest }}" />'''
-            )
             == '<link rel="stylesheet" src="data:," />'
         )
+
+
+def test_jinja2_global_rename_or_skip(app1: Flask, app2: Flask) -> None:
+    """The Jinja2 global can be renamed or skipped."""
+    manifest1 = WebpackManifest(
+        app1, filepath='test-manifest.json', jinja_global='asset'
+    )
+    manifest2 = WebpackManifest(app2, filepath='test-manifest.json', jinja_global=None)
+
+    # In app1, the global is registered as `asset` instead of the default `manifest`
+    with app1.app_context():
+        assert 'test.css' in manifest1
+
+        with pytest.raises(UndefinedError, match="'manifest' is undefined"):
+            render_template_string(
+                '''<link rel="stylesheet" src="{{ manifest['test.css'] }}" />'''
+            )
+
+        assert (
+            render_template_string(
+                '''<link rel="stylesheet" src="{{ asset['test.css'] }}" />'''
+            )
+            == '<link rel="stylesheet" src="test-asset.css" />'
+        )
+
+    # In app2, there is no Jinja2 global at all
+    with app2.app_context():
+        assert 'test.css' in manifest2
+
+        with pytest.raises(UndefinedError, match="'manifest' is undefined"):
+            render_template_string(
+                '''<link rel="stylesheet" src="{{ manifest['test.css'] }}" />'''
+            )
+
+
+def test_keyerror_caplog(caplog: pytest.LogCaptureFixture, app1: Flask) -> None:
+    """A KeyError under an app context will be logged as an app error."""
+    with patch('flask.app.Flask.open_resource') as mock:
+        mock.return_value = StringIO(json.dumps({'exists.css': 'asset-exists.css'}))
+        manifest = WebpackManifest(app1)
+
+    caplog.clear()
+    # Without an app context, KeyError will not be logged
+    with pytest.raises(KeyError):
+        manifest['does-not-exist.css']
+    assert caplog.record_tuples == []
+    with app1.app_context():
+        assert manifest['exists.css'] == 'asset-exists.css'
+        # A successful lookup will not be logged
+        assert caplog.record_tuples == []
+        with pytest.raises(KeyError):
+            manifest['does-not-exist.css']
+        assert caplog.record_tuples == [
+            (
+                __name__,
+                logging.ERROR,
+                'Manifest static/manifest.json does not have asset does-not-exist.css',
+            )
+        ]
+
+        caplog.clear()
+        assert caplog.record_tuples == []
+
+        # Call access does not raise KeyError, but will still log an error
+        assert manifest('does-not-exist.css') == 'data:,'
+        assert caplog.record_tuples == [
+            (
+                __name__,
+                logging.ERROR,
+                'Manifest static/manifest.json does not have asset does-not-exist.css',
+            )
+        ]
+
+        caplog.clear()
+        assert caplog.record_tuples == []
+
+        # The get() method does not raise KeyError and does not log an error
+        assert manifest.get('does-not-exist.css') is None
+        assert caplog.record_tuples == []

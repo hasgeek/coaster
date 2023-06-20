@@ -1,6 +1,6 @@
 {
-  "test.css": "test-file-does-not-really-exist.css",
-  "index.scss": "this-is-index.css",
+  "test.css": "test-asset.css",
+  "index.scss": "test-index.css",
   "test.js": "js/test.js",
   "test.png": "img/test.png",
   "test.jpg": "img/test.jpg"
