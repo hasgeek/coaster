@@ -268,10 +268,10 @@ class WebpackManifest(Mapping):
         app: t.Optional[Flask] = None,
         *,
         filepath: str = 'static/manifest.json',
+        urlpath: t.Optional[str] = None,
         substitutes: t.Optional[
             t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]]
         ] = None,
-        urlpath: t.Optional[str] = None,
         detect_legacy_webpack: bool = True,
         jinja_global: t.Optional[str] = 'manifest',
     ) -> None:
