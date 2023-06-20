@@ -195,18 +195,25 @@ class VersionedAssets(defaultdict):
 
 class WebpackManifest(Mapping):
     """
-    Webpack asset manifest extension for Flask and Jinj2.
+    Webpack asset manifest extension for Flask and Jinja2.
 
     WebpackManifest loads a ``manifest.json`` file produced by Webpack_, and makes the
     contents available to Jinja2 templates as ``{{ manifest['asset_name.ext'] }}``. Call
-    syntax is also supported, allowing for use as ``{{ 'asset_name.ext'|manifest }}``.
+    syntax is also supported and accepts an optional default for missing assets,
+    defaulting to a browser-friendly empty value ``data:,``. The standard dictionary
+    method :meth:`get` defaults to the usual `None` and is not recommended in templates
+    as it will render as a string ``'None'``. All three invocations have slightly
+    different behaviours when an unknown asset is requested:
 
-    WebpackManifest searches for the file at these locations relative to the app folder:
+    1. Dict access: raises KeyError, which Jinja2 will remap to an Undefined object,
+        which renders as an empty string. This will also log an error with a traceback
+        to the current app's logger.
+    2. Call access: does not raise KeyError but instead returns the default value
+        ``'data:,'`` or as provided. Also logs to the current app's logger.
+    3. :meth:`get` method: returns the default (`None` or as provided) and does not log
+        an error. You should only use this method when supplying an explicit default,
+        and do not consider a missing asset to be a log-worthy incident.
 
-    1. ``static/manifest.json``
-    2. ``static/build/manifest.json``
-
-    To look elsewhere, provide a list of paths as the :attr:`search_paths` parameter.
     Webpack plugins and cache can sometimes interfere with asset names. An asset named
     ``app.scss`` may remain ``app.scss`` on a clean build, but turn into ``app.css`` on
     a rebuild. To counter this, WebpackManifest allows for asset name substitutions via
@@ -235,10 +242,10 @@ class WebpackManifest(Mapping):
     :param urlpath: Optional URL path to prefix to asset path (typically
         ``'/static'``, but not required if Webpack is configured correctly)
     :param detect_legacy_webpack: Older Webpack versions produce a manifest that has a
-        single top-level ``assets`` key. Set this to False to turn off auto-detection in
-        case it's causing problems ()
+        single top-level ``assets`` key. Set this to `False` to turn off auto-detection
+        in case it's causing problems (default `True`)
     :param app_config_key: The contents of the manifest are saved to the app's config
-        under this key (default: ``'manifest.json'``)
+        under this key (default ``'manifest.json'``)
     :param jinja_global: Install WebpackManifest as a Jinja2 global with this name
         (default ``'manifest'``, use ``None`` to not install to Jinja2)
 
