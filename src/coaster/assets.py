@@ -32,7 +32,13 @@ from semantic_version import SimpleSpec, Version
 _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
 # Version is not used here but is made available for others to import from
-__all__ = ['Version', 'SimpleSpec', 'VersionedAssets', 'AssetNotFound']
+__all__ = [
+    'Version',
+    'SimpleSpec',
+    'VersionedAssets',
+    'AssetNotFound',
+    'WebpackManifest',
+]
 
 
 def split_namespec(namespec: str) -> t.Tuple[str, SimpleSpec]:
