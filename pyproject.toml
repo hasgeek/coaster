@@ -242,5 +242,5 @@ split-on-trailing-comma = false
 relative-imports-order = 'furthest-to-closest'
 known-first-party = ['coaster']
 section-order = [
-  'future', 'standard-library', 'third-party', 'first-party', 'repo', 'local-folder'
+  'future', 'standard-library', 'third-party', 'first-party', 'local-folder'
 ]

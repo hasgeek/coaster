@@ -1,0 +1,7 @@
+{
+  "test.css": "test-asset.css",
+  "index.scss": "test-index.css",
+  "test.js": "js/test.js",
+  "test.png": "img/test.png",
+  "test.jpg": "img/test.jpg"
+}
