@@ -199,6 +199,14 @@ class VersionedAssets(defaultdict):
         )
 
 
+EXTENSION_KEY = 'manifest.json'
+
+
+def _get_assets_for_current_app() -> t.Dict[str, str]:
+    """Get assets from current_app's extension registry (internal use only)."""
+    return current_app.extensions.get(EXTENSION_KEY, {})
+
+
 class WebpackManifest(Mapping):
     """
     Webpack asset manifest extension for Flask and Jinja2.
@@ -235,7 +243,7 @@ class WebpackManifest(Mapping):
     :warn:`RuntimeWarning` is emitted.
 
     WebpackManifest does not hold the asset data. It loads and stores it as
-    ``app.config['manifest.json']`` during the :meth:`init_app` call, and therefore
+    ``app.extensions['manifest.json']`` during the :meth:`init_app` call, and therefore
     requires an app context at runtime.
 
     :param app: Flask app, can be supplied later by calling :meth:`init_app`
@@ -248,8 +256,6 @@ class WebpackManifest(Mapping):
     :param detect_legacy_webpack: Older Webpack versions produce a manifest that has a
         single top-level ``assets`` key. Set this to `False` to turn off auto-detection
         in case it's causing problems (default `True`)
-    :param app_config_key: The contents of the manifest are saved to the app's config
-        under this key (default ``'manifest.json'``)
     :param jinja_global: Install WebpackManifest as a Jinja2 global with this name
         (default ``'manifest'``, use ``None`` to not install to Jinja2)
 
@@ -267,20 +273,18 @@ class WebpackManifest(Mapping):
         app: t.Optional[Flask] = None,
         *,
         filepath: str = 'static/manifest.json',
+        urlpath: t.Optional[str] = None,
         substitutes: t.Optional[
             t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]]
         ] = None,
-        urlpath: t.Optional[str] = None,
         detect_legacy_webpack: bool = True,
-        app_config_key: str = 'manifest.json',
         jinja_global: t.Optional[str] = 'manifest',
     ) -> None:
         self.filepath = filepath
+        self.urlpath = urlpath
         if substitutes is not None:
             self.substitutes = substitutes
-        self.urlpath = urlpath
         self.detect_legacy_webpack = detect_legacy_webpack
-        self.app_config_key = app_config_key
         self.jinja_global = jinja_global
         if app is not None:
             self.init_app(app, _warning_stack_level=3)
@@ -335,26 +339,22 @@ class WebpackManifest(Mapping):
         if self.jinja_global:
             app.jinja_env.globals[self.jinja_global] = self
 
-        # Step 4: Save to app.config, issuing a warning if there is existing content
-        if self.app_config_key in app.config:
+        # Step 4: Save to app.extensions, issuing a warning if there is existing content
+        if EXTENSION_KEY in app.extensions:
             warnings.warn(
-                f"`app.config[{self.app_config_key!r}]` already exists and will be"
+                f"`app.extensions[{EXTENSION_KEY!r}]` already exists and will be"
                 f" overwritten",
                 RuntimeWarning,
                 stacklevel=_warning_stack_level,
             )
 
-        app.config[self.app_config_key] = assets
-
-    def _get_assets_for_current_app(self) -> t.Dict[str, str]:
-        """Get assets from current_app's config (internal use only)."""
-        return current_app.config.get(self.app_config_key, {})
+        app.extensions[EXTENSION_KEY] = assets
 
     def __getitem__(self, key: str) -> str:
         """Return an asset path if present, or log an app error and raise KeyError."""
         if not current_app:
             raise KeyError(key)
-        assets = self._get_assets_for_current_app()
+        assets = _get_assets_for_current_app()
         try:
             if self.urlpath is not None:
                 return urljoin(self.urlpath, assets[key])
@@ -384,7 +384,7 @@ class WebpackManifest(Mapping):
         """
         if not current_app:
             return default
-        assets = self._get_assets_for_current_app()
+        assets = _get_assets_for_current_app()
         if key not in assets:
             return default
         asset_value = assets[key]
@@ -397,14 +397,14 @@ class WebpackManifest(Mapping):
     def __contains__(self, key: t.Any) -> bool:
         if not current_app:
             return False
-        return key in self._get_assets_for_current_app()
+        return key in _get_assets_for_current_app()
 
     def __iter__(self) -> t.Iterator[str]:
         if not current_app:
             return iter({})
-        return iter(self._get_assets_for_current_app())
+        return iter(_get_assets_for_current_app())
 
     def __len__(self) -> int:
         if not current_app:
             return 0
-        return len(self._get_assets_for_current_app())
+        return len(_get_assets_for_current_app())
