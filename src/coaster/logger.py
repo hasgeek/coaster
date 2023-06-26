@@ -326,12 +326,15 @@ class SlackHandler(logging.Handler):
 class TelegramHandler(logging.Handler):
     """Custom logging handler to report errors to a Telegram chat."""
 
-    def __init__(self, app_name: str, chatid: str, apikey: str) -> None:
+    def __init__(
+        self, app_name: str, chatid: str, apikey: str, threadid: t.Optional[str] = None
+    ) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.chatid = chatid
         self.apikey = apikey
+        self.threadid = threadid
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
@@ -370,14 +373,17 @@ class TelegramHandler(logging.Handler):
                     text += '</pre>'
                 text += '…'
 
+            telegram_post_data = {
+                'chat_id': self.chatid,
+                'parse_mode': 'html',
+                'text': text,
+                'disable_preview': True,
+            }
+            if self.threadid:
+                telegram_post_data['message_thread_id'] = self.threadid
             requests.post(
                 f'https://api.telegram.org/bot{self.apikey}/sendMessage',
-                data={
-                    'chat_id': self.chatid,
-                    'parse_mode': 'html',
-                    'text': text,
-                    'disable_preview': True,
-                },
+                data=telegram_post_data,
                 timeout=30,
             )
             error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
@@ -400,7 +406,10 @@ def init_app(app: Flask) -> None:
     * ``SLACK_LOGGING_WEBHOOKS``: If present, will send error logs to all specified
         Slack webhooks
     * ``TELEGRAM_ERROR_CHATID`` and ``TELEGRAM_ERROR_APIKEY``: If present, will use the
-        specified API key to post a message to the specified chat
+        specified API key to post a message to the specified chat. If
+        ``TELEGRAM_ERROR_THREADID`` is present, the message will be sent to the
+        specified topic thread. ``TELEGRAM_ERROR_LEVEL`` may optionally specify the
+        logging level, defaulting to :attr:`logging.ERROR`.
 
     Format for ``SLACK_LOGGING_WEBHOOKS``::
 
@@ -443,8 +452,9 @@ def init_app(app: Flask) -> None:
             app_name=app.config.get('SITE_ID') or app.name,
             chatid=app.config['TELEGRAM_ERROR_CHATID'],
             apikey=app.config['TELEGRAM_ERROR_APIKEY'],
+            threadid=app.config.get('TELEGRAM_ERROR_THREADID'),
         )
-        telegram_handler.setLevel(logging.ERROR)
+        telegram_handler.setLevel(app.config.get('TELEGRAM_ERROR_LEVEL', logging.ERROR))
         logger.addHandler(telegram_handler)
 
     if app.config.get('ADMINS'):
