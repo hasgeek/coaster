@@ -300,7 +300,7 @@ def init_app(
                 )
 
     if init_logging:
-        logger.init_app(app)
+        logger.init_app(app, _warning_stacklevel=3)
 
 
 def load_config_from_file(
