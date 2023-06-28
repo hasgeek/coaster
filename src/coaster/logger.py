@@ -12,15 +12,18 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import re
+import sys
 import textwrap
 import traceback
 import types
 import typing as t
+import warnings
 from datetime import datetime, timedelta
+from email.utils import formataddr
 from html import escape
 from io import StringIO
 from pprint import pprint
-from threading import Lock
+from threading import Lock, Thread
 
 if t.TYPE_CHECKING:
     from logging import _SysExcInfoType
@@ -56,9 +59,12 @@ _filter_re = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# global var as lazy in-memory cache
-error_throttle_timestamp_slack: t.Dict[t.Tuple[str, int], datetime] = {}
-error_throttle_timestamp_telegram: t.Dict[t.Tuple[str, int], datetime] = {}
+# Don't allow init on the same logger twice
+log_init_cache: t.MutableSet[t.Optional[str]] = set()
+
+
+class ConfigWarning(UserWarning):
+    """Warning for deprecated config keys."""
 
 
 class FilteredValueIndicator:
@@ -245,6 +251,15 @@ class LocalVarFormatter(logging.Formatter):
         return s
 
 
+class EmailHandler(logging.handlers.SMTPHandler):
+    """SMTPHandler with a subject formatter."""
+
+    def getSubject(self, record: logging.LogRecord) -> str:  # noqa: N802
+        """Provide error information in the email subject."""
+        # Reuses SMTPHandler's 'subject' attr to store the app name
+        return f'{record.levelname} in {self.subject}: {record.message}'
+
+
 class SlackHandler(logging.Handler):
     """Custom logging handler to post error reports to Slack."""
 
@@ -253,16 +268,21 @@ class SlackHandler(logging.Handler):
         super().__init__()
         self.app_name = app_name
         self.webhooks = webhooks
+        self.throttle_lock = Lock()
+        self.throttle_cache: t.Dict[t.Tuple[str, int], datetime] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
-        throttle_key = (record.module, record.lineno)
-        if throttle_key not in error_throttle_timestamp_slack or (
-            (datetime.utcnow() - error_throttle_timestamp_slack[throttle_key])
-            > timedelta(minutes=5)
-        ):
-            # Sanity check:
-            # If we're not going to be reporting this, don't bother to format payload
+        try:
+            throttle_key = (record.module, record.lineno)
+            with self.throttle_lock:
+                if throttle_key in self.throttle_cache and (
+                    (datetime.utcnow() - self.throttle_cache[throttle_key])
+                    < timedelta(minutes=5)
+                ):
+                    return
+            # Sanity check: If we're not going to be reporting this, don't bother
+            # to format payload
             if record.levelname not in [
                 lname
                 for webhook in self.webhooks
@@ -309,18 +329,20 @@ class SlackHandler(logging.Handler):
                     if attr in webhook:
                         payload[attr] = webhook[attr]
 
-                try:
-                    requests.post(
-                        webhook['url'],
-                        json=payload,
-                        headers={'Content-Type': 'application/json'},
-                        timeout=30,
-                    )
-                except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
-                    # We need a bare except clause because this is the exception
-                    # handler. It can't have exceptions of its own.
-                    pass
-                error_throttle_timestamp_slack[throttle_key] = datetime.utcnow()
+                Thread(
+                    target=requests.post,
+                    args=[webhook['url']],
+                    kwargs={
+                        'json': payload,
+                        'headers': {'Content-Type': 'application/json'},
+                        'timeout': 30,
+                    },
+                    daemon=True,
+                ).start()
+            with self.throttle_lock:
+                self.throttle_cache[throttle_key] = datetime.utcnow()
+        except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
+            self.handleError(record)
 
 
 class TelegramHandler(logging.Handler):
@@ -335,14 +357,19 @@ class TelegramHandler(logging.Handler):
         self.chatid = chatid
         self.apikey = apikey
         self.threadid = threadid
+        self.throttle_lock = Lock()
+        self.throttle_cache: t.Dict[t.Tuple[str, int], datetime] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
-        throttle_key = (record.module, record.lineno)
-        if throttle_key not in error_throttle_timestamp_telegram or (
-            (datetime.utcnow() - error_throttle_timestamp_telegram[throttle_key])
-            > timedelta(minutes=5)
-        ):
+        try:
+            throttle_key = (record.module, record.lineno)
+            with self.throttle_lock:
+                if throttle_key in self.throttle_cache and (
+                    (datetime.utcnow() - self.throttle_cache[throttle_key])
+                    < timedelta(minutes=5)
+                ):
+                    return
             # pylint: disable=consider-using-f-string
             text = '<b>{levelname}</b> in <b>{name}</b>: {message}'.format(
                 levelname=escape(record.levelname, False),
@@ -381,97 +408,202 @@ class TelegramHandler(logging.Handler):
             }
             if self.threadid:
                 telegram_post_data['message_thread_id'] = self.threadid
-            requests.post(
-                f'https://api.telegram.org/bot{self.apikey}/sendMessage',
-                data=telegram_post_data,
-                timeout=30,
-            )
-            error_throttle_timestamp_telegram[throttle_key] = datetime.utcnow()
+            Thread(
+                target=requests.post,
+                args=[f'https://api.telegram.org/bot{self.apikey}/sendMessage'],
+                kwargs={'data': telegram_post_data, 'timeout': 30},
+                daemon=True,
+            ).start()
+            with self.throttle_lock:
+                self.throttle_cache[throttle_key] = datetime.utcnow()
+        except Exception:  # noqa: B902  # pylint: disable=broad-except
+            self.handleError(record)
 
 
-def init_app(app: Flask) -> None:
+# Config names have been standardized. Old names continue to be supported but will raise
+# a warning
+log_legacy_confignames = {
+    'LOGFILE': 'LOG_FILE',
+    'LOGFILE_LEVEL': 'LOG_FILE_LEVEL',
+    'ADMINS': 'LOG_EMAIL_TO',
+    'SLACK_LOGGING_WEBHOOKS': 'LOG_SLACK_WEBHOOKS',
+    'TELEGRAM_ERROR_CHATID': 'LOG_TELEGRAM_CHATID',
+    'TELEGRAM_ERROR_APIKEY': 'LOG_TELEGRAM_APIKEY',
+}
+
+
+def init_app(app: Flask, _warning_stacklevel: int = 2) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 
-    Requires the app to be configured and checks for the following configuration
-    parameters. All are optional:
+    Logging handlers are enabled based on these app config values. All are optional:
 
-    * ``LOGFILE``: Name of the file to log to (default ``error.log``)
-    * ``LOGFILE_LEVEL``: Logging level to use for file logger (default `WARNING`)
-    * ``ADMINS``: List of email addresses of admins who will be mailed error reports
-    * ``MAIL_DEFAULT_SENDER``: From address of email. Can be an address or a tuple with
-        name and address
+    * ``LOG_FILE``: File to log to (default `None` disables logging to a file)
+    * ``LOG_FILE_LEVEL``: Logging level to use for file logger (default
+        :attr:`logging.WARNING`)
+    * ``LOG_FILE_DELAY``: Delay opening the log file until the first log is emitted
+        (default `True`)
+    * ``LOG_FILE_ROTATE``: Used timed log rotation (default `True`)
+    * ``LOG_FILE_ROTATE_WHEN``: When to rotate (default ``'midnight'``)
+    * ``LOG_FILE_ROTATE_COUNT``: Count of old files to keep (default 7)
+    * ``LOG_FILE_ROTATE_UTC``: If rotating at midnight, use UTC time (default `False`)
+    * ``LOG_EMAIL_TO``: List of email addresses to mail error reports to
+    * ``LOG_EMAIL_SUBJECT``: Optional subject of email
+    * ``LOG_EMAIL_FROM``: From address of emails, defaulting to ``MAIL_DEFAULT_SENDER``
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
-    * ``SLACK_LOGGING_WEBHOOKS``: If present, will send error logs to all specified
-        Slack webhooks
-    * ``TELEGRAM_ERROR_CHATID`` and ``TELEGRAM_ERROR_APIKEY``: If present, will use the
+    * ``LOG_TELEGRAM_CHATID`` and ``LOG_TELEGRAM_APIKEY``: If present, will use the
         specified API key to post a message to the specified chat. If
-        ``TELEGRAM_ERROR_THREADID`` is present, the message will be sent to the
-        specified topic thread. ``TELEGRAM_ERROR_LEVEL`` may optionally specify the
-        logging level, defaulting to :attr:`logging.ERROR`.
+        ``LOG_TELEGRAM_THREADID`` is present, the message will be sent to the
+        specified topic thread. ``LOG_TELEGRAM_LEVEL`` may optionally specify the
+        logging level, default :attr:`logging.WARNING`.
+    * ``LOG_SLACK_WEBHOOKS``: If present, will send error logs to all specified
+        Slack webhooks
 
-    Format for ``SLACK_LOGGING_WEBHOOKS``::
+    Format for ``LOG_SLACK_WEBHOOKS``::
 
-        SLACK_LOGGING_WEBHOOKS = [{
+        LOG_SLACK_WEBHOOKS = [{
             'levelnames': ['WARNING', 'ERROR', 'CRITICAL'],
             'url': 'https://hooks.slack.com/...'
-            }]
+            }, ...]
 
     """
+    # --- Prevent dupe init
+    if app.name in log_init_cache:
+        warnings.warn(
+            f"App `{app.name}` has already been configured for logging and will not be"
+            f" reconfigured. For a second app, set `app.name` to a distinct value",
+            category=ConfigWarning,
+            stacklevel=_warning_stacklevel,
+        )
+        return
+    log_init_cache.add(app.name)
     logger = app.logger  # logging.getLogger()
 
     formatter = LocalVarFormatter(
         '%(asctime)s - %(module)s.%(funcName)s:%(lineno)s - %(levelname)s - %(message)s'
     )
 
-    error_log_file = app.config.get('LOGFILE', 'error.log')
+    # --- Remap config names from legacy names
+    for old_name, new_name in log_legacy_confignames.items():
+        if old_name in app.config:
+            if new_name in app.config:
+                warnings.warn(
+                    f"`app.config[{old_name!r}]` is deprecated and will be ignored in"
+                    f" favour of new name `{new_name}` that is also in config",
+                    category=ConfigWarning,
+                    stacklevel=_warning_stacklevel,
+                )
+            else:
+                app.config[new_name] = app.config[old_name]
+                warnings.warn(
+                    f"`app.config[{old_name!r}]` is deprecated. Rename to `{new_name}`"
+                    f" to stop this warning",
+                    category=ConfigWarning,
+                    stacklevel=_warning_stacklevel,
+                )
+
+    # --- File handler (optionally rotated)
+    error_log_file = app.config.get('LOG_FILE')
     if error_log_file:  # Specify a falsy value in config to disable the log file
-        file_handler = logging.handlers.TimedRotatingFileHandler(
-            error_log_file,
-            when=app.config.get('LOGFILE_WHEN', 'midnight'),
-            backupCount=app.config.get('LOGFILE_BACKUPCOUNT', 0),
-        )
+        error_log_file_delay = app.config.get('LOG_FILE_DELAY', True)
+        if app.config.get('LOG_FILE_ROTATE', True):
+            file_handler: logging.Handler = logging.handlers.TimedRotatingFileHandler(
+                error_log_file,
+                delay=error_log_file_delay,
+                when=app.config.get('LOG_FILE_ROTATE_WHEN', 'midnight'),
+                interval=app.config.get('LOG_FILE_ROTATE_INTERVAL', 1),
+                backupCount=app.config.get('LOG_FILE_ROTATE_COUNT', 7),
+                utc=app.config.get('LOG_FILE_ROTATE_UTC', False),
+            )
+        else:
+            if sys.platform in ('linux', 'darwin'):
+                # WatchedFileHandler cannot be used on Windows. Also skip on unknown
+                # platforms, falling back to a regular FileHandler
+                file_handler = logging.handlers.WatchedFileHandler(
+                    error_log_file, delay=error_log_file_delay
+                )
+            else:
+                file_handler = logging.FileHandler(
+                    error_log_file, delay=error_log_file_delay
+                )
         file_handler.setFormatter(formatter)
-        file_handler.setLevel(app.config.get('LOGFILE_LEVEL', logging.WARNING))
+        file_handler.setLevel(app.config.get('LOG_FILE_LEVEL', logging.WARNING))
         logger.addHandler(file_handler)
 
-    if app.config.get('SLACK_LOGGING_WEBHOOKS'):
+    # --- Email handler
+    if app.config.get('LOG_EMAIL_TO'):
+        email_to: t.Union[str, t.List[str]] = app.config['LOG_EMAIL_TO']
+        if isinstance(email_to, str):
+            email_to = [email_to]
+
+        # From address (string or tuple/list)
+        email_from: t.Union[str, t.List[str], t.Tuple[str, str]] = (
+            app.config.get('LOG_EMAIL_FROM') or app.config['MAIL_DEFAULT_SENDER']
+        )
+        if isinstance(email_from, (list, tuple)):
+            # formataddr is typed with a tuple, but when using config from env with a
+            # JSON processor, it will always be a list. formataddr is okay with a list,
+            # so we a use a cast here to pass type check.
+            email_from = formataddr(t.cast(t.Tuple[str, str], email_from))
+
+        # Optional SMTP credentials
+        if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD'):
+            email_credentials: t.Optional[t.Tuple[str, str]] = (
+                app.config['MAIL_USERNAME'],
+                app.config['MAIL_PASSWORD'],
+            )
+        else:
+            email_credentials = None
+        email_server: t.Union[str, t.Tuple[str, int]]
+        email_server = str(app.config.get('MAIL_SERVER', 'localhost'))
+        if 'MAIL_PORT' in app.config:
+            email_server = (email_server, int(app.config['MAIL_PORT']))
+
+        # Optional TLS settings, converted to a form SMTPHandler understands
+        email_secure: t.Optional[
+            t.Union[t.Tuple[()], t.Tuple[str], t.Tuple[str, str]]
+        ] = None
+        if email_credentials and app.config.get('MAIL_USE_TLS'):
+            email_secure = ()  # Empty tuple to enable TLS
+        elif 'MAIL_SSL_KEYFILE' in app.config:
+            if 'MAIL_SSL_CERTFILE' in app.config:
+                email_secure = (
+                    app.config['MAIL_SSL_KEYFILE'],
+                    app.config['MAIL_SSL_CERTFILE'],
+                )
+            else:
+                email_secure = (app.config['MAIL_SSL_KEYFILE'],)
+
+        email_handler = EmailHandler(
+            mailhost=email_server,
+            fromaddr=email_from,
+            toaddrs=email_to,
+            subject=app.name,  # EmailHandler.getSubject uses this
+            credentials=email_credentials,
+            secure=email_secure,
+        )
+        email_handler.setFormatter(formatter)
+        email_handler.setLevel(logging.ERROR)
+        logger.addHandler(email_handler)
+
+    # --- Telegram handler
+    if app.config.get('LOG_TELEGRAM_CHATID') and app.config.get('LOG_TELEGRAM_APIKEY'):
+        telegram_handler = TelegramHandler(
+            app_name=app.name,
+            chatid=app.config['LOG_TELEGRAM_CHATID'],
+            apikey=app.config['LOG_TELEGRAM_APIKEY'],
+            threadid=app.config.get('LOG_TELEGRAM_THREADID'),
+        )
+        telegram_handler.setLevel(app.config.get('LOG_TELEGRAM_LEVEL', logging.WARNING))
+        logger.addHandler(telegram_handler)
+
+    # --- Slack handler
+    if app.config.get('LOG_SLACK_WEBHOOKS'):
         slack_handler = SlackHandler(
-            app_name=app.config.get('SITE_ID') or app.name,
-            webhooks=app.config['SLACK_LOGGING_WEBHOOKS'],
+            app_name=app.name,
+            webhooks=app.config['LOG_SLACK_WEBHOOKS'],
         )
         slack_handler.setFormatter(formatter)
         slack_handler.setLevel(logging.NOTSET)
         logger.addHandler(slack_handler)
-
-    if app.config.get('TELEGRAM_ERROR_CHATID') and app.config.get(
-        'TELEGRAM_ERROR_APIKEY'
-    ):
-        telegram_handler = TelegramHandler(
-            app_name=app.config.get('SITE_ID') or app.name,
-            chatid=app.config['TELEGRAM_ERROR_CHATID'],
-            apikey=app.config['TELEGRAM_ERROR_APIKEY'],
-            threadid=app.config.get('TELEGRAM_ERROR_THREADID'),
-        )
-        telegram_handler.setLevel(app.config.get('TELEGRAM_ERROR_LEVEL', logging.ERROR))
-        logger.addHandler(telegram_handler)
-
-    if app.config.get('ADMINS'):
-        mail_sender = app.config.get('MAIL_DEFAULT_SENDER', 'logs@example.com')
-        if isinstance(mail_sender, (list, tuple)):
-            mail_sender = mail_sender[1]  # Get email from (name, email)
-        if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD'):
-            credentials = (app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
-        else:
-            credentials = None
-        mail_handler = logging.handlers.SMTPHandler(
-            app.config.get('MAIL_SERVER', 'localhost'),
-            mail_sender,
-            app.config['ADMINS'],
-            f"{app.config.get('SITE_ID') or app.name} failure",
-            credentials=credentials,
-        )
-        mail_handler.setFormatter(formatter)
-        mail_handler.setLevel(logging.ERROR)
-        logger.addHandler(mail_handler)
