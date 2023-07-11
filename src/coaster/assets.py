@@ -166,8 +166,9 @@ class VersionedAssets(defaultdict):
                                 # The version asked for conflicts with a version
                                 # currently used.
                                 raise ValueError(
-                                    f"{req} is not compatible with already requested"
-                                    f" version {asset_versions[req_name]}"
+                                    f"{req} required by {namespec} is not compatible"
+                                    f" with already requested version"
+                                    f" {asset_versions[req_name]}"
                                 )
                         else:
                             filtered_requires.append(req)

@@ -643,9 +643,7 @@ class TestCoasterModels(AppTestCase):
         assert d2.name == 'new3'
 
     def test_named_auto(self) -> None:
-        """
-        The name attribute is auto-generated on database insertion
-        """
+        """The name attribute is auto-generated on database insertion."""
         c1 = self.make_container()
         d1 = NamedDocument(container=c1)
         d2 = ScopedNamedDocument(container=c1)
@@ -667,9 +665,7 @@ class TestCoasterModels(AppTestCase):
         assert d4.name == 'auto-name'
 
     def test_scoped_id_auto(self) -> None:
-        """
-        The url_id attribute is auto-generated on database insertion
-        """
+        """The url_id attribute is auto-generated on database insertion."""
         c1 = self.make_container()
         d1 = ScopedIdDocument()
         d1.container = c1
@@ -683,8 +679,24 @@ class TestCoasterModels(AppTestCase):
         assert d1.url_id == 1
         assert d2.url_id == 1
 
+    def test_title_format(self) -> None:
+        """Base*Name models render themselves using their title in `format()`."""
+        c1 = self.make_container()
+        self.session.flush()
+        d1 = NamedDocument(title="Document 1")
+        d2 = IdNamedDocument(title="Document 2")
+        d3 = ScopedNamedDocument(title="Document 3", container=c1)
+        d4 = ScopedIdNamedDocument(title="Document 4", container=c1)
+        d_blank = NamedDocumentBlank()
+        doc: t.Any
+        for doc in (d1, d2, d3, d4):
+            assert f"{doc}" == doc.title
+            assert f"{doc:>11}" == " " + doc.title
+        assert f"{d_blank}" == ""
+        assert f"{d_blank:>1}" == " "
+
     def test_title_for_name(self) -> None:
-        """Models can customise how their names are generated"""
+        """Models can customise how their names are generated."""
         c1 = self.make_container()
         self.session.flush()  # Container needs an id for scoped names to be validated
         d1 = UnlimitedName(title="Document 1")
@@ -711,6 +723,7 @@ class TestCoasterModels(AppTestCase):
         assert d4.name == 'custom4-document-4'
 
     def test_has_timestamps(self) -> None:
+        """Models deriving from the mixins will have timestamp columns."""
         # Confirm that a model with multiple base classes between it and
         # TimestampMixin still has created_at and updated_at
         c = self.make_container()
@@ -729,6 +742,7 @@ class TestCoasterModels(AppTestCase):
         assert d.updated_at > updated_at
 
     def test_url_for_fail(self) -> None:
+        """The url_for method in UrlForMixin will raise BuildError on failure."""
         d = UnnamedDocument(content="hello")
         with pytest.raises(BuildError):
             d.url_for()

@@ -177,6 +177,11 @@ warn_unused_ignores = true
 warn_redundant_casts = false
 check_untyped_defs = false
 
+[[tool.mypy.overrides]]
+module = 'tests.*'
+check_untyped_defs = true
+warn_unreachable = false
+
 [tool.bandit]
 exclude_dirs = ['node_modules', 'build/lib']
 
