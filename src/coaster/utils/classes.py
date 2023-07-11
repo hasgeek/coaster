@@ -172,7 +172,7 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
     __names__: t.ClassVar[t.Dict[str, t.Any]]
 
     @classmethod
-    def get(cls, key: str, default: t.Optional[t.Any] = None) -> t.Any:
+    def get(cls, key: t.Any, default: t.Optional[t.Any] = None) -> t.Any:
         """Get the label for an enum value."""
         return cls.__labels__.get(key, default)
 

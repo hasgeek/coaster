@@ -463,7 +463,7 @@ class ClassView:
 
     #: When a view is called, this will point to the current view handler,
     #: an instance of :class:`ViewHandlerWrapper`.
-    current_handler: ViewHandlerWrapper = None  # type: ignore[assignment]
+    current_handler: ViewHandlerWrapper
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
@@ -921,7 +921,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     def validate(context: ModelView) -> t.Optional[ResponseReturnValue]:
         if request.method == 'GET' and context.obj is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
-            stripped_url = furl(correct_url).remove(
+            stripped_url = correct_url.copy().remove(
                 username=True, password=True, port=True, query=True, fragment=True
             )
             request_url = furl(request.base_url).remove(

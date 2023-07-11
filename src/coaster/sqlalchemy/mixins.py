@@ -638,6 +638,13 @@ class BaseNameMixin(BaseMixin):
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.name} "{self.title}">'
 
+    def __format__(self, format_spec: str) -> str:
+        """Format using self.title."""
+        if format_spec:
+            # pylint: disable=not-callable
+            return (self.title or '').__format__(format_spec)
+        return self.title or ''
+
     @classmethod
     def get(cls, name: str) -> t.Optional[te.Self]:
         """Get an instance matching the name."""
@@ -773,6 +780,13 @@ class BaseScopedNameMixin(BaseMixin):
         return (
             f'<{self.__class__.__name__} {self.name} "{self.title}" of {self.parent!r}>'
         )
+
+    def __format__(self, format_spec: str) -> str:
+        """Format using self.title."""
+        if format_spec:
+            # pylint: disable=not-callable
+            return (self.title or '').__format__(format_spec)
+        return self.title or ''
 
     @classmethod
     def get(cls, parent: t.Any, name: str) -> t.Optional[te.Self]:
@@ -937,6 +951,13 @@ class BaseIdNameMixin(BaseMixin):
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.url_id_name} "{self.title}">'
+
+    def __format__(self, format_spec: str) -> str:
+        """Format using self.title."""
+        if format_spec:
+            # pylint: disable=not-callable
+            return (self.title or '').__format__(format_spec)
+        return self.title or ''
 
     def make_name(self) -> None:
         """Autogenerate a :attr:`name` from :attr:`title_for_name`."""
@@ -1130,6 +1151,13 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
             f'<{self.__class__.__name__} {self.url_id_name} "{self.title}"'
             ' of {self.parent!r}>'
         )
+
+    def __format__(self, format_spec: str) -> str:
+        """Format using self.title."""
+        if format_spec:
+            # pylint: disable=not-callable
+            return (self.title or '').__format__(format_spec)
+        return self.title or ''
 
     @classmethod
     def get(cls, parent: t.Any, url_id: t.Union[int, str]) -> t.Optional[te.Self]:

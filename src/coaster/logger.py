@@ -448,7 +448,6 @@ def init_app(app: Flask, _warning_stacklevel: int = 2) -> None:
     * ``LOG_FILE_ROTATE_COUNT``: Count of old files to keep (default 7)
     * ``LOG_FILE_ROTATE_UTC``: If rotating at midnight, use UTC time (default `False`)
     * ``LOG_EMAIL_TO``: List of email addresses to mail error reports to
-    * ``LOG_EMAIL_SUBJECT``: Optional subject of email
     * ``LOG_EMAIL_FROM``: From address of emails, defaulting to ``MAIL_DEFAULT_SENDER``
     * ``MAIL_SERVER``: SMTP server to send with (default ``localhost``)
     * ``MAIL_USERNAME`` and ``MAIL_PASSWORD``: SMTP credentials, if required
