@@ -139,4 +139,4 @@ jobs:
           format: html
           disable_web_page_preview: true
           message: |
-            <b>${{ github.event_name }}</b> by ${{ needs.tguser.outputs.tguser }} (${{ github.actor }}) in ${{ github.repository }}: ${{ github.event.head_commit.message }} ${{ github.event.compare }}
+            <b>${{ github.event_name }}</b> by ${{ needs.tguser.outputs.tguser }} (${{ github.actor }}) in ${{ github.repository }}/${{ github.ref_name }}: ${{ github.event.head_commit.message }} ${{ github.event.compare }}
