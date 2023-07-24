@@ -22,19 +22,28 @@ from . import logger
 from .auth import current_auth
 from .views import current_view
 
+__all__ = [
+    'KeyRotationWrapper',
+    'RotatingKeySecureCookieSessionInterface',
+    'JSONProvider',
+    'init_app',
+]
+
+# --- Optional config loaders ----------------------------------------------------------
+
 mod_toml: t.Optional[types.ModuleType] = None
 mod_tomllib: t.Optional[types.ModuleType] = None
 mod_tomli: t.Optional[types.ModuleType] = None
 mod_yaml: t.Optional[types.ModuleType] = None
 
 try:  # pragma: no cover
-    import toml as mod_toml  # type: ignore[no-redef]
+    import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
 except ModuleNotFoundError:
     try:
         import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
     except ModuleNotFoundError:
         try:
-            import tomli as mod_tomli  # type: ignore[no-redef]
+            import tomli as mod_tomli  # type: ignore[no-redef,unused-ignore]
         except ModuleNotFoundError:
             pass
 
@@ -45,12 +54,7 @@ except ModuleNotFoundError:
     pass
 
 
-__all__ = [
-    'KeyRotationWrapper',
-    'RotatingKeySecureCookieSessionInterface',
-    'JSONProvider',
-    'init_app',
-]
+# --- Helpers --------------------------------------------------------------------------
 
 
 class ConfigLoader(NamedTuple):
@@ -93,6 +97,9 @@ _S = t.TypeVar('_S', bound=itsdangerous.Serializer)
 
 
 _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engines.")
+
+
+# --- Key rotation wrapper -------------------------------------------------------------
 
 
 class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
@@ -174,6 +181,9 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
         )
 
 
+# --- JSON provider with custom type support -------------------------------------------
+
+
 class JSONProvider(DefaultJSONProvider):
     """Expand Flask's JSON provider to support the ``__json__`` protocol."""
 
@@ -185,6 +195,9 @@ class JSONProvider(DefaultJSONProvider):
         if isinstance(o, abc.Mapping):
             return dict(o)
         return DefaultJSONProvider.default(o)
+
+
+# --- App init utilities ---------------------------------------------------------------
 
 
 def init_app(
