@@ -812,19 +812,28 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         # See also __getitem__, which doesn't consult _call
         if attr in self._read or attr in self._call:
             return self.__get_processed_attr(attr)
-        raise AttributeError(f"{attr}; current roles {set(self.current_roles)!r}")
+        raise AttributeError(
+            f"{self._obj.__class__.__qualname__}.{attr};"
+            f" current roles {set(self.current_roles)!r}"
+        )
 
     def __setattr__(self, attr: str, value: t.Any) -> None:
         # See also __setitem__
         if attr in self._write:
             return setattr(self._obj, attr, value)
-        raise AttributeError(f"{attr}; current roles {set(self.current_roles)!r}")
+        raise AttributeError(
+            f"{self._obj.__class__.__qualname__}.{attr};"
+            f" current roles {set(self.current_roles)!r}"
+        )
 
     def __getitem__(self, key: str) -> t.Any:
         # See also __getattr__, which also looks in _call
         if key in self._read:
             return self.__get_processed_attr(key)
-        raise KeyError(f"{key}; current roles {set(self.current_roles)!r}")
+        raise KeyError(
+            f"{self._obj.__class__.__qualname__}.{key};"
+            f" current roles {set(self.current_roles)!r}"
+        )
 
     def __len__(self) -> int:
         if self._dataset_attrs is not None:
@@ -838,7 +847,10 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         # See also __setattr__
         if key in self._write:
             return setattr(self._obj, key, value)
-        raise KeyError(f"{key}; current roles {set(self.current_roles)!r}")
+        raise KeyError(
+            f"{self._obj.__class__.__qualname__}.{key};"
+            f" current roles {set(self.current_roles)!r}"
+        )
 
     def __iter__(self) -> t.Iterator[str]:
         if self._dataset_attrs is not None:
