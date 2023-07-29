@@ -128,7 +128,6 @@ Example use::
 from __future__ import annotations
 
 import dataclasses
-import operator
 import typing as t
 import typing_extensions as te
 from abc import ABCMeta, abstractmethod
@@ -138,8 +137,8 @@ from itertools import chain
 from typing import cast, overload
 
 import sqlalchemy as sa
-import sqlalchemy.event as event  # pylint: disable=consider-using-from-import
 from flask import g
+from sqlalchemy import event, inspect
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -255,7 +254,22 @@ def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
-    if isinstance(relationship, (QueryBase, abc.Container)):
+    if isinstance(relationship, QueryBase):
+        identity = inspect(actor).identity
+        if identity is not None:  # If None, do container test next
+            pkeys = inspect(actor.__class__).primary_key
+            return (
+                relationship.session.scalar(
+                    sa.select(
+                        relationship.filter(
+                            *[column == value for column, value in zip(pkeys, identity)]
+                        ).exists()
+                    )
+                )
+                or False
+            )
+        return actor in relationship
+    if isinstance(relationship, abc.Container):
         return actor in relationship
     return False
 
@@ -298,7 +312,7 @@ def _roles_via_relationship(
         # the objects are RoleGrantABC. This is not a current requirement and so is not
         # currently supported; using the .first() object is sufficient
         if isinstance(actor_attr, QueryableAttribute):
-            relobj = relationship.filter(operator.eq(actor_attr, actor)).first()
+            relobj = relationship.filter(actor_attr == actor).first()
         else:
             relobj = relationship.filter_by(**{actor_attr: actor}).first()
     elif isinstance(actor_attr, str):
