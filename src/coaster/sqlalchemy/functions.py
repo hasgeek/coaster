@@ -9,6 +9,7 @@ import typing as t
 from typing import cast, overload
 
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
 
@@ -19,6 +20,7 @@ __all__ = [
     'failsafe_add',
     'add_primary_relationship',
     'auto_init_default',
+    'idfilters',
 ]
 
 T = t.TypeVar('T')
@@ -325,3 +327,28 @@ def auto_init_default(
             dict_[column.key] = value
             return value
         return None
+
+
+def idfilters(obj: DeclarativeBase) -> t.Optional[t.List[sa.BinaryExpression]]:
+    """
+    Return SQLAlchemy expressions for the identity of the given object.
+
+    This is useful when querying for membership in a lazy relationship. With
+    DynamicMapped (``lazy='dynamic'``)::
+
+        filtered_query = parent.children.filter(*idfilters(child))
+
+    Or with WriteOnlyMapped (``lazy='write_only'``)::
+
+        filtered_select = parent.children.select().where(*idfilters(child))
+
+    Returns None when the object has no persistent identity.
+    """
+    insp = inspect(obj)
+    identity = insp.identity
+    if identity is None:
+        return None
+    pkeys = insp.mapper.primary_key
+    if len(pkeys) == 1:
+        return [pkeys[0] == identity[0]]
+    return [column == value for column, value in zip(pkeys, identity)]

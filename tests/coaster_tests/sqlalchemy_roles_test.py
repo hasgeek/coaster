@@ -807,12 +807,24 @@ class TestCoasterRoles(AppTestCase):
 
         m1.secondary_users.extend([u1, u2])
 
+        # Test that roles are discovered from lazy=dynamic relationships before commit
         rm1u1 = m1.roles_for(u1)
         rm1u2 = m1.roles_for(u2)
         rm2u1 = m2.roles_for(u1)
         rm2u2 = m2.roles_for(u2)
+        assert 'primary_role' in rm1u1
+        assert 'primary_role' not in rm1u2
+        assert 'primary_role' not in rm2u1
+        assert 'primary_role' in rm2u2
 
-        # Test that roles are discovered from lazy=dynamic relationships
+        self.session.add_all([m1, m2, u1, u2])
+        self.session.commit()
+
+        # Test that roles are discovered from lazy=dynamic relationships after commit
+        rm1u1 = m1.roles_for(u1)
+        rm1u2 = m1.roles_for(u2)
+        rm2u1 = m2.roles_for(u1)
+        rm2u2 = m2.roles_for(u2)
         assert 'primary_role' in rm1u1
         assert 'primary_role' not in rm1u2
         assert 'primary_role' not in rm2u1

@@ -138,7 +138,7 @@ from typing import cast, overload
 
 import sqlalchemy as sa
 from flask import g
-from sqlalchemy import event, inspect
+from sqlalchemy import event, select
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -160,6 +160,7 @@ from sqlalchemy.schema import SchemaItem
 
 from ..auth import current_auth
 from ..utils import InspectableSet, is_collection, nary_op
+from .functions import idfilters
 from .model import AppenderQuery
 
 __all__ = [
@@ -255,21 +256,18 @@ def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
     if actor == relationship:
         return True
     if isinstance(relationship, QueryBase):
-        identity = inspect(actor).identity
-        if identity is not None:  # If None, do container test next
-            pkeys = inspect(actor.__class__).primary_key
+        filters = idfilters(actor)
+        if filters is not None:
             return (
                 relationship.session.scalar(
-                    sa.select(
-                        relationship.filter(
-                            *[column == value for column, value in zip(pkeys, identity)]
-                        ).exists()
-                    )
+                    select(relationship.filter(*filters).exists())
                 )
-                or False
+                or False  # The or clause is needed as .scalar is typed Optional
             )
+        # If actor does not have an identity yet, check in the session's collection
         return actor in relationship
     if isinstance(relationship, abc.Container):
+        # Regular Python container
         return actor in relationship
     return False
 
