@@ -921,6 +921,9 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __iter__(self) -> t.Iterator[str]:
         yield from self._all_read
 
+    def __json__(self) -> t.Dict[str, t.Any]:
+        return dict(self)
+
     def __eq__(self, other: t.Any) -> bool:
         if other == self._obj:
             return True
