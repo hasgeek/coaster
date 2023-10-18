@@ -30,8 +30,14 @@ from decimal import Decimal
 from typing import cast, overload
 from uuid import UUID, uuid4
 
+from flask import current_app, url_for
+
+try:  # Flask >= 3.0
+    from flask.sansio.app import App as FlaskApp
+except ModuleNotFoundError:  # Flask < 3.0
+    from flask import Flask as FlaskApp
+
 import sqlalchemy as sa
-from flask import Flask, current_app, url_for
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
@@ -385,11 +391,11 @@ class UrlForMixin:
     #: app may also be None as fallback. Each subclass will get its own dictionary.
     #: This particular dictionary is only used as an inherited fallback.
     url_for_endpoints: t.ClassVar[
-        t.Dict[t.Optional[Flask], t.Dict[str, UrlEndpointData]]
+        t.Dict[t.Optional[FlaskApp], t.Dict[str, UrlEndpointData]]
     ] = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints: t.ClassVar[
-        t.Dict[t.Optional[Flask], t.Dict[str, t.Tuple[t.Any, str]]]
+        t.Dict[t.Optional[FlaskApp], t.Dict[str, t.Tuple[t.Any, str]]]
     ] = {}
 
     #: Dictionary of URLs available on this object
@@ -448,7 +454,7 @@ class UrlForMixin:
         cls,
         _action: str,
         _endpoint: t.Optional[str] = None,
-        _app: t.Optional[Flask] = None,
+        _app: t.Optional[FlaskApp] = None,
         _external: t.Optional[bool] = None,
         **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
     ) -> ReturnDecorator:
@@ -479,7 +485,7 @@ class UrlForMixin:
         cls,
         action: str,
         endpoint: str,
-        app: t.Optional[Flask],
+        app: t.Optional[FlaskApp],
         paramattrs: t.Mapping[
             str, t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]]
         ],
@@ -522,7 +528,7 @@ class UrlForMixin:
 
     @classmethod
     def register_view_for(
-        cls, app: t.Optional[Flask], action: str, classview: t.Any, attr: str
+        cls, app: t.Optional[FlaskApp], action: str, classview: t.Any, attr: str
     ) -> None:
         """Register a classview and viewhandler for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:

@@ -13,18 +13,16 @@ import typing_extensions as te
 from functools import partial, update_wrapper, wraps
 from typing import cast, overload
 
-from flask import (
-    Blueprint,
-    Flask,
-    abort,
-    g,
-    has_app_context,
-    make_response,
-    redirect,
-    request,
-)
-from flask.blueprints import BlueprintSetupState
+from flask import abort, g, has_app_context, make_response, redirect, request
 from flask.typing import ResponseReturnValue
+
+try:  # Flask >= 3.0
+    from flask.sansio.app import App as FlaskApp
+    from flask.sansio.blueprints import Blueprint, BlueprintSetupState
+except ModuleNotFoundError:  # Flask < 3.0
+    from flask import Flask as FlaskApp
+    from flask.blueprints import BlueprintSetupState
+
 from furl import furl
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
@@ -70,7 +68,7 @@ class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
 
     def __call__(
         self,
-        app: t.Union[Flask, Blueprint],
+        app: t.Union[FlaskApp, Blueprint],
         rule: str,
         endpoint: str,
         view_func: t.Callable,
@@ -257,7 +255,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
 
     def init_app(
         self,
-        app: t.Union[Flask, Blueprint],
+        app: t.Union[FlaskApp, Blueprint],
         cls: t.Type[ClassView],
         callback: t.Optional[InitAppCallback] = None,
     ) -> None:
@@ -584,7 +582,7 @@ class ClassView:
     @classmethod
     def init_app(
         cls,
-        app: t.Union[Flask, Blueprint],
+        app: t.Union[FlaskApp, Blueprint],
         callback: t.Optional[InitAppCallback] = None,
     ) -> None:
         """
@@ -804,7 +802,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
     @classmethod
     def init_app(
         cls,
-        app: t.Union[Flask, Blueprint],
+        app: t.Union[FlaskApp, Blueprint],
         callback: t.Optional[InitAppCallback] = None,
     ) -> None:
         """Register view on an app."""
@@ -812,14 +810,14 @@ class UrlForView:  # pylint: disable=too-few-public-methods
         def register_view_on_model(  # pylint: disable=too-many-arguments
             cls: t.Type[ClassView],
             callback: t.Optional[InitAppCallback],
-            app: t.Union[Flask, Blueprint],
+            app: t.Union[FlaskApp, Blueprint],
             rule: str,
             endpoint: str,
             view_func: t.Callable,
             **options: t.Any,
         ) -> None:
             def register_paths_from_app(
-                reg_app: Flask,
+                reg_app: FlaskApp,
                 reg_rule: str,
                 reg_endpoint: str,
                 reg_options: t.Dict[str, t.Any],
@@ -872,7 +870,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 )
                 register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
 
-            if isinstance(app, Flask):
+            if isinstance(app, FlaskApp):
                 register_paths_from_app(app, rule, endpoint, options)
             elif isinstance(app, Blueprint):
                 app.record(blueprint_postprocess)
@@ -881,6 +879,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             if callback:  # pragma: no cover
                 callback(app, rule, endpoint, view_func, **options)
 
+        assert issubclass(cls, ClassView)  # nosec B101
         super().init_app(  # type: ignore[misc]
             app, callback=partial(register_view_on_model, cls, callback)
         )

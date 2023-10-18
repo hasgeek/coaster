@@ -6,6 +6,7 @@ Helper functions
 from __future__ import annotations
 
 import typing as t
+from datetime import datetime
 from typing import cast, overload
 
 import sqlalchemy as sa
@@ -63,18 +64,18 @@ def _utcnow_mssql(  # pragma: no cover
 
 def make_timestamp_columns(
     timezone: bool = False,
-) -> t.Iterable[sa.Column[sa.TIMESTAMP]]:
+) -> t.Tuple[sa.Column[datetime], sa.Column[datetime]]:
     """Return two columns, `created_at` and `updated_at`, with appropriate defaults."""
     return (
         sa.Column(
             'created_at',
-            sa.TIMESTAMP(timezone=timezone),  # type: ignore[arg-type]
+            sa.TIMESTAMP(timezone=timezone),
             default=sa.func.utcnow(),
             nullable=False,
         ),
         sa.Column(
             'updated_at',
-            sa.TIMESTAMP(timezone=timezone),  # type: ignore[arg-type]
+            sa.TIMESTAMP(timezone=timezone),
             default=sa.func.utcnow(),
             onupdate=sa.func.utcnow(),
             nullable=False,
@@ -82,18 +83,21 @@ def make_timestamp_columns(
     )
 
 
+session_type = t.Union[sa.orm.Session, sa.orm.scoped_session]
+
+
 @overload
-def failsafe_add(__session: sa.orm.Session, __instance: t.Any) -> None:
+def failsafe_add(__session: session_type, __instance: t.Any) -> None:
     ...
 
 
 @overload
-def failsafe_add(__session: sa.orm.Session, __instance: T, **filters: t.Any) -> T:
+def failsafe_add(__session: session_type, __instance: T, **filters: t.Any) -> T:
     ...
 
 
 def failsafe_add(
-    __session: sa.orm.Session, __instance: T, **filters: t.Any
+    __session: session_type, __instance: T, **filters: t.Any
 ) -> t.Optional[T]:
     """
     Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).

@@ -5,7 +5,7 @@ Coaster: common patterns for Flask apps
 
 Coaster contains functions and db models for recurring patterns in Flask
 apps. Documentation is at https://coaster.readthedocs.org/. Coaster requires
-Python 3.7 or later.
+Python 3.9 or later.
 
 
 Run tests

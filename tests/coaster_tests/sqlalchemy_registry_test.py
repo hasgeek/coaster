@@ -174,9 +174,9 @@ def test_registry_set_name() -> None:
 
 def test_registry_reuse_error() -> None:
     """Registries cannot be reused under different names."""
-    # Registry raises AttributeError from __set_name__, but Python recasts as
-    # RuntimeError
-    with pytest.raises(RuntimeError):
+    # Registry raises AttributeError from __set_name__, but Python < 3.12 recasts as
+    # RuntimeError (3.12 doesn't recast)
+    with pytest.raises((RuntimeError, AttributeError)):
 
         class RegistryUser:  # pylint: disable=unused-variable
             a = b = Registry()
