@@ -647,6 +647,8 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
 
     def __contains__(self, value: t.Any) -> bool:
         relattr = self.relattr
+        if t.TYPE_CHECKING:
+            assert relattr.session is not None  # nosec B101
         return relattr.session.query(
             relattr.filter_by(**{self.attr: value}).exists()
         ).scalar()
@@ -660,6 +662,8 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
 
     def __bool__(self) -> bool:
         relattr = self.relattr
+        if t.TYPE_CHECKING:
+            assert relattr.session is not None  # nosec B101
         return relattr.session.query(relattr.exists()).scalar()
 
     def __eq__(self, other: t.Any) -> bool:

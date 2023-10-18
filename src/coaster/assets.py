@@ -141,6 +141,8 @@ class VersionedAssets(defaultdict):
                         )
                 else:
                     asset = self[name][version]
+                    requires: t.Union[t.List[str], t.Tuple[str, ...], str]
+                    provides: t.Union[t.List[str], t.Tuple[str, ...], str]
                     if isinstance(asset, (list, tuple)):
                         # We have (requires, bundle). Get requirements
                         requires = asset[:-1]

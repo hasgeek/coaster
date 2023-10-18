@@ -14,9 +14,13 @@ from collections import abc
 from typing import NamedTuple, cast
 
 import itsdangerous
-from flask import Flask
 from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
+
+try:  # Flask >= 3.0
+    from flask.sansio.app import App as FlaskApp
+except ModuleNotFoundError:  # Flask < 3.0
+    from flask import Flask as FlaskApp
 
 from . import logger
 from .auth import current_auth
@@ -162,7 +166,7 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
     def get_signing_serializer(  # type: ignore[override]
-        self, app: Flask
+        self, app: FlaskApp
     ) -> t.Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
@@ -201,7 +205,7 @@ class JSONProvider(DefaultJSONProvider):
 
 
 def init_app(
-    app: Flask,
+    app: FlaskApp,
     config: t.Optional[t.List[te.Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
     *,
     env_prefix: t.Optional[t.Union[str, t.Sequence[str]]] = None,
@@ -317,7 +321,7 @@ def init_app(
 
 
 def load_config_from_file(
-    app: Flask,
+    app: FlaskApp,
     filepath: str,
     load: t.Optional[t.Callable] = None,
     text: t.Optional[bool] = None,

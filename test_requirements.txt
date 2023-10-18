@@ -7,7 +7,7 @@ pytest
 pytest-cov
 pytest-env
 pytest-ignore-flaky
-pytest-remotedata
 pytest-rerunfailures
+pytest-socket
 pyyaml
 toml

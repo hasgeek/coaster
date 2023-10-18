@@ -29,8 +29,13 @@ if t.TYPE_CHECKING:
     from logging import _SysExcInfoType
 
 import requests
-from flask import Flask, g, request, session
+from flask import g, request, session
 from flask.config import Config
+
+try:  # Flask >= 3.0
+    from flask.sansio.app import App as FlaskApp
+except ModuleNotFoundError:
+    from flask import Flask as FlaskApp
 
 from .auth import current_auth
 
@@ -432,7 +437,7 @@ log_legacy_confignames = {
 }
 
 
-def init_app(app: Flask, _warning_stacklevel: int = 2) -> None:
+def init_app(app: FlaskApp, _warning_stacklevel: int = 2) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 

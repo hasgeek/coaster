@@ -104,7 +104,7 @@ sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
 
 [tool.pytest.ini_options]
 pythonpath = 'src'
-required_plugins = ['pytest-env', 'pytest-rerunfailures', 'pytest-remotedata']
+required_plugins = ['pytest-env', 'pytest-rerunfailures', 'pytest-socket']
 minversion = '6.0'
 addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
