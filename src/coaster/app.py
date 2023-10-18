@@ -244,7 +244,7 @@ def init_app(
 
     .. note::
         YAML support requires PyYAML_. TOML requires toml_ with Flask 2.2, or tomli_
-        with Flask 2.3, or Python's inbuilt tomllib_ with Flask 2.3 and Python 3.11.
+        with Flask 2.3, or Python's inbuilt tomllib_ with Flask 2.3 and Python 3.11+.
         tomli_ and tomllib_ are not compatible with Flask 2.2 as they require the file
         to be opened in binary mode, an optional flag introduced in Flask 2.3.
 
