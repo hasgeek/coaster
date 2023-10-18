@@ -1,8 +1,8 @@
-0.7.0 - 2022-05-XX
+0.7.0 - Unreleased
 ------------------
 
 * Dropped Python 2.7 support
-* Dropped Python 3.6 support as it lacks typing annotations; 3.7+ is now
+* Dropped Python 3.6 support as it lacks typing annotations; 3.9+ is now
   required
 * Removed deprecated ``docflow`` module. ``StateManager`` replaces it
 * Removed deprecated ``make_password`` and ``check_password`` functions
@@ -30,7 +30,7 @@
 * Coaster now uses ``src`` folder layout and has project metadata defined in
   ``pyproject.toml`` as per PEP 660, requiring setuptools>=61
 * Added ``coaster.app.JSONProvider`` that supports the ``__json__`` protocol
-* Now compatible with Flask 2.2 and 2.3
+* Now compatible with Flask 2.3 and 3.0
 * UgliPyJS is no longer offered as a Webassets filter as the dependency is
   unmaintained, and usage is shifting from Webassets to Webpack
 * ``for_tsquery`` has been removed as PostgreSQL>=12 has native functions

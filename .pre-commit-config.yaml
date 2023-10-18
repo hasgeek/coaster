@@ -25,8 +25,7 @@ repos:
     rev: v3.15.0
     hooks:
       - id: pyupgrade
-        args:
-          ['--keep-runtime-typing', '--py3-plus', '--py36-plus', '--py37-plus']
+        args: ['--keep-runtime-typing', '--py39-plus']
   - repo: https://github.com/asottile/yesqa
     rev: v1.5.0
     hooks:
