@@ -398,7 +398,7 @@ class LazyRoleSet(abc.MutableSet):
         self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f'LazyRoleSet({self.obj}, {self.actor})'
+        return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
 
     def _from_iterable(  # pylint: disable=arguments-differ
         self, it: t.Iterator[str]
@@ -508,7 +508,9 @@ class LazyRoleSet(abc.MutableSet):
 
     def __bool__(self) -> bool:
         # Make bool() faster than len() by using the cache first
-        return bool(self._present) or bool(self._contents())
+        return bool(self._present) or any(
+            self._role_is_present(role) for role in self.obj.__roles__
+        )
 
     def __eq__(self, other: t.Any) -> bool:
         if isinstance(other, LazyRoleSet):
@@ -851,9 +853,17 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             for role, roledict in self._obj.__roles__.items()
             if attr in roledict.get(action, ())
         }
-        if (
-            isinstance(self._roles, LazyRoleSet) and self._roles.has_any(granting_roles)
-        ) or (self._roles & granting_roles):
+        if not granting_roles:
+            # No role grants access to this attribute for the given action
+            absent.add(attr)
+            return False
+        if isinstance(self._roles, LazyRoleSet):
+            # If we have a LazyRoleSet, use its `has_any` method for lazy testing
+            # (test for overlap in present roles, then test for grant of other roles)
+            if self._roles.has_any(granting_roles):
+                present.add(attr)
+                return True
+        elif self._roles & granting_roles:
             present.add(attr)
             return True
         absent.add(attr)
@@ -886,7 +896,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             return self.__get_processed_attr(attr)
         raise AttributeError(
             f"{self._obj.__class__.__qualname__}.{attr};"
-            f" current roles {set(self.current_roles)!r}"
+            f" current roles {self.current_roles!r}"
         )
 
     def __setattr__(self, attr: str, value: t.Any) -> None:
@@ -895,7 +905,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             return setattr(self._obj, attr, value)
         raise AttributeError(
             f"{self._obj.__class__.__qualname__}.{attr};"
-            f" current roles {set(self.current_roles)!r}"
+            f" current roles {self.current_roles!r}"
         )
 
     def __getitem__(self, key: str) -> t.Any:
@@ -904,7 +914,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             return self.__get_processed_attr(key)
         raise KeyError(
             f"{self._obj.__class__.__qualname__}.{key};"
-            f" current roles {set(self.current_roles)!r}"
+            f" current roles {self.current_roles!r}"
         )
 
     def __len__(self) -> int:
@@ -919,7 +929,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             return setattr(self._obj, key, value)
         raise KeyError(
             f"{self._obj.__class__.__qualname__}.{key};"
-            f" current roles {set(self.current_roles)!r}"
+            f" current roles {self.current_roles!r}"
         )
 
     def __iter__(self) -> t.Iterator[str]:
