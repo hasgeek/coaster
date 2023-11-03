@@ -244,6 +244,9 @@ class RoleGrantMany(BaseMixin, Model):
         'secondary_role': {'granted_by': ['secondary_users']},
     }
 
+    primary_users: DynamicMapped[RoleUser] = relationship(
+        lazy='dynamic', back_populates='doc'
+    )
     secondary_users: Mapped[t.List[RoleUser]] = relationship(
         secondary=granted_users, back_populates='secondary_docs'
     )
@@ -258,9 +261,7 @@ class RoleUser(BaseMixin, Model):
         sa.ForeignKey('role_grant_many.id')
     )
     doc: Mapped[t.Optional[RoleGrantMany]] = relationship(
-        RoleGrantMany,
-        foreign_keys=[doc_id],
-        backref=sa.orm.backref('primary_users', lazy='dynamic'),
+        foreign_keys=[doc_id], back_populates='primary_users'
     )
     secondary_docs: Mapped[t.List[RoleGrantMany]] = relationship(
         RoleGrantMany, secondary=granted_users, back_populates='secondary_users'
@@ -1069,7 +1070,9 @@ class TestCoasterRoles(AppTestCase):
 
         # From m2, roles2 has role1, role2 but not role3
         assert 'role2' in roles2  # Granted in m2 via rel_lazy (only)
-        assert 'role1' in roles2._present  # Granted in m2, auto discovered
+        assert 'role1' not in roles2._present  # Granted in m2 separately
+        assert 'role1' in roles2
+        assert 'role1' in roles2._present  # Cached after explicit lookup
         assert 'role3' not in roles2._present  # Not granted in m2, not discovered
         assert 'role3' not in roles2._not_present  # Not rejected either
 
@@ -1087,7 +1090,9 @@ class TestCoasterRoles(AppTestCase):
         assert 'role3' not in roles4a._present
         # role1 = False, role2 = True, role3 = True
         assert 'role2' in roles4a  # Discovered via rel_lazy
-        assert 'role3' in roles4a._present  # This got cached despite not being rel_lazy
+        assert 'role3' not in roles4a._present  # Not in rel_lazy, so not auto cached
+        assert 'role3' in roles4a
+        assert 'role3' in roles4a._present
 
         roles4b = document.roles_for(u4)
         # No roles cached yet
@@ -1095,7 +1100,9 @@ class TestCoasterRoles(AppTestCase):
         assert 'role3' not in roles4b._present
         # role1 = False, role2 = True, role3 = True
         assert 'role3' in roles4b  # Discovered via rel_list
-        assert 'role2' in roles4b._present  # This got cached despite not being rel_list
+        assert 'role2' not in roles4b._present  # Not via rel_list, not auto-discovered
+        assert 'role2' in roles4b
+        assert 'role2' in roles4b._present
 
         # The child model inherits remapped roles from document
         # role1 is skipped even if present, while role2 and role3 are remapped
