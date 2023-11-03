@@ -276,26 +276,32 @@ def _roles_via_relationship(
     actor: t.Any,
     relationship: t.Any,
     actor_attr: t.Optional[ActorAttrType],
-    roles: t.Set[str],
+    wanted_roles: t.Set[str],
     offer_map: t.Optional[RoleOfferMap],
-) -> t.Union[t.Set[str], LazyRoleSet]:
+) -> t.Set[str]:
     """Find roles granted via a relationship."""
     relobj = None  # Role-granting object found via the relationship
 
     # If there is no actor_attr, check if the relationship is a RoleMixin and call
-    # roles_for to get offered roles, then remap using the offer map.
+    # roles_for to get offered roles, then remap using the offer map, subsetting the
+    # offer map to the wanted roles. The offer map may be larger than currently wanted,
+    # and lookups in the offered roles could be expensive.
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
             offered_roles: t.Union[t.Set[str], LazyRoleSet]
             offered_roles = relationship.roles_for(actor)
             if offer_map is not None:
-                offered_roles = set(
+                offer_map_subset = {
+                    original_role
+                    for original_role, remapped_roles in offer_map.items()
+                    if remapped_roles & wanted_roles
+                }
+                return set(
                     chain.from_iterable(
-                        offer_map[role]
-                        for role in offered_roles & set(offer_map.keys())
+                        offer_map[role] for role in offered_roles & offer_map_subset
                     )
                 )
-            return offered_roles
+            return offered_roles & wanted_roles
         raise TypeError(
             f"{relationship!r} is not a RoleMixin and no actor attribute was specified"
         )
@@ -334,25 +340,30 @@ def _roles_via_relationship(
 
     # We have a related object. Get roles from it
     if isinstance(relobj, RoleGrantABC):
-        # If this object grants roles, get them. It may not grant the one we're looking
-        # for and that's okay. Grab the others
+        # If this object grants roles, get them
         offered_roles = relobj.offered_roles
-        # But if we have an offer_map, remap the roles and only keep the ones
-        # specified in the map
         if offer_map:
-            offered_roles = set(
+            # If we have an offer_map, remap the roles and only keep the ones
+            # specified in the map
+            offer_map_subset = {
+                original_role
+                for original_role, remapped_roles in offer_map.items()
+                if remapped_roles & wanted_roles
+            }
+            return set(
                 chain.from_iterable(
-                    offer_map[role] for role in offered_roles & set(offer_map.keys())
+                    offer_map[role] for role in offered_roles & offer_map_subset
                 )
             )
-        return offered_roles
+        # Without an offer map, return the subset of offered roles and wanted roles
+        return offered_roles & wanted_roles
     # Not a role granting object. Implies that the default roles are granted
     # by its very existence.
-    return roles
+    return wanted_roles
 
 
 class RoleGrantABC(metaclass=ABCMeta):
-    """Base class for an object that grants roles to an actor."""
+    """Base class for an object that grants roles to a subject."""
 
     @property
     @abstractmethod
@@ -378,7 +389,6 @@ class LazyRoleSet(abc.MutableSet):
         'actor',
         '_present',
         '_not_present',
-        '_scanned_granted_via',
         '_scanned_granted_by',
     )
 
@@ -392,10 +402,6 @@ class LazyRoleSet(abc.MutableSet):
         #: Roles the actor does not have
         self._not_present: t.Set[str] = set()
         # Relationships that have been scanned already
-        # Contains (relattr, actor_attr)
-        self._scanned_granted_via: t.Set[
-            t.Tuple[str, t.Optional[ActorAttrType]]
-        ] = set()
         self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -420,10 +426,10 @@ class LazyRoleSet(abc.MutableSet):
                 self._not_present.add(role)
                 return False
 
-            # granted_via says a role may be granted by a secondary object that sits
+            # `granted_via` says a role may be granted by a secondary object that sits
             # in a relationship between the current object and the actor. The secondary
             # could be a direct attribute of the current object, or could be inside a
-            # list or query relationship. _roles_via_relationship will check.
+            # list or query relationship. `_roles_via_relationship` will check.
             # The related object may grant roles in one of three ways:
             # 1. By its mere existence (default).
             # 2. By offering roles via an `offered_roles` property (see `RoleGrantABC`).
@@ -434,18 +440,21 @@ class LazyRoleSet(abc.MutableSet):
                 self.obj.__roles__[role].get('granted_via', {}).items()
             ):
                 offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
-                if (relattr, actor_attr) not in self._scanned_granted_via:
-                    relationship = self.obj._get_relationship(relattr)
-                    if relationship is not None:
-                        # Optimization: does the same relationship grant other roles
-                        # via the same actor_attr? Gather those roles and check all
-                        # of them together. However, we will use a single role
-                        # offer map and not consult the one specified on the other
-                        # roles. They are expected to be identical. This is
-                        # guaranteed if the offer map was specified using
-                        # `with_roles(grants_via=)` but not if specified directly
-                        # in `__roles__[role]['granted_via']`.
-                        possible_roles = {role}
+                relationship = self.obj._get_relationship(relattr)
+                if relationship is not None:
+                    possibly_granted_roles = {role}
+                    # Optimization: does the same relationship grant other roles via
+                    # the same non-None `actor_attr`? Gather those roles and check
+                    # all of them together. However, we will use a single role offer
+                    # map and not consult the one specified on the other roles. They
+                    # are expected to be identical. This is guaranteed if the offer
+                    # map was specified using `with_roles(grants_via=)` but not if
+                    # specified directly in `__roles__[role]['granted_via']`. If
+                    # `actor_attr` is None, the relationship must be a `RoleMixin`
+                    # instance that implements `roles_for` and returns a
+                    # `LazyRoleSet` that does expensive lookups. That's no longer an
+                    # optimization and the greedy grab should not be attempted.
+                    if actor_attr is not None:
                         for arole, actions in self.obj.__roles__.items():
                             if (
                                 arole != role
@@ -455,19 +464,18 @@ class LazyRoleSet(abc.MutableSet):
                                     actions['granted_via'][relattr], actor_attr
                                 )
                             ):
-                                possible_roles.add(arole)
+                                possibly_granted_roles.add(arole)
 
-                        granted_roles = _roles_via_relationship(
-                            self.actor,
-                            relationship,
-                            actor_attr,
-                            possible_roles,
-                            offer_map,
-                        )
-                        self._present.update(granted_roles)
-                        self._scanned_granted_via.add((relattr, actor_attr))
-                        if role in granted_roles:
-                            return True
+                    granted_roles = _roles_via_relationship(
+                        self.actor,
+                        relationship,
+                        actor_attr,
+                        possibly_granted_roles,
+                        offer_map,
+                    )
+                    self._present.update(granted_roles)
+                    if role in granted_roles:
+                        return True
             # granted_by says a role is granted by the actor being present in a
             # relationship
             for relattr in self.obj.__roles__[role].get('granted_by', ()):
@@ -497,7 +505,7 @@ class LazyRoleSet(abc.MutableSet):
             self._role_is_present(role)
         # self._present may have roles that are not specified in self.obj.__roles__,
         # notably implicit roles like `all` and `auth`. Therefore we must return the
-        # cache instead of capturing available roles above
+        # cache instead of capturing available roles in the loop above
         return self._present
 
     def __contains__(self, key: t.Any) -> bool:
