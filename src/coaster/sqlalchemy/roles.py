@@ -276,13 +276,13 @@ def _roles_via_relationship(
     actor: t.Any,
     relationship: t.Any,
     actor_attr: t.Optional[ActorAttrType],
-    roles: t.Union[t.Set[str], LazyRoleSet],
+    roles: t.Set[str],
     offer_map: t.Optional[RoleOfferMap],
 ) -> t.Union[t.Set[str], LazyRoleSet]:
     """Find roles granted via a relationship."""
     relobj = None  # Role-granting object found via the relationship
 
-    # There is no actor_attr. Check if the relationship is a RoleMixin and call
+    # If there is no actor_attr, check if the relationship is a RoleMixin and call
     # roles_for to get offered roles, then remap using the offer map.
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
@@ -291,7 +291,8 @@ def _roles_via_relationship(
             if offer_map is not None:
                 offered_roles = set(
                     chain.from_iterable(
-                        offer_map[role] for role in offered_roles if role in offer_map
+                        offer_map[role]
+                        for role in offered_roles & set(offer_map.keys())
                     )
                 )
             return offered_roles
@@ -299,8 +300,8 @@ def _roles_via_relationship(
             f"{relationship!r} is not a RoleMixin and no actor attribute was specified"
         )
 
-    # We have a relationship. If it's a collection, find the item in it that relates
-    # to the actor.
+    # We have a relationship and an actor attribute on the relationship. If the
+    # relationship is a collection, find the item in it that relates to the actor.
 
     # TODO: Support WriteOnlyCollection
     if isinstance(relationship, QueryBase):
@@ -341,7 +342,7 @@ def _roles_via_relationship(
         if offer_map:
             offered_roles = set(
                 chain.from_iterable(
-                    offer_map[role] for role in offered_roles if role in offer_map
+                    offer_map[role] for role in offered_roles & set(offer_map.keys())
                 )
             )
         return offered_roles
@@ -491,10 +492,12 @@ class LazyRoleSet(abc.MutableSet):
 
     def _contents(self) -> t.Set[str]:
         """Return all available roles."""
-        # Populate cache
-        [  # pylint: disable=expression-not-assigned
-            self._role_is_present(role) for role in self.obj.__roles__
-        ]
+        # Populate cache (TODO: cache this step to avoid repeat checks)
+        for role in self.obj.__roles__:
+            self._role_is_present(role)
+        # self._present may have roles that are not specified in self.obj.__roles__,
+        # notably implicit roles like `all` and `auth`. Therefore we must return the
+        # cache instead of capturing available roles above
         return self._present
 
     def __contains__(self, key: t.Any) -> bool:
@@ -508,8 +511,10 @@ class LazyRoleSet(abc.MutableSet):
 
     def __bool__(self) -> bool:
         # Make bool() faster than len() by using the cache first
-        return bool(self._present) or any(
-            self._role_is_present(role) for role in self.obj.__roles__
+        return (
+            True
+            if bool(self._present)
+            else any(self._role_is_present(role) for role in self.obj.__roles__)
         )
 
     def __eq__(self, other: t.Any) -> bool:
@@ -519,6 +524,10 @@ class LazyRoleSet(abc.MutableSet):
 
     def __ne__(self, other: t.Any) -> bool:
         return not self.__eq__(other)
+
+    def __and__(self, other: t.Iterable[str]) -> t.Set[str]:
+        """Faster implementation that avoids lazy lookups where not needed."""
+        return {role for role in other if self._role_is_present(role)}
 
     def add(self, value: str) -> None:
         """Add role `value` to the set."""
@@ -561,7 +570,7 @@ class LazyRoleSet(abc.MutableSet):
     issubset = nary_op(abc.MutableSet.__le__)
     issuperset = nary_op(abc.MutableSet.__ge__)
     union = nary_op(abc.MutableSet.__or__)
-    intersection = nary_op(abc.MutableSet.__and__)
+    intersection = nary_op(__and__)
     difference = nary_op(abc.MutableSet.__sub__)
     symmetric_difference = nary_op(abc.MutableSet.__xor__)
     update = nary_op(abc.MutableSet.__ior__)
@@ -610,7 +619,7 @@ class DynamicAssociationProxy:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls: t.Type[_T]) -> te.Self:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
