@@ -20,7 +20,7 @@ try:  # Flask >= 3.0
     from flask.sansio.app import App as FlaskApp
     from flask.sansio.blueprints import Blueprint, BlueprintSetupState
 except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Flask as FlaskApp
+    from flask import Blueprint, Flask as FlaskApp
     from flask.blueprints import BlueprintSetupState
 
 from furl import furl
@@ -875,7 +875,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             elif isinstance(app, Blueprint):
                 app.record(blueprint_postprocess)
             else:
-                raise TypeError(f"App must be Flask or Blueprint {app!r}")
+                raise TypeError(f"App must be Flask or Blueprint: {app!r}")
             if callback:  # pragma: no cover
                 callback(app, rule, endpoint, view_func, **options)
 
@@ -1048,8 +1048,8 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
 
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by
-#: :func:`coaster.app.init_app`. Note that the current view handler method within the
-#: class is named :attr:`~current_view.current_handler`, so to examine it, use
+#: :func:`coaster.app.init_app`. The current view handler method within the class is
+#: named :attr:`~current_view.current_handler`, so to examine it, use
 #: :attr:`current_view.current_handler`.
 current_view = cast(
     ClassView,
