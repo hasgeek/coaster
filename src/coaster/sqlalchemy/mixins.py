@@ -466,27 +466,27 @@ class UrlForMixin:
     @classmethod
     def is_url_for(
         cls,
-        _action: str,
-        _endpoint: t.Optional[str] = None,
-        _app: t.Optional[FlaskApp] = None,
+        __action: str,
+        __endpoint: t.Optional[str] = None,
+        __app: t.Optional[FlaskApp] = None,
         _external: t.Optional[bool] = None,
         **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
     ) -> ReturnDecorator:
         """
         View decorator that registers the view as a :meth:`url_for` target.
 
-        :param str _action: Action to register a URL under
-        :param str _endpoint: View endpoint name to pass to Flask's ``url_for``
-        :param _app: The app to register this action on (if your repo has multiple apps)
+        :param __action: Action to register a URL under
+        :param __endpoint: View endpoint name to pass to Flask's ``url_for``
+        :param __app: The app to register this action on (if using multiple apps)
         :param _external: If `True`, URLs are assumed to be external-facing by default
         :param dict paramattrs: Mapping of URL parameter to attribute on the object
         """
 
         def decorator(f: WrappedFunc) -> WrappedFunc:
             cls.register_endpoint(
-                action=_action,
-                endpoint=_endpoint or f.__name__,
-                app=_app,
+                action=__action,
+                endpoint=__endpoint or f.__name__,
+                app=__app,
                 external=_external,
                 paramattrs=paramattrs,
             )

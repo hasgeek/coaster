@@ -66,19 +66,19 @@ def sdoc_edit(container, doc):
 
 
 @app1.route('/<doc>/app_only')
-@NamedDocument.is_url_for('app_only', _app=app1, doc='name')
+@NamedDocument.is_url_for('app_only', None, app1, doc='name')
 def doc_app_only(doc):
     return f'app_only {doc}'
 
 
 @app1.route('/<doc>/app1')
-@NamedDocument.is_url_for('per_app', _app=app1, doc='name')
+@NamedDocument.is_url_for('per_app', None, app1, doc='name')
 def doc_per_app1(doc):
     return f'per_app {doc}'
 
 
 @app2.route('/<doc>/app2')
-@NamedDocument.is_url_for('per_app', _app=app2, doc='name')
+@NamedDocument.is_url_for('per_app', None, app2, doc='name')
 def doc_per_app2(doc):
     return f'per_app {doc}'
 
