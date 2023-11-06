@@ -5,17 +5,20 @@ SQLAlchemy mixin classes
 Coaster provides a number of mixin classes for SQLAlchemy models. To use in
 your Flask app::
 
-    from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
     from coaster.sqlalchemy import BaseMixin
 
-    app = Flask(__name__)
-    db = SQLAlchemy(app)
+    class Model(ModelBase, DeclarativeBase):
+        '''Model base class.'''
 
-    class MyModel(BaseMixin, db.Model):
+    db = SQLAlchemy(metadata=Model.metadata)
+    Model.init_flask_sqlalchemy(db)
+
+    class MyModel(BaseMixin[int], Model):
         __tablename__ = 'my_model'
 
-Mixin classes must always appear *before* ``db.Model`` in your model's base classes.
+Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your model's
+base classes.
 """
 
 # pylint: disable=too-few-public-methods,no-self-argument
@@ -95,9 +98,20 @@ class IdMixin:
     Provides the :attr:`id` primary key column.
 
     Provides an auto-incrementing integer primary key by default. However, can be told
-    to provide a UUID primary key by specifying a flag on the class::
+    to provide a UUID primary key instead::
 
-        class MyModel(IdMixin, db.Model):
+        from uuid import UUID
+
+        class MyModel(IdMixin[UUID], Model):  # or IdMixin[int]
+            ...
+
+        class OtherModel(BaseMixin[UUID], Model):
+            ...
+
+    The legacy method using a flag also works, but will break type discovery for the id
+    column in static type analysis (mypy or pyright)::
+
+        class MyModel(IdMixin, Model):
             __uuid_primary_key__ = True
 
     :class:`IdMixin` is a base class for :class:`BaseMixin`, the standard base class.
@@ -717,7 +731,7 @@ class BaseScopedNameMixin(BaseMixin):
     synonym for the parent object. You must also create a unique constraint on 'name'
     in combination with the parent foreign key. Sample use case in Flask::
 
-        class Event(BaseScopedNameMixin, db.Model):
+        class Event(BaseScopedNameMixin, Model):
             __tablename__ = 'event'
             organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'organizer.id'
@@ -1018,7 +1032,7 @@ class BaseScopedIdMixin(BaseMixin):
     declare a unique constraint between url_id and the parent. Sample use case in
     Flask::
 
-        class Issue(BaseScopedIdMixin, db.Model):
+        class Issue(BaseScopedIdMixin, Model):
             __tablename__ = 'issue'
             event_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('event.id'))
             event: Mapped[Event] = relationship(Event)
@@ -1081,7 +1095,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin):
     relationship, and must declare a unique constraint between url_id and the parent.
     Sample use case in Flask::
 
-        class Event(BaseScopedIdNameMixin, db.Model):
+        class Event(BaseScopedIdNameMixin, Model):
             __tablename__ = 'event'
             organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
                 'organizer.id'

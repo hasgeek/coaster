@@ -14,13 +14,12 @@ Sample usage::
 
     import sqlalchemy as sa
     from sqlalchemy.orm import Mapped
-    from flask_sqlalchemy import SQLAlchemy
     from coaster.sqlalchemy import annotation_wrapper, immutable
+    from . import Model
 
     natural_key = annotation_wrapper('natural_key', "Natural key for this model")
-    db = SQLAlchemy()
 
-    class MyModel(db.Model):
+    class MyModel(Model):
         __tablename__ = 'my_model'
         id: Mapped[int] = immutable(sa.orm.mapped_column(sa.Integer, primary_key=True))
         name: Mapped[str] = natural_key(sa.orm.mapped_column(

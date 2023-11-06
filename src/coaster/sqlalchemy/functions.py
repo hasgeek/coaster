@@ -303,7 +303,7 @@ def auto_init_default(
     read the value before commit will get None instead of the default value. This
     helper fixes that. Usage::
 
-        class MyModel(db.Model):
+        class MyModel(Model):
             column: Mapped[PyType] = sa.orm.mapped_column(SqlType, default="value")
 
         auto_init_default(MyModel.column)

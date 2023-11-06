@@ -20,7 +20,7 @@ inspection, and to control state change via transitions. Sample usage::
         REVIEWED = (2, "Reviewed")
 
 
-    class MyPost(BaseMixin, db.Model):
+    class MyPost(BaseMixin, Model):
         __tablename__ = 'my_post'
 
         # The underlying state value columns
@@ -1034,7 +1034,7 @@ class StateManager:
         Requires a column name and a :class:`~coaster.utils.classes.LabeledEnum`
         containing valid values. Usage::
 
-            class MyModel(db.Model):
+            class MyModel(Model):
                 _state: Mapped[int] = sa.orm.mapped_column(
                     'state',
                     sa.Integer,

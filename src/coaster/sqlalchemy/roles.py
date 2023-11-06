@@ -47,7 +47,7 @@ Example use::
             return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
 
-    class RoleModel(ColumnMixin, RoleMixin, db.Model):
+    class RoleModel(ColumnMixin, RoleMixin, Model):
         __tablename__ = 'role_model'
 
         # The low level approach is to declare roles all at once.
@@ -289,6 +289,7 @@ def _roles_via_relationship(
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
             offered_roles: t.Union[t.Set[str], LazyRoleSet]
+            # TODO: Cache this as we'll get a different LazyRoleSet each time
             offered_roles = relationship.roles_for(actor)
             if offer_map is not None:
                 offer_map_subset = {
@@ -1081,7 +1082,7 @@ def with_roles(
 
     ``grants_via`` is typically used like this::
 
-        class RoleModel(db.Model):
+        class RoleModel(Model):
             user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
@@ -1101,7 +1102,7 @@ def with_roles(
     ``grants_via`` supports an additional advanced definition for when the role granting
     model has variable roles and offers them via a property named ``offered_roles``::
 
-        class RoleModel(db.Model):
+        class RoleModel(Model):
             user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
