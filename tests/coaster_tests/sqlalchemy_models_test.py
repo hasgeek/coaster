@@ -220,68 +220,60 @@ class MyUrlModel(Model):
     )
 
 
-class NonUuidKey(BaseMixin, Model):
+class NonUuidKey(BaseMixin[int], Model):
     __tablename__ = 'non_uuid_key'
-    __uuid_primary_key__ = False
 
 
-class UuidKey(BaseMixin, Model):
+class UuidKey(BaseMixin[UUID], Model):
     __tablename__ = 'uuid_key'
-    __uuid_primary_key__ = True
 
 
-class UuidKeyNoDefault(BaseMixin, Model):
+class UuidKeyNoDefault(BaseMixin[UUID], Model):
     __tablename__ = 'uuid_key_no_default'
-    __uuid_primary_key__ = True
     id: Mapped[UUID] = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
         sa.Uuid, primary_key=True
     )
 
 
-class UuidForeignKey1(BaseMixin, Model):
+class UuidForeignKey1(BaseMixin[int], Model):
     __tablename__ = 'uuid_foreign_key1'
-    __uuid_primary_key__ = False
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidForeignKey2(BaseMixin, Model):
+class UuidForeignKey2(BaseMixin[UUID], Model):
     __tablename__ = 'uuid_foreign_key2'
-    __uuid_primary_key__ = True
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidIdName(BaseIdNameMixin, Model):
+class UuidIdName(BaseIdNameMixin[UUID], Model):
     __tablename__ = 'uuid_id_name'
-    __uuid_primary_key__ = True
 
 
-class UuidIdNameMixin(UuidMixin, BaseIdNameMixin, Model):
+class UuidIdNameMixin(UuidMixin, BaseIdNameMixin[UUID], Model):
     __tablename__ = 'uuid_id_name_mixin'
-    __uuid_primary_key__ = True
 
 
-class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin, Model):
+class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin[int], Model):
     __tablename__ = 'uuid_id_name_secondary'
-    __uuid_primary_key__ = False
 
 
-class NonUuidMixinKey(UuidMixin, BaseMixin, Model):
+class NonUuidMixinKey(UuidMixin, BaseMixin[int], Model):
     __tablename__ = 'non_uuid_mixin_key'
-    __uuid_primary_key__ = False
 
 
-class UuidMixinKey(UuidMixin, BaseMixin, Model):
+class UuidMixinKey(UuidMixin, BaseMixin[UUID], Model):
     __tablename__ = 'uuid_mixin_key'
-    __uuid_primary_key__ = True
 
 
 class ParentForPrimary(BaseMixin, Model):
     __tablename__ = 'parent_for_primary'
-    __allow_unmapped__ = True  # Required for primary_child not being wrapped in Mapped
 
-    primary_child: t.Optional[ChildForPrimary]  # For the added relationship
+    # The relationship must be explicitly defined for type hinting to work.
+    # add_primary_relationship will replace this with a fleshed-out relationship
+    # for SQLAlchemy configuration
+    primary_child: Mapped[t.Optional[ChildForPrimary]] = relationship()
 
 
 class ChildForPrimary(BaseMixin, Model):

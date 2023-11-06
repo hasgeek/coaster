@@ -52,7 +52,7 @@ dependencies = [
   'sqlalchemy-utils',
   'SQLAlchemy>=2.0.4',
   'tldextract',
-  'typing_extensions',
+  'typing_extensions>=4.8.0',
   'Unidecode',
   'werkzeug',
 ]

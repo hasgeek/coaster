@@ -5,8 +5,9 @@ SQLAlchemy mixin classes
 Coaster provides a number of mixin classes for SQLAlchemy models. To use in
 your Flask app::
 
+    from sqlalchemy.orm import DeclarativeBase
     from flask_sqlalchemy import SQLAlchemy
-    from coaster.sqlalchemy import BaseMixin
+    from coaster.sqlalchemy import BaseMixin, ModelBase
 
     class Model(ModelBase, DeclarativeBase):
         '''Model base class.'''
@@ -14,7 +15,7 @@ your Flask app::
     db = SQLAlchemy(metadata=Model.metadata)
     Model.init_flask_sqlalchemy(db)
 
-    class MyModel(BaseMixin[int], Model):
+    class MyModel(BaseMixin[int], Model):  # Integer serial primary key; alt: UUID
         __tablename__ = 'my_model'
 
 Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your model's
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import typing as t
 import typing_extensions as te
+import warnings
 from collections import abc, namedtuple
 from datetime import datetime
 from decimal import Decimal
@@ -91,9 +93,17 @@ __all__ = [
 
 _T = t.TypeVar('_T', bound=t.Any)
 
+PkeyType = te.TypeVar('PkeyType', int, UUID, default=int)
+# `default=int` is processed by type checkers implementing PEP 696, but seemingly has no
+# impact in runtime, so no default will be received in `IdMixin.__init_subclass__`
+
+
+class PkeyWarning(UserWarning):
+    """Warning when the primary key type is not specified as a base class argument."""
+
 
 @declarative_mixin
-class IdMixin:
+class IdMixin(t.Generic[PkeyType]):
     """
     Provides the :attr:`id` primary key column.
 
@@ -120,12 +130,75 @@ class IdMixin:
     query_class: t.ClassVar[t.Type[Query]] = Query
     query: t.ClassVar[QueryProperty]
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
-    #: the need to commit to the database
+    #: the need to commit to the database. Do not set this directly; pass UUID as a
+    #: Generic argument to the base class instead: ``class MyModel(IdMixin[UUID])``.
     __uuid_primary_key__: t.ClassVar[bool] = False
+
+    def __init_subclass__(cls) -> None:
+        # If a generic arg is specified, set `__uuid_primary_key__` from it. Do this
+        # before `super().__init_subclass__` calls SQLAlchemy's implementation,
+        # which processes the `declared_attr` classmethods into class attributes. They
+        # depend on `__uuid_primary_key__` already being set on the class.
+        if '__uuid_primary_key__' in cls.__dict__:
+            # This is only a warning, but it will turn into an error below if the value
+            # varies from the generic arg
+            warnings.warn(
+                f"`{cls.__qualname__}` must specify primary key type as `int` or `UUID`"
+                " to the base class (`IdMixin[int]` or `IdMixin[UUID]`) instead of"
+                " specifying `__uuid_primary_key__` directly",
+                PkeyWarning,
+            )
+
+        for base in te.get_original_bases(cls):
+            # XXX: Is this the correct way to examine a generic subclass that may have
+            # more generic args in a redefined order? The docs suggest Generic args are
+            # assumed positional, but they may be reordered, so how do we determine the
+            # arg to IdMixin itself? There is no variant of `cls.mro()` that returns
+            # original base classes with their generic args. For now, we expect that
+            # generic subclasses _must_ use the static `PkeyType` typevar in their
+            # definitions. This may need to be revisited with Python 3.12's new type
+            # parameter syntax (via PEP 695).
+            origin_base = t.get_origin(base)
+            if (
+                origin_base is not None
+                and issubclass(origin_base, IdMixin)
+                and PkeyType in origin_base.__parameters__  # type: ignore[misc]
+            ):
+                pkey_type = t.get_args(base)[
+                    origin_base.__parameters__.index(PkeyType)  # type: ignore[misc]
+                ]
+                if pkey_type is int:
+                    if (
+                        '__uuid_primary_key__' in cls.__dict__
+                        and cls.__uuid_primary_key__ is not False
+                    ):
+                        raise TypeError(
+                            f"{cls.__qualname__}.__uuid_primary_key__ conflicts with"
+                            " pkey type argument to the base class"
+                        )
+                    cls.__uuid_primary_key__ = False
+                elif pkey_type is UUID:
+                    if (
+                        '__uuid_primary_key__' in cls.__dict__
+                        and cls.__uuid_primary_key__ is not True
+                    ):
+                        raise TypeError(
+                            f"{cls.__qualname__}.__uuid_primary_key__ conflicts with"
+                            " pkey type argument to the base class"
+                        )
+                    cls.__uuid_primary_key__ = True
+                elif pkey_type is PkeyType:  # type: ignore[misc]
+                    # This must be a generic subclass, ignore it
+                    pass
+                else:
+                    raise TypeError(f"Unsupported primary key type in {base!r}")
+                break
+
+        return super().__init_subclass__()
 
     @immutable
     @declared_attr
-    def id(cls) -> Mapped[t.Union[int, UUID]]:  # noqa: A003
+    def id(cls) -> Mapped[PkeyType]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return sa.orm.mapped_column(
@@ -584,12 +657,12 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
 
 
 @declarative_mixin
-class BaseMixin(IdMixin, NoIdMixin):
+class BaseMixin(IdMixin[PkeyType], NoIdMixin):
     """Base mixin class for all tables that have an id column."""
 
 
 @declarative_mixin
-class BaseNameMixin(BaseMixin):
+class BaseNameMixin(BaseMixin[PkeyType]):
     """
     Base mixin class for named objects.
 
@@ -723,7 +796,7 @@ class BaseNameMixin(BaseMixin):
 
 
 @declarative_mixin
-class BaseScopedNameMixin(BaseMixin):
+class BaseScopedNameMixin(BaseMixin[PkeyType]):
     """
     Base mixin class for named objects within containers.
 
@@ -905,7 +978,7 @@ class BaseScopedNameMixin(BaseMixin):
 
 
 @declarative_mixin
-class BaseIdNameMixin(BaseMixin):
+class BaseIdNameMixin(BaseMixin[PkeyType]):
     """
     Base mixin class for named objects with an id tag.
 
@@ -1023,7 +1096,7 @@ class BaseIdNameMixin(BaseMixin):
 
 
 @declarative_mixin
-class BaseScopedIdMixin(BaseMixin):
+class BaseScopedIdMixin(BaseMixin[PkeyType]):
     """
     Base mixin class for objects with an id that is unique within a parent.
 
@@ -1087,7 +1160,7 @@ class BaseScopedIdMixin(BaseMixin):
 
 
 @declarative_mixin
-class BaseScopedIdNameMixin(BaseScopedIdMixin):
+class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     """
     Base mixin class for named objects with an id tag that is unique within a parent.
 
@@ -1269,12 +1342,12 @@ class CoordinatesMixin:
 
 
 # Setup listeners for UUID-based subclasses
-def _configure_id_listener(mapper: t.Any, class_: IdMixin) -> None:
+def _configure_id_listener(mapper: t.Any, class_: t.Type[IdMixin]) -> None:
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         auto_init_default(mapper.column_attrs.id)
 
 
-def _configure_uuid_listener(mapper: t.Any, class_: UuidMixin) -> None:
+def _configure_uuid_listener(mapper: t.Any, class_: t.Type[UuidMixin]) -> None:
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         return
     # Only configure this listener if the class doesn't use UUID primary keys,
