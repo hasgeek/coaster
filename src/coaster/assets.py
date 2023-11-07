@@ -243,7 +243,7 @@ class WebpackManifest(Mapping):
 
     Substitutions complement the original asset names, which continue to be available.
     If a substitute overlaps an existing asset, the original is preserved and a
-    :warn:`RuntimeWarning` is emitted.
+    :exc:`RuntimeWarning` is emitted.
 
     WebpackManifest does not hold the asset data. It loads and stores it as
     ``app.extensions['manifest.json']`` during the :meth:`init_app` call, and therefore

@@ -187,12 +187,8 @@ def add_primary_relationship(
     parent_table_name = cast(str, parent.__tablename__)
     child_table_name = cast(str, child.__tablename__)
     primary_table_name = parent_table_name + '_' + child_table_name + '_primary'
-    parent_id_columns = [
-        c.name for c in sa.inspect(parent).primary_key  # type: ignore[union-attr]
-    ]
-    child_id_columns = [
-        c.name for c in sa.inspect(child).primary_key  # type: ignore[union-attr]
-    ]
+    parent_id_columns = [c.name for c in sa.inspect(parent).primary_key]
+    child_id_columns = [c.name for c in sa.inspect(child).primary_key]
 
     primary_table_columns: t.List[sa.Column] = (
         [

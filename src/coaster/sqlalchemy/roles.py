@@ -967,7 +967,8 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         return super().__eq__(other)
 
     def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
+        # Don't call __eq__ directly, it may return NotImplemented
+        return not self == other
 
     def __bool__(self) -> bool:
         return bool(self._obj)
