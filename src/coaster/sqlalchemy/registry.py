@@ -8,7 +8,7 @@ with three registries, used by other mixin classes.
 Helper classes such as forms and views can be registered to the model and
 later accessed from an instance::
 
-    class MyModel(BaseMixin, db.Model):
+    class MyModel(BaseMixin, Model):
         ...
 
     class MyForm(Form):
