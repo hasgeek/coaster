@@ -134,7 +134,7 @@ class IdMixin(t.Generic[PkeyType]):
     #: Generic argument to the base class instead: ``class MyModel(IdMixin[UUID])``.
     __uuid_primary_key__: t.ClassVar[bool] = False
 
-    def __init_subclass__(cls) -> None:
+    def __init_subclass__(cls, *args: t.Any, **kwargs: t.Any) -> None:
         # If a generic arg is specified, set `__uuid_primary_key__` from it. Do this
         # before `super().__init_subclass__` calls SQLAlchemy's implementation,
         # which processes the `declared_attr` classmethods into class attributes. They
@@ -194,7 +194,7 @@ class IdMixin(t.Generic[PkeyType]):
                     raise TypeError(f"Unsupported primary key type in {base!r}")
                 break
 
-        return super().__init_subclass__()
+        super().__init_subclass__(*args, **kwargs)
 
     @immutable
     @declared_attr
