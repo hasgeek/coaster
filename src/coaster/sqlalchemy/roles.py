@@ -188,6 +188,7 @@ ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
 
 RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
 _T = t.TypeVar('_T')
+_V = t.TypeVar('_V')
 
 
 class RoleAttrs(te.TypedDict, total=False):
@@ -588,7 +589,7 @@ class LazyRoleSet(abc.MutableSet):
     symmetric_difference_update = nary_op(abc.MutableSet.__ixor__)
 
 
-class DynamicAssociationProxy:
+class DynamicAssociationProxy(t.Generic[_V]):
     """
     Association proxy for dynamic relationships.
 
@@ -601,18 +602,23 @@ class DynamicAssociationProxy:
         # Assuming a relationship like this:
         Document.child_relationship = relationship(ChildDocument, lazy='dynamic')
 
-        # Proxy to an attribute on the target of the relationship:
-        Document.child_attributes = DynamicAssociationProxy(
+        # Proxy to an attribute on the target of the relationship (specifying the type):
+        Document.child_attributes = DynamicAssociationProxy[attribute_type](
             'child_relationship', 'attribute')
 
     This proxy does not provide access to the query capabilities of dynamic
     relationships. It merely optimizes for containment queries. A query like this::
 
-        Document.child_relationship.filter_by(attribute=value).exists()
+        document.child_relationship.filter_by(attribute=value).exists()
 
     Can be reduced to this::
 
-        value in Document.child_attributes
+        value in document.child_attributes
+
+    The proxy can also be iterated, and the return type is set to the generic type
+    specified in the constructor::
+
+        list(document.child_attributes)  # type: list[attribute_type]
 
     :param str rel: Relationship name (must use ``lazy='dynamic'``)
     :param str attr: Attribute on the target of the relationship
@@ -632,18 +638,20 @@ class DynamicAssociationProxy:
         ...
 
     @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> DynamicAssociationProxyWrapper[_T]:
+    def __get__(
+        self, obj: _T, cls: t.Type[_T]
+    ) -> DynamicAssociationProxyWrapper[_V, _T]:
         ...
 
     def __get__(
         self, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[_T]]:
+    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[_V, _T]]:
         if obj is None:
             return self
         return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
 
 
-class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
+class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
     """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
     __slots__ = ('obj', 'rel', 'relattr', 'attr')
@@ -673,7 +681,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_T]):
             relattr.filter_by(**{self.attr: value}).exists()
         ).scalar()
 
-    def __iter__(self) -> t.Iterator[t.Any]:
+    def __iter__(self) -> t.Iterator[_V]:
         for obj in self.relattr:
             yield getattr(obj, self.attr)
 

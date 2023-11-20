@@ -199,7 +199,7 @@ class RelationshipParent(BaseNameMixin, Model):
             'children_dict_attr,children_list,children_list_lazy,children_set,parent'
         ),
     )
-    children_names = DynamicAssociationProxy('children_list_lazy', 'name')
+    children_names = DynamicAssociationProxy[str]('children_list_lazy', 'name')
 
     __roles__ = {
         'all': {
