@@ -1,6 +1,7 @@
 """Reusable fixtures for Coaster tests."""
 # pylint: disable=redefined-outer-name
 
+import sys
 import unittest
 from os import environ
 from typing import cast
@@ -12,6 +13,10 @@ from flask.ctx import RequestContext
 from flask_sqlalchemy import SQLAlchemy
 
 from coaster.sqlalchemy import DeclarativeBase, ModelBase, Query
+
+collect_ignore = []
+if sys.version_info < (3, 10):
+    collect_ignore.append('utils_classes_dataclass_match_test.py')
 
 
 class Model(ModelBase, DeclarativeBase):

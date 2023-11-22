@@ -95,11 +95,9 @@ class ScopedViewDocument(BaseScopedNameMixin, Model):
         return 'scoped-doc'
 
 
-class RenameableDocument(BaseIdNameMixin, Model):
+# Use serial int pkeys so that we can get consistent `1-<name>` url_name in tests
+class RenameableDocument(BaseIdNameMixin[int], Model):
     __tablename__ = 'renameable_document'
-    __uuid_primary_key__ = (
-        False  # So that we can get consistent `1-<name>` url_name in tests
-    )
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
 

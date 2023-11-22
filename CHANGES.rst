@@ -38,6 +38,7 @@
 * ``coaster.sqlalchemy.ModelBase`` now replaces Flask-SQLAlchemy's db.Model
   with full support for type hinting
 * New: ``coaster.assets.WebpackManifest`` provides Webpack assets in Jinja2
+* New: ``coaster.utils.DataclassFromType`` allows a basic type to be annotated
 
 0.6.1 - 2021-01-06
 ------------------

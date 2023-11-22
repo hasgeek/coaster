@@ -193,7 +193,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         return r
 
     @overload
-    def __call__(  # type: ignore[misc]
+    def __call__(  # type: ignore[overload-overlap]
         self, decorated: t.Type[ClassView]
     ) -> t.Type[ClassView]:
         ...
