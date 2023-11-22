@@ -123,8 +123,8 @@ class DataclassFromType:
     methods are sometimes added with newer Python releases, you should audit your
     dataclasses against them.
 
-    These dataclasses can also be used in an enumeration, making enum members compatible
-    with the base data type::
+    These dataclasses can be used in an enumeration, making enum members compatible with
+    the base data type::
 
         >>> from enum import Enum, auto
 
@@ -140,20 +140,6 @@ class DataclassFromType:
         >>> assert StringCollection.FIRST == 'first'
         >>> assert 'first' == StringCollection.FIRST
         >>> assert StringCollection('first') is StringCollection.FIRST
-
-    To use :class:`enum.auto()`, create an intermediate class with a special method::
-
-        >>> class EnumBase(DescribedString, Enum):
-        ...     def _generate_next_value_(name, start, count, last_values) -> str:
-        ...         return name.lower()
-
-        >>> class AutoCollection(EnumBase):
-        ...     FIRST = auto(), "First item"
-        ...     SECOND = auto(), "Second item"
-
-        >>> assert AutoCollection.FIRST == "first"
-        >>> assert AutoCollection.SECOND.value == "second"
-        >>> assert AutoCollection("first") is AutoCollection.FIRST
 
     Enum usage may make more sense with int-derived dataclasses::
 
@@ -173,6 +159,7 @@ class DataclassFromType:
 
         >>> assert HttpStatus(200) is HttpStatus.OK
         >>> assert HttpStatus.OK == 200
+        >>> assert 200 == HttpStatus.OK
         >>> assert HttpStatus.CREATED.comment is None
         >>> assert HttpStatus.UNAUTHORIZED.comment.endswith("login is required")
 
@@ -202,7 +189,8 @@ class DataclassFromType:
         ...     FORBIDDEN = 403, "Forbidden", "This means you don't have the rights"
 
         >>> assert HttpIntEnum(200) is HttpIntEnum.OK
-        >>> assert str(HttpIntEnum.OK) == '200'
+        >>> assert HttpIntEnum.OK == 200
+        >>> assert 200 == HttpIntEnum.OK
 
     The end result is similar: the enum is a subclass of the data type with additional
     attributes on it, but the dataclass approach is fully compatible with type checkers.
