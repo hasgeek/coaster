@@ -9,6 +9,7 @@ import dataclasses
 import typing as t
 import typing_extensions as te
 import warnings
+from reprlib import recursive_repr
 from typing import NamedTuple
 
 __all__ = [
@@ -22,13 +23,9 @@ __all__ = [
 _T = t.TypeVar('_T')
 _R = t.TypeVar('_R')
 
-POST_INIT_FLAG: t.Final = '_post_init'
 
-
-class DataclassFromTypeSelfProperty:
+class SelfProperty:
     """Provides :attr:`DataclassFromType.self` (singleton instance)."""
-
-    # Note: This class cannot store any state within `self` as it is a singleton
 
     @t.overload
     def __get__(self, __obj: None, __cls: t.Type) -> t.NoReturn:
@@ -41,36 +38,26 @@ class DataclassFromTypeSelfProperty:
     def __get__(self, __obj: t.Optional[_T], __cls: t.Type[_T]) -> _T:
         if __obj is None:
             raise AttributeError("Flag for @dataclass to recognise no default value")
+
         return __obj
 
     # The value parameter must be typed `Any` because we cannot make assumptions about
     # the acceptable parameters to the base data type's constructor. For example, `str`
     # will accept almost anything, not just another string. The type defined here will
-    # flow down to the eventual dataclass's `self_` field's type.
+    # flow down to the eventual dataclass's `self` field's type.
     def __set__(self, __obj: t.Any, __value: t.Any) -> None:
-        # Return without doing anything, even though setting `self` should be an error.
-        # We will get one legitimate call during the dataclass-generated `__init__` that
-        # we must ignore without erroring. However, we can't track subsequent calls by
-        # storing state within self as only one instance of this class will exist across
-        # the subclass hierarchy. If we store state within the dataclass instead, it
-        # will be an unexpected side-effect, so we simply return without erroring for
-        # now. Using InitVar to prevent this call has the unfortunate side-effect of
-        # making the property disappear for static type checkers (a bug?).
-        # Reported at https://github.com/python/mypy/issues/16538
-        # if getattr(__obj, POST_INIT_FLAG, False):
-        #     raise TypeError(f"{__obj.__class__.__qualname__}.self_ cannot be set")
-        # try:
-        #     object.__setattr__(__obj, POST_INIT_FLAG, True)
-        # except AttributeError:
-        #     # Class has __slots__ without POST_INIT_FLAG in it, can't do anything
-        #     pass
+        # Do nothing. This method will get exactly one call from the dataclass-generated
+        # __init__. Future attempts to set the attr will be blocked in a frozen
+        # dataclass. __set__ must exist despite being a no-op to follow Python's data
+        # descriptor protocol. If not present, a variable named `self` will be inserted
+        # into the object's instance __dict__, making it a dupe of the data.
         return
 
 
-# DataclassFromType must be a dataclass itself to ensure the `self_` property is
-# identified as a field. Unfortunately, we also need to be opinionated about
-# `frozen` being True or False as `@dataclass` requires consistency across the
-# hierarchy. Our opinion is that the use case veers towards frozen instances.
+# DataclassFromType must be a dataclass itself to ensure the `self` property is
+# identified as a field. Unfortunately, we also need to be opinionated about `frozen` as
+# `@dataclass` requires consistency across the hierarchy. Our opinion is that
+# dataclasses based on immutable types should themselves by immutable.
 @dataclasses.dataclass(init=False, repr=False, eq=False, frozen=True)
 class DataclassFromType:
     """
@@ -79,55 +66,57 @@ class DataclassFromType:
     For use when the context requires a basic datatype like `int` or `str`, but
     additional descriptive fields are desired. Example::
 
-        >>> @dataclasses.dataclass(frozen=True)
+        >>> @dataclasses.dataclass(eq=False, frozen=True)
         ... class DescribedString(DataclassFromType, str):
         ...     description: str
 
         >>> all = DescribedString("all", "All users")
-        >>> more = DescribedString(description="Reordered kwargs", self_="more")
+        >>> more = DescribedString(description="Reordered kwargs", self="more")
+        >>> all
+        DescribedString('all', description='All users')
 
         >>> assert all == "all"
         >>> assert "all" == all
-        >>> assert all.self_ == "all"
+        >>> assert all.self == "all"
         >>> assert all.description == "All users"
         >>> assert more == "more"
         >>> assert more.description == "Reordered kwargs"
 
-    :class:`DataclassFromType_` provides a field named `self_` as the first field in the
-    dataclass. This is a property that returns `self` and ignores any attempts to set
-    it. The value provided to this field when instantiating the dataclass is passed to
-    the data type's constructor. Additional arguments to the data type are not
-    supported. If you need them, use the data type directly and pass the constructed
-    object to the dataclass::
+    :class:`DataclassFromType` provides a dataclass field named ``self`` as the first
+    field. This is a read-only property that returns ``self``. The value provided to
+    this field when instantiating the dataclass is passed to the data type's
+    constructor. Additional arguments to the data type are not supported. If you need
+    them, use the data type directly and pass the constructed object to the dataclass::
 
-        >>> b_str = DescribedString(str(b'byte-value', 'ascii'), "Description here")
+        >>> DescribedString(str(b'byte-value', 'ascii'), "Description here")
+        DescribedString('byte-value', description='Description here')
 
-    The data type must be immutable and the dataclass must be frozen.
-    :class:`DataclassFromType` will insert the data type's `__eq__` and `__hash__`
-    methods into all subclasses to prevent ``@dataclass`` from auto-generating them, to
-    ensure the subclass remains interchangeable with the data type. This is the
-    equivalent of using `@dataclass(eq=False)`. This has the side-effect that two
-    instances with the same data type value but different field values will be
-    considered equal to each other, even if they are instances of different dataclasses
-    based on the same data type::
+    The data type must be immutable and the dataclass must be frozen. To ensure the
+    dataclass is interchangeable with the base data type, it must be defined with
+    ``@dataclass(eq=False, frozen=True)``. This will have the side effect that equality
+    will be solely on the basis of the data type's value, even if other fields differ::
 
         >>> assert DescribedString("a", "One") == DescribedString("a", "Two")
 
-    If this side effect is not desired, the dataclass must provide its own ``__eq__``
-    and ``__hash__`` methods.
+    If this is not desired and interchangeability with the base data type can be
+    foregone, remove ``eq=False`` (`True` is default).
+
+    :class:`DataclassFromType` also provides a ``__repr__`` that renders the base data
+    type correctly. The repr provided by :func:`~dataclasses.dataclass` will attempt to
+    recurse :attr:`self` and will render it as ``...``, hiding the actual value.
 
     Note that all methods and attributes of the base data type will also be available
     via the dataclass, so you should avoid clashing field names. For instance,
-    :meth:`str.title` is an existing method, so a field named ``title`` can cause
-    unexpected grief downstream when some code attempts to call ``.title()``. Since new
-    methods are sometimes added with newer Python releases, you should audit your
-    dataclasses against them.
+    :meth:`str.title` is an existing method, so a field named ``title`` will be flagged
+    by static type checkers, and if ignored can cause unexpected grief downstream when
+    some code attempts to call ``.title()``.
 
-    These dataclasses can be used in an enumeration, making enum members compatible with
-    the base data type::
+    Dataclasses can be used in an enumeration, making enum members compatible with the
+    base data type::
 
-        >>> from enum import Enum, auto
+        >>> from enum import Enum
 
+        >>> # In Python 3.11+, use `ReprEnum` instead of `Enum`
         >>> class StringCollection(DescribedString, Enum):
         ...     FIRST = 'first', "First item"
         ...     SECOND = 'second', "Second item"
@@ -141,16 +130,29 @@ class DataclassFromType:
         >>> assert 'first' == StringCollection.FIRST
         >>> assert StringCollection('first') is StringCollection.FIRST
 
-    Enum usage may make more sense with int-derived dataclasses::
+    :class:`~enum.Enum` adds ``__str__`` and ``__format__`` methods that block access to
+    the actual value and behave inconsistently between Python versions. This is fixed
+    with :class:`~enum.ReprEnum` in Python 3.11. For older Python versions, the
+    additional methods have to be removed after defining the enum. There is currently no
+    convenient way to do this::
+
+        >>> assert str(StringCollection.FIRST) == 'StringCollection.FIRST'
+        >>> del StringCollection.__str__
+        >>> del StringCollection.__format__
+        >>> assert str(StringCollection.FIRST) == 'first'
+        >>> assert format(StringCollection.FIRST) == 'first'
+
+    Enum usage may make more sense with int-derived dataclasses, with the same caveat
+    that ``str(enum) != str(int(enum))`` unless :class:`~enum.ReprEnum` is used::
 
         >>> from typing import Optional
 
-        >>> @dataclasses.dataclass(frozen=True)
+        >>> @dataclasses.dataclass(frozen=True, eq=False)
         ... class StatusCode(DataclassFromType, int):
-        ...     title: str  # `title` is not an existing attr of `int`, unlike `str`
+        ...     title: str  # title is not an existing attr of int, unlike str.title
         ...     comment: Optional[str] = None
 
-        >>> # In Python 3.11+, use `ReprEnum` instead of `Enum` as the base class
+        >>> # In Python 3.11+, use `ReprEnum` instead of `Enum`
         >>> class HttpStatus(StatusCode, Enum):
         ...     OK = 200, "OK"
         ...     CREATED = 201, "Created"
@@ -164,15 +166,16 @@ class DataclassFromType:
         >>> assert HttpStatus.UNAUTHORIZED.comment.endswith("login is required")
 
     It is possible to skip the dataclass approach and customize an Enum's constructor
-    directly, but this approach is verbose and opaque to type checkers, causes incorrect
-    type inferences, and is hard for them to fix or deemed not worth supporting.
-    Relevant tickets:
+    directly. This approach is opaque to type checkers, causes incorrect type
+    inferences, and is apparently hard for them to fix. Relevant tickets:
 
     * Infer attributes from ``__new__``: https://github.com/python/mypy/issues/1021
     * Ignore type of custom enum's value: https://github.com/python/mypy/issues/10000
     * Enum value type inference fix: https://github.com/python/mypy/pull/16320
     * Type error when calling Enum: https://github.com/python/mypy/issues/10573
     * Similar error with Pyright: https://github.com/microsoft/pyright/issues/1751
+
+    ::
 
         >>> from enum import IntEnum
 
@@ -193,8 +196,13 @@ class DataclassFromType:
         >>> assert 200 == HttpIntEnum.OK
 
     The end result is similar: the enum is a subclass of the data type with additional
-    attributes on it, but the dataclass approach is fully compatible with type checkers.
+    attributes on it, but the dataclass approach is more compatible with type checkers.
+    The `Enum Properties <https://enum-properties.readthedocs.io/>`_ project provides a
+    much more elegant syntax not requiring dataclasses, but is similarly not compatible
+    with type hinting.
     """
+
+    __dataclass_params__: t.ClassVar[t.Any]
 
     # Allow subclasses to use `@dataclass(slots=True)` (Python 3.10+). Slots must be
     # empty as non-empty slots are incompatible with other base classes that also have
@@ -202,10 +210,36 @@ class DataclassFromType:
     # tuple: https://docs.python.org/3/reference/datamodel.html#datamodel-note-slots
     __slots__ = ()
 
-    def __new__(cls, self_: t.Any, *_args: t.Any, **_kwargs: t.Any) -> te.Self:
+    if t.TYPE_CHECKING:
+        # Mypy bugs: descriptor-based fields without a default value are understood by
+        # @dataclass, but not by Mypy. Therefore pretend to not be a descriptor.
+        # Unfortunately, we don't know the data type and have to declare it as Any, but
+        # we also exploit (buggy) behaviour in Mypy where declaring the descriptor type
+        # here will replace it with the descriptor's __get__ return type in subclasses,
+        # but only if both are frozen. Descriptor fields cannot be marked as InitVar
+        # because mypy thinks they do not exist as attributes on the class. Bug report
+        # for both: https://github.com/python/mypy/issues/16538
+        self: t.Union[SelfProperty, t.Any]
+    else:
+        self: SelfProperty = SelfProperty()
+        """
+        Read-only property that returns self and appears as the first field in the
+        dataclass.
+        """
+
+    # Note: self cannot be specified as ``field(init=False)`` because of the way Python
+    # object construction flows: ``__new__(cls, *a, **kw).__init__(*a, **kw)``.
+    # Both calls get identical parameters, so `__init__` _must_ receive the parameter
+    # in the first position and _must_ name it `self`. The autogenerated init function
+    # will get the signature ``def __init__(__dataclass_self__, self, ...)``
+
+    # Note: self cannot be a InitVar because that breaks
+    # @dataclass(eq=True, hash=True, compare=True)
+
+    def __new__(cls, self: t.Any, *_args: t.Any, **_kwargs: t.Any) -> te.Self:
         if cls is DataclassFromType:
             raise TypeError("DataclassFromType cannot be directly instantiated")
-        return super().__new__(cls, self_)  # type: ignore[call-arg]
+        return super().__new__(cls, self)  # type: ignore[call-arg]
 
     def __init_subclass__(cls) -> None:
         if cls.__bases__ == (DataclassFromType,):
@@ -218,21 +252,28 @@ class DataclassFromType:
             if super().__hash__ in (None, object.__hash__):
                 raise TypeError("The data type must be immutable")
         super().__init_subclass__()
-        # Required to prevent `@dataclass` from overriding these methods
-        if '__eq__' not in cls.__dict__:
-            cls.__eq__ = super().__eq__  # type: ignore[method-assign]
-            # Try to insert `__hash__` only if the class had no `__eq__`
-            if '__hash__' not in cls.__dict__:
-                cls.__hash__ = super().__hash__  # type: ignore[method-assign]
 
-    # This hack is required due to a mypy bug:
-    # https://github.com/python/mypy/issues/16538
-    if t.TYPE_CHECKING:
-        self_: t.Union[DataclassFromTypeSelfProperty, t.Any]
-    else:
-        # Provide self as the first field in the dataclass. We call it `self_` just in
-        # case the dataclass needs a post-init: `def __post_init__(self, self_, ...)`
-        self_: DataclassFromTypeSelfProperty = DataclassFromTypeSelfProperty()
+        if '__repr__' not in cls.__dict__:
+            cls.__repr__ = (  # type: ignore[method-assign]
+                DataclassFromType.__dataclass_repr__
+            )
+
+    @recursive_repr()
+    def __dataclass_repr__(self) -> str:
+        """Provide a dataclass-like repr that doesn't recurse into self."""
+        self_repr = super().__repr__()  # Invoke __repr__ on the data type
+        if not self.__dataclass_params__.repr:
+            # Since this dataclass was configured with repr=False,
+            # return super().__repr__()
+            return self_repr
+        fields_repr = ', '.join(
+            [
+                f'{field.name}={getattr(self, field.name)!r}'
+                for field in dataclasses.fields(self)[1:]
+                if field.repr
+            ]
+        )
+        return f'{self.__class__.__qualname__}({self_repr}, {fields_repr})'
 
 
 class NameTitle(NamedTuple):
@@ -280,10 +321,9 @@ class _LabeledEnumMeta(type):
                     v[0] if isinstance(v, tuple) else v for v in value
                 }
 
-        if '__order__' in attrs:
+        if '__order__' in attrs:  # pragma: no cover
             warnings.warn(
-                "LabeledEnum.__order__ is not required since Python >= 3.6 and will not"
-                " be honoured",
+                "LabeledEnum.__order__ is not required since Python 3.6 and is ignored",
                 LabeledEnumWarning,
                 stacklevel=2,
             )
@@ -450,10 +490,10 @@ class InspectableSet(t.Generic[_C]):
     """
     InspectableSet provides an ``elem in set`` test via attribute or dictionary access.
 
-    For example, if ``iset`` is an :class:`InspectableSet` wrapping a regular `set`, a
-    test for an element in the set can be rewritten from ``if 'elem' in iset`` to ``if
-    iset.elem``. The concise form improves readability for visual inspection where code
-    linters cannot help, such as in Jinja2 templates.
+    For example, if ``iset`` is an :class:`InspectableSet` wrapping a regular
+    :class:`set`, a test for an element in the set can be rewritten from ``if 'elem' in
+    iset`` to ``if iset.elem``. The concise form improves readability for visual
+    inspection where code linters cannot help, such as in Jinja2 templates.
 
     InspectableSet provides a view to the wrapped data source. The mutation operators
     ``+=``, ``-=``, ``&=``, ``|=`` and ``^=`` will be proxied to the underlying data

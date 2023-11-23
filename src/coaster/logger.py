@@ -32,7 +32,7 @@ import requests
 from flask import g, request, session
 from flask.config import Config
 
-try:  # Flask >= 3.0
+try:  # Flask >= 3.0  # pragma: no cover
     from flask.sansio.app import App as FlaskApp
 except ModuleNotFoundError:
     from flask import Flask as FlaskApp

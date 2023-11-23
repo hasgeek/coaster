@@ -2,7 +2,7 @@
 # pylint: disable=redefined-outer-name,unused-variable
 
 import typing as t
-from dataclasses import dataclass
+from dataclasses import FrozenInstanceError, dataclass
 from enum import Enum
 
 import pytest
@@ -10,10 +10,15 @@ import pytest
 from coaster.utils import DataclassFromType
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class StringMetadata(DataclassFromType, str):
     description: str
     extra: t.Optional[str] = None
+
+
+@dataclass(frozen=True, eq=True)
+class DoubleString(DataclassFromType, str):
+    second: str
 
 
 class MetadataEnum(StringMetadata, Enum):
@@ -36,11 +41,23 @@ def b2() -> StringMetadata:
     return StringMetadata('b', "Also B string", "Extra metadata")
 
 
-def test_required_base_type() -> None:
-    with pytest.raises(
-        TypeError,
-        match="Subclasses must specify the data type as the second base class",
-    ):
+def test_no_init() -> None:
+    """DataclassFromType cannot be instantiated."""
+    with pytest.raises(TypeError, match="cannot be directly instantiated"):
+        DataclassFromType(0)
+
+
+def test_first_base() -> None:
+    """DataclassFromType must be the first base in a subclass."""
+    with pytest.raises(TypeError, match="must be the first base"):
+
+        class WrongSubclass(str, DataclassFromType):
+            pass
+
+
+def test_required_data_type() -> None:
+    """Subclasses must have a second base class for the data type."""
+    with pytest.raises(TypeError, match="second base class"):
 
         class MissingDataType(DataclassFromType):
             pass
@@ -49,6 +66,18 @@ def test_required_base_type() -> None:
         pass
 
     assert GivenDataType('0') == 0  # Same as int('0') == 0
+
+
+def test_immutable_data_type() -> None:
+    """The data type must be immutable."""
+
+    class Immutable(DataclassFromType, tuple):
+        pass
+
+    with pytest.raises(TypeError, match="data type must be immutable"):
+
+        class Mutable(DataclassFromType, list):
+            pass
 
 
 def test_annotated_str(
@@ -83,15 +112,18 @@ def test_dataclass_fields_set(
     a: StringMetadata, b: StringMetadata, b2: StringMetadata
 ) -> None:
     """Confirm dataclass fields have been set."""
-    assert a.self_ == 'a'
+    assert a.self == 'a'
     assert a.description == "A string"
     assert a.extra is None
-    assert b.self_ == 'b'
+    assert b.self == 'b'
     assert b.description == "B string"
     assert b.extra is None
-    assert b2.self_ == 'b'
+    assert b2.self == 'b'
     assert b2.description == "Also B string"
     assert b2.extra == "Extra metadata"
+    # Confirm self cannot be set
+    with pytest.raises(FrozenInstanceError):
+        a.self = 'b'  # type: ignore[misc]
 
 
 def test_dict_keys(a: StringMetadata, b: StringMetadata, b2: StringMetadata):
@@ -106,7 +138,7 @@ def test_dict_keys(a: StringMetadata, b: StringMetadata, b2: StringMetadata):
 
 def test_metadata_enum() -> None:
     assert isinstance(MetadataEnum.FIRST, str)
-    assert MetadataEnum.FIRST.self_ == "first"
+    assert MetadataEnum.FIRST.self == "first"
     assert MetadataEnum.FIRST == "first"
     assert MetadataEnum.SECOND == "second"  # type: ignore[unreachable]
     assert MetadataEnum['FIRST'] is MetadataEnum.FIRST

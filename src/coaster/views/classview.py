@@ -16,7 +16,7 @@ from typing import cast, overload
 from flask import abort, g, has_app_context, make_response, redirect, request
 from flask.typing import ResponseReturnValue
 
-try:  # Flask >= 3.0
+try:  # Flask >= 3.0  # pragma: no cover
     from flask.sansio.app import App as FlaskApp
     from flask.sansio.blueprints import Blueprint, BlueprintSetupState
 except ModuleNotFoundError:  # Flask < 3.0
