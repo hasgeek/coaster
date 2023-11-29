@@ -77,7 +77,7 @@ def test_required_data_type() -> None:
 def test_immutable_data_type() -> None:
     """The data type must be immutable."""
 
-    class Immutable(DataclassFromType, tuple):
+    class Immutable(DataclassFromType, tuple):  # skipcq: PTC-W0065
         pass
 
     with pytest.raises(TypeError, match="data type must be immutable"):

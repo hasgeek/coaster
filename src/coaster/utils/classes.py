@@ -259,9 +259,12 @@ class DataclassFromType:
             )
         if DataclassFromType in cls.__bases__ and cls.__bases__[0] != DataclassFromType:
             raise TypeError("DataclassFromType must be the first base class")
-        if cls.__bases__[0] is DataclassFromType:
-            if super().__hash__ in (None, object.__hash__):
-                raise TypeError("The data type must be immutable")
+        if cls.__bases__[0] is DataclassFromType and super().__hash__ in (
+            None,  # Base class defined `__eq__` and Python inserted `__hash__ = None`
+            object.__hash__,  # This returns `id(obj)` and is not a content hash
+        ):
+            # Treat content-based hashability as a proxy for immutability
+            raise TypeError("The data type must be immutable")
         super().__init_subclass__()
 
         # Required to prevent `@dataclass` from overriding these methods. Allowing
