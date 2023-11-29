@@ -68,7 +68,7 @@ class DataclassFromType:
     additional descriptive fields are desired. Example::
 
         >>> @dataclasses.dataclass(eq=False, frozen=True)
-        ... class DescribedString(DataclassFromType, str):
+        ... class DescribedString(DataclassFromType, str):  # <- Specify data type here
         ...     description: str
 
         >>> all = DescribedString("all", "All users")
@@ -83,22 +83,24 @@ class DataclassFromType:
         >>> assert more == "more"
         >>> assert more.description == "Reordered kwargs"
 
-    :class:`DataclassFromType` provides a dataclass field named ``self`` as the first
-    field. This is a read-only property that returns ``self``. The value provided to
-    this field when instantiating the dataclass is passed to the data type's
-    constructor. Additional arguments to the data type are not supported. If you need
-    them, use the data type directly and pass the constructed object to the dataclass::
+    The data type specified as the second base class must be immutable, and the
+    dataclass must be frozen. :class:`DataclassFromType` provides a dataclass field
+    named ``self`` as the first field. This is a read-only property that returns
+    ``self``. When instantiating, the provided value is passed to the data type's
+    constructor. If the type needs additional arguments, call it directly and pass the
+    result to the dataclass::
 
         >>> DescribedString(str(b'byte-value', 'ascii'), "Description here")
         DescribedString('byte-value', description='Description here')
 
-    The data type must be immutable and the dataclass must be frozen. The data type's
-    ``__eq__`` and ``__hash__`` methods will be copied to each subclass to ensure it
-    remains interchangeable with the data type and to prevent the dataclass decorator
-    from inserting its own definitions. This has the side effect that equality will be
-    solely on the basis of the data type's value, even if other fields differ::
+    The data type's ``__eq__`` and ``__hash__`` methods will be copied to each subclass
+    to ensure it remains interchangeable with the data type, and to prevent the
+    dataclass decorator from inserting its own definitions. This has the side effect
+    that equality will be solely on the basis of the data type's value, even if other
+    fields differ::
 
-        >>> assert DescribedString("a", "One") == DescribedString("a", "Two")
+        >>> DescribedString("a", "One") == DescribedString("a", "Two")
+        True
 
     If this is not desired and interchangeability with the base data type can be
     foregone, the subclass may define its own ``__eq__`` and ``__hash__`` methods, but
@@ -110,10 +112,10 @@ class DataclassFromType:
     recurse :attr:`self` and will render it as ``...``, hiding the actual value.
 
     Note that all methods and attributes of the base data type will also be available
-    via the dataclass, so you should avoid clashing field names. For instance,
-    :meth:`str.title` is an existing method, so a field named ``title`` will be flagged
-    by static type checkers and if ignored can cause unexpected grief downstream when
-    some code attempts to call ``.title()``.
+    via the dataclass. For example, :meth:`str.title` is an existing method, so a field
+    named ``title`` will be flagged by static type checkers as an incompatible override,
+    and if ignored can cause unexpected grief downstream when some code attempts to call
+    ``.title()``.
 
     Dataclasses can be used in an enumeration, making enum members compatible with the
     base data type::
@@ -202,8 +204,8 @@ class DataclassFromType:
     The end result is similar: the enum is a subclass of the data type with additional
     attributes on it, but the dataclass approach is more compatible with type checkers.
     The `Enum Properties <https://enum-properties.readthedocs.io/>`_ project provides a
-    much more elegant syntax not requiring dataclasses, but is similarly not compatible
-    with type hinting.
+    more elegant syntax not requiring dataclasses, but is similarly not compatible with
+    static type checkers.
     """
 
     __dataclass_params__: t.ClassVar[t.Any]
