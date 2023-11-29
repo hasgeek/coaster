@@ -17,7 +17,7 @@ import itsdangerous
 from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
 
-try:  # Flask >= 3.0
+try:  # Flask >= 3.0  # pragma: no cover
     from flask.sansio.app import App as FlaskApp
 except ModuleNotFoundError:  # Flask < 3.0
     from flask import Flask as FlaskApp

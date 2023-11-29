@@ -37,7 +37,7 @@ from uuid import UUID, uuid4
 
 from flask import current_app, url_for
 
-try:  # Flask >= 3.0
+try:  # Flask >= 3.0  # pragma: no cover
     from flask.sansio.app import App as FlaskApp
 except ModuleNotFoundError:  # Flask < 3.0
     from flask import Flask as FlaskApp

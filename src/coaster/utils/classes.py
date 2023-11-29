@@ -5,14 +5,308 @@ Utility classes
 
 from __future__ import annotations
 
+import dataclasses
 import typing as t
 import typing_extensions as te
 import warnings
-from collections import namedtuple
+from reprlib import recursive_repr
+from typing import NamedTuple
 
-__all__ = ['NameTitle', 'LabeledEnum', 'InspectableSet', 'classmethodproperty']
+__all__ = [
+    'DataclassFromType',
+    'NameTitle',
+    'LabeledEnum',
+    'InspectableSet',
+    'classproperty',
+    'classmethodproperty',
+]
 
-NameTitle = namedtuple('NameTitle', ['name', 'title'])
+_T = t.TypeVar('_T')
+_R = t.TypeVar('_R')
+
+
+class SelfProperty:
+    """Provides :attr:`DataclassFromType.self` (singleton instance)."""
+
+    @t.overload
+    def __get__(self, obj: None, _cls: t.Type) -> t.NoReturn:
+        ...
+
+    @t.overload
+    def __get__(self, obj: _T, _cls: t.Type[_T]) -> _T:
+        ...
+
+    def __get__(self, obj: t.Optional[_T], _cls: t.Type[_T]) -> _T:
+        if obj is None:
+            raise AttributeError("Flag for @dataclass to recognise no default value")
+
+        return obj
+
+    # The value parameter must be typed `Any` because we cannot make assumptions about
+    # the acceptable parameters to the base data type's constructor. For example, `str`
+    # will accept almost anything, not just another string. The type defined here will
+    # flow down to the eventual dataclass's `self` field's type.
+    def __set__(self, _obj: t.Any, _value: t.Any) -> None:
+        # Do nothing. This method will get exactly one call from the dataclass-generated
+        # __init__. Future attempts to set the attr will be blocked in a frozen
+        # dataclass. __set__ must exist despite being a no-op to follow Python's data
+        # descriptor protocol. If not present, a variable named `self` will be inserted
+        # into the object's instance __dict__, making it a dupe of the data.
+        return
+
+
+# DataclassFromType must be a dataclass itself to ensure the `self` property is
+# identified as a field. Unfortunately, we also need to be opinionated about `frozen` as
+# `@dataclass` requires consistency across the hierarchy. Our opinion is that
+# dataclasses based on immutable types should by immutable.
+@dataclasses.dataclass(init=False, repr=False, eq=False, frozen=True)
+class DataclassFromType:
+    """
+    Base class for constructing dataclasses that annotate an existing type.
+
+    For use when the context requires a basic datatype like `int` or `str`, but
+    additional descriptive fields are desired. Example::
+
+        >>> @dataclasses.dataclass(eq=False, frozen=True)
+        ... class DescribedString(DataclassFromType, str):  # <- Specify data type here
+        ...     description: str
+
+        >>> all = DescribedString("all", "All users")
+        >>> more = DescribedString(description="Reordered kwargs", self="more")
+        >>> all
+        DescribedString('all', description='All users')
+
+        >>> assert all == "all"
+        >>> assert "all" == all
+        >>> assert all.self == "all"
+        >>> assert all.description == "All users"
+        >>> assert more == "more"
+        >>> assert more.description == "Reordered kwargs"
+
+    The data type specified as the second base class must be immutable, and the
+    dataclass must be frozen. :class:`DataclassFromType` provides a dataclass field
+    named ``self`` as the first field. This is a read-only property that returns
+    ``self``. When instantiating, the provided value is passed to the data type's
+    constructor. If the type needs additional arguments, call it directly and pass the
+    result to the dataclass::
+
+        >>> DescribedString(str(b'byte-value', 'ascii'), "Description here")
+        DescribedString('byte-value', description='Description here')
+
+    The data type's ``__eq__`` and ``__hash__`` methods will be copied to each subclass
+    to ensure it remains interchangeable with the data type, and to prevent the
+    dataclass decorator from inserting its own definitions. This has the side effect
+    that equality will be solely on the basis of the data type's value, even if other
+    fields differ::
+
+        >>> DescribedString("a", "One") == DescribedString("a", "Two")
+        True
+
+    If this is not desired and interchangeability with the base data type can be
+    foregone, the subclass may define its own ``__eq__`` and ``__hash__`` methods, but
+    beware that this can break in subtle ways as Python has multiple pathways to test
+    for equality.
+
+    :class:`DataclassFromType` also provides a ``__repr__`` that renders the base data
+    type correctly. The repr provided by :func:`~dataclasses.dataclass` will attempt to
+    recurse :attr:`self` and will render it as ``...``, hiding the actual value.
+
+    Note that all methods and attributes of the base data type will also be available
+    via the dataclass. For example, :meth:`str.title` is an existing method, so a field
+    named ``title`` will be flagged by static type checkers as an incompatible override,
+    and if ignored can cause unexpected grief downstream when some code attempts to call
+    ``.title()``.
+
+    Dataclasses can be used in an enumeration, making enum members compatible with the
+    base data type::
+
+        >>> from enum import Enum
+
+        >>> # In Python 3.11+, use `ReprEnum` instead of `Enum`
+        >>> class StringCollection(DescribedString, Enum):
+        ...     FIRST = 'first', "First item"
+        ...     SECOND = 'second', "Second item"
+
+        >>> # Enum provides the `name` and `value` properties
+        >>> assert StringCollection.FIRST.value == 'first'
+        >>> assert StringCollection.FIRST.name == 'FIRST'
+        >>> assert StringCollection.FIRST.description == "First item"
+        >>> # The enum itself is a string and directly comparable with one
+        >>> assert StringCollection.FIRST == 'first'
+        >>> assert 'first' == StringCollection.FIRST
+        >>> assert StringCollection('first') is StringCollection.FIRST
+
+    :class:`~enum.Enum` adds ``__str__`` and ``__format__`` methods that block access to
+    the actual value and behave inconsistently between Python versions. This is fixed
+    with :class:`~enum.ReprEnum` in Python 3.11. For older Python versions, the
+    additional methods have to be removed after defining the enum. There is currently no
+    convenient way to do this::
+
+        >>> assert str(StringCollection.FIRST) == 'StringCollection.FIRST'
+        >>> del StringCollection.__str__
+        >>> del StringCollection.__format__
+        >>> assert str(StringCollection.FIRST) == 'first'
+        >>> assert format(StringCollection.FIRST) == 'first'
+
+    Enum usage may make more sense with int-derived dataclasses, with the same caveat
+    that ``str(enum) != str(int(enum))`` unless :class:`~enum.ReprEnum` is used::
+
+        >>> from typing import Optional
+
+        >>> @dataclasses.dataclass(frozen=True, eq=False)
+        ... class StatusCode(DataclassFromType, int):
+        ...     title: str  # title is not an existing attr of int, unlike str.title
+        ...     comment: Optional[str] = None
+
+        >>> # In Python 3.11+, use `ReprEnum` instead of `Enum`
+        >>> class HttpStatus(StatusCode, Enum):
+        ...     OK = 200, "OK"
+        ...     CREATED = 201, "Created"
+        ...     UNAUTHORIZED = 401, "Unauthorized", "This means login is required"
+        ...     FORBIDDEN = 403, "Forbidden", "This means you don't have the rights"
+
+        >>> assert HttpStatus(200) is HttpStatus.OK
+        >>> assert HttpStatus.OK == 200
+        >>> assert 200 == HttpStatus.OK
+        >>> assert HttpStatus.CREATED.comment is None
+        >>> assert HttpStatus.UNAUTHORIZED.comment.endswith("login is required")
+
+    It is possible to skip the dataclass approach and customize an Enum's constructor
+    directly. This approach is opaque to type checkers, causes incorrect type
+    inferences, and is apparently hard for them to fix. Relevant tickets:
+
+    * Infer attributes from ``__new__``: https://github.com/python/mypy/issues/1021
+    * Ignore type of custom enum's value: https://github.com/python/mypy/issues/10000
+    * Enum value type inference fix: https://github.com/python/mypy/pull/16320
+    * Type error when calling Enum: https://github.com/python/mypy/issues/10573
+    * Similar error with Pyright: https://github.com/microsoft/pyright/issues/1751
+
+    ::
+
+        >>> from enum import IntEnum
+
+        >>> class HttpIntEnum(IntEnum):
+        ...     def __new__(cls, code: int, title: str, comment: Optional[str] = None):
+        ...         obj = int.__new__(cls, code)
+        ...         obj._value_ = code
+        ...         obj.title = title
+        ...         obj.comment = comment
+        ...         return obj
+        ...     OK = 200, "OK"
+        ...     CREATED = 201, "Created"
+        ...     UNAUTHORIZED = 401, "Unauthorized", "This means login is required"
+        ...     FORBIDDEN = 403, "Forbidden", "This means you don't have the rights"
+
+        >>> assert HttpIntEnum(200) is HttpIntEnum.OK
+        >>> assert HttpIntEnum.OK == 200
+        >>> assert 200 == HttpIntEnum.OK
+
+    The end result is similar: the enum is a subclass of the data type with additional
+    attributes on it, but the dataclass approach is more compatible with type checkers.
+    The `Enum Properties <https://enum-properties.readthedocs.io/>`_ project provides a
+    more elegant syntax not requiring dataclasses, but is similarly not compatible with
+    static type checkers.
+    """
+
+    __dataclass_params__: t.ClassVar[t.Any]
+
+    # Allow subclasses to use `@dataclass(slots=True)` (Python 3.10+). Slots must be
+    # empty as non-empty slots are incompatible with other base classes that also have
+    # non-empty slots, and with variable length immutable data types like int, bytes and
+    # tuple: https://docs.python.org/3/reference/datamodel.html#datamodel-note-slots
+    __slots__ = ()
+
+    if t.TYPE_CHECKING:
+        # Mypy bugs: descriptor-based fields without a default value are understood by
+        # @dataclass, but not by Mypy. Therefore pretend to not be a descriptor.
+        # Unfortunately, we don't know the data type and have to declare it as Any, but
+        # we also exploit (buggy) behaviour in Mypy where declaring the descriptor type
+        # here will replace it with the descriptor's __get__ return type in subclasses,
+        # but only if both are frozen. Descriptor fields cannot be marked as InitVar
+        # because mypy thinks they do not exist as attributes on the class. Bug report
+        # for both: https://github.com/python/mypy/issues/16538
+        self: t.Union[SelfProperty, t.Any]
+    else:
+        # For runtime, make `self` a dataclass descriptor field with no default value
+        self: SelfProperty = SelfProperty()
+        """
+        Read-only property that returns self and appears as the first field in the
+        dataclass.
+        """
+
+    # Note: self cannot be specified as ``field(init=False)`` because of the way Python
+    # object construction flows: ``__new__(cls, *a, **kw).__init__(*a, **kw)``.
+    # Both calls get identical parameters, so `__init__` _must_ receive the parameter
+    # in the first position and _must_ name it `self`. The autogenerated init function
+    # will get the signature ``def __init__(__dataclass_self__, self, ...)``
+
+    # Note: self cannot be marked `InitVar` because that excludes it from the dataclass
+    # autogenerated hash and compare features: ``@dataclass(eq=True, hash=True,
+    # compare=True)``. We can't specify it using `field` because that can't be used with
+    # a descriptor. ``self: InitVar[SelfProperty] = field(hash=True, compare=True)``
+    # doesn't work. Without a descriptor, we'll be keeping two copies of the value, with
+    # the risk that the copy can be mutated to differ from the self value.
+
+    def __new__(cls, self: t.Any, *_args: t.Any, **_kwargs: t.Any) -> te.Self:
+        """Construct a new instance using only the first arg for the base data type."""
+        if cls is DataclassFromType:
+            raise TypeError("DataclassFromType cannot be directly instantiated")
+        return super().__new__(cls, self)  # type: ignore[call-arg]
+
+    def __init_subclass__(cls) -> None:
+        """Audit and configure subclasses."""
+        if cls.__bases__ == (DataclassFromType,):
+            raise TypeError(
+                "Subclasses must specify the data type as the second base class"
+            )
+        if DataclassFromType in cls.__bases__ and cls.__bases__[0] != DataclassFromType:
+            raise TypeError("DataclassFromType must be the first base class")
+        if cls.__bases__[0] is DataclassFromType and super().__hash__ in (
+            None,  # Base class defined `__eq__` and Python inserted `__hash__ = None`
+            object.__hash__,  # This returns `id(obj)` and is not a content hash
+        ):
+            # Treat content-based hashability as a proxy for immutability
+            raise TypeError("The data type must be immutable")
+        super().__init_subclass__()
+
+        # Required to prevent `@dataclass` from overriding these methods. Allowing
+        # dataclass to produce `__eq__` will break it, causing a recursion error
+        if '__eq__' not in cls.__dict__:
+            cls.__eq__ = super().__eq__  # type: ignore[method-assign]
+            # Try to insert `__hash__` only if the class had no custom `__eq__`
+            if '__hash__' not in cls.__dict__:
+                cls.__hash__ = super().__hash__  # type: ignore[method-assign]
+
+        if '__repr__' not in cls.__dict__:
+            cls.__repr__ = (  # type: ignore[method-assign]
+                DataclassFromType.__dataclass_repr__
+            )
+
+    @recursive_repr()
+    def __dataclass_repr__(self) -> str:
+        """Provide a dataclass-like repr that doesn't recurse into self."""
+        self_repr = super().__repr__()  # Invoke __repr__ on the data type
+        if not self.__dataclass_params__.repr:
+            # Since this dataclass was configured with repr=False,
+            # return super().__repr__()
+            return self_repr
+        fields_repr = ', '.join(
+            [
+                f'{field.name}={getattr(self, field.name)!r}'
+                for field in dataclasses.fields(self)[1:]
+                if field.repr
+            ]
+        )
+        return f'{self.__class__.__qualname__}({self_repr}, {fields_repr})'
+
+
+class NameTitle(NamedTuple):
+    name: str
+    title: str
+
+
+class LabeledEnumWarning(UserWarning):
+    """Warning for labeled enumerations using deprecated syntax."""
 
 
 class _LabeledEnumMeta(type):
@@ -35,6 +329,12 @@ class _LabeledEnumMeta(type):
                     labels[value[0]] = value[1]
                     attrs[key] = names[key] = value[0]
                 elif len(value) == 3:
+                    warnings.warn(
+                        "The (value, name, title) syntax to construct NameTitle objects"
+                        " is deprecated; pass your own object instead",
+                        LabeledEnumWarning,
+                        stacklevel=2,
+                    )
                     labels[value[0]] = NameTitle(value[1], value[2])
                     attrs[key] = names[key] = value[0]
                 else:  # pragma: no cover
@@ -45,19 +345,21 @@ class _LabeledEnumMeta(type):
                     v[0] if isinstance(v, tuple) else v for v in value
                 }
 
-        if '__order__' in attrs:
+        if '__order__' in attrs:  # pragma: no cover
             warnings.warn(
-                "LabeledEnum.__order__ is obsolete in Python >= 3.6", stacklevel=2
+                "LabeledEnum.__order__ is not required since Python 3.6 and is ignored",
+                LabeledEnumWarning,
+                stacklevel=2,
             )
 
         attrs['__labels__'] = labels
         attrs['__names__'] = names
         return type.__new__(mcs, name, bases, attrs)
 
-    def __getitem__(cls, key: t.Union[str, tuple]) -> t.Any:
+    def __getitem__(cls, key: t.Any) -> t.Any:
         return cls.__labels__[key]  # type: ignore[attr-defined]
 
-    def __contains__(cls, key: t.Union[str, tuple]) -> bool:
+    def __contains__(cls, key: t.Any) -> bool:
         return key in cls.__labels__  # type: ignore[attr-defined]
 
 
@@ -65,7 +367,14 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
     """
     Labeled enumerations.
 
-    Declarate an enumeration with values and labels (for use in UI)::
+    .. deprecated:: 0.7.0
+        LabeledEnum is not compatible with static type checking as metaclasses that
+        modify class attributes are not supported as of late 2023, with no proposal for
+        adding this support. Use regular Python enums instead, using a
+        :class:`DataclassFromType`-based :func:`~dataclasses.dataclass` to hold the
+        label.
+
+    Declare an enumeration with values and labels (for use in UI)::
 
         >>> class MY_ENUM(LabeledEnum):
         ...     FIRST = (1, "First")
@@ -212,15 +521,15 @@ class InspectableSet(t.Generic[_C]):
     """
     InspectableSet provides an ``elem in set`` test via attribute or dictionary access.
 
-    For example, if ``permissions`` is an InspectableSet wrapping a regular `set`, a
-    test for an element in the set can be rewritten from ``if 'view' in permissions`` to
-    ``if permissions.view``. The concise form improves readability for visual inspection
-    where code linters cannot help, such as in Jinja2 templates.
+    For example, if ``iset`` is an :class:`InspectableSet` wrapping a regular
+    :class:`set`, a test for an element in the set can be rewritten from ``if 'elem' in
+    iset`` to ``if iset.elem``. The concise form improves readability for visual
+    inspection where code linters cannot help, such as in Jinja2 templates.
 
-    InspectableSet provides a read-only view to the wrapped data source. The mutation
-    operators ``+=``, ``-=``, ``&=``, ``|=`` and ``^=`` will be proxied to the
-    underlying data source, if supported, while the copy operators ``+``, ``-``, ``&``,
-    ``|`` and ``^`` will be proxied and the result re-wrapped with InspectableSet.
+    InspectableSet provides a view to the wrapped data source. The mutation operators
+    ``+=``, ``-=``, ``&=``, ``|=`` and ``^=`` will be proxied to the underlying data
+    source, if supported, while the copy operators ``+``, ``-``, ``&``, ``|`` and ``^``
+    will be proxied and the result re-wrapped with InspectableSet.
 
     If no data source is supplied to InspectableSet, an empty set is used.
 
@@ -258,50 +567,48 @@ class InspectableSet(t.Generic[_C]):
         0
     """
 
-    __slots__ = ('__members__',)
-    __members__: _C
+    __slots__ = ('_members',)
+    _members: _C
 
     def __init__(self, members: t.Union[_C, InspectableSet[_C], None] = None) -> None:
         if isinstance(members, InspectableSet):
-            members = members.__members__
-        object.__setattr__(
-            self, '__members__', members if members is not None else set()
-        )
+            members = members._members
+        object.__setattr__(self, '_members', members if members is not None else set())
 
     def __repr__(self) -> str:
-        return f'InspectableSet({self.__members__!r})'
+        return f'self.__class__.__qualname__({self._members!r})'
 
     def __hash__(self) -> int:
-        return hash(self.__members__)
+        return hash(self._members)
 
     def __contains__(self, key: t.Any) -> bool:
-        return key in self.__members__
+        return key in self._members
 
     def __iter__(self) -> t.Iterator:
-        yield from self.__members__
+        yield from self._members
 
     def __len__(self) -> int:
-        return len(self.__members__)
+        return len(self._members)
 
     def __bool__(self) -> bool:
-        return bool(self.__members__)
+        return bool(self._members)
 
     def __getitem__(self, key: t.Any) -> bool:
-        return key in self.__members__  # Return True if present, False otherwise
+        return key in self._members  # Return True if present, False otherwise
 
     def __setattr__(self, attr: str, _value: t.Any) -> t.NoReturn:
         """Prevent accidental attempts to set a value."""
         raise AttributeError(attr)
 
     def __getattr__(self, attr: str) -> bool:
-        return attr in self.__members__  # Return True if present, False otherwise
+        return attr in self._members  # Return True if present, False otherwise
 
     def _op_bool(self, op: str, other: t.Any) -> bool:
         """Return result of a boolean operation."""
-        if hasattr(self.__members__, op):
+        if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
-                other = other.__members__
-            return getattr(self.__members__, op)(other)
+                other = other._members  # pylint: disable=protected-access
+            return getattr(self._members, op)(other)
         return NotImplemented
 
     def __le__(self, other: t.Any) -> bool:
@@ -330,12 +637,12 @@ class InspectableSet(t.Generic[_C]):
 
     def _op_copy(self, op: str, other: t.Any) -> InspectableSet[_C]:
         """Return result of a copy operation."""
-        if hasattr(self.__members__, op):
+        if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
-                other = other.__members__
-            retval = getattr(self.__members__, op)(other)
+                other = other._members  # pylint: disable=protected-access
+            retval = getattr(self._members, op)(other)
             if retval is not NotImplemented:
-                return InspectableSet(retval)
+                return self.__class__(retval)
         return NotImplemented
 
     def __add__(self, other: t.Any) -> InspectableSet[_C]:
@@ -380,11 +687,15 @@ class InspectableSet(t.Generic[_C]):
 
     def _op_inplace(self, op: str, other: t.Any) -> te.Self:
         """Return self after an inplace operation."""
-        if hasattr(self.__members__, op):
+        if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
-                other = other.__members__
-            if getattr(self.__members__, op)(other) is NotImplemented:
+                other = other._members  # pylint: disable=protected-access
+            result = getattr(self._members, op)(other)
+            if result is NotImplemented:
                 return NotImplemented
+            if result is not self._members:
+                # Did this operation return a new instance? Then we must too.
+                return self.__class__(result)
             return self
         return NotImplemented
 
@@ -409,9 +720,9 @@ class InspectableSet(t.Generic[_C]):
         return self._op_inplace('__isub__', other)
 
 
-class classmethodproperty:  # noqa: N801
+class classproperty(t.Generic[_T, _R]):  # noqa: N801
     """
-    Class method decorator to make class methods behave like properties.
+    Decorator to make class methods behave like read-only properties.
 
     Usage::
 
@@ -460,14 +771,33 @@ class classmethodproperty:  # noqa: N801
         'bar'
     """
 
-    def __init__(self, func: t.Callable) -> None:
-        self.func = func
+    def __init__(self, func: t.Callable[[t.Type[_T]], _R]) -> None:
+        if isinstance(func, classmethod):
+            func = func.__func__  # type: ignore[unreachable]
+        # For using `help(...)` on instances in Python >= 3.9.
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__name__ = func.__name__
+        self.__qualname__ = func.__qualname__
 
-    def __get__(self, _obj: t.Any, cls: t.Type) -> t.Any:
-        return self.func(cls)
+        self.__wrapped__ = func
+
+    def __set_name__(self, owner: t.Type[_T], name: str) -> None:
+        self.__module__ = owner.__module__
+        self.__name__ = name
+        self.__qualname__ = f'{owner.__qualname__}.{name}'
+
+    def __get__(self, obj: t.Optional[_T], cls: t.Optional[t.Type[_T]] = None) -> _R:
+        if cls is None:
+            cls = type(t.cast(_T, obj))
+        return self.__wrapped__(cls)
 
     def __set__(self, _obj: t.Any, _value: t.Any) -> t.NoReturn:
-        raise AttributeError(f"{self.func.__name__} is read-only")
+        raise AttributeError(f"{self.__wrapped__.__name__} is read-only")
 
     def __delete__(self, _obj: t.Any) -> t.NoReturn:
-        raise AttributeError(f"{self.func.__name__} is read-only")
+        raise AttributeError(f"{self.__wrapped__.__name__} is read-only")
+
+
+# Legacy name
+classmethodproperty = classproperty

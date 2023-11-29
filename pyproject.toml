@@ -108,7 +108,6 @@ minversion = '6.0'
 addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
 env = ['FLASK_ENV=testing']
-remote_data_strict = true
 
 [tool.pylint.master]
 max-parents = 10

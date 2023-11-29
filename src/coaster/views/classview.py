@@ -16,7 +16,7 @@ from typing import cast, overload
 from flask import abort, g, has_app_context, make_response, redirect, request
 from flask.typing import ResponseReturnValue
 
-try:  # Flask >= 3.0
+try:  # Flask >= 3.0  # pragma: no cover
     from flask.sansio.app import App as FlaskApp
     from flask.sansio.blueprints import Blueprint, BlueprintSetupState
 except ModuleNotFoundError:  # Flask < 3.0
@@ -193,7 +193,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         return r
 
     @overload
-    def __call__(  # type: ignore[misc]
+    def __call__(  # type: ignore[overload-overlap]
         self, decorated: t.Type[ClassView]
     ) -> t.Type[ClassView]:
         ...
