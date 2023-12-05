@@ -200,9 +200,7 @@ def route(rule: str, **options) -> RouteDecoratorProtocol:
     return decorator
 
 
-def viewdata(
-    **kwargs,
-) -> ViewDataDecoratorProtocol:
+def viewdata(**kwargs) -> ViewDataDecoratorProtocol:
     """
     Decorate view to add additional data alongside :func:`route`.
 
@@ -285,7 +283,7 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         self.data = data or {}
         self.endpoints: t.Set[str] = set()
 
-        # Are we decorating another ViewHelper? If so, copy routes and func from it.
+        # Are we decorating another ViewMethod? If so, copy routes and func from it.
         if isinstance(decorated, ViewMethod):
             self.routes.extend(decorated.routes)
             newdata = dict(decorated.data)
@@ -368,6 +366,7 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
 
+        # TODO: Move most of this into `__set_name__`
         def view_func(**view_args) -> BaseResponse:
             this = cast(ViewFuncProtocol, view_func)
             # view_func does not make any reference to variables from init_app to avoid
@@ -382,7 +381,7 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
             viewinst.current_handler = ViewHandler(
                 # Mypy is incorrectly applying the descriptor protocol to a non-class's
                 # dict, and therefore concluding this.view.__get__() -> ViewHandler,
-                # instead of this.view just remaining a ViewHelper, sans descriptor call
+                # instead of this.view just remaining a ViewMethod, sans descriptor call
                 # https://github.com/python/mypy/issues/15822
                 this.view,  # type: ignore[arg-type]
                 viewinst,
