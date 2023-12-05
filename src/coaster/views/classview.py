@@ -346,6 +346,7 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
     ) -> R_co:
         return __self.func(self, *args, **kwargs)
 
+    # TODO: Move most of this code into `__set_name__`
     def init_app(
         self,
         app: t.Union[FlaskApp, Blueprint],
@@ -366,7 +367,6 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         * :attr:`endpoints`: The URL endpoints registered to this view handler
         """
 
-        # TODO: Move most of this into `__set_name__`
         def view_func(**view_args) -> BaseResponse:
             this = cast(ViewFuncProtocol, view_func)
             # view_func does not make any reference to variables from init_app to avoid
