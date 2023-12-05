@@ -63,6 +63,7 @@ RouteRuleOptions = t.Dict[str, t.Any]
 ViewMethodType = t.TypeVar('ViewMethodType', bound='ViewMethod')
 ClassViewSubtype = t.TypeVar('ClassViewSubtype', bound='ClassView')
 ClassViewType: te.TypeAlias = t.Type[ClassViewSubtype]
+ModelType = te.TypeVar('ModelType', default=t.Any)
 
 P = te.ParamSpec('P')
 P2 = te.ParamSpec('P2')
@@ -718,7 +719,7 @@ class ClassView:
                 cls.is_always_available = True
 
 
-class ModelView(ClassView):
+class ModelView(ClassView, t.Generic[ModelType]):
     """
     Base class for constructing views around a model.
 
@@ -745,11 +746,10 @@ class ModelView(ClassView):
     they are available as `self.view_args`.
     """
 
-    model: t.Type
-    #: A base query to use if the model needs special handling
-    query: t.Optional[Query] = None
-    #: A loaded object of any type
-    obj: t.Any
+    #: The model that is being handled by this ModelView (autoset from Generic arg)
+    model: t.ClassVar[t.Type]
+    #: A loaded object of the model's type
+    obj: ModelType
 
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
@@ -762,11 +762,25 @@ class ModelView(ClassView):
     #:
     #: The :class:`InstanceLoader` mixin class will convert this mapping into
     #: SQLAlchemy attribute references to load the instance object.
-    route_model_map: t.Dict[str, str] = {}
+    route_model_map: t.ClassVar[t.Dict[str, str]] = {}
 
-    def __init__(self, obj: t.Optional[t.Any] = None) -> None:
+    def __init__(self, obj: t.Optional[ModelType] = None) -> None:
         super().__init__()
-        self.obj = obj
+        self.obj = obj  # type: ignore[assignment]
+
+    def __init_subclass__(cls) -> None:
+        """Extract model from generic args and set on cls if unset."""
+        if getattr(cls, 'model', None) is None:  # Allow a base/mixin class to set it
+            for base in te.get_original_bases(cls):
+                origin_base = t.get_origin(base)
+                if origin_base is ModelView:
+                    (model_type,) = t.get_args(base)
+                    if model_type is not t.Any:
+                        if isinstance(model_type, tuple):
+                            model_type = model_type[0]
+                        cls.model = model_type
+                    break
+        super().__init_subclass__()
 
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self) and other.obj == self.obj
@@ -813,15 +827,15 @@ class ModelView(ClassView):
         implementations must override :meth:`load` and be responsible for setting
         :attr:`obj`.
         """
-        self.obj = self.loader(**view_args)
+        self.obj = self.loader(**view_args)  # type: ignore[assignment]
         # Trigger pre-view processing of the loaded object
         return self.after_loader()
 
-    loader: t.Callable[..., t.Optional[t.Any]]
+    loader: t.Callable[..., t.Optional[ModelType]]
 
     def loader(  # type: ignore[no-redef]  # pragma: no cover
         self, **view_args
-    ) -> t.Optional[t.Any]:
+    ) -> t.Optional[ModelType]:
         """
         Load database object and return it.
 
@@ -1095,9 +1109,9 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
         method directly.
     """
 
-    route_model_map: t.Dict[str, str]
-    model: t.Type
-    query: t.Optional[Query]
+    route_model_map: t.ClassVar[t.Dict[str, str]]
+    model: t.ClassVar[t.Type]
+    query: t.ClassVar[t.Optional[Query]] = None
 
     def loader(self, **view_args) -> t.Any:
         """Load instance based on view arguments."""

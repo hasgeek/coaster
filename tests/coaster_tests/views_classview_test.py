@@ -232,10 +232,10 @@ AnotherSubView.init_app(app)
 
 
 @route('/model/<document>')
-class ModelDocumentView(UrlForView, InstanceLoader, ModelView):
+class ModelDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView."""
 
-    model = ViewDocument
+    # model = ViewDocument
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
@@ -273,7 +273,7 @@ ModelDocumentView.init_app(app)
 class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
-    model = ScopedViewDocument  # type: ignore[assignment]
+    model = ScopedViewDocument
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
@@ -282,10 +282,12 @@ ScopedDocumentView.init_app(app)
 
 
 @route('/rename/<document>')
-class RenameableDocumentView(UrlChangeCheck, UrlForView, InstanceLoader, ModelView):
+class RenameableDocumentView(
+    UrlChangeCheck, UrlForView, InstanceLoader, ModelView[RenameableDocument]
+):
     """Test ModelView for a document that will auto-redirect if the URL changes."""
 
-    model = RenameableDocument
+    # model = RenameableDocument
     route_model_map = {'document': 'url_name'}
 
     @route('')
@@ -299,13 +301,15 @@ RenameableDocumentView.init_app(app)
 
 
 @route('/multi/<doc1>/<doc2>')
-class MultiDocumentView(UrlForView, ModelView):
+class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
-    model = ViewDocument
+    # model = ViewDocument
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
-    def loader(self, doc1: str, doc2: str) -> t.Tuple[ViewDocument, RenameableDocument]:
+    def loader(  # type: ignore[override]
+        self, doc1: str, doc2: str
+    ) -> t.Tuple[ViewDocument, RenameableDocument]:
         obj1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
         obj2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
         return (obj1, obj2)
@@ -320,10 +324,10 @@ MultiDocumentView.init_app(app)
 
 
 @route('/gated/<document>')
-class GatedDocumentView(UrlForView, InstanceLoader, ModelView):
+class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView that has an intercept in before_request."""
 
-    model = ViewDocument
+    # model = ViewDocument
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
@@ -421,7 +425,7 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'three/four'
 
     def test_document_404(self) -> None:
-        """Test 404 response from within a view"""
+        """Test 404 response from within a view."""
         rv = self.client.get('/doc/this-doc-does-not-exist')
         assert rv.status_code == 404  # This 404 came from DocumentView.view
 
@@ -438,7 +442,7 @@ class TestClassView(unittest.TestCase):
         assert data['title'] == "Test"
 
     def test_document_edit(self) -> None:
-        """POST handler shares URL with GET handler but is routed to correctly"""
+        """POST handler shares URL with GET handler but is routed to correctly."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -451,7 +455,7 @@ class TestClassView(unittest.TestCase):
         assert doc.title == "Edit 3"
 
     def test_callable_view(self) -> None:
-        """View handlers are callable as regular methods"""
+        """View handlers are callable as regular methods."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -467,14 +471,14 @@ class TestClassView(unittest.TestCase):
         assert doc.title == "Edited"
 
     def test_rerouted(self) -> None:
-        """Subclass replaces view handler"""
+        """Subclass replaces view handler."""
         rv = self.client.get('/subclasstest')
         assert rv.data != b'first'
         assert rv.data == b'rerouted-first'
         assert rv.status_code == 200
 
     def test_rerouted_with_new_routes(self) -> None:
-        """Subclass replaces view handler and adds new routes"""
+        """Subclass replaces view handler and adds new routes."""
         rv = self.client.get('/subclasstest/second')
         assert rv.data != b'second'
         assert rv.data == b'rerouted-second'
@@ -485,20 +489,20 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
 
     def test_unrouted(self) -> None:
-        """Subclass removes a route from base class"""
+        """Subclass removes a route from base class."""
         rv = self.client.get('/subclasstest/third')
         assert rv.data != b'third'
         assert rv.data != b'unrouted-third'
         assert rv.status_code == 404
 
     def test_inherited(self) -> None:
-        """Subclass inherits a view from the base class without modifying it"""
+        """Subclass inherits a view from the base class without modifying it."""
         rv = self.client.get('/subclasstest/inherited')
         assert rv.data == b'inherited'
         assert rv.status_code == 200
 
     def test_added_routes(self) -> None:
-        """Subclass adds more routes to a base class's view handler"""
+        """Subclass adds more routes to a base class's view handler."""
         rv = self.client.get('/subclasstest/also-inherited')  # From base class
         assert rv.data == b'also_inherited'
         rv = self.client.get('/subclasstest/inherited2')  # Added in sub class
@@ -509,12 +513,12 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'latent-route'
 
     def test_cant_route_missing_method(self) -> None:
-        """Routes can't be added for missing attributes"""
+        """Routes can't be added for missing attributes."""
         with pytest.raises(AttributeError):
             SubView.add_route_for('this_method_does_not_exist', '/missing')
 
     def test_second_subview_reroute(self) -> None:
-        """Using reroute does not mutate the base class"""
+        """Using reroute does not mutate the base class."""
         rv = self.client.get('/secondsub/second')
         assert rv.data != b'second'
         assert rv.data == b'also-rerouted-second'
@@ -528,7 +532,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 404
 
     def test_endpoints(self) -> None:
-        """View handlers get endpoints reflecting where they are"""
+        """View handlers get endpoints reflecting where they are."""
         assert IndexView.index.endpoints == {'IndexView_index'}
         assert IndexView.page.endpoints == {'IndexView_page'}
         assert BaseView.first.endpoints == set()
@@ -545,7 +549,7 @@ class TestClassView(unittest.TestCase):
         }
 
     def test_viewdata(self) -> None:
-        """View handlers can have additional data fields"""
+        """View handlers can have additional data fields."""
         assert IndexView.index.data['title'] == "Index"
         assert IndexView.page.data['title'] == "Page"
         assert BaseView.first.data['title'] == "First"
@@ -566,8 +570,16 @@ class TestClassView(unittest.TestCase):
             'view_args_are_received',
         }
 
+    def test_modelview_generic_model(self) -> None:
+        """Test ModelView[model] is copied to attr model."""
+        assert ModelDocumentView.model is ViewDocument
+        assert RenameableDocumentView.model is RenameableDocument
+        assert MultiDocumentView.model is ViewDocument
+        assert GatedDocumentView.model is ViewDocument
+        assert ScopedDocumentView.model is ScopedViewDocument  # Not overridden
+
     def test_modelview_instanceloader_view(self) -> None:
-        """Test document view in ModelView with InstanceLoader"""
+        """Test document view in ModelView with InstanceLoader."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -579,7 +591,7 @@ class TestClassView(unittest.TestCase):
         assert data['title'] == "Test"
 
     def test_modelview_instanceloader_requires_permission_edit(self) -> None:
-        """Test document edit in ModelView with InstanceLoader and requires_permission"""
+        """Test document edit in ModelView with InstanceLoader and permissions."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -594,7 +606,7 @@ class TestClassView(unittest.TestCase):
         assert rv.data == b'edit-called'
 
     def test_modelview_url_for(self) -> None:
-        """Test that ModelView provides model.is_url_for with appropriate parameters"""
+        """Test that ModelView provides model.is_url_for with appropriate parameters."""
         doc1 = ViewDocument(name='test1', title="Test 1")
         doc2 = ViewDocument(name='test2', title="Test 2")
 
@@ -602,7 +614,7 @@ class TestClassView(unittest.TestCase):
         assert doc2.url_for('view') == '/model/test2'
 
     def test_scopedmodelview_view(self) -> None:
-        """Test that InstanceLoader in a scoped model correctly loads parent"""
+        """Test that InstanceLoader in a scoped model correctly loads parent."""
         doc = ViewDocument(name='test1', title="Test 1")
         sdoc = ScopedViewDocument(name='test2', title="Test 2", parent=doc)
         self.session.add_all([doc, sdoc])
@@ -814,14 +826,15 @@ class TestClassView(unittest.TestCase):
         doc1 = ViewDocument(name='test1', title="Test 1")
         doc2 = ViewDocument(name='test2', title="Test 2")
 
-        # ModelView implements __eq__ that extends ClassView's by also comparing the object
+        # ModelView implements __eq__ that extends ClassView's by also comparing the
+        # object
         assert ModelDocumentView(obj=doc1) == ModelDocumentView(obj=doc1)
         assert ModelDocumentView(obj=doc1) != ModelDocumentView(obj=doc2)
 
-        # Note: while ScopedDocumentView handles ScopedViewDocument and not ViewDocument,
-        # there is no type check in __init__, so the constructor will pass. We want __eq__
-        # to catch a mismatch here. This test will break if ModelView introduces type
-        # safety checks, and will need amending then.
+        # Note: while ScopedDocumentView handles ScopedViewDocument and not
+        # ViewDocument, there is no type check in __init__, so the constructor will
+        # pass. We want __eq__ to catch a mismatch here. This test will break if
+        # ModelView introduces type safety checks, and will need amending then.
         assert ModelDocumentView(obj=doc1) != ScopedDocumentView(obj=doc1)
         assert ScopedDocumentView(obj=doc1) != ModelDocumentView(obj=doc1)
 
