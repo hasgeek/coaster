@@ -91,8 +91,6 @@ __all__ = [
     'RegistryMixin',
 ]
 
-_T = t.TypeVar('_T', bound=t.Any)
-
 PkeyType = te.TypeVar('PkeyType', int, UUID, default=int)
 # `default=int` is processed by type checkers implementing PEP 696, but seemingly has no
 # impact in runtime, so no default will be received in `IdMixin.__init_subclass__`

@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import re
 import typing as t
+from inspect import iscoroutinefunction
 from typing import cast
 from urllib.parse import urlsplit
 
@@ -233,7 +234,7 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
     if current_app:
         return cast(tc.WrappedFunc, current_app.ensure_sync(func))
 
-    if not asyncio.iscoroutinefunction(func):
+    if not iscoroutinefunction(func):
         return func
 
     if async_to_sync is not None:

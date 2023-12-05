@@ -257,7 +257,7 @@ def load_model(  # pylint: disable=too-many-arguments
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profile')
-        def profile_view(profile):
+        def profile_view(profile: Profile):
             return f"Hello, {profile.name}"
 
     ``load_model`` aborts with a 404 if no instance is found.

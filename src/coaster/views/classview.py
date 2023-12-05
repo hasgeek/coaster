@@ -7,11 +7,10 @@ Group related views into a class for easier management.
 
 from __future__ import annotations
 
-import asyncio
 import typing as t
 import typing_extensions as te
 from functools import partial, update_wrapper, wraps
-from inspect import getattr_static
+from inspect import getattr_static, iscoroutinefunction
 from typing import cast, overload
 
 from flask import abort, g, has_app_context, make_response, redirect, request
@@ -61,7 +60,7 @@ __all__ = [
 
 #: Type for URL rules in classviews
 RouteRuleOptions = t.Dict[str, t.Any]
-ViewHandlerType = t.TypeVar('ViewHandlerType', bound='ViewHandler')
+ViewHelperType = t.TypeVar('ViewHelperType', bound='ViewHelper')
 
 
 class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
@@ -83,7 +82,7 @@ class ViewFuncProtocol(te.Protocol):  # pylint: disable=too-few-public-methods
 
     wrapped_func: t.Callable
     view_class: t.Type[ClassView]
-    view: ViewHandler
+    view: ViewHelper
     __call__: t.Callable
 
 
@@ -100,23 +99,23 @@ def _get_arguments_from_rule(
 
 
 # :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
-def route(rule: str, **options) -> ViewHandler:
+def route(rule: str, **options) -> ViewHelper:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
     Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
     accepts. See :class:`ClassView` for usage notes.
     """
-    return ViewHandler(rule, rule_options=options)
+    return ViewHelper(rule, rule_options=options)
 
 
-def viewdata(**kwargs) -> ViewHandler:
+def viewdata(**kwargs) -> ViewHelper:
     """
     Decorate view to add additional data alongside :func:`route`.
 
     This data is accessible as the ``data`` attribute on the view handler.
     """
-    return ViewHandler(None, data=kwargs)
+    return ViewHelper(None, data=kwargs)
 
 
 def rulejoin(class_rule: str, method_rule: str) -> str:
@@ -151,8 +150,7 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
 
 
 # TODO: Make this Generic[P, R], accepting func as Callable[Concatenate[Any, P], R]
-# TODO: This is not the actual handler. It's the route helper. Rename to ViewHelper?
-class ViewHandler:  # pylint: disable=too-many-instance-attributes
+class ViewHelper:  # pylint: disable=too-many-instance-attributes
     """Internal object created by the :func:`route` and :func:`viewdata` functions."""
 
     name: str
@@ -219,7 +217,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
 
         # Are we decorating another ViewHandler? If so, copy routes and
         # wrapped method from it.
-        if isinstance(decorated, (ViewHandler, ViewHandlerWrapper)):
+        if isinstance(decorated, (ViewHelper, ViewHandler)):
             self.routes.extend(decorated.routes)
             newdata = dict(decorated.data)
             newdata.update(self.data)
@@ -244,21 +242,21 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         self.endpoint = owner.__name__ + '_' + self.name
 
     @overload
-    def __get__(self: ViewHandlerType, obj: None, cls: t.Type) -> ViewHandlerType:
+    def __get__(self: ViewHelperType, obj: None, cls: t.Type) -> ViewHelperType:
         ...
 
     @overload
     def __get__(
-        self: ViewHandlerType, obj: t.Any, cls: t.Type
-    ) -> ViewHandlerWrapper[ViewHandlerType]:
+        self: ViewHelperType, obj: t.Any, cls: t.Type
+    ) -> ViewHandler[ViewHelperType]:
         ...
 
     def __get__(
-        self: ViewHandlerType, obj: t.Optional[t.Any], cls: t.Type
-    ) -> t.Union[ViewHandlerType, ViewHandlerWrapper[ViewHandlerType]]:
+        self: ViewHelperType, obj: t.Optional[t.Any], cls: t.Type
+    ) -> t.Union[ViewHelperType, ViewHandler[ViewHelperType]]:
         if obj is None:
             return self
-        return ViewHandlerWrapper(self, obj, cls)
+        return ViewHandler(self, obj, cls)
 
     def init_app(
         self,
@@ -291,9 +289,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
             viewinst = this.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
-            viewinst.current_handler = ViewHandlerWrapper(
-                this.view, viewinst, this.view_class
-            )
+            viewinst.current_handler = ViewHandler(this.view, viewinst, this.view_class)
             # Place view arguments in the instance, in case they are needed outside the
             # dispatch process
             viewinst.view_args = view_args
@@ -355,13 +351,12 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
-# TODO: Since this is the actual handler, it should be named ViewHandler
-class ViewHandlerWrapper(t.Generic[ViewHandlerType]):
+class ViewHandler(t.Generic[ViewHelperType]):
     """Wrapper for a view at runtime."""
 
     def __init__(
         self,
-        viewh: ViewHandlerType,
+        viewh: ViewHelperType,
         obj: t.Optional[ClassView],
         cls: t.Type[ClassView],
     ) -> None:
@@ -380,7 +375,7 @@ class ViewHandlerWrapper(t.Generic[ViewHandlerType]):
 
     def __eq__(self, other: t.Any) -> bool:
         return (
-            isinstance(other, ViewHandlerWrapper)
+            isinstance(other, ViewHandler)
             and self._viewh == other._viewh
             and self._obj == other._obj
             and self._cls == other._cls
@@ -471,7 +466,7 @@ class ClassView:
 
     #: When a view is called, this will point to the current view handler,
     #: an instance of :class:`ViewHandlerWrapper`.
-    current_handler: ViewHandlerWrapper
+    current_handler: ViewHandler
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
@@ -597,7 +592,7 @@ class ClassView:
                 if name in processed:
                     continue
                 processed.add(name)
-                if isinstance(attr, ViewHandler):
+                if isinstance(attr, ViewHelper):
                     if base != cls:
                         # Copy ViewHandler instances into subclasses. We know an attr
                         # with the same name doesn't exist in the subclass because it
@@ -669,7 +664,7 @@ class ModelView(ClassView):
     #: A loaded object of any type
     obj: t.Any
 
-    current_handler: ViewHandlerWrapper
+    current_handler: ViewHandler
 
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
@@ -808,7 +803,7 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
             validate(self)
             return await f(self, *args, **kwargs)
 
-        use_wrapper = async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
+        use_wrapper = async_wrapper if iscoroutinefunction(f) else wrapper
         use_wrapper.requires_roles = roles  # type: ignore[attr-defined]
         use_wrapper.is_available = is_available  # type: ignore[attr-defined]
         return cast(tc.WrappedFunc, use_wrapper)
@@ -975,9 +970,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
             return retval
         return await f(self, *args, **kwargs)
 
-    return cast(
-        tc.WrappedFunc, async_wrapper if asyncio.iscoroutinefunction(f) else wrapper
-    )
+    return cast(tc.WrappedFunc, async_wrapper if iscoroutinefunction(f) else wrapper)
 
 
 class UrlChangeCheck:  # pylint: disable=too-few-public-methods
