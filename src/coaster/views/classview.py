@@ -77,22 +77,22 @@ class RouteDecoratorProtocol(te.Protocol):
     """Protocol for the decorator returned by ``@route(...)``."""
 
     @t.overload
-    def __call__(self, decorated: ClassViewType) -> ClassViewType:
+    def __call__(self, __decorated: ClassViewType) -> ClassViewType:
         ...
 
     @t.overload
-    def __call__(self, decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def __call__(self, __decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
         ...
 
     @t.overload
     def __call__(
-        self, decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
+        self, __decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
     ) -> ViewMethod[P, R_co]:
         ...
 
     def __call__(
         self,
-        decorated: t.Union[
+        __decorated: t.Union[
             ClassViewType,
             MethodProtocol[te.Concatenate[t.Any, P], R_co],
             ViewMethod[P, R_co],
@@ -105,18 +105,18 @@ class ViewDataDecoratorProtocol(te.Protocol):
     """Protocol for the decorator returned by ``@viewdata(...)``."""
 
     @t.overload
-    def __call__(self, decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def __call__(self, __decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
         ...
 
     @t.overload
     def __call__(
-        self, decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
+        self, __decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
     ) -> ViewMethod[P, R_co]:
         ...
 
     def __call__(
         self,
-        decorated: t.Union[
+        __decorated: t.Union[
             MethodProtocol[te.Concatenate[t.Any, P], R_co], ViewMethod[P, R_co]
         ],
     ) -> ViewMethod[P, R_co]:
@@ -328,19 +328,19 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         self.endpoint = owner.__name__ + '_' + self.name
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
+    def __get__(self, obj: None, _cls: t.Type) -> te.Self:
         ...
 
     @overload
-    def __get__(self, obj: t.Any, cls: t.Type) -> ViewHandler[P, R_co]:
+    def __get__(self, obj: t.Any, _cls: t.Type) -> ViewHandler[P, R_co]:
         ...
 
     def __get__(
-        self, obj: t.Optional[t.Any], cls: t.Type
+        self, obj: t.Optional[t.Any], _cls: t.Type
     ) -> t.Union[te.Self, ViewHandler[P, R_co]]:
         if obj is None:
             return self
-        return ViewHandler(self, obj, cls)
+        return ViewHandler(self, obj)
 
     def __call__(  # pylint: disable=no-self-argument
         __self, self: ClassViewSubtype, *args: P.args, **kwargs: P.kwargs
@@ -385,7 +385,6 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
                 # https://github.com/python/mypy/issues/15822
                 this.view,  # type: ignore[arg-type]
                 viewinst,
-                this.view_class,
             )
             # Place view arguments in the instance, in case they are needed outside the
             # dispatch process
@@ -455,15 +454,13 @@ class ViewHandler(t.Generic[P, R_co]):
         self,
         view: ViewMethod[P, R_co],
         obj: ClassViewSubtype,
-        cls: t.Optional[ClassViewType],
     ) -> None:
         # obj is the ClassView instance
         self._view = view
         self._obj = obj
-        self._cls = cls
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co:
-        """Treat this like a call to the underlying method and not to the view."""
+        """Treat this like a call to the original method and not to the view."""
         # As per the __decorators__ spec, we call .func, not .wrapped_func
         return self._view.func(self._obj, *args, **kwargs)
 
