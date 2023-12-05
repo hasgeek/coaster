@@ -824,15 +824,15 @@ class ModelView(ClassView, t.Generic[ModelType]):
         implementations must override :meth:`load` and be responsible for setting
         :attr:`obj`.
         """
-        self.obj = self.loader(**view_args)  # type: ignore[assignment]
+        self.obj = self.loader(**view_args)
         # Trigger pre-view processing of the loaded object
         return self.after_loader()
 
-    loader: t.Callable[..., t.Optional[ModelType]]
+    loader: t.Callable[..., ModelType]
 
     def loader(  # type: ignore[no-redef]  # pragma: no cover
         self, **view_args
-    ) -> t.Optional[ModelType]:
+    ) -> ModelType:
         """
         Load database object and return it.
 
