@@ -318,7 +318,7 @@ class ModelBase:
         #    __init_subclass__ scanned it. We can't stop a programmer from shooting
         #   their own foot. At best, we can warn of an accidental error.
         bind_key = cls.__bind_key__
-        for base in cls.mro():
+        for base in cls.__mro__:
             if ModelBase in base.__bases__:
                 # We've found the direct subclass of ModelBase...
                 base = cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet
