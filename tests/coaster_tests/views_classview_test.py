@@ -1,6 +1,8 @@
 """Test classviews."""
 # pylint: disable=comparison-with-callable
 
+from __future__ import annotations
+
 import typing as t
 import unittest
 from typing import cast
@@ -56,6 +58,10 @@ class ViewDocument(BaseNameMixin, Model):
     __tablename__ = 'view_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
+    children: Mapped[t.List[ScopedViewDocument]] = relationship(
+        cascade='all, delete-orphan', back_populates='view_document'
+    )
+
     def permissions(
         self, actor: t.Optional[str], inherited: t.Optional[t.Set[str]] = None
     ) -> t.Set[str]:
@@ -84,7 +90,8 @@ class ScopedViewDocument(BaseScopedNameMixin, Model):
         sa.ForeignKey('view_document.id'), nullable=False
     )
     view_document: Mapped[ViewDocument] = relationship(
-        ViewDocument, backref=sa.orm.backref('children', cascade='all, delete-orphan')
+        ViewDocument,  # InstanceLoader needs explicit type, can't guess from Mapped[]
+        back_populates='children',
     )
     parent = sa.orm.synonym('view_document')
 
@@ -235,7 +242,6 @@ AnotherSubView.init_app(app)
 class ModelDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView."""
 
-    # model = ViewDocument
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
@@ -287,7 +293,6 @@ class RenameableDocumentView(
 ):
     """Test ModelView for a document that will auto-redirect if the URL changes."""
 
-    # model = RenameableDocument
     route_model_map = {'document': 'url_name'}
 
     @route('')
@@ -304,7 +309,6 @@ RenameableDocumentView.init_app(app)
 class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
-    # model = ViewDocument
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
     def loader(  # type: ignore[override]
@@ -327,7 +331,6 @@ MultiDocumentView.init_app(app)
 class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView that has an intercept in before_request."""
 
-    # model = ViewDocument
     route_model_map = {'document': 'name'}
 
     @requestargs('access_token')
@@ -376,6 +379,15 @@ GatedDocumentView.init_app(app)
 
 
 # --- Tests ----------------------------------------------------------------------------
+
+
+def test_modelview_generic_model() -> None:
+    """Test ModelView[model] is copied to attr model."""
+    assert ModelDocumentView.model is ViewDocument
+    assert RenameableDocumentView.model is RenameableDocument
+    assert MultiDocumentView.model is ViewDocument
+    assert GatedDocumentView.model is ViewDocument
+    assert ScopedDocumentView.model is ScopedViewDocument  # Not overridden
 
 
 class TestClassView(unittest.TestCase):
@@ -570,14 +582,6 @@ class TestClassView(unittest.TestCase):
             'view_args_are_received',
         }
 
-    def test_modelview_generic_model(self) -> None:
-        """Test ModelView[model] is copied to attr model."""
-        assert ModelDocumentView.model is ViewDocument
-        assert RenameableDocumentView.model is RenameableDocument
-        assert MultiDocumentView.model is ViewDocument
-        assert GatedDocumentView.model is ViewDocument
-        assert ScopedDocumentView.model is ScopedViewDocument  # Not overridden
-
     def test_modelview_instanceloader_view(self) -> None:
         """Test document view in ModelView with InstanceLoader."""
         doc = ViewDocument(name='test1', title="Test")
@@ -640,7 +644,7 @@ class TestClassView(unittest.TestCase):
         data = json.loads(rv.data)
         assert data['name'] == 'test1'
 
-        doc.name = 'renamed'
+        doc.name = 'renamed'  # pylint: disable=attribute-defined-outside-init
         self.session.commit()
 
         rv = self.client.get('/rename/1-test1')
