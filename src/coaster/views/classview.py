@@ -776,8 +776,6 @@ class ModelView(ClassView, t.Generic[ModelType]):
                 if origin_base is ModelView:
                     (model_type,) = t.get_args(base)
                     if model_type is not t.Any:
-                        if isinstance(model_type, tuple):
-                            model_type = model_type[0]
                         cls.model = model_type
                     break
         super().__init_subclass__()
