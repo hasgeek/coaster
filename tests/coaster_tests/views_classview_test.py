@@ -201,7 +201,8 @@ class SubView(BaseView):
     def first(self):
         return 'rerouted-first'
 
-    @route('2')
+    # Mypy can't process this, but Pyright can. Appears to be a Mypy bug
+    @route('2')  # type: ignore[arg-type]
     @BaseView.second.reroute
     @viewdata(title="Not still second")
     def second(self):
@@ -831,7 +832,7 @@ class TestClassView(unittest.TestCase):
             'edit',  # From ModelDocumentView
             'by_perm',  # From GatedDocumentView (`urls` can't handle permission gating)
         }
-        # Adding acess permissions changes the URLs available
+        # Adding access permissions changes the URLs available
         add_auth_attribute('user', 'this-is-the-owner')  # See ViewDocument.permissions
         assert set(doc1.urls) == {
             # From ModelDocumentView

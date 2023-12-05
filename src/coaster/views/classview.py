@@ -60,11 +60,88 @@ __all__ = [
 
 #: Type for URL rules in classviews
 RouteRuleOptions = t.Dict[str, t.Any]
-ViewHelperType = t.TypeVar('ViewHelperType', bound='ViewHelper')
+ViewMethodType = t.TypeVar('ViewMethodType', bound='ViewMethod')
+ClassViewSubtype = t.TypeVar('ClassViewSubtype', bound='ClassView')
+ClassViewType: te.TypeAlias = t.Type[ClassViewSubtype]
+
+T = t.TypeVar('T')
+P = te.ParamSpec('P')
+P2 = te.ParamSpec('P2')
+R = t.TypeVar('R')
+R2 = t.TypeVar('R2')
 
 
-class InitAppCallback(te.Protocol):  # pylint: disable=too-few-public-methods
-    """Protocol for callable that gets a callback from ClassView.init_app."""
+class MethodProtocol(te.Protocol[P, R]):
+    """
+    Protocol that mimics Callable but doesn't validate against a type.
+
+    Replaces ``Callable[Concatenate[Any, P], R]``. Needed because the typeshed defines
+    ``type.__call__``, so any type will also validate as a callable. Mypy special-cases
+    callable Protocols as not matching ``type.__call__``.
+
+    * https://github.com/python/mypy/pull/14121
+    * https://github.com/python/typing/discussions/1312#discussioncomment-4416217
+    """
+
+    # Using ``def __call__`` seems to break Mypy, so we use this hack
+    __call__: t.Callable[te.Concatenate[t.Any, P], R]
+
+
+# These protocols are used for decorator helpers that return an overloaded decorator
+# https://typing.readthedocs.io/en/latest/source/protocols.html#callback-protocols
+# https://stackoverflow.com/a/56635360/78903
+class RouteDecoratorProtocol(te.Protocol):
+    """Protocol for the decorator returned by ``@route(...)``."""
+
+    @t.overload
+    def __call__(self, decorated: ClassViewType) -> ClassViewType:
+        ...
+
+    @t.overload
+    def __call__(self, decorated: ViewMethod[P, R]) -> ViewMethod[P, R]:
+        ...
+
+    @t.overload
+    def __call__(
+        self, decorated: MethodProtocol[te.Concatenate[t.Any, P], R]
+    ) -> ViewMethod[P, R]:
+        ...
+
+    def __call__(
+        self,
+        decorated: t.Union[
+            ClassViewType,
+            MethodProtocol[te.Concatenate[t.Any, P], R],
+            ViewMethod[P, R],
+        ],
+    ) -> t.Union[ClassViewType, ViewMethod[P, R]]:
+        ...
+
+
+class ViewDataDecoratorProtocol(te.Protocol):
+    """Protocol for the decorator returned by ``@viewdata(...)``."""
+
+    @t.overload
+    def __call__(self, decorated: ViewMethod[P, R]) -> ViewMethod[P, R]:
+        ...
+
+    @t.overload
+    def __call__(
+        self, decorated: MethodProtocol[te.Concatenate[t.Any, P], R]
+    ) -> ViewMethod[P, R]:
+        ...
+
+    def __call__(
+        self,
+        decorated: t.Union[
+            MethodProtocol[te.Concatenate[t.Any, P], R], ViewMethod[P, R]
+        ],
+    ) -> ViewMethod[P, R]:
+        ...
+
+
+class InitAppCallback(te.Protocol):
+    """Protocol for a callable that gets a callback from ClassView.init_app."""
 
     def __call__(
         self,
@@ -81,8 +158,8 @@ class ViewFuncProtocol(te.Protocol):  # pylint: disable=too-few-public-methods
     """Protocol for view functions that store context in the function's namespace."""
 
     wrapped_func: t.Callable
-    view_class: t.Type[ClassView]
-    view: ViewHelper
+    view_class: ClassViewType
+    view: ViewMethod
     __call__: t.Callable
 
 
@@ -98,24 +175,74 @@ def _get_arguments_from_rule(
     return list(obj.arguments)
 
 
-# :func:`route` wraps :class:`ViewHandler` so that it can have an independent __doc__
-def route(rule: str, **options) -> ViewHelper:
+def route(rule: str, **options) -> RouteDecoratorProtocol:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
     Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
     accepts. See :class:`ClassView` for usage notes.
     """
-    return ViewHelper(rule, rule_options=options)
+
+    @t.overload
+    def decorator(decorated: ClassViewType) -> ClassViewType:
+        ...
+
+    @t.overload
+    def decorator(decorated: ViewMethod[P, R]) -> ViewMethod[P, R]:
+        ...
+
+    @t.overload
+    def decorator(
+        decorated: MethodProtocol[te.Concatenate[t.Any, P], R]
+    ) -> ViewMethod[P, R]:
+        ...
+
+    def decorator(
+        decorated: t.Union[
+            ClassViewType,
+            MethodProtocol[te.Concatenate[t.Any, P], R],
+            ViewMethod[P, R],
+        ]
+    ) -> t.Union[ClassViewType, ViewMethod[P, R]]:
+        # Are we decorating a ClassView? If so, annotate the ClassView and return it
+        if isinstance(decorated, type) and issubclass(decorated, ClassView):
+            if '__routes__' not in decorated.__dict__:
+                decorated.__routes__ = []
+            decorated.__routes__.append((rule, options))
+            return decorated
+
+        return ViewMethod(decorated, rule=rule, rule_options=options)
+
+    return decorator
 
 
-def viewdata(**kwargs) -> ViewHelper:
+def viewdata(
+    **kwargs,
+) -> ViewDataDecoratorProtocol:
     """
     Decorate view to add additional data alongside :func:`route`.
 
     This data is accessible as the ``data`` attribute on the view handler.
     """
-    return ViewHelper(None, data=kwargs)
+
+    @t.overload
+    def decorator(decorated: ViewMethod[P, R]) -> ViewMethod[P, R]:
+        ...
+
+    @t.overload
+    def decorator(
+        decorated: MethodProtocol[te.Concatenate[t.Any, P], R]
+    ) -> ViewMethod[P, R]:
+        ...
+
+    def decorator(
+        decorated: t.Union[
+            ViewMethod[P, R], MethodProtocol[te.Concatenate[t.Any, P], R]
+        ]
+    ) -> ViewMethod[P, R]:
+        return ViewMethod(decorated, data=kwargs)
+
+    return decorator
 
 
 def rulejoin(class_rule: str, method_rule: str) -> str:
@@ -149,17 +276,19 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
-# TODO: Make this Generic[P, R], accepting func as Callable[Concatenate[Any, P], R]
-class ViewHelper:  # pylint: disable=too-many-instance-attributes
+class ViewMethod(t.Generic[P, R]):  # pylint: disable=too-many-instance-attributes
     """Internal object created by the :func:`route` and :func:`viewdata` functions."""
 
     name: str
     endpoint: str
-    func: t.Callable
+    func: t.Callable[te.Concatenate[t.Any, P], R]
+    wrapped_func: t.Callable
+    view_func: t.Callable
 
     def __init__(
         self,
-        rule: t.Optional[str],
+        decorated: t.Union[t.Callable[te.Concatenate[t.Any, P], R], ViewMethod[P, R]],
+        rule: t.Optional[str] = None,
         rule_options: t.Optional[t.Dict[str, t.Any]] = None,
         data: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> None:
@@ -170,61 +299,13 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
         self.data = data or {}
         self.endpoints: t.Set[str] = set()
 
-    def reroute(self, f: t.Callable) -> te.Self:
-        """Replace a view handler in a subclass while keeping its URL route rules."""
-        # Use type(self) instead of ViewHandler so this works for (future) subclasses
-        # of ViewHandler
-        r = type(self)(None)
-        r.routes = self.routes
-        r.data = self.data
-        return cast(te.Self, r(f))
-
-    def copy_for_subclass(self) -> te.Self:
-        """Make a copy of this ViewHandler, for use in a subclass."""
-        # Like reroute, but just a copy
-        r = type(self)(None)
-        r.routes = self.routes
-        r.data = self.data
-        # Copy func but not wrapped_func, as it will be re-wrapped by init_app
-        r.func = self.func
-        r.name = self.name
-        r.endpoint = self.endpoint
-        r.__doc__ = self.__doc__
-        r.endpoints = set()
-        return r
-
-    @overload
-    def __call__(  # type: ignore[overload-overlap]
-        self, decorated: t.Type[ClassView]
-    ) -> t.Type[ClassView]:
-        ...
-
-    @overload
-    def __call__(self, decorated: t.Union[t.Callable, te.Self]) -> te.Self:
-        ...
-
-    # FIXME: Where is the type in this signature?
-    def __call__(
-        self, decorated: t.Union[t.Callable, te.Self]
-    ) -> t.Union[t.Type[ClassView], te.Self]:
-        """Decorate a view handler."""
-        # Are we decorating a ClassView? If so, annotate the ClassView and return it
-        if isinstance(decorated, type) and issubclass(decorated, ClassView):
-            if '__routes__' not in decorated.__dict__:
-                decorated.__routes__ = []
-            decorated.__routes__.extend(self.routes)
-            return decorated
-
-        # Are we decorating another ViewHandler? If so, copy routes and
-        # wrapped method from it.
-        if isinstance(decorated, (ViewHelper, ViewHandler)):
+        # Are we decorating another ViewHelper? If so, copy routes and func from it.
+        if isinstance(decorated, ViewMethod):
             self.routes.extend(decorated.routes)
             newdata = dict(decorated.data)
             newdata.update(self.data)
             self.data = newdata
             self.func = decorated.func
-
-        # If neither ClassView nor ViewHandler, assume it's a callable method
         else:
             self.func = decorated
 
@@ -232,7 +313,24 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
         # self.endpoint will change in __set_name__
         self.endpoint = self.name
         self.__doc__ = self.func.__doc__  # pylint: disable=W0201
-        return self
+
+    def reroute(
+        self, f: t.Union[ViewMethod[P2, R2], MethodProtocol[P2, R2]]
+    ) -> ViewMethod[P2, R2]:
+        """Replace a view handler in a subclass while keeping its URL route rules."""
+        cls = cast(t.Type[ViewMethod], self.__class__)
+        r: ViewMethod[P2, R2] = cls(f, data=self.data)
+        r.routes = self.routes
+        return r
+
+    def copy_for_subclass(self) -> te.Self:
+        """Make a copy of this ViewHandler, for use in a subclass."""
+        # Like reroute, but just a copy
+        r = self.__class__(self.func, data=self.data)
+        r.routes = self.routes
+        # Don't copy wrapped_func, as it will be re-wrapped by init_app
+        r.endpoint = self.endpoint
+        return r
 
     def __set_name__(self, owner: t.Type, name: str) -> None:
         # This is almost always the existing value acquired from func.__name__
@@ -242,21 +340,24 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
         self.endpoint = owner.__name__ + '_' + self.name
 
     @overload
-    def __get__(self: ViewHelperType, obj: None, cls: t.Type) -> ViewHelperType:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
-    def __get__(
-        self: ViewHelperType, obj: t.Any, cls: t.Type
-    ) -> ViewHandler[ViewHelperType]:
+    def __get__(self, obj: t.Any, cls: t.Type) -> ViewHandler[P, R]:
         ...
 
     def __get__(
-        self: ViewHelperType, obj: t.Optional[t.Any], cls: t.Type
-    ) -> t.Union[ViewHelperType, ViewHandler[ViewHelperType]]:
+        self, obj: t.Optional[t.Any], cls: t.Type
+    ) -> t.Union[te.Self, ViewHandler[P, R]]:
         if obj is None:
             return self
         return ViewHandler(self, obj, cls)
+
+    def __call__(  # pylint: disable=no-self-argument
+        __self, self: ClassViewSubtype, *args: P.args, **kwargs: P.kwargs
+    ) -> R:
+        return __self.func(self, *args, **kwargs)
 
     def init_app(
         self,
@@ -289,7 +390,15 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
             viewinst = this.view_class()
             # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
             # equivalence tests possible, such as ``self.current_handler == self.index``
-            viewinst.current_handler = ViewHandler(this.view, viewinst, this.view_class)
+            viewinst.current_handler = ViewHandler(
+                # Mypy is incorrectly applying the descriptor protocol to a non-class's
+                # dict, and therefore concluding this.view.__get__() -> ViewHandler,
+                # instead of this.view just remaining a ViewHelper, sans descriptor call
+                # https://github.com/python/mypy/issues/15822
+                this.view,  # type: ignore[arg-type]
+                viewinst,
+                this.view_class,
+            )
             # Place view arguments in the instance, in case they are needed outside the
             # dispatch process
             viewinst.view_args = view_args
@@ -336,8 +445,8 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
         view_func.view = self  # type: ignore[attr-defined]
 
         # Keep a copy of these functions (we already have self.func)
-        self.wrapped_func = wrapped_func  # pylint: disable=W0201
-        self.view_func = view_func  # pylint: disable=W0201
+        self.wrapped_func = wrapped_func
+        self.view_func = view_func
 
         for class_rule, class_options in cls.__routes__:
             for method_rule, method_options in self.routes:
@@ -351,43 +460,37 @@ class ViewHelper:  # pylint: disable=too-many-instance-attributes
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
-class ViewHandler(t.Generic[ViewHelperType]):
-    """Wrapper for a view at runtime."""
+class ViewHandler(t.Generic[P, R]):
+    """Wrapper for a view method in an instance of the view class."""
 
     def __init__(
         self,
-        viewh: ViewHelperType,
-        obj: t.Optional[ClassView],
-        cls: t.Type[ClassView],
+        view: ViewMethod[P, R],
+        obj: ClassViewSubtype,
+        cls: t.Optional[ClassViewType],
     ) -> None:
         # obj is the ClassView instance
-        self._viewh = viewh
+        self._view = view
         self._obj = obj
         self._cls = cls
 
-    def __call__(self, *args, **kwargs) -> t.Any:
-        """Treat this like a call to the method (and not to the view)."""
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
+        """Treat this like a call to the underlying method and not to the view."""
         # As per the __decorators__ spec, we call .func, not .wrapped_func
-        return self._viewh.func(self._obj, *args, **kwargs)
+        return self._view.func(self._obj, *args, **kwargs)
 
     def __getattr__(self, name: str) -> t.Any:
-        return getattr(self._viewh, name)
+        return getattr(self._view, name)
 
     def __eq__(self, other: t.Any) -> bool:
-        return (
-            isinstance(other, ViewHandler)
-            and self._viewh == other._viewh
-            and self._obj == other._obj
-            and self._cls == other._cls
-        )
-
-    def __ne__(self, other: t.Any) -> bool:  # pragma: no cover
-        return not self.__eq__(other)
+        if isinstance(other, ViewHandler):
+            return self._view == other._view and self._obj == other._obj
+        return NotImplemented
 
     def is_available(self) -> bool:
         """Indicate whether this view is available in the current context."""
-        if hasattr(self._viewh.wrapped_func, 'is_available'):
-            return self._viewh.wrapped_func.is_available(self._obj)
+        if hasattr(self._view.wrapped_func, 'is_available'):
+            return self._view.wrapped_func.is_available(self._obj)
         return True
 
 
@@ -455,7 +558,7 @@ class ClassView:
 
     #: Subclasses may define decorators here. These will be applied to every
     #: view handler in the class, but only when called as a view and not
-    #: as a Python method call.
+    #: as a Python method.
     __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = []
 
     #: Indicates whether meth:`is_available` should simply return `True`
@@ -465,14 +568,13 @@ class ClassView:
     is_always_available: t.ClassVar[bool] = False
 
     #: When a view is called, this will point to the current view handler,
-    #: an instance of :class:`ViewHandlerWrapper`.
+    #: an instance of :class:`ViewHandler`.
     current_handler: ViewHandler
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
     view_args: t.Dict[str, t.Any] = {}
 
-    # FIXME: This is not checking instance vars `current_handler` and `view_args`
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self)
 
@@ -577,14 +679,14 @@ class ClassView:
         attr = getattr_static(cls, _name)
         if attr is None:
             raise AttributeError(_name)
-        viewh = route(rule, **options)(attr)
+        viewh = t.cast(ViewMethod, route(rule, **options)(attr))
         setattr(cls, _name, viewh)
         viewh.__set_name__(cls, _name)
         if _name not in cls.__views__:
             cls.__views__ = frozenset(cls.__views__) | {_name}
 
     def __init_subclass__(cls) -> None:
-        """Copy view handlers from base classes into the subclass."""
+        """Copy views from base classes into the subclass."""
         view_names = set()
         processed = set()
         for base in cls.__mro__:
@@ -592,7 +694,7 @@ class ClassView:
                 if name in processed:
                     continue
                 processed.add(name)
-                if isinstance(attr, ViewHelper):
+                if isinstance(attr, ViewMethod):
                     if base != cls:
                         # Copy ViewHandler instances into subclasses. We know an attr
                         # with the same name doesn't exist in the subclass because it
@@ -664,8 +766,6 @@ class ModelView(ClassView):
     #: A loaded object of any type
     obj: t.Any
 
-    current_handler: ViewHandler
-
     #: A mapping of URL rule variables to attributes on the model. For example,
     #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
     #:
@@ -695,7 +795,7 @@ class ModelView(ClassView):
         """
         Dispatch a view.
 
-        Calls :meth:`before_request`, :meth:`loader`, :meth:`load`, the view, and then
+        Calls :meth:`before_request`, :meth:`load`, the view, and then
         :meth:`after_request`.
 
         :param view: View method wrapped in specified decorators
