@@ -1089,7 +1089,9 @@ class UrlChangeCheck:  # pylint: disable=too-few-public-methods
                 return self.obj.current_access()
     """
 
-    __decorators__: t.List[t.Callable[[t.Callable], t.Callable]] = [url_change_check]
+    __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = [
+        url_change_check
+    ]
 
 
 class InstanceLoader:  # pylint: disable=too-few-public-methods
