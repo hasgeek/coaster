@@ -90,7 +90,7 @@ class RouteDecoratorProtocol(te.Protocol):
     ) -> ViewMethod[P, R_co]:
         ...
 
-    def __call__(
+    def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: t.Union[
             ClassViewType,
@@ -114,7 +114,7 @@ class ViewDataDecoratorProtocol(te.Protocol):
     ) -> ViewMethod[P, R_co]:
         ...
 
-    def __call__(
+    def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: t.Union[
             MethodProtocol[te.Concatenate[t.Any, P], R_co], ViewMethod[P, R_co]
