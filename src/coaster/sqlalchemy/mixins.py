@@ -1137,7 +1137,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     def make_id(self) -> None:
         """Create a new URL id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
-            self.url_id = (  # type: ignore[unreachable]
+            self.url_id = (
                 # pylint: disable=not-callable
                 select(func.coalesce(func.max(self.__class__.url_id + 1), 1))
                 .where(

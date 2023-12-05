@@ -590,8 +590,8 @@ def render_with(
                         status_code = status_or_headers
                         headers = None
                 elif len(resultset) == 3:
-                    status_code = resultset[1]  # type: ignore[assignment,misc]
-                    headers = resultset[2]  # type: ignore[misc]
+                    status_code = resultset[1]
+                    headers = resultset[2]
                 else:
                     raise TypeError("View's response is an oversized tuple")
             else:

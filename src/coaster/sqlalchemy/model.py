@@ -270,7 +270,7 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
     """
 
     # AppenderMixin does not specify a type for query_class
-    query_class = Query  # type: ignore[assignment]
+    query_class = Query
 
 
 class QueryProperty:
