@@ -11,6 +11,7 @@ import asyncio
 import typing as t
 import typing_extensions as te
 from functools import partial, update_wrapper, wraps
+from inspect import getattr_static
 from typing import cast, overload
 
 from flask import abort, g, has_app_context, make_response, redirect, request
@@ -149,6 +150,8 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
+# TODO: Make this Generic[P, R], accepting func as Callable[Concatenate[Any, P], R]
+# TODO: This is not the actual handler. It's the route helper. Rename to ViewHelper?
 class ViewHandler:  # pylint: disable=too-many-instance-attributes
     """Internal object created by the :func:`route` and :func:`viewdata` functions."""
 
@@ -202,6 +205,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
     def __call__(self, decorated: t.Union[t.Callable, te.Self]) -> te.Self:
         ...
 
+    # FIXME: Where is the type in this signature?
     def __call__(
         self, decorated: t.Union[t.Callable, te.Self]
     ) -> t.Union[t.Type[ClassView], te.Self]:
@@ -233,7 +237,10 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
         return self
 
     def __set_name__(self, owner: t.Type, name: str) -> None:
+        # This is almost always the existing value acquired from func.__name__
         self.name = name
+        # We can't use `.` as a separator because Flask uses that to identify blueprint
+        # endpoints. Instead, we construct this to be `ViewClass_method_name`
         self.endpoint = owner.__name__ + '_' + self.name
 
     @overload
@@ -348,6 +355,7 @@ class ViewHandler:  # pylint: disable=too-many-instance-attributes
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
+# TODO: Since this is the actual handler, it should be named ViewHandler
 class ViewHandlerWrapper(t.Generic[ViewHandlerType]):
     """Wrapper for a view at runtime."""
 
@@ -445,19 +453,21 @@ class ClassView:
     """
 
     # If the class did not get a @route decorator, provide a fallback route
-    __routes__: t.List[t.Tuple[str, RouteRuleOptions]] = [('', {})]
+    __routes__: t.ClassVar[t.List[t.Tuple[str, RouteRuleOptions]]] = [('', {})]
+
     #: Track all the views registered in this class
-    __views__: t.Collection[str] = ()
+    __views__: t.ClassVar[t.Collection[str]] = frozenset()
+
     #: Subclasses may define decorators here. These will be applied to every
     #: view handler in the class, but only when called as a view and not
     #: as a Python method call.
-    __decorators__: t.List[t.Callable[[t.Callable], t.Callable]] = []
+    __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = []
 
     #: Indicates whether meth:`is_available` should simply return `True`
     #: without conducting a test. Subclasses should not set this flag. It will
     #: be set by :meth:`init_app` if any view handler is missing an
     #: ``is_available`` method, as it implies that view is always available.
-    is_always_available = False
+    is_always_available: t.ClassVar[bool] = False
 
     #: When a view is called, this will point to the current view handler,
     #: an instance of :class:`ViewHandlerWrapper`.
@@ -467,6 +477,7 @@ class ClassView:
     #: arguments to the view.
     view_args: t.Dict[str, t.Any] = {}
 
+    # FIXME: This is not checking instance vars `current_handler` and `view_args`
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self)
 
@@ -510,9 +521,9 @@ class ClassView:
         """
         Process response returned by view.
 
-        This method is called with the response from the view handler method.
-        It must return a valid response object. Subclasses and mixin classes
-        may override this to perform any necessary post-processing::
+        This method is called with the response from the view handler method. It must
+        return a valid response object. Subclasses and mixin classes may override this
+        to perform any necessary post-processing::
 
             class MyView(ClassView):
                 ...
@@ -535,13 +546,6 @@ class ClassView:
         return self.is_always_available or any(
             getattr(self, _v).is_available() for _v in self.__views__
         )
-
-    @classmethod
-    def __get_raw_attr(cls, name: str) -> t.Any:
-        for base in cls.__mro__:
-            if name in base.__dict__:
-                return base.__dict__[name]
-        raise AttributeError(name)
 
     @classmethod
     def add_route_for(cls, _name: str, rule: str, **options) -> None:
@@ -575,9 +579,43 @@ class ClassView:
         :param rule: URL rule to be added
         :param options: Additional options for :meth:`~flask.Flask.add_url_rule`
         """
-        viewh = route(rule, **options)(cls.__get_raw_attr(_name))
+        attr = getattr_static(cls, _name)
+        if attr is None:
+            raise AttributeError(_name)
+        viewh = route(rule, **options)(attr)
         setattr(cls, _name, viewh)
         viewh.__set_name__(cls, _name)
+        if _name not in cls.__views__:
+            cls.__views__ = frozenset(cls.__views__) | {_name}
+
+    def __init_subclass__(cls) -> None:
+        """Copy view handlers from base classes into the subclass."""
+        view_names = set()
+        processed = set()
+        for base in cls.__mro__:
+            for name, attr in base.__dict__.items():
+                if name in processed:
+                    continue
+                processed.add(name)
+                if isinstance(attr, ViewHandler):
+                    if base != cls:
+                        # Copy ViewHandler instances into subclasses. We know an attr
+                        # with the same name doesn't exist in the subclass because it
+                        # was processed first in the MRO and added to the processed set.
+                        # FIXME: If this handler is registered with an app because the
+                        # base class is not a mixin, it may be a conflicting route.
+                        # init_app on both classes will be called in the future, so it
+                        # needs a guard condition there. How will the guard work?
+                        attr = attr.copy_for_subclass()
+                        setattr(cls, name, attr)
+                        attr.__set_name__(cls, name)
+                    view_names.add(name)
+        cls.__views__ = frozenset(view_names)
+        # Set is_always_available attr in the subclass. init_app may change this to
+        # True after confirming that any of the view handlers _after wrapping_ with
+        # local decorators remains always available.
+        cls.is_always_available = False
+        super().__init_subclass__()
 
     @classmethod
     def init_app(
@@ -591,24 +629,11 @@ class ClassView:
         If :attr:`callback` is specified, it will be called after
         ``app.``:meth:`~flask.Flask.add_url_rule`, with app and the same parameters.
         """
-        processed = set()
-        cls.__views__ = set()
-        cls.is_always_available = False
-        for base in cls.__mro__:
-            for name, attr in base.__dict__.items():
-                if name in processed:
-                    continue
-                processed.add(name)
-                if isinstance(attr, ViewHandler):
-                    if base != cls:  # Copy ViewHandler instances into subclasses
-                        # FIXME: Don't do this during init_app. Use __init__subclass__
-                        attr = attr.copy_for_subclass()
-                        setattr(cls, name, attr)
-                        attr.__set_name__(cls, name)
-                    cls.__views__.add(name)
-                    attr.init_app(app, cls, callback=callback)
-                    if not hasattr(attr.wrapped_func, 'is_available'):
-                        cls.is_always_available = True
+        for name in cls.__views__:
+            attr = getattr(cls, name)
+            attr.init_app(app, cls, callback=callback)
+            if not hasattr(attr.wrapped_func, 'is_available'):
+                cls.is_always_available = True
 
 
 class ModelView(ClassView):
