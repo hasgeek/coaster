@@ -330,11 +330,10 @@ def load_config_from_file(
     try:
         if load is None:
             return app.config.from_pyfile(filepath)
-        # The `text` parameter requires Flask 2.3. We still support Flask 2.2
+        # The `text` parameter was introduced in Flask 2.3, but its default value
+        # may change in a future release, so we only supply a value if we have a bool
         if text is not None:
-            return app.config.from_file(  # type: ignore[call-arg]
-                filepath, load=load, text=text
-            )
+            return app.config.from_file(filepath, load=load, text=text)
         return app.config.from_file(filepath, load=load)
     except OSError:
         app.logger.warning(
