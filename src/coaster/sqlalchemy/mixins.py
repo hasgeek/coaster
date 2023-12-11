@@ -707,7 +707,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for URL name of this object, unique across all instances."""
+        """URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -721,7 +721,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -859,7 +859,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for URL name of this object, unique within a parent container."""
+        """URL name of this object, unique within the parent container."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -873,7 +873,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1025,7 +1025,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for the URL name of this object, non-unique."""
+        """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1039,7 +1039,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for the title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1139,7 +1139,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     @declared_attr
     @classmethod
     def url_id(cls) -> Mapped[int]:  # type: ignore[override]
-        """Column for an id number that is unique within the parent container."""
+        """Id number that is unique within the parent container."""
         return sa.orm.mapped_column(sa.Integer, nullable=False)
 
     def __init__(self, *args, **kw) -> None:
@@ -1223,7 +1223,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     @declared_attr
     @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for the URL name of this instance, non-unique."""
+        """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1237,7 +1237,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     @declared_attr
     @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for the title of this instance."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
