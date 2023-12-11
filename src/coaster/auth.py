@@ -23,7 +23,8 @@ import typing as t
 from threading import Lock
 from typing import cast
 
-from flask import Flask, current_app, g, request
+from flask import Flask, current_app, g
+from flask.globals import request_ctx
 from werkzeug.local import LocalProxy
 from werkzeug.wrappers import Response as BaseResponse
 
@@ -108,9 +109,9 @@ def request_has_auth() -> bool:
     to set cookies or perform other housekeeping functions.
     """
     return (
-        bool(request)
-        and hasattr(request, '_current_auth')
-        and 'actor' in request._current_auth.__dict__
+        bool(request_ctx)
+        and hasattr(request_ctx, 'current_auth')
+        and 'actor' in request_ctx.current_auth.__dict__
     )
 
 
@@ -162,10 +163,10 @@ class CurrentAuth:
             # This test is used to allow in-place mutations such as:
             # current_auth.permissions |= {extra}
             return  # type: ignore[misc]
-        raise AttributeError('CurrentAuth is read-only')
+        raise TypeError('current_auth is read-only')
 
     def __delattr__(self, attr: str) -> t.NoReturn:
-        raise AttributeError('CurrentAuth is read-only')
+        raise TypeError('current_auth is read-only')
 
     def __contains__(self, attr: str) -> bool:
         """Check for presence of an attribute."""
@@ -197,12 +198,12 @@ class CurrentAuth:
     def _call_login_manager(self) -> None:
         """Call the app's login manager on first access of user or actor (internal)."""
         # Check for an existing user from Flask-Login
-        if not request:
+        if not request_ctx:
             # There's no request context for a login manager to operate on
             return
         # If there's no existing user, look for a login manager
         if (
-            request
+            request_ctx
             and hasattr(current_app, 'login_manager')
             and hasattr(current_app.login_manager, '_load_user')
         ):
@@ -258,13 +259,14 @@ def init_app(app: Flask) -> None:
 def _get_current_auth() -> CurrentAuth:
     """Provide current_auth for the request context."""
     # 1. Do we have a request context?
-    if request:
+    if request_ctx:
         with _get_lock:
             # 2. Does this request already have current_auth? If so, return it
-            ca = getattr(request, '_current_auth', None)
+            ca = getattr(request_ctx, 'current_auth', None)
             if ca is None:
                 # 3. If not, create it
-                request._current_auth = ca = CurrentAuth()  # type: ignore[attr-defined]
+                ca = CurrentAuth()
+                request_ctx.current_auth = ca  # type: ignore[attr-defined]
         # 4. Return current_auth
         return ca
 

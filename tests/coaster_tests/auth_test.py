@@ -170,8 +170,8 @@ def test_current_auth_with_user(
     with pytest.raises(AttributeError):
         assert current_auth.fullname == 'Mr Foo'
 
-    # current_user is immutable
-    with pytest.raises(AttributeError):
+    # current_auth is immutable
+    with pytest.raises(TypeError, match="current_auth is read-only"):
         current_auth.username = 'bar'
 
     # For full attribute access, use the user object
