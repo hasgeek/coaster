@@ -29,7 +29,8 @@ from __future__ import annotations
 import typing as t
 import typing_extensions as te
 import warnings
-from collections import abc, namedtuple
+from collections import abc
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import cast, overload
@@ -268,6 +269,7 @@ class UuidMixin:
     @immutable
     @with_roles(read={'all'})
     @declared_attr
+    @classmethod
     def uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -390,13 +392,16 @@ class PermissionMixin:
         )
 
 
-UrlEndpointData = namedtuple(
-    'UrlEndpointData',
-    ['endpoint', 'paramattrs', 'external', 'roles', 'requires_kwargs'],
-)
-
-
 _UR = t.TypeVar('_UR', bound='NoIdMixin')
+
+
+@dataclass
+class UrlEndpointData:
+    endpoint: str
+    paramattrs: t.Dict[str, t.Union[str, t.Tuple[str, ...], t.Callable[[_UR], str]]]
+    external: t.Optional[bool]
+    roles: t.Optional[t.Collection[str]]
+    requires_kwargs: bool
 
 
 class UrlDictStub:
@@ -420,7 +425,7 @@ class UrlDictStub:
         self, obj: t.Optional[_UR], cls: t.Type[_UR]
     ) -> t.Union[te.Self, UrlDict[_UR]]:
         if obj is None:
-            return self  # pragma: no cover
+            return self
         return UrlDict(obj)
 
 
@@ -461,9 +466,10 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
                 and app
                 is current_app._get_current_object()  # type: ignore[attr-defined]
             ):
-                for action, epdata in app_actions.items():
-                    if not epdata.requires_kwargs and (
-                        epdata.roles is None or current_roles.has_any(epdata.roles)
+                for action, endpoint_data in app_actions.items():
+                    if not endpoint_data.requires_kwargs and (
+                        endpoint_data.roles is None
+                        or current_roles.has_any(endpoint_data.roles)
                     ):
                         yield action
 
@@ -471,10 +477,10 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
 class UrlForMixin:
     """Provides a :meth:`url_for` method used by BaseMixin-derived classes."""
 
-    #: Mapping of {app: {action: UrlEndpointData}}, where attr is a string or tuple of
-    #: strings. The same action can point to different endpoints in different apps. The
-    #: app may also be None as fallback. Each subclass will get its own dictionary.
-    #: This particular dictionary is only used as an inherited fallback.
+    #: Mapping of {app: {action: UrlEndpointData}}. The same action can point to
+    #: different endpoints in different apps. The app may also be None as fallback. Each
+    #: subclass will get its own dictionary. This particular dictionary is only used as
+    #: an inherited fallback.
     url_for_endpoints: t.ClassVar[
         t.Dict[t.Optional[FlaskApp], t.Dict[str, UrlEndpointData]]
     ] = {None: {}}
@@ -495,14 +501,14 @@ class UrlForMixin:
             else None
         )
         if app is not None and action in self.url_for_endpoints.get(app, {}):
-            epdata = self.url_for_endpoints[app][action]
+            endpoint_data = self.url_for_endpoints[app][action]
         else:
             try:
-                epdata = self.url_for_endpoints[None][action]
+                endpoint_data = self.url_for_endpoints[None][action]
             except KeyError as exc:
                 raise BuildError(action, kwargs, 'GET') from exc
         params = {}
-        for param, attr in list(epdata.paramattrs.items()):
+        for param, attr in list(endpoint_data.paramattrs.items()):
             if isinstance(attr, tuple):
                 # attr is a tuple containing:
                 # 1. ('parent', 'name') --> self.parent.name
@@ -516,15 +522,18 @@ class UrlForMixin:
                     item = getattr(item, subattr)
                 params[param] = item
             elif callable(attr):
-                params[param] = attr(self)
+                # TODO: Support callables expecting kwargs
+                params[param] = attr(self)  # type: ignore[type-var]
             else:
                 params[param] = getattr(self, attr)
-        if epdata.external is not None:
-            params['_external'] = epdata.external
+        if endpoint_data.external is not None:
+            params['_external'] = endpoint_data.external
+
+        # FIXME: Why do we have this? It needs test coverage
         params.update(kwargs)  # Let kwargs override params
 
         # url_for from flask
-        return url_for(epdata.endpoint, **params)
+        return url_for(endpoint_data.endpoint, **params)
 
     @property
     def absolute_url(self) -> t.Optional[str]:
@@ -545,7 +554,7 @@ class UrlForMixin:
         **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
     ) -> ReturnDecorator:
         """
-        View decorator that registers the view as a :meth:`url_for` target.
+        Decorator that registers a view as a :meth:`url_for` target.
 
         :param __action: Action to register a URL under
         :param __endpoint: View endpoint name to pass to Flask's ``url_for``
@@ -588,7 +597,7 @@ class UrlForMixin:
         :param app: Flask app (default: `None`)
         :param external: If `True`, URLs are assumed to be external-facing by default
         :param roles: Roles to which this URL is available, required by :class:`UrlDict`
-        :param dict paramattrs: Mapping of URL parameter to attribute on the object
+        :param dict paramattrs: Mapping of URL parameter to attribute name on the object
         """
         if 'url_for_endpoints' not in cls.__dict__:
             cls.url_for_endpoints = {
