@@ -37,6 +37,7 @@ import typing as t
 import typing_extensions as te
 import warnings
 from functools import partial
+from keyword import iskeyword
 from threading import Lock
 from typing import overload
 
@@ -122,10 +123,11 @@ class Registry:
         """Initialize with config."""
         if property and cached_property:
             raise ValueError("Only one of property and cached_property can be True")
-        if kwarg is not None and not isinstance(kwarg, str):
-            raise TypeError(f"Expected type for kwarg is str|None: {kwarg}")
-        if kwarg == '':
-            raise ValueError("kwarg parameter cannot be blank")
+        if kwarg is not None:
+            if not isinstance(kwarg, str):
+                raise TypeError(f"Expected type for kwarg is str|None: {kwarg}")
+            if not kwarg.isidentifier() or iskeyword(kwarg):
+                raise ValueError("kwarg parameter must be a valid Python identifier")
         object.__setattr__(self, '_default_kwarg', kwarg if kwarg else None)
         object.__setattr__(self, '_name', None)
         object.__setattr__(self, '_lock', Lock())
@@ -255,8 +257,8 @@ class InstanceRegistry(t.Generic[_T]):
         """Access a registry member."""
         registry = self.__registry
         obj = self.__obj
+        func = getattr(registry, attr)  # Raise AttributeError if unknown
         kwarg = registry._members[attr]
-        func = getattr(registry, attr)
 
         # If attr is a property, return the result
         if attr in registry._properties:
@@ -275,11 +277,11 @@ class InstanceRegistry(t.Generic[_T]):
 
         # Not a property or cached_property. Construct a partial, cache and return it
         if kwarg is not None:
-            pfunc = partial(func, **{kwarg: obj})
+            partial_func = partial(func, **{kwarg: obj})
         else:
-            pfunc = partial(func, obj)
-        setattr(self, attr, pfunc)
-        return pfunc
+            partial_func = partial(func, obj)
+        setattr(self, attr, partial_func)
+        return partial_func
 
 
 @declarative_mixin
