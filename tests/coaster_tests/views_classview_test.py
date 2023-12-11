@@ -279,7 +279,7 @@ ModelDocumentView.init_app(app)
 class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
-    model: t.ClassVar = ScopedViewDocument
+    model = ScopedViewDocument  # type: ignore[assignment,misc]
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
@@ -390,9 +390,9 @@ def test_modelview_generic_model() -> None:
     """Test ModelView[model] is copied to attr model."""
     assert ModelDocumentView.model is ViewDocument
     assert RenameableDocumentView.model is RenameableDocument
-    assert MultiDocumentView.model is ViewDocument
+    assert MultiDocumentView.model is ViewDocument  # type: ignore[misc]
     assert GatedDocumentView.model is ViewDocument
-    assert ScopedDocumentView.model is ScopedViewDocument  # Not overridden
+    assert ScopedDocumentView.model is ScopedViewDocument  # type: ignore[has-type]
 
 
 class TestClassView(unittest.TestCase):

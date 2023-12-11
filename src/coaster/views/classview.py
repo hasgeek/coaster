@@ -685,7 +685,7 @@ class ClassView:
         """
         # Call the :meth:`before_request` method
         resp = ensure_sync(self.before_request)()
-        if resp:
+        if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
         # Call the view handler method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(
@@ -853,9 +853,13 @@ class ModelView(ClassView, t.Generic[ModelType]):
     # Place obj in slots for potentially faster access at runtime
     __slots__ = ('obj',)
 
-    #: The model that is being handled by this ModelView (autoset from Generic arg).
-    #: Unfortunately, we can't bind a classvar to a generic type.
-    model: t.ClassVar[t.Type]
+    if t.TYPE_CHECKING:
+        # Pretend `model` is an instance-var for type-checking, as a classvar cannot be
+        # bound to a generic arg
+        model: t.Type[ModelType]
+    else:
+        #: The model that is being handled by this ModelView (autoset from Generic arg).
+        model: t.ClassVar[t.Type]
 
     #: A loaded object of the model's type
     obj: ModelType
@@ -972,19 +976,18 @@ class ModelView(ClassView, t.Generic[ModelType]):
         """
         # Call the :meth:`before_request` method
         resp = ensure_sync(self.before_request)()
-        if resp:
+        if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
         # Load the database model
         resp = ensure_sync(self.load)(**view_args)
-        if resp:
+        if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
         # Call the view handler method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
 
     if t.TYPE_CHECKING:
-        # Type-checking version without varargs, so subclasses can specify explicit args
-        def loader(self) -> ModelType:  # pragma: no cover
-            raise NotImplementedError()
+        # Type-checking version without argspec, so subclasses can specify explicit args
+        loader: t.Callable[..., ModelType]
 
     else:
         # Actual default implementation has varargs
@@ -1005,9 +1008,8 @@ class ModelView(ClassView, t.Generic[ModelType]):
             raise NotImplementedError("View class is missing a loader method")
 
     if t.TYPE_CHECKING:
-        # Type-checking version without varargs, so subclasses can specify explicit args
-        def load(self) -> t.Optional[ResponseReturnValue]:  # skipcq: PTC-W0049
-            ...
+        # Type-checking version without argspec, so subclasses can specify explicit args
+        load: t.Callable[..., t.Optional[ResponseReturnValue]]
 
     else:
         # Actual default implementation has varargs
