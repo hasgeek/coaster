@@ -881,6 +881,39 @@ class ModelView(ClassView, t.Generic[ModelType]):
     :class:`~ModelView.GetAttr` class approach.
     """
 
+    class GetAttr:
+        """
+        An alternative to :attr:`~ModelView.route_model_map` with type hinting support.
+
+        All methods in this class must be static or class methods. The methods must have
+        the same name as the view variable, and must accept an instance of the object as
+        the first and only positional parameter. Example::
+
+            @route('/<parent>/<document>')
+            class MyModelView(ModelView[MyModel]):
+                class GetAttr:
+                    @staticmethod
+                    def parent(obj: MyModel) -> str:
+                        return obj.parent.name
+
+                    @staticmethod
+                    def document(obj: MyModel) -> str:
+                        return obj.name
+
+        The :attr:`~ModelView.route_model_map` dict and :class:`~ModelView.GetAttr`
+        class can be used together in the same view, with the class taking priority.
+        ``GetAttr`` in a subclass will override the base class unless explicitly
+        subclassed::
+
+            class Mixin:
+                class GetAttr:
+                    ...
+
+            class MyModelView(Mixin, ModelView[MyModel]):
+                class GetAttr(Mixin.GetAttr):
+                    ...
+        """
+
     def __init__(self, obj: t.Optional[ModelType] = None) -> None:
         """
         Instantiate ModelView with an optional object.
@@ -1104,12 +1137,22 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 rulevars = _get_arguments_from_rule(
                     reg_rule, reg_endpoint, reg_options, reg_app.url_map
                 )
-                # Make a subset of cls.route_model_map with the required variables
-                params = {
-                    v: cast(t.Type[ModelView], cls).route_model_map[v]
-                    for v in rulevars
-                    if v in cast(t.Type[ModelView], cls).route_model_map
-                }
+                # Make a subset of cls.GetAttr and cls.route_model_map with the required
+                # variables
+                try:
+                    params = {
+                        v: getattr(cls.GetAttr, v)
+                        if hasattr(cls.GetAttr, v)
+                        else cls.route_model_map[v]
+                        for v in rulevars
+                    }
+                except KeyError as exc:
+                    raise TypeError(
+                        f"View variable {exc.args[0]} missing in both"
+                        f" {cls.__qualname__}.GetAttr and"
+                        f" {cls.__qualname__}.route_model_map"
+                    ) from None
+
                 # Register endpoint with the view function's name, endpoint name and
                 # parameters
                 model.register_endpoint(

@@ -309,7 +309,12 @@ RenameableDocumentView.init_app(app)
 class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
-    route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
+    route_model_map = {'doc2': '**doc2.url_name'}
+
+    class GetAttr:
+        @staticmethod
+        def doc1(obj: ViewDocument) -> str:
+            return obj.name
 
     def loader(  # type: ignore[override]  # pylint: disable=arguments-differ
         self, doc1: str, doc2: str
