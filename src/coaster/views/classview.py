@@ -261,7 +261,7 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
-class ViewMethod(t.Generic[_P, _R_co]):  # pylint: disable=too-many-instance-attributes
+class ViewMethod(t.Generic[_P, _R_co]):
     """Internal object created by the :func:`route` and :func:`viewdata` decorators."""
 
     # No __slots__ in ViewMethod because it mimics a wrapped function and must reproduce
@@ -1097,7 +1097,7 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
     return decorator
 
 
-class UrlForView:  # pylint: disable=too-few-public-methods
+class UrlForView:
     """
     Mixin class that registers view handler methods as views on the model.
 
@@ -1115,7 +1115,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
     ) -> None:
         """Register view on an app."""
 
-        def register_view_on_model(  # pylint: disable=too-many-arguments
+        def register_view_on_model(
             cls: t.Type[ModelView],
             callback: t.Optional[InitAppCallback],
             app: t.Union[FlaskApp, Blueprint],
@@ -1269,7 +1269,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     return cast(tc.WrappedFunc, async_wrapper if iscoroutinefunction(f) else wrapper)
 
 
-class UrlChangeCheck:  # pylint: disable=too-few-public-methods
+class UrlChangeCheck:
     """
     Check for changed URLs in a :class:`ModelView`.
 
@@ -1295,7 +1295,7 @@ class UrlChangeCheck:  # pylint: disable=too-few-public-methods
     ]
 
 
-class InstanceLoader:  # pylint: disable=too-few-public-methods
+class InstanceLoader:
     """
     Mixin class for :class:`ModelView` that loads an instance.
 
@@ -1316,7 +1316,6 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
 
     def loader(self, **view_args) -> t.Any:
         """Load instance based on view arguments."""
-        # pylint: disable=too-many-nested-blocks
         if any(name in self.route_model_map for name in view_args):
             # We have a URL route attribute that matches one of the model's attributes.
             # Attempt to load the model instance

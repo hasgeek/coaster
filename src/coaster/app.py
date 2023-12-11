@@ -106,7 +106,7 @@ _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engine
 # --- Key rotation wrapper -------------------------------------------------------------
 
 
-class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
+class KeyRotationWrapper(t.Generic[_S]):
     """
     Wrapper to support multiple secret keys in itsdangerous.
 

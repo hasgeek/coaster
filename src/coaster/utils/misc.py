@@ -672,8 +672,8 @@ def domain_namespace_match(domain: str, namespace: str) -> bool:
 T = t.TypeVar('T')
 
 
-class _CallableSameArgs(te.Protocol):  # pylint: disable=too-few-public-methods
-    """Protocl for callable that accepts multiple arguments of the same type."""
+class _CallableSameArgs(te.Protocol):
+    """Protocol for callable that accepts multiple arguments of the same type."""
 
     def __call__(self, lhs: T, *others: T) -> T:
         ...

@@ -227,7 +227,7 @@ def requestbody(
     return requestargs(*args, source='body')
 
 
-def load_model(  # pylint: disable=too-many-arguments
+def load_model(
     model: t.Type,
     attributes: t.Dict[str, str],
     parameter: str,

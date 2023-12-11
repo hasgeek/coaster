@@ -27,7 +27,7 @@ from .sqlalchemy_models_test import User
 # --- App context ----------------------------------------------------------------------
 
 
-class LoginManager:  # pylint: disable=too-few-public-methods
+class LoginManager:
     """Test login manager implementing _load_user method."""
 
     def __init__(self, _app: Flask) -> None:
@@ -48,7 +48,7 @@ class LoginManager:  # pylint: disable=too-few-public-methods
                 add_auth_attribute('username', self.user.username)
 
 
-class FlaskLoginManager(LoginManager):  # pylint: disable=too-few-public-methods
+class FlaskLoginManager(LoginManager):
     """Test login manager implementing _load_user but only setting ``g._login_user``."""
 
     def _load_user(self) -> None:
