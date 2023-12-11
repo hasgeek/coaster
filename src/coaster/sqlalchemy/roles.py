@@ -128,6 +128,7 @@ Example use::
 from __future__ import annotations
 
 import dataclasses
+import sys
 import typing as t
 import typing_extensions as te
 from abc import ABCMeta, abstractmethod
@@ -169,6 +170,7 @@ __all__ = [
     'RoleAccessProxy',
     'DynamicAssociationProxy',
     'RoleMixin',
+    'WithRoles',
     'with_roles',
 ]
 
@@ -207,6 +209,9 @@ class RoleAttrs(te.TypedDict, total=False):
 class WithRoles:
     """Role annotations for an attribute."""
 
+    if sys.version_info >= (3, 10):
+        _: dataclasses.KW_ONLY
+
     read: t.Set[str] = dataclasses.field(default_factory=set)
     write: t.Set[str] = dataclasses.field(default_factory=set)
     call: t.Set[str] = dataclasses.field(default_factory=set)
@@ -229,7 +234,7 @@ class WithRoles:
             write=self.write | other.write,
             call=self.call | other.call,
             grants=self.grants | other.grants,
-            grants_via={**self.grants_via, **other.grants_via},
+            grants_via=self.grants_via | other.grants_via,
             datasets=self.datasets | other.datasets,
         )
 
