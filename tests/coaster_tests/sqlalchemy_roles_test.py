@@ -43,10 +43,9 @@ from .conftest import AppTestCase, Model
 class DeclaredAttrMixin:
     """Provide `declared_attr` attrs paired with `with_roles`."""
 
-    # pylint: disable=no-self-argument
-
     # with_roles can be used within a declared attr
     @declared_attr
+    @classmethod
     def mixed_in1(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` inside a `declared_attr`."""
         return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
@@ -54,6 +53,7 @@ class DeclaredAttrMixin:
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
+    @classmethod
     def mixed_in2(cls) -> Mapped[t.Optional[str]]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
         return sa.orm.mapped_column(sa.Unicode(250))
@@ -61,6 +61,7 @@ class DeclaredAttrMixin:
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
     @declared_attr
+    @classmethod
     def mixed_in3(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` to wrap a `declared_attr`."""
         return sa.orm.mapped_column(sa.Unicode(250))

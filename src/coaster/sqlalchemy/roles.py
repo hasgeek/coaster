@@ -43,6 +43,7 @@ Example use::
             return sa.orm.mapped_column(sa.Unicode(250))
 
         @declared_attr
+        @classmethod
         def mixed_in2(cls) -> Mapped[str]:
             return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 

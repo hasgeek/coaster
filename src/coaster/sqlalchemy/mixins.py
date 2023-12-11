@@ -22,8 +22,6 @@ Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your mode
 base classes.
 """
 
-# pylint: disable=too-few-public-methods,no-self-argument
-
 from __future__ import annotations
 
 import typing as t
@@ -197,6 +195,7 @@ class IdMixin(t.Generic[PkeyType]):
 
     @immutable
     @declared_attr
+    @classmethod
     def id(cls) -> Mapped[PkeyType]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
@@ -207,6 +206,7 @@ class IdMixin(t.Generic[PkeyType]):
         return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
 
     @declared_attr
+    @classmethod
     def url_id(cls) -> Mapped[str]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
@@ -320,6 +320,7 @@ class UuidMixin:
         self.uuid = uuid_from_base58(value)
 
     @uuid_b58.inplace.comparator
+    @classmethod
     def _uuid_b58_comparator(cls) -> SqlUuidB58Comparator:
         """Return SQL comparator for UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid)
@@ -338,6 +339,7 @@ class TimestampMixin:
 
     @immutable
     @declared_attr
+    @classmethod
     def created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
         return sa.orm.mapped_column(
@@ -347,6 +349,7 @@ class TimestampMixin:
         )
 
     @declared_attr
+    @classmethod
     def updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.orm.mapped_column(
@@ -702,6 +705,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
@@ -715,6 +719,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for title of this object."""
         if cls.__title_length__ is None:
@@ -852,6 +857,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
     parent: t.Any
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for URL name of this object, unique within a parent container."""
         if cls.__name_length__ is None:
@@ -865,6 +871,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for title of this object."""
         if cls.__title_length__ is None:
@@ -1016,6 +1023,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for the URL name of this object, non-unique."""
         if cls.__name_length__ is None:
@@ -1029,6 +1037,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for the title of this object."""
         if cls.__title_length__ is None:
@@ -1128,6 +1137,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
+    @classmethod
     def url_id(cls) -> Mapped[int]:  # type: ignore[override]
         """Column for an id number that is unique within the parent container."""
         return sa.orm.mapped_column(sa.Integer, nullable=False)
@@ -1211,6 +1221,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
         """Column for the URL name of this instance, non-unique."""
         if cls.__name_length__ is None:
@@ -1224,6 +1235,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
         """Column for the title of this instance."""
         if cls.__title_length__ is None:
