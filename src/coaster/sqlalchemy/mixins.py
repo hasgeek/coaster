@@ -540,6 +540,7 @@ class UrlForMixin:
         __action: str,
         __endpoint: t.Optional[str] = None,
         __app: t.Optional[FlaskApp] = None,
+        /,
         _external: t.Optional[bool] = None,
         **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
     ) -> ReturnDecorator:
@@ -569,6 +570,7 @@ class UrlForMixin:
     def register_endpoint(
         cls,
         action: str,
+        *,
         endpoint: str,
         app: t.Optional[FlaskApp],
         paramattrs: t.Mapping[

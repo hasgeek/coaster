@@ -512,17 +512,19 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
 
 
 @overload
-def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
+def require_one_of(__return: te.Literal[False] = False, /, **kwargs: t.Any) -> None:
     ...
 
 
 @overload
-def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
+def require_one_of(
+    __return: te.Literal[True], /, **kwargs: t.Any
+) -> t.Tuple[str, t.Any]:
     ...
 
 
 def require_one_of(
-    __return: bool = False, **kwargs: t.Any
+    __return: bool = False, /, **kwargs: t.Any
 ) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
@@ -540,10 +542,9 @@ def require_one_of(
             # Carry on with function logic
             pass
 
-    :param __return: Return the matching parameter name and value (positional only)
+    :param __return: Return the matching parameter name and value
     :param kwargs: Parameters, of which one and only one is mandatory
     :return: If `__return`, matching parameter name and value
-    :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
 
     .. deprecated:: 0.7.0

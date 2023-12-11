@@ -1007,7 +1007,7 @@ def with_roles(
 @overload
 def with_roles(
     __obj: _DA,
-    *,
+    /,
     rw: t.Optional[t.Set[str]] = None,
     call: t.Optional[t.Set[str]] = None,
     read: t.Optional[t.Set[str]] = None,
@@ -1026,7 +1026,7 @@ def with_roles(
 
 def with_roles(
     __obj: t.Optional[_DA] = None,
-    *,
+    /,
     rw: t.Optional[t.Set[str]] = None,
     call: t.Optional[t.Set[str]] = None,
     read: t.Optional[t.Set[str]] = None,
