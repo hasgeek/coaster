@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import typing as t
 import typing_extensions as te
+import warnings
 from functools import partial, update_wrapper, wraps
 from inspect import getattr_static, iscoroutinefunction
 from typing import cast, overload
 
-from flask import abort, g, has_app_context, make_response, redirect, request
+from flask import abort, make_response, redirect, request
+from flask.globals import _cv_app, app_ctx
 from flask.typing import ResponseReturnValue
 
 try:  # Flask >= 3.0  # pragma: no cover
@@ -60,15 +62,14 @@ __all__ = [
 
 #: Type for URL rules in classviews
 RouteRuleOptions = t.Dict[str, t.Any]
-ViewMethodType = t.TypeVar('ViewMethodType', bound='ViewMethod')
 ClassViewSubtype = t.TypeVar('ClassViewSubtype', bound='ClassView')
 ClassViewType: te.TypeAlias = t.Type[ClassViewSubtype]
 ModelType = te.TypeVar('ModelType', default=t.Any)
 
-P = te.ParamSpec('P')
-P2 = te.ParamSpec('P2')
-R_co = t.TypeVar('R_co', covariant=True)
-R2_co = t.TypeVar('R2_co', covariant=True)
+_P = te.ParamSpec('_P')
+_P2 = te.ParamSpec('_P2')
+_R_co = t.TypeVar('_R_co', covariant=True)
+_R2_co = t.TypeVar('_R2_co', covariant=True)
 
 
 # These protocols are used for decorator helpers that return an overloaded decorator
@@ -82,23 +83,23 @@ class RouteDecoratorProtocol(te.Protocol):
         ...
 
     @t.overload
-    def __call__(self, __decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
         ...
 
     @t.overload
     def __call__(
-        self, __decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
-    ) -> ViewMethod[P, R_co]:
+        self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+    ) -> ViewMethod[_P, _R_co]:
         ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: t.Union[
             ClassViewType,
-            MethodProtocol[te.Concatenate[t.Any, P], R_co],
-            ViewMethod[P, R_co],
+            MethodProtocol[te.Concatenate[t.Any, _P], _R_co],
+            ViewMethod[_P, _R_co],
         ],
-    ) -> t.Union[ClassViewType, ViewMethod[P, R_co]]:
+    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]:
         ...
 
 
@@ -106,21 +107,21 @@ class ViewDataDecoratorProtocol(te.Protocol):
     """Protocol for the decorator returned by ``@viewdata(...)``."""
 
     @t.overload
-    def __call__(self, __decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
         ...
 
     @t.overload
     def __call__(
-        self, __decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
-    ) -> ViewMethod[P, R_co]:
+        self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+    ) -> ViewMethod[_P, _R_co]:
         ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: t.Union[
-            MethodProtocol[te.Concatenate[t.Any, P], R_co], ViewMethod[P, R_co]
+            MethodProtocol[te.Concatenate[t.Any, _P], _R_co], ViewMethod[_P, _R_co]
         ],
-    ) -> ViewMethod[P, R_co]:
+    ) -> ViewMethod[_P, _R_co]:
         ...
 
 
@@ -138,10 +139,10 @@ class InitAppCallback(te.Protocol):
         ...
 
 
-class ViewFuncProtocol(te.Protocol):  # pylint: disable=too-few-public-methods
+class ViewFuncProtocol(te.Protocol):
     """Protocol for view functions that store context in the function's namespace."""
 
-    wrapped_func: t.Callable
+    decorated_func: t.Callable
     view_class: ClassViewType
     view: ViewMethod
     __call__: t.Callable
@@ -159,12 +160,13 @@ def _get_arguments_from_rule(
     return list(obj.arguments)
 
 
-def route(rule: str, **options) -> RouteDecoratorProtocol:
+def route(rule: str, **options: t.Any) -> RouteDecoratorProtocol:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
     Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
-    accepts. See :class:`ClassView` for usage notes.
+    accepts. See :class:`ClassView` for usage notes. This decorator must always be the
+    outermost decorator (barring :func:`viewdata`).
     """
 
     @t.overload
@@ -172,22 +174,22 @@ def route(rule: str, **options) -> RouteDecoratorProtocol:
         ...
 
     @t.overload
-    def decorator(decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
         ...
 
     @t.overload
     def decorator(
-        decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
-    ) -> ViewMethod[P, R_co]:
+        decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+    ) -> ViewMethod[_P, _R_co]:
         ...
 
     def decorator(
         decorated: t.Union[
             ClassViewType,
-            MethodProtocol[te.Concatenate[t.Any, P], R_co],
-            ViewMethod[P, R_co],
+            MethodProtocol[te.Concatenate[t.Any, _P], _R_co],
+            ViewMethod[_P, _R_co],
         ]
-    ) -> t.Union[ClassViewType, ViewMethod[P, R_co]]:
+    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]:
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
         if isinstance(decorated, type) and issubclass(decorated, ClassView):
             if '__routes__' not in decorated.__dict__:
@@ -200,28 +202,29 @@ def route(rule: str, **options) -> RouteDecoratorProtocol:
     return decorator
 
 
-def viewdata(**kwargs) -> ViewDataDecoratorProtocol:
+def viewdata(**kwargs: t.Any) -> ViewDataDecoratorProtocol:
     """
-    Decorate view to add additional data alongside :func:`route`.
+    Decorate a view to add additional data alongside :func:`route`.
 
-    This data is accessible as the ``data`` attribute on the view handler.
+    This data is accessible as the ``data`` attribute on the view method. This decorator
+    must always be the outermost decorator (barring :func:`route`).
     """
 
     @t.overload
-    def decorator(decorated: ViewMethod[P, R_co]) -> ViewMethod[P, R_co]:
+    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
         ...
 
     @t.overload
     def decorator(
-        decorated: MethodProtocol[te.Concatenate[t.Any, P], R_co]
-    ) -> ViewMethod[P, R_co]:
+        decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+    ) -> ViewMethod[_P, _R_co]:
         ...
 
     def decorator(
         decorated: t.Union[
-            ViewMethod[P, R_co], MethodProtocol[te.Concatenate[t.Any, P], R_co]
+            ViewMethod[_P, _R_co], MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
         ]
-    ) -> ViewMethod[P, R_co]:
+    ) -> ViewMethod[_P, _R_co]:
         return ViewMethod(decorated, data=kwargs)
 
     return decorator
@@ -258,19 +261,31 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
-class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attributes
-    """Internal object created by the :func:`route` and :func:`viewdata` functions."""
+class ViewMethod(t.Generic[_P, _R_co]):  # pylint: disable=too-many-instance-attributes
+    """Internal object created by the :func:`route` and :func:`viewdata` decorators."""
 
-    name: str
-    endpoint: str
-    func: t.Callable[te.Concatenate[t.Any, P], R_co]
-    wrapped_func: t.Callable
+    # No __slots__ in ViewMethod because it mimics a wrapped function and must reproduce
+    # its attrs __name__, __module__ and __doc__ in the instance, which conflict with
+    # class attributes
+
+    #: The name of this view method, derived from the wrapped function
+    __name__: str
+    #: The unmodified wrapped method, made available for future decorators
+    __func__: t.Callable[te.Concatenate[t.Any, _P], _R_co]
+    #: The wrapped method with the class's :attr:`~ClassView.__decorators__` applied
+    decorated_func: t.Callable
+    #: The actual view function registered to Flask, responsible for creating an
+    #: instance of the class view and calling :meth:`~ClassView.dispatch_request`
     view_func: t.Callable
+    #: The default endpoint name if not specified in the route
+    default_endpoint: str
+    #: All endpoint names registered to this view method (populated in :meth:`init_app`)
+    endpoints: t.Set[str]
 
     def __init__(
         self,
         decorated: t.Union[
-            t.Callable[te.Concatenate[t.Any, P], R_co], ViewMethod[P, R_co]
+            t.Callable[te.Concatenate[t.Any, _P], _R_co], ViewMethod[_P, _R_co]
         ],
         rule: t.Optional[str] = None,
         rule_options: t.Optional[t.Dict[str, t.Any]] = None,
@@ -281,70 +296,97 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         else:
             self.routes = []
         self.data = data or {}
-        self.endpoints: t.Set[str] = set()
+        self.endpoints = set()
 
         # Are we decorating another ViewMethod? If so, copy routes and func from it.
         if isinstance(decorated, ViewMethod):
             self.routes.extend(decorated.routes)
-            newdata = dict(decorated.data)
-            newdata.update(self.data)
-            self.data = newdata
-            self.func = decorated.func
+            # Copy decorated.data, ensuring self.data overrides
+            self.data = decorated.data | self.data
+            self.__func__ = self.__wrapped__ = func = decorated.__func__
         else:
-            self.func = decorated
+            self.__func__ = self.__wrapped__ = func = decorated
 
-        self.name = self.func.__name__
-        # self.endpoint will change in __set_name__
-        self.endpoint = self.name
-        self.__doc__ = self.func.__doc__  # pylint: disable=W0201
+        self.__doc__ = func.__doc__
+        self.__module__ = func.__module__
+        self.__qualname__ = func.__qualname__
+
+        # self.__name__ and self.default_endpoint will change in __set_name__
+        self.__name__ = self.default_endpoint = func.__name__
 
     def reroute(
         self,
-        f: t.Union[
-            ViewMethod[P2, R2_co], MethodProtocol[te.Concatenate[t.Any, P2], R2_co]
+        __f: t.Union[
+            ViewMethod[_P2, _R2_co], MethodProtocol[te.Concatenate[t.Any, _P2], _R2_co]
         ],
-    ) -> ViewMethod[P2, R2_co]:
+    ) -> ViewMethod[_P2, _R2_co]:
         """Replace a view handler in a subclass while keeping its URL route rules."""
         cls = cast(t.Type[ViewMethod], self.__class__)
-        r: ViewMethod[P2, R2_co] = cls(f, data=self.data)
+        r: ViewMethod[_P2, _R2_co] = cls(__f, data=self.data)
         r.routes = self.routes
         return r
 
     def copy_for_subclass(self) -> te.Self:
-        """Make a copy of this ViewHandler, for use in a subclass."""
-        # Like reroute, but just a copy
-        r = self.__class__(self.func, data=self.data)
+        """Make a copy of this ViewMethod, for use in a subclass."""
+        # Like reroute, but a copy without a new function body
+        r = self.__class__(self.__func__, data=self.data)
         r.routes = self.routes
-        # Don't copy wrapped_func, as it will be re-wrapped by init_app
-        r.endpoint = self.endpoint
+        # Don't copy decorated_func, as it will be re-wrapped by init_app / __set_name__
+        r.default_endpoint = self.default_endpoint
         return r
 
     def __set_name__(self, owner: t.Type, name: str) -> None:
-        # This is almost always the existing value acquired from func.__name__
-        self.name = name
+        # `name` is almost always the existing value acquired from decorated.__name__,
+        # the exception being when the view function is defined outside the class:
+        #
+        # def external_view(self):
+        #     ...
+        # class MyView(ClassView):
+        #     internal_view = ViewMethod(external_view)
+        self.__name__ = name
         # We can't use `.` as a separator because Flask uses that to identify blueprint
-        # endpoints. Instead, we construct this to be `ViewClass_method_name`
-        self.endpoint = owner.__name__ + '_' + self.name
+        # endpoints. Instead we use `_`, as in `ViewClass_method_name`
+        self.default_endpoint = (f'{owner.__qualname__}.{self.__name__}').replace(
+            '.', '_'
+        )
 
     @overload
-    def __get__(self, obj: None, _cls: t.Type) -> te.Self:
+    def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
 
     @overload
-    def __get__(self, obj: t.Any, _cls: t.Type) -> ViewHandler[P, R_co]:
+    def __get__(self, obj: t.Any, cls: t.Type) -> ViewMethodBind[_P, _R_co]:
         ...
 
     def __get__(
-        self, obj: t.Optional[t.Any], _cls: t.Type
-    ) -> t.Union[te.Self, ViewHandler[P, R_co]]:
+        self, obj: t.Optional[t.Any], cls: t.Type
+    ) -> t.Union[te.Self, ViewMethodBind[_P, _R_co]]:
         if obj is None:
             return self
-        return ViewHandler(self, obj)
+        bind = ViewMethodBind(self, obj)
+        if '__slots__' not in cls.__dict__:
+            # Cache it in the instance obj for repeat access. Since we are a non-data
+            # descriptor (no __set__ or __delete__ methods), the instance dict will have
+            # first priority for future lookups
+            # TODO: What is faster? Check for class being not having slots, or try
+            # anyway and ignore AttributeError? Can we assume default is no slots?
+            setattr(obj, self.__name__, bind)
+        return bind
 
     def __call__(  # pylint: disable=no-self-argument
-        __self, self: ClassViewSubtype, *args: P.args, **kwargs: P.kwargs
-    ) -> R_co:
-        return __self.func(self, *args, **kwargs)
+        __self, self: ClassViewSubtype, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _R_co:
+        # Mimic an unbound method call
+        return __self.__func__(self, *args, **kwargs)
+
+    def is_available(self) -> bool:
+        """
+        Indicate whether this view is available in the current context.
+
+        This always returns `False` on the unbound :class:`ViewMethod`. The bound
+        implementation is in :meth:`ViewMethodBind.is_available`.
+        """
+        return False
 
     # TODO: Move most of this code into `__set_name__`
     def init_app(
@@ -361,13 +403,18 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         :meth:`init_app` therefore takes the liberty of adding additional attributes to
         ``self``:
 
-        * :attr:`wrapped_func`: The function wrapped with all decorators added by the
-            class
+        * :attr:`decorated_func`: The method wrapped with the class's decorators
         * :attr:`view_func`: The view function registered as a Flask view handler
-        * :attr:`endpoints`: The URL endpoints registered to this view handler
+        * :attr:`endpoints`: The URL endpoint names registered to this view method
         """
 
-        def view_func(**view_args) -> BaseResponse:
+        def view_func(**view_args: t.Any) -> BaseResponse:
+            """
+            The actual view function registered to Flask, responsible for dispatch.
+
+            This function creates an instance of the view class, then calls
+            :meth:`~ViewClass.dispatch_request` on it passing in the
+            """
             this = cast(ViewFuncProtocol, view_func)
             # view_func does not make any reference to variables from init_app to avoid
             # creating a closure. Instead, the code further below sticks all relevant
@@ -376,11 +423,11 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
             # Instantiate the view class. We depend on its __init__ requiring no
             # parameters
             viewinst = this.view_class()
-            # Declare ourselves (the ViewHandler) as the current view. The wrapper makes
-            # equivalence tests possible, such as ``self.current_handler == self.index``
-            viewinst.current_handler = ViewHandler(
+            # Declare ourselves (the ViewMethod) as the current view. The bind makes
+            # equivalence tests possible, such as ``self.current_method == self.index``
+            viewinst.current_method = ViewMethodBind(
                 # Mypy is incorrectly applying the descriptor protocol to a non-class's
-                # dict, and therefore concluding this.view.__get__() -> ViewHandler,
+                # dict, and therefore concluding this.view.__get__() -> ViewMethodBind,
                 # instead of this.view just remaining a ViewMethod, sans descriptor call
                 # https://github.com/python/mypy/issues/15822
                 this.view,  # type: ignore[arg-type]
@@ -389,13 +436,13 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
             # Place view arguments in the instance, in case they are needed outside the
             # dispatch process
             viewinst.view_args = view_args
-            # Place the view instance on the request stack for :obj:`current_view` to
+            # Place the view instance on the app context for :obj:`current_view` to
             # discover
-            if g:
-                g._current_view = viewinst  # pylint: disable=protected-access
+            if app_ctx:
+                app_ctx.current_view = viewinst  # type: ignore[attr-defined]
             # Call the view instance's dispatch method. View classes can customise this
             # for desired behaviour.
-            return viewinst.dispatch_request(this.wrapped_func, view_args)
+            return viewinst.dispatch_request(this.decorated_func, view_args)
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be
@@ -411,35 +458,48 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
         #     @second
         #     def myview(self):
         #         pass
-        wrapped_func = self.func
+        decorated_func = self.__func__
         for base in reversed(cls.__mro__):
             if '__decorators__' in base.__dict__:
                 for decorator in reversed(base.__dict__['__decorators__']):
-                    wrapped_func = decorator(wrapped_func)
-                    wrapped_func.__name__ = self.name  # See below
+                    decorated_func = decorator(decorated_func)
+                    decorated_func.__name__ = self.__name__  # See below for why
 
-        # Make view_func resemble the underlying view handler method...
-        view_func = update_wrapper(view_func, wrapped_func)
-        # ...but give view_func the name of the method in the class (self.name),
-        # self.name will differ from __name__ only if the view handler method
-        # was defined outside the class and then added to the class with a
-        # different name.
-        view_func.__name__ = self.name
+        # Make view_func resemble the decorated function...
+        view_func = update_wrapper(view_func, decorated_func)
 
-        # Stick `wrapped_func` and `cls` into view_func to avoid creating a closure.
-        view_func.wrapped_func = wrapped_func  # type: ignore[attr-defined]
+        # ...but give view_func the name of the method in the class (self.__name__),
+        # self.__name__ will differ from self.__func__.__name__ only if the view method
+        # was defined outside the class and then added to the class with a different
+        # name:
+        #
+        #     @route('')
+        #     def external_method(self):
+        #         ...
+        #     class MyView(ClassView): ...
+        #         view_method = external_method
+        #     assert MyView.view_method.__name__ == 'view_method'
+        #     assert MyView.view_method.__func__.__name__ == 'external_method'
+        view_func.__name__ = self.__name__
+
+        # Stick `decorated_func` and `cls` into view_func to avoid creating a closure.
+        view_func.decorated_func = decorated_func  # type: ignore[attr-defined]
         view_func.view_class = cls  # type: ignore[attr-defined]
         view_func.view = self  # type: ignore[attr-defined]
 
-        # Keep a copy of these functions (we already have self.func)
-        self.wrapped_func = wrapped_func
+        # Keep a copy of these functions (we already have self.__func__)
+        self.decorated_func = decorated_func
         self.view_func = view_func
 
         for class_rule, class_options in cls.__routes__:
+            if 'endpoint' in class_options:
+                raise ValueError(
+                    f"{cls} route cannot specify 'endpoint'; it must be per-view"
+                )
             for method_rule, method_options in self.routes:
-                use_options = dict(method_options)
-                use_options.update(class_options)
-                endpoint = use_options.pop('endpoint', self.endpoint)
+                use_options = dict(class_options)
+                use_options.update(method_options)
+                endpoint = use_options.pop('endpoint', self.default_endpoint)
                 self.endpoints.add(endpoint)
                 use_rule = rulejoin(class_rule, method_rule)
                 app.add_url_rule(use_rule, endpoint, view_func, **use_options)
@@ -447,36 +507,60 @@ class ViewMethod(t.Generic[P, R_co]):  # pylint: disable=too-many-instance-attri
                     callback(app, use_rule, endpoint, view_func, **use_options)
 
 
-class ViewHandler(t.Generic[P, R_co]):
-    """Wrapper for a view method in an instance of the view class."""
+class ViewMethodBind(t.Generic[_P, _R_co]):
+    """Wrapper for :class:`ViewMethod` binding it to an instance of the view class."""
+
+    __slots__ = ('__weakref__', '_view_method', '__self__')
+
+    # Provide type hints for proxied attributes
+    __name__: str
+    __qualname__: str
+    __module__: str
+    __doc__: t.Optional[str]
+    __func__: t.Callable[te.Concatenate[t.Any, _P], _R_co]
+    decorated_func: t.Callable
+    view_func: t.Callable
+    default_endpoint: str
+    endpoints: t.Set[str]
 
     def __init__(
         self,
-        view: ViewMethod[P, R_co],
-        obj: ClassViewSubtype,
+        view_method: ViewMethod[_P, _R_co],
+        view_class_instance: ClassViewSubtype,
+        /,
     ) -> None:
-        # obj is the ClassView instance
-        self._view = view
-        self._obj = obj
+        self._view_method = view_method
+        # Named `__self__` to ducktype the API for instance methods:
+        # https://docs.python.org/3/reference/datamodel.html#instance-methods
+        self.__self__ = view_class_instance
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co:
+    def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co:
         """Treat this like a call to the original method and not to the view."""
-        # As per the __decorators__ spec, we call .func, not .wrapped_func
-        return self._view.func(self._obj, *args, **kwargs)
+        # As per the __decorators__ spec, we call .__func__, not .decorated_func
+        return self._view_method.__func__(self.__self__, *args, **kwargs)
 
-    def __getattr__(self, name: str) -> t.Any:
-        return getattr(self._view, name)
+    if not t.TYPE_CHECKING:
+        # Hide the proxy implementation from type checkers, so we only appear to have
+        # the members explicitly defined in the class
+        def __getattr__(self, name: str) -> t.Any:
+            return getattr(self._view_method, name)
 
     def __eq__(self, other: t.Any) -> bool:
-        if isinstance(other, ViewHandler):
-            return self._view == other._view and self._obj == other._obj
+        if isinstance(other, ViewMethodBind):
+            return (
+                self._view_method == other._view_method
+                and self.__self__ == other.__self__
+            )
         return NotImplemented
 
     def is_available(self) -> bool:
         """Indicate whether this view is available in the current context."""
-        if hasattr(self._view.wrapped_func, 'is_available'):
-            return self._view.wrapped_func.is_available(self._obj)
-        return True
+        func = self._view_method.decorated_func
+        # If the method has an `is_available` callable in its dict, call it with the
+        # view class instance as context (the method's `self` parameter). If not, simply
+        # return True. Is it an error for `is_available` to not be a callable, or to
+        # expect other arguments.
+        return getattr(func, 'is_available', lambda _: True)(self.__self__)
 
 
 class ClassView:
@@ -510,7 +594,7 @@ class ClassView:
     The :func:`viewdata` decorator can be used to specify additional data, and may
     appear either before or after the :func:`route` decorator, but only adjacent to it.
     Data specified here is available as the :attr:`data` attribute on the view handler,
-    or at runtime in templates as ``current_view.current_handler.data``.
+    or at runtime in templates as ``current_view.current_method.data``.
 
     A rudimentary CRUD view collection can be assembled like this::
 
@@ -535,6 +619,8 @@ class ClassView:
     See :class:`ModelView` for a better way to build views around a model.
     """
 
+    __slots__ = ('__weakref__', 'current_method', 'view_args')
+
     # If the class did not get a @route decorator, provide a fallback route
     __routes__: t.ClassVar[t.List[t.Tuple[str, RouteRuleOptions]]] = [('', {})]
 
@@ -552,13 +638,27 @@ class ClassView:
     #: ``is_available`` method, as it implies that view is always available.
     is_always_available: t.ClassVar[bool] = False
 
-    #: When a view is called, this will point to the current view handler,
-    #: an instance of :class:`ViewHandler`.
-    current_handler: ViewHandler
+    #: When a view is called, this will point to the current view method,
+    #: an instance of :class:`ViewMethodBind`.
+    current_method: ViewMethodBind
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
-    view_args: t.Dict[str, t.Any] = {}
+    view_args: t.Dict[str, t.Any]
+
+    def __init__(self) -> None:
+        self.current_method = None  # type: ignore[assignment]
+        self.view_args = {}
+
+    @property
+    def current_handler(self) -> ViewMethodBind:
+        """Deprecated name for :attr:`current_method`."""
+        warnings.warn(
+            "current_handler has been renamed to current_method",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.current_method
 
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self)
@@ -570,14 +670,18 @@ class ClassView:
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
     ) -> BaseResponse:
         """
-        View dispatcher that calls before_request, the view, and then after_request.
+        View dispatcher that invokes before and after-view hooks.
 
-        Subclasses may override this to provide a custom flow. :class:`ModelView` does
-        this to insert a model loading phase.
+        Calls :meth:`before_request`, the view, and then :meth:`after_request`. If
+        :meth:`before_request` returns a non-None response, the view is skipped and flow
+        proceeds to :meth:`after_request`.
+
+        Generic subclasses may override this to provide a custom flow.
+        :class:`ModelView` overrides to insert a model loading phase.
 
         :param view: View method wrapped in specified decorators. The dispatcher must
             call this
-        :param dict view_args: View arguments, to be passed on to the view method
+        :param view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
         resp = ensure_sync(self.before_request)()
@@ -595,7 +699,7 @@ class ClassView:
         This method is called after the app's ``before_request`` handlers, and before
         the class's view method. Subclasses and mixin classes may define their own
         :meth:`before_request` to pre-process requests. This method receives context via
-        `self`, in particular via :attr:`current_handler` and :attr:`view_args`.
+        `self`, in particular via :attr:`current_method` and :attr:`view_args`.
         """
         return None
 
@@ -623,14 +727,14 @@ class ClassView:
         """
         Return `True` if *any* view handler in the class is currently available.
 
-        Tests by calling the `is_available` method of each view.
+        Tests by calling :meth:`ViewMethodBind.is_available` of each view method.
         """
         return self.is_always_available or any(
             getattr(self, _v).is_available() for _v in self.__views__
         )
 
     @classmethod
-    def add_route_for(cls, _name: str, rule: str, **options) -> None:
+    def add_route_for(cls, __name: str, /, rule: str, **options) -> None:
         """
         Add a route for an existing method or view.
 
@@ -661,14 +765,15 @@ class ClassView:
         :param rule: URL rule to be added
         :param options: Additional options for :meth:`~flask.Flask.add_url_rule`
         """
-        attr = getattr_static(cls, _name)
-        if attr is None:
-            raise AttributeError(_name)
-        viewh = t.cast(ViewMethod, route(rule, **options)(attr))
-        setattr(cls, _name, viewh)
-        viewh.__set_name__(cls, _name)
-        if _name not in cls.__views__:
-            cls.__views__ = frozenset(cls.__views__) | {_name}
+        attr = getattr_static(cls, __name)
+        # getattr_static raises AttributeError if no default is provided, but the
+        # documentation is unclear about this:
+        # https://docs.python.org/3/library/inspect.html#inspect.getattr_static
+        view_method = ViewMethod(attr, rule=rule, rule_options=options)
+        setattr(cls, __name, view_method)
+        view_method.__set_name__(cls, __name)
+        if __name not in cls.__views__:
+            cls.__views__ = frozenset(cls.__views__) | {__name}
 
     def __init_subclass__(cls) -> None:
         """Copy views from base classes into the subclass."""
@@ -680,8 +785,8 @@ class ClassView:
                     continue
                 processed.add(name)
                 if isinstance(attr, ViewMethod):
-                    if base != cls:
-                        # Copy ViewHandler instances into subclasses. We know an attr
+                    if base is not cls:
+                        # Copy ViewMethod instances into subclasses. We know an attr
                         # with the same name doesn't exist in the subclass because it
                         # was processed first in the MRO and added to the processed set.
                         # FIXME: If this handler is registered with an app because the
@@ -694,7 +799,7 @@ class ClassView:
                     view_names.add(name)
         cls.__views__ = frozenset(view_names)
         # Set is_always_available attr in the subclass. init_app may change this to
-        # True after confirming that any of the view handlers _after wrapping_ with
+        # True after confirming that any of the view handlers __after wrapping__ with
         # local decorators remains always available.
         cls.is_always_available = False
         super().__init_subclass__()
@@ -714,7 +819,7 @@ class ClassView:
         for name in cls.__views__:
             attr = getattr(cls, name)
             attr.init_app(app, cls, callback=callback)
-            if not hasattr(attr.wrapped_func, 'is_available'):
+            if not hasattr(attr.decorated_func, 'is_available'):
                 cls.is_always_available = True
 
 
@@ -745,30 +850,60 @@ class ModelView(ClassView, t.Generic[ModelType]):
     they are available as `self.view_args`.
     """
 
-    #: The model that is being handled by this ModelView (autoset from Generic arg)
+    # Place obj in slots for potentially faster access at runtime
+    __slots__ = ('obj',)
+
+    #: The model that is being handled by this ModelView (autoset from Generic arg).
+    #: Unfortunately, we can't bind a classvar to a generic type.
     model: t.ClassVar[t.Type]
+
     #: A loaded object of the model's type
     obj: ModelType
 
-    #: A mapping of URL rule variables to attributes on the model. For example,
-    #: if the URL rule is ``/<parent>/<document>``, the attribute map can be::
-    #:
-    #:     model = MyModel
-    #:     route_model_map = {
-    #:         'document': 'name',       # Map 'document' in URL to MyModel.name
-    #:         'parent': 'parent.name',  # Map 'parent' to MyModel.parent.name
-    #:         }
-    #:
-    #: The :class:`InstanceLoader` mixin class will convert this mapping into
-    #: SQLAlchemy attribute references to load the instance object.
     route_model_map: t.ClassVar[t.Dict[str, str]] = {}
+    """
+    A mapping of URL rule variables to attributes on the model. For example, if the URL
+    rule is ``/<parent>/<document>``, the attribute map can be::
+
+        model = MyModel  # This is auto-inserted when using ModelView[MyModel]
+        obj: MyModel  # This is auto-inserted when using ModelView[MyModel]
+        route_model_map = {
+            'document': 'name',       # Map 'document' in URL to obj.name
+            'parent': 'parent.name',  # Map 'parent' to obj.parent.name
+            }
+
+    The :class:`UrlForView` mixin will register
+    :class:`~coaster.sqlalchemy.mixins.UrlForMixin` actions using these attribute
+    references to construct URLs from the object, while :class:`InstanceLoader`
+    (deprecated) will do the reverse to construct a SQLAlchemy query to load the object.
+    Since the values in this mapping are a domain-specific language (DSL), this is
+    incompatible with type hinting. For type hinting support, use the
+    :class:`~ModelView.GetAttr` class approach.
+    """
 
     def __init__(self, obj: t.Optional[ModelType] = None) -> None:
+        """
+        Instantiate ModelView with an optional object.
+
+        This is typically used when bypassing :meth:`load`, such as when used with a
+        registry::
+
+            @MyModel.views('main')
+            class MyModelView(ModelView[MyModel]):
+                ...
+            view = obj.views.main()
+            # Same as `view = MyModelView(obj)`
+
+        This will skip any side-effects in custom :meth:`load` implementations. Place
+        those in :meth:`post_init` instead.
+        """
         super().__init__()
-        self.obj = obj  # type: ignore[assignment]
+        if obj is not None:
+            self.obj = obj
+            self.post_init()
 
     def __init_subclass__(cls) -> None:
-        """Extract model from generic args and set on cls if unset."""
+        """Extract model type from generic args and set on cls if unset."""
         if getattr(cls, 'model', None) is None:  # Allow a base/mixin class to set it
             for base in te.get_original_bases(cls):
                 origin_base = t.get_origin(base)
@@ -794,6 +929,10 @@ class ModelView(ClassView, t.Generic[ModelType]):
         Calls :meth:`before_request`, :meth:`load`, the view, and then
         :meth:`after_request`.
 
+        If :meth:`before_request` or :meth:`load` return a non-None response, it will
+        skip ahead to :meth:`after_request`, allowing either of these to override the
+        view.
+
         :param view: View method wrapped in specified decorators
         :param dict view_args: View arguments, to be passed on to :meth:`load` but not
             to the view
@@ -809,52 +948,70 @@ class ModelView(ClassView, t.Generic[ModelType]):
         # Call the view handler method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
 
-    load: t.Callable[..., t.Optional[ResponseReturnValue]]
+    if t.TYPE_CHECKING:
+        # Type-checking version without varargs, so subclasses can specify explicit args
+        def loader(self) -> ModelType:  # pragma: no cover
+            raise NotImplementedError()
 
-    def load(  # type: ignore[no-redef]
-        self, **view_args
-    ) -> t.Optional[ResponseReturnValue]:
+    else:
+        # Actual default implementation has varargs
+        def loader(self, **__view_args) -> ModelType:  # pragma: no cover
+            """
+            Load database object and return it.
+
+            Subclasses or mixin classes must override this method to provide a model
+            instance loader. The return value of this method will be placed at
+            ``self.obj``.
+
+            An implementation that returns an interim object for further processing in
+            :meth:`after_loader` should instead override :meth:`load` so that
+            :attr:`obj` can be declared to be a well defined type.
+
+            :return: Object instance loaded from database
+            """
+            raise NotImplementedError("View class is missing a loader method")
+
+    if t.TYPE_CHECKING:
+        # Type-checking version without varargs, so subclasses can specify explicit args
+        def load(self) -> t.Optional[ResponseReturnValue]:  # skipcq: PTC-W0049
+            ...
+
+    else:
+        # Actual default implementation has varargs
+        def load(self, **__view_args) -> t.Optional[ResponseReturnValue]:
+            """
+            Load the database object given view parameters.
+
+            The default implementation calls :meth:`loader` and sets the return value as
+            :attr:`obj`. It then calls :meth:`after_loader` to process this object. This
+            behaviour is considered legacy as an implementation that processes interim
+            objects like redirects cannot ascribe a clear data type to :attr:`obj`.
+
+            New implementations must override :meth:`load` and be responsible for
+            setting :attr:`obj`.
+            """
+            self.obj = self.loader(**__view_args)
+            # Trigger post-load processing of the object
+            self.post_init()
+            return self.after_loader()
+
+    def post_init(self) -> None:
         """
-        Load the database object given view parameters.
+        Post-process after init with an object when bypassing :meth:`load`.
 
-        The default implementation calls :meth:`loader` and sets the return value as
-        :attr:`obj`. It then calls :meth:`after_loader` to process this object. This
-        behaviour is considered legacy as an implementation that processes interim
-        objects like redirects cannot ascribe a clear data type to :attr:`obj`. New
-        implementations must override :meth:`load` and be responsible for setting
-        :attr:`obj`.
+        Subclasses must override this if a custom :meth:`load` implementation has
+        side-effects. It will be called during init if an optional object was provided,
+        and should be called from custom :meth:`load` implementations. Unlike
+        :meth:`after_loader`, this method cannot have a return value.
         """
-        self.obj = self.loader(**view_args)
-        # Trigger pre-view processing of the loaded object
-        return self.after_loader()
-
-    loader: t.Callable[..., ModelType]
-
-    def loader(  # type: ignore[no-redef]  # pragma: no cover
-        self, **view_args
-    ) -> ModelType:
-        """
-        Load database object and return it.
-
-        Subclasses or mixin classes must override this method to provide a model
-        instance loader. The return value of this method will be placed at
-        ``self.obj``.
-
-        An implementation that returns an interim object for further processing in
-        :meth:`after_loader` should instead override :meth:`load` so that :attr:`obj`
-        can be declared to be a well defined type.
-
-        :return: Object instance loaded from database
-        """
-        raise NotImplementedError("View class is missing a loader method")
 
     def after_loader(  # pylint: disable=useless-return
         self,
-    ) -> t.Optional[t.Any]:
+    ) -> t.Optional[ResponseReturnValue]:
         """Process loaded value after :meth:`loader` is called (deprecated)."""
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
-        if hasattr(self.current_handler.wrapped_func, 'requires_permission'):
+        if hasattr(self.current_method.decorated_func, 'requires_permission'):
             if isinstance(self.obj, tuple):
                 perms = None
                 for subobj in self.obj:
@@ -909,11 +1066,13 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
 
 class UrlForView:  # pylint: disable=too-few-public-methods
     """
-    Mixin class that registers view handler methods with as views on the model.
+    Mixin class that registers view handler methods as views on the model.
 
     This mixin must be used with :class:`ModelView`, and the model must be based on
     :class:`~coaster.sqlalchemy.mixins.UrlForMixin`.
     """
+
+    __slots__ = ()
 
     @classmethod
     def init_app(
@@ -924,7 +1083,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
         """Register view on an app."""
 
         def register_view_on_model(  # pylint: disable=too-many-arguments
-            cls: t.Type[ClassView],
+            cls: t.Type[ModelView],
             callback: t.Optional[InitAppCallback],
             app: t.Union[FlaskApp, Blueprint],
             rule: str,
@@ -938,6 +1097,8 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 reg_endpoint: str,
                 reg_options: t.Dict[str, t.Any],
             ) -> None:
+                model = cls.model
+                assert issubclass(model, UrlForMixin)  # nosec B101
                 # Only pass in the attrs that are included in the rule.
                 # 1. Extract list of variables from the rule
                 rulevars = _get_arguments_from_rule(
@@ -951,18 +1112,14 @@ class UrlForView:  # pylint: disable=too-few-public-methods
                 }
                 # Register endpoint with the view function's name, endpoint name and
                 # parameters
-                cast(
-                    t.Type[UrlForMixin], cast(t.Type[ModelView], cls).model
-                ).register_endpoint(
+                model.register_endpoint(
                     action=view_func.__name__,
                     endpoint=reg_endpoint,
                     app=reg_app,
                     roles=getattr(view_func, 'requires_roles', None),
                     paramattrs=params,
                 )
-                cast(
-                    t.Type[UrlForMixin], cast(t.Type[ModelView], cls).model
-                ).register_view_for(
+                model.register_view_for(
                     app=reg_app,
                     action=view_func.__name__,
                     classview=cls,
@@ -995,7 +1152,7 @@ class UrlForView:  # pylint: disable=too-few-public-methods
             if callback:  # pragma: no cover
                 callback(app, rule, endpoint, view_func, **options)
 
-        assert issubclass(cls, ClassView)  # nosec B101
+        assert issubclass(cls, ModelView)  # nosec B101
         super().init_app(  # type: ignore[misc]
             app, callback=partial(register_view_on_model, cls, callback)
         )
@@ -1089,6 +1246,7 @@ class UrlChangeCheck:  # pylint: disable=too-few-public-methods
                 return self.obj.current_access()
     """
 
+    __slots__ = ()
     __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = [
         url_change_check
     ]
@@ -1108,6 +1266,7 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
         method directly.
     """
 
+    __slots__ = ()
     route_model_map: t.ClassVar[t.Dict[str, str]]
     model: t.ClassVar[t.Type]
     query: t.ClassVar[t.Optional[Query]] = None
@@ -1165,11 +1324,6 @@ class InstanceLoader:  # pylint: disable=too-few-public-methods
 #: A proxy object that holds the currently executing :class:`ClassView` instance,
 #: for use in templates as context. Exposed to templates by
 #: :func:`coaster.app.init_app`. The current view handler method within the class is
-#: named :attr:`~current_view.current_handler`, so to examine it, use
-#: :attr:`current_view.current_handler`.
-current_view = cast(
-    ClassView,
-    LocalProxy(
-        lambda: getattr(g, '_current_view', None) if has_app_context() else None
-    ),
-)
+#: named :attr:`~current_view.current_method`, so to examine it, use
+#: :attr:`current_view.current_method`.
+current_view: ClassView = cast(ClassView, LocalProxy(_cv_app, 'current_view'))

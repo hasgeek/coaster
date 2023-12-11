@@ -129,14 +129,14 @@ class IndexView(ClassView):
     def current_view_is_self(self) -> str:
         return str(current_view == self)
 
-    @route('current_view/current_handler_is_self')
-    def current_handler_is_self(self) -> str:
-        return str(current_view.current_handler.name == 'current_handler_is_self')
+    @route('current_view/current_method_is_self')
+    def current_method_is_self(self) -> str:
+        return str(current_view.current_method.__name__ == 'current_method_is_self')
 
-    @route('current_view/current_handler_is_wrapper')
-    def current_handler_is_wrapper(self) -> str:
+    @route('current_view/current_method_is_bound')
+    def current_method_is_bound(self) -> str:
         # pylint: disable=comparison-with-callable
-        return str(current_view.current_handler == self.current_handler_is_wrapper)
+        return str(current_view.current_method == self.current_method_is_bound)
 
     @route('view_args/<one>/<two>')
     def view_args_are_received(self, **kwargs) -> str:
@@ -279,7 +279,7 @@ ModelDocumentView.init_app(app)
 class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
-    model = ScopedViewDocument
+    model: t.ClassVar = ScopedViewDocument
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
@@ -311,7 +311,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
 
     route_model_map = {'doc1': 'name', 'doc2': '**doc2.url_name'}
 
-    def loader(  # type: ignore[override]
+    def loader(  # type: ignore[override]  # pylint: disable=arguments-differ
         self, doc1: str, doc2: str
     ) -> t.Tuple[ViewDocument, RenameableDocument]:
         obj1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
@@ -422,12 +422,12 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/current_view')
         assert rv.data == b'True'
 
-    def test_current_handler_is_self(self) -> None:
-        rv = self.client.get('/current_view/current_handler_is_self')
+    def test_current_method_is_self(self) -> None:
+        rv = self.client.get('/current_view/current_method_is_self')
         assert rv.data == b'True'
 
-    def test_current_handler_is_wrapper(self) -> None:
-        rv = self.client.get('/current_view/current_handler_is_wrapper')
+    def test_current_method_is_bound(self) -> None:
+        rv = self.client.get('/current_view/current_method_is_bound')
         assert rv.data == b'True'
 
     def test_view_args_are_received(self) -> None:
@@ -467,7 +467,7 @@ class TestClassView(unittest.TestCase):
         assert doc.title == "Edit 3"
 
     def test_callable_view(self) -> None:
-        """View handlers are callable as regular methods."""
+        """View methods are callable as regular methods."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -483,14 +483,14 @@ class TestClassView(unittest.TestCase):
         assert doc.title == "Edited"
 
     def test_rerouted(self) -> None:
-        """Subclass replaces view handler."""
+        """Subclass replaces view method."""
         rv = self.client.get('/subclasstest')
         assert rv.data != b'first'
         assert rv.data == b'rerouted-first'
         assert rv.status_code == 200
 
     def test_rerouted_with_new_routes(self) -> None:
-        """Subclass replaces view handler and adds new routes."""
+        """Subclass replaces view method and adds new routes."""
         rv = self.client.get('/subclasstest/second')
         assert rv.data != b'second'
         assert rv.data == b'rerouted-second'
@@ -514,7 +514,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 200
 
     def test_added_routes(self) -> None:
-        """Subclass adds more routes to a base class's view handler."""
+        """Subclass adds more routes to a base class's view method."""
         rv = self.client.get('/subclasstest/also-inherited')  # From base class
         assert rv.data == b'also_inherited'
         rv = self.client.get('/subclasstest/inherited2')  # Added in sub class
@@ -544,7 +544,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 404
 
     def test_endpoints(self) -> None:
-        """View handlers get endpoints reflecting where they are."""
+        """View method get endpoint names reflecting where they are."""
         assert IndexView.index.endpoints == {'IndexView_index'}
         assert IndexView.page.endpoints == {'IndexView_page'}
         assert BaseView.first.endpoints == set()
@@ -561,7 +561,7 @@ class TestClassView(unittest.TestCase):
         }
 
     def test_viewdata(self) -> None:
-        """View handlers can have additional data fields."""
+        """View methods can have additional data fields."""
         assert IndexView.index.data['title'] == "Index"
         assert IndexView.page.data['title'] == "Page"
         assert BaseView.first.data['title'] == "First"
@@ -574,8 +574,8 @@ class TestClassView(unittest.TestCase):
 
     def test_viewlist(self) -> None:
         assert IndexView.__views__ == {
-            'current_handler_is_self',
-            'current_handler_is_wrapper',
+            'current_method_is_self',
+            'current_method_is_bound',
             'current_view_is_self',
             'index',
             'page',
@@ -704,7 +704,7 @@ class TestClassView(unittest.TestCase):
         assert doc.classview_for('edit') == ModelDocumentView(doc)
         assert doc.classview_for('by_perm') == GatedDocumentView(doc)
 
-        # doc.view_for() returns the view handler. Calling it with
+        # doc.view_for() returns the view method. Calling it with
         # _render=False will disable the @render_with wrapper.
         assert dict(doc.view_for()(_render=False)) == {
             'name': doc.name,
