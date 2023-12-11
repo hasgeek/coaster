@@ -302,7 +302,7 @@ class StateTransitionError(BadRequest, TypeError):
     """Raised if a transition is attempted from a non-matching state."""
 
 
-class AbortTransition(Exception):  # noqa: N818
+class AbortTransition(BaseException):
     """
     Transitions may raise :exc:`AbortTransition` to return without changing state.
 
@@ -314,10 +314,9 @@ class AbortTransition(Exception):  # noqa: N818
     :param result: Value to return to the transition's caller
     """
 
-    def __init__(  # pylint: disable=useless-super-delegation
-        self, result: t.Any = None
-    ) -> None:
-        super().__init__(result)
+    def __init__(self, result: t.Any = None) -> None:
+        super().__init__()
+        self.result = result
 
 
 # --- Classes --------------------------------------------------------------------------
@@ -713,7 +712,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
             transition_exception.send(
                 self.obj, transition=self.statetransition, exception=e
             )
-            return e.args[0]
+            return e.result
         except Exception as e:  # noqa: B902
             transition_exception.send(
                 self.obj, transition=self.statetransition, exception=e
