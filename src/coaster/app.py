@@ -193,7 +193,7 @@ class JSONProvider(DefaultJSONProvider):
 
     @staticmethod
     def default(o: t.Any) -> t.Any:
-        """Expand default support to check for `__json__`."""
+        """Expand default support to check for a ``__json__`` method."""
         if hasattr(o, '__json__'):
             return o.__json__()
         if isinstance(o, abc.Mapping):
