@@ -27,7 +27,7 @@ from flask import (
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import MapAdapter, RequestRedirect, Rule
 
-try:  # pragma: no cover
+try:
     from asgiref.sync import async_to_sync
 except ModuleNotFoundError:
     async_to_sync = None  # type: ignore[assignment, misc]

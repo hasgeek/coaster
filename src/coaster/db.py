@@ -19,12 +19,12 @@ from sqlalchemy.engine import Engine
 
 from .sqlalchemy import Query
 
-try:  # pragma: no cover
+try:
     from psycopg2.extensions import connection as Psycopg2Connection  # noqa: N812
 except ModuleNotFoundError:
     Psycopg2Connection = None
 
-try:  # pragma: no cover
+try:
     from psycopg import Connection as Psycopg3Connection
 except ModuleNotFoundError:
     Psycopg3Connection = None  # type: ignore[assignment,misc]

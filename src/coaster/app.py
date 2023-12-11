@@ -40,7 +40,7 @@ mod_tomllib: t.Optional[types.ModuleType] = None
 mod_tomli: t.Optional[types.ModuleType] = None
 mod_yaml: t.Optional[types.ModuleType] = None
 
-try:  # pragma: no cover
+try:
     import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
 except ModuleNotFoundError:
     try:
@@ -52,7 +52,7 @@ except ModuleNotFoundError:
             pass
 
 
-try:  # pragma: no cover
+try:
     import yaml as mod_yaml
 except ModuleNotFoundError:
     pass

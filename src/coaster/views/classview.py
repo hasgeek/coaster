@@ -18,7 +18,7 @@ from flask import abort, make_response, redirect, request
 from flask.globals import _cv_app, app_ctx
 from flask.typing import ResponseReturnValue
 
-try:  # Flask >= 3.0  # pragma: no cover
+try:  # Flask >= 3.0
     from flask.sansio.app import App as FlaskApp
     from flask.sansio.blueprints import Blueprint, BlueprintSetupState
 except ModuleNotFoundError:  # Flask < 3.0
