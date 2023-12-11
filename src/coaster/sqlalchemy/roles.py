@@ -580,19 +580,25 @@ class LazyRoleSet(abc.MutableSet):
         result._not_present = set(self._not_present)  # pylint: disable=protected-access
         return result
 
+    # Sets offer these names as synonyms for operators
+    issubset = abc.MutableSet.__le__
+    issuperset = abc.MutableSet.__ge__
+    symmetric_difference_update = abc.MutableSet.__ixor__
+
     # Set operators take a single `other` parameter while these methods
     # are required to take multiple `others` to be API-compatible with sets.
     # `nary_op` converts a binary operator to an n-ary operator
-    issubset = nary_op(abc.MutableSet.__le__)
-    issuperset = nary_op(abc.MutableSet.__ge__)
     union = nary_op(abc.MutableSet.__or__)
     intersection = nary_op(__and__)
     difference = nary_op(abc.MutableSet.__sub__)
     symmetric_difference = nary_op(abc.MutableSet.__xor__)
-    update = nary_op(abc.MutableSet.__ior__)
-    intersection_update = nary_op(abc.MutableSet.__iand__)
-    difference_update = nary_op(abc.MutableSet.__isub__)
-    symmetric_difference_update = nary_op(abc.MutableSet.__ixor__)
+    update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(abc.MutableSet.__ior__)
+    intersection_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+        abc.MutableSet.__iand__
+    )
+    difference_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+        abc.MutableSet.__isub__
+    )
 
 
 class DynamicAssociationProxy(t.Generic[_V]):

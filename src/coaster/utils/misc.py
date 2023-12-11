@@ -670,16 +670,13 @@ def domain_namespace_match(domain: str, namespace: str) -> bool:
 
 
 T = t.TypeVar('T')
+T2 = t.TypeVar('T2')
+R_co = t.TypeVar('R_co', covariant=True)
 
 
-class _CallableSameArgs(te.Protocol):
-    """Protocol for callable that accepts multiple arguments of the same type."""
-
-    def __call__(self, lhs: T, *others: T) -> T:
-        ...
-
-
-def nary_op(f: t.Callable, doc: t.Optional[str] = None) -> _CallableSameArgs:
+def nary_op(
+    f: t.Callable[[T, T2], R_co], doc: t.Optional[str] = None
+) -> t.Callable[..., R_co]:
     """
     Convert a binary operator function into a chained n-ary operator.
 
@@ -696,10 +693,10 @@ def nary_op(f: t.Callable, doc: t.Optional[str] = None) -> _CallableSameArgs:
     """
 
     @wraps(f)
-    def inner(lhs: T, *others: T) -> T:
+    def inner(lhs: T, *others: T2) -> R_co:
         for other in others:
-            lhs = f(lhs, other)
-        return lhs
+            lhs = f(lhs, other)  # type: ignore[assignment]
+        return lhs  # type: ignore[return-value]
 
     if doc is not None:
         inner.__doc__ = doc

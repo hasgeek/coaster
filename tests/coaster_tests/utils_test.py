@@ -1,5 +1,6 @@
 import datetime
 import typing as t
+import typing_extensions as te
 import unittest
 from collections.abc import MutableSet
 
@@ -330,7 +331,9 @@ class TestCoasterUtils(unittest.TestCase):
             def discard(self, value: t.Any) -> None:
                 return self.set.discard(value)
 
-            update = nary_op(MutableSet.__ior__, "Custom docstring")
+            update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+                MutableSet.__ior__, "Custom docstring"
+            )
 
         # Confirm docstrings are added
         assert DemoSet.update.__doc__ == "Custom docstring"
