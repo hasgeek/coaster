@@ -50,9 +50,9 @@ __all__ = [
     # View decorators
     'route',
     'viewdata',
-    # Mixin classes
     'url_change_check',
     'requires_roles',
+    # Mixin classes
     'UrlChangeCheck',
     'UrlForView',
     'InstanceLoader',
@@ -160,13 +160,34 @@ def _get_arguments_from_rule(
     return list(obj.arguments)
 
 
-def route(rule: str, **options: t.Any) -> RouteDecoratorProtocol:
+def route(
+    rule: str,
+    init_app: t.Optional[
+        t.Union[FlaskApp, Blueprint, t.Tuple[t.Union[FlaskApp, Blueprint], ...]]
+    ] = None,
+    **options: t.Any,
+) -> RouteDecoratorProtocol:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
 
-    Accepts the same parameters that Flask's ``app.``:meth:`~flask.Flask.route`
-    accepts. See :class:`ClassView` for usage notes. This decorator must always be the
-    outermost decorator (barring :func:`viewdata`).
+    Accepts the same parameters as Flask's ``app.``:meth:`~flask.Flask.route` See
+    :class:`ClassView` for usage notes. This decorator must always be the outermost
+    decorator (barring :func:`viewdata`).
+
+    The rule specified on a method will be joined to the rule on a class using
+    :func:`rulejoin`, which inserts a ``/`` separator. If the method's rule begins with
+    ``/``, it is assumed to be an absolute path and the class's rule is ignored. The
+    rule options specified in both places are merged, with the method's options
+    overriding.
+
+    :param rule: The URL rule passed to Flask's :meth:`~flask.Flask.add_url_rule` after
+        joining class and method rules
+    :param init_app: If provided when decorating a :class:`ClassView` or
+        :meth:`ModelView`, also call :meth:`~ClassView.init_app`. This can be a Flask
+        app, Blueprint, or a tuple of them. This parameter may not be provided when
+        decorating a method
+    :param options: URL rule options, passed as is to Flask's
+        :meth:`~flask.Flask.add_url_rule` after merging class and method options
     """
 
     @t.overload
@@ -195,8 +216,16 @@ def route(rule: str, **options: t.Any) -> RouteDecoratorProtocol:
             if '__routes__' not in decorated.__dict__:
                 decorated.__routes__ = []
             decorated.__routes__.append((rule, options))
+            if init_app is not None:
+                apps = init_app if isinstance(init_app, tuple) else (init_app,)
+                for each in apps:
+                    decorated.init_app(each)
             return decorated
 
+        if init_app is not None:
+            raise TypeError(
+                "@route accepts init_app only when decorating a ClassView or ModelView"
+            )
         return ViewMethod(decorated, rule=rule, rule_options=options)
 
     return decorator
@@ -235,7 +264,7 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     Join URL paths from routing rules on a class and its methods.
 
     Used internally by :class:`ClassView` to combine rules from the :func:`route`
-    decorators on the class and on the individual view handler methods::
+    decorators on the class and on the individual view methods::
 
         >>> rulejoin('/', '')
         '/'
@@ -313,6 +342,9 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
         # self.__name__ and self.default_endpoint will change in __set_name__
         self.__name__ = self.default_endpoint = func.__name__
+
+    def __repr__(self) -> str:
+        return f'<ViewMethod {self.__qualname__}>'
 
     def replace(
         self,
@@ -445,7 +477,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
         ``self``:
 
         * :attr:`decorated_func`: The method wrapped with the class's decorators
-        * :attr:`view_func`: The view function registered as a Flask view handler
+        * :attr:`view_func`: The view function registered as a Flask view function
         * :attr:`endpoints`: The URL endpoint names registered to this view method
         """
 
@@ -575,6 +607,9 @@ class ViewMethodBind(t.Generic[_P, _R_co]):
         # https://docs.python.org/3/reference/datamodel.html#instance-methods
         self.__self__ = view_class_instance
 
+    def __repr__(self) -> str:
+        return f'<ViewMethodBind {self.__qualname__}>'
+
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co:
         """Treat this like a call to the original method and not to the view."""
         # As per the __decorators__ spec, we call .__func__, not .decorated_func
@@ -628,18 +663,23 @@ class ClassView:
         IndexView.init_app(app)
 
     The :func:`route` decorator on the class specifies the base rule, which is prefixed
-    to the rule specified on each view method. This example produces two view handlers,
+    to the rule specified on each view method. This example produces two view methods,
     for ``/`` and ``/about``. Multiple :func:`route` decorators may be used in both
-    places.
+    places. Any rule options specified on the class become the default for all methods
+    in the class.
 
     The :func:`viewdata` decorator can be used to specify additional data, and may
     appear either before or after the :func:`route` decorator, but only adjacent to it.
-    Data specified here is available as the :attr:`data` attribute on the view handler,
+    Data specified here is available as the :attr:`data` attribute on the view method,
     or at runtime in templates as ``current_view.current_method.data``.
+
+    :func:`route` on the class also accepts an ``init_app`` parameter, a Flask app,
+    Blueprint, or a tuple containing a sequence of apps or blueprints. If specified,
+    this will call :meth:`~ClassView.init_app` with the app(s).
 
     A rudimentary CRUD view collection can be assembled like this::
 
-        @route('/doc/<name>')
+        @route('/doc/<name>', init_app=app)
         class DocumentView(ClassView):
             @route('')
             @render_with('mydocument.html.jinja2', json=True)
@@ -655,8 +695,6 @@ class ClassView:
                 document.content = content
                 return 'edited!'
 
-        DocumentView.init_app(app)
-
     See :class:`ModelView` for a better way to build views around a model.
     """
 
@@ -669,13 +707,13 @@ class ClassView:
     __views__: t.ClassVar[t.Collection[str]] = frozenset()
 
     #: Subclasses may define decorators here. These will be applied to every
-    #: view handler in the class, but only when called as a view and not
+    #: view method in the class, but only when called as a view and not
     #: as a Python method.
     __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = []
 
     #: Indicates whether meth:`is_available` should simply return `True`
     #: without conducting a test. Subclasses should not set this flag. It will
-    #: be set by :meth:`init_app` if any view handler is missing an
+    #: be set by :meth:`init_app` if any view method is missing an
     #: ``is_available`` method, as it implies that view is always available.
     is_always_available: t.ClassVar[bool] = False
 
@@ -725,14 +763,14 @@ class ClassView:
         resp = ensure_sync(self.before_request)()
         if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
-        # Call the view handler method, then pass the response to :meth:`after_response`
+        # Call the view method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(
             make_response(ensure_sync(view)(self, **view_args))
         )
 
     def before_request(self) -> t.Optional[ResponseReturnValue]:
         """
-        Process request before the view handler.
+        Process request before the view method.
 
         This method is called after the app's ``before_request`` handlers, and before
         the class's view method. Subclasses and mixin classes may define their own
@@ -745,9 +783,9 @@ class ClassView:
         """
         Process response returned by view.
 
-        This method is called with the response from the view handler method. It must
-        return a valid response object. Subclasses and mixin classes may override this
-        to perform any necessary post-processing::
+        This method is called with the response from the view method. It must return a
+        valid response object. Subclasses and mixin classes may override this to perform
+        any necessary post-processing::
 
             class MyView(ClassView):
                 ...
@@ -756,14 +794,14 @@ class ClassView:
                     ...  # Process here
                     return response
 
-        :param response: Response from the view handler method
+        :param response: Response from the view method
         :return: Response object
         """
         return response
 
     def is_available(self) -> bool:
         """
-        Return `True` if *any* view handler in the class is currently available.
+        Return `True` if *any* view method in the class is currently available.
 
         Tests by calling :meth:`ViewMethodBind.is_available` of each view method.
         """
@@ -795,7 +833,7 @@ class ClassView:
                     view_names.add(name)
         cls.__views__ = frozenset(view_names)
         # Set is_always_available attr in the subclass. init_app may change this to
-        # True after confirming that any of the view handlers __after wrapping__ with
+        # True after confirming that any of the view methods __after wrapping__ with
         # local decorators remains always available.
         cls.is_always_available = False
         super().__init_subclass__()
@@ -809,8 +847,8 @@ class ClassView:
         """
         Register views on an app.
 
-        If :attr:`callback` is specified, it will be called after
-        ``app.``:meth:`~flask.Flask.add_url_rule`, with app and the same parameters.
+        If :attr:`callback` is specified, it will be called after Flask's
+        :meth:`~flask.Flask.add_url_rule`, with app and the same parameters.
         """
         for name in cls.__views__:
             attr = getattr(cls, name)
@@ -824,10 +862,11 @@ class ModelView(ClassView, t.Generic[ModelType]):
     Base class for constructing views around a model.
 
     Functionality is provided via mixin classes that must precede :class:`ModelView` in
-    base class order. Two mixins are provided: :class:`UrlForView` and
-    :class:`InstanceLoader`. Sample use::
+    base class order. Three mixins are provided: :class:`UrlForView`,
+    :class:`UrlChangeCheck` and :class:`InstanceLoader`. Sample use::
 
-        @route('/doc/<document>')
+        @Document.views('main')
+        @route('/doc/<document>', init_app=app)
         class DocumentView(UrlForView, InstanceLoader, ModelView):
             model = Document
             route_model_map = {
@@ -838,9 +877,6 @@ class ModelView(ClassView, t.Generic[ModelType]):
             @render_with(json=True)
             def view(self):
                 return self.obj.current_access()
-
-        Document.views.main = DocumentView
-        DocumentView.init_app(app)
 
     Views will not receive view arguments, unlike in :class:`ClassView`. If necessary,
     they are available as `self.view_args`.
@@ -975,7 +1011,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
         resp = ensure_sync(self.load)(**view_args)
         if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
-        # Call the view handler method, then pass the response to :meth:`after_response`
+        # Call the view method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
 
     if t.TYPE_CHECKING:
@@ -1094,7 +1130,7 @@ def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
 
 class UrlForView:
     """
-    Mixin class that registers view handler methods as views on the model.
+    Mixin class that registers view methods as view actions on the model.
 
     This mixin must be used with :class:`ModelView`, and the model must be based on
     :class:`~coaster.sqlalchemy.mixins.UrlForMixin`.
@@ -1198,11 +1234,11 @@ class UrlForView:
 
 def url_change_check(f: WrappedFunc) -> WrappedFunc:
     """
-    Decorate view in a :class:`ModelView` to check for a change in URL.
+    Decorate view method in a :class:`ModelView` to check for a change in URL.
 
     This decorator checks the URL of the loaded object in ``self.obj`` against the URL
     in the request (using ``self.obj.url_for(__name__)``). If the URLs do not match and
-    the request is a ``GET``, it issues a redirect to the correct URL. Usage::
+    the request is a ``GET``, it issues a HTTP 302 redirect to the correct URL. Usage::
 
         @route('/doc/<document>')
         class MyModelView(UrlForView, InstanceLoader, ModelView):
@@ -1215,7 +1251,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
             def view(self):
                 return self.obj.current_access()
 
-    If the decorator is required for all view handlers in the class, use
+    If the decorator is required for all view methods in the class, use
     :class:`UrlChangeCheck`.
 
     This decorator will only consider the URLs to be different if:
@@ -1241,7 +1277,6 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
             # port number, username, password, query or fragment, ignore. For any
             # other difference (scheme, hostname or path), do a redirect.
             if stripped_url != request_url:
-                # TODO: Decide if this should be 302 (default) or 301
                 return redirect(
                     str(correct_url.set(query=request.query_string.decode()))
                 )
@@ -1269,12 +1304,12 @@ class UrlChangeCheck:
     Check for changed URLs in a :class:`ModelView`.
 
     Mixin class for :class:`ModelView` and :class:`UrlForMixin` that applies the
-    :func:`url_change_check` decorator to all view handler methods. Subclasses
-    :class:`UrlForView`, which it depends on to register the view with the
-    model so that URLs can be generated. Usage::
+    :func:`url_change_check` decorator to all view methods. The view class should also
+    subclass :class:`UrlForView`, which provides necessary functionality to register
+    view actions to the model. Usage::
 
         @route('/doc/<document>')
-        class MyModelView(UrlChangeCheck, InstanceLoader, ModelView):
+        class MyModelView(UrlChangeCheck, UrlForView, InstanceLoader, ModelView):
             model = MyModel
             route_model_map = {'document': 'url_id_name'}
 
@@ -1358,9 +1393,8 @@ class InstanceLoader:
 
 # --- Proxy ----------------------------------------------------------------------------
 
-#: A proxy object that holds the currently executing :class:`ClassView` instance,
-#: for use in templates as context. Exposed to templates by
-#: :func:`coaster.app.init_app`. The current view handler method within the class is
-#: named :attr:`~current_view.current_method`, so to examine it, use
+#: A proxy object that holds the currently executing :class:`ClassView` instance, for
+#: use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
+#: The current view method within the class is available as
 #: :attr:`current_view.current_method`.
 current_view: ClassView = cast(ClassView, LocalProxy(_cv_app, 'current_view'))

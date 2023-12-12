@@ -147,7 +147,7 @@ class IndexView(ClassView):
 IndexView.init_app(app)
 
 
-@route('/doc/<name>')
+@route('/doc/<name>', init_app=app)
 class DocumentView(ClassView):
     """Test ClassView for ViewDocument."""
 
@@ -165,9 +165,6 @@ class DocumentView(ClassView):
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         document.title = title
         return 'edited!'
-
-
-DocumentView.init_app(app)
 
 
 class BaseView(ClassView):
@@ -228,7 +225,7 @@ class SubView(BaseView):
 SubView.init_app(app)
 
 
-@route('/secondsub')
+@route('/secondsub', init_app=(app,))
 class AnotherSubView(BaseView):
     """Test second subclass of a ClassView."""
 
@@ -236,9 +233,6 @@ class AnotherSubView(BaseView):
     @BaseView.second.replace
     def second(self):
         return 'also-replaced-second'
-
-
-AnotherSubView.init_app(app)
 
 
 @route('/model/<document>')
@@ -278,7 +272,8 @@ ViewDocument.views.main = ModelDocumentView
 ModelDocumentView.init_app(app)
 
 
-@route('/model/<parent>/<document>')
+@ScopedViewDocument.views('main')
+@route('/model/<parent>/<document>', init_app=app)
 class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
@@ -286,11 +281,8 @@ class ScopedDocumentView(ModelDocumentView):
     route_model_map = {'document': 'name', 'parent': 'parent.name'}
 
 
-ScopedViewDocument.views.main = ScopedDocumentView
-ScopedDocumentView.init_app(app)
-
-
-@route('/rename/<document>')
+@RenameableDocument.views('main')
+@route('/rename/<document>', init_app=app)
 class RenameableDocumentView(
     UrlChangeCheck, UrlForView, InstanceLoader, ModelView[RenameableDocument]
 ):
@@ -302,10 +294,6 @@ class RenameableDocumentView(
     @render_with(json=True)
     def view(self):
         return self.obj.current_access()
-
-
-RenameableDocument.views.main = RenameableDocumentView
-RenameableDocumentView.init_app(app)
 
 
 @route('/multi/<doc1>/<doc2>')
@@ -335,6 +323,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
 MultiDocumentView.init_app(app)
 
 
+@ViewDocument.views('gated')
 @route('/gated/<document>')
 class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView that has an intercept in before_request."""
@@ -382,7 +371,6 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
         return 'role-perm-called'
 
 
-ViewDocument.views.gated = GatedDocumentView
 GatedDocumentView.init_app(app)
 
 
