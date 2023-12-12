@@ -139,15 +139,6 @@ class InitAppCallback(te.Protocol):
         ...
 
 
-class ViewFuncProtocol(te.Protocol):
-    """Protocol for view functions that store context in the function's namespace."""
-
-    decorated_func: t.Callable
-    view_class: ClassViewType
-    view: ViewMethod
-    __call__: t.Callable
-
-
 # --- Class views and utilities --------------------------------------------------------
 
 
@@ -338,10 +329,11 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
         self.__doc__ = func.__doc__
         self.__module__ = func.__module__
-        self.__qualname__ = func.__qualname__
 
-        # self.__name__ and self.default_endpoint will change in __set_name__
-        self.__name__ = self.default_endpoint = func.__name__
+        # These may change in __set_name__
+        self.__name__ = func.__name__
+        self.__qualname__ = func.__qualname__
+        self.default_endpoint = self.__qualname__.replace('.', '_')
 
     def __repr__(self) -> str:
         return f'<ViewMethod {self.__qualname__}>'
@@ -408,21 +400,6 @@ class ViewMethod(t.Generic[_P, _R_co]):
         """
         return self.__class__(self, data=data)
 
-    def __set_name__(self, owner: t.Type, name: str) -> None:
-        # `name` is almost always the existing value acquired from decorated.__name__,
-        # the exception being when the view function is defined outside the class:
-        #
-        # def external_view(self):
-        #     ...
-        # class MyView(ClassView):
-        #     internal_view = ViewMethod(external_view)
-        self.__name__ = name
-        # We can't use `.` as a separator because Flask uses that to identify blueprint
-        # endpoints. Instead we use `_`, as in `ViewClass_method_name`
-        self.default_endpoint = (f'{owner.__qualname__}.{self.__name__}').replace(
-            '.', '_'
-        )
-
     @overload
     def __get__(self, obj: None, cls: t.Type) -> te.Self:
         ...
@@ -441,8 +418,6 @@ class ViewMethod(t.Generic[_P, _R_co]):
             # Cache it in the instance obj for repeat access. Since we are a non-data
             # descriptor (no __set__ or __delete__ methods), the instance dict will have
             # first priority for future lookups
-            # TODO: What is faster? Check for class being not having slots, or try
-            # anyway and ignore AttributeError? Can we assume default is no slots?
             setattr(obj, self.__name__, bind)
         return bind
 
@@ -461,61 +436,19 @@ class ViewMethod(t.Generic[_P, _R_co]):
         """
         return False
 
-    # TODO: Move most of this code into `__set_name__`
-    def init_app(
-        self,
-        app: t.Union[FlaskApp, Blueprint],
-        cls: t.Type[ClassView],
-        callback: t.Optional[InitAppCallback] = None,
-    ) -> None:
-        """
-        Register routes for a given app and :class:`ClassView` class.
-
-        At the time of this call, we will always be in the view class even if we were
-        originally defined in a base class. :meth:`ClassView.init_app` ensures this.
-        :meth:`init_app` therefore takes the liberty of adding additional attributes to
-        ``self``:
-
-        * :attr:`decorated_func`: The method wrapped with the class's decorators
-        * :attr:`view_func`: The view function registered as a Flask view function
-        * :attr:`endpoints`: The URL endpoint names registered to this view method
-        """
-
-        def view_func(**view_args: t.Any) -> BaseResponse:
-            """
-            The actual view function registered to Flask, responsible for dispatch.
-
-            This function creates an instance of the view class, then calls
-            :meth:`~ViewClass.dispatch_request` on it passing in the
-            """
-            this = cast(ViewFuncProtocol, view_func)
-            # view_func does not make any reference to variables from init_app to avoid
-            # creating a closure. Instead, the code further below sticks all relevant
-            # variables into view_func's namespace.
-
-            # Instantiate the view class. We depend on its __init__ requiring no
-            # parameters
-            viewinst = this.view_class()
-            # Declare ourselves (the ViewMethod) as the current view. The bind makes
-            # equivalence tests possible, such as ``self.current_method == self.index``
-            viewinst.current_method = ViewMethodBind(
-                # Mypy is incorrectly applying the descriptor protocol to a non-class's
-                # dict, and therefore concluding this.view.__get__() -> ViewMethodBind,
-                # instead of this.view just remaining a ViewMethod, sans descriptor call
-                # https://github.com/python/mypy/issues/15822
-                this.view,  # type: ignore[arg-type]
-                viewinst,
-            )
-            # Place view arguments in the instance, in case they are needed outside the
-            # dispatch process
-            viewinst.view_args = view_args
-            # Place the view instance on the app context for :obj:`current_view` to
-            # discover
-            if app_ctx:
-                app_ctx.current_view = viewinst  # type: ignore[attr-defined]
-            # Call the view instance's dispatch method. View classes can customise this
-            # for desired behaviour.
-            return viewinst.dispatch_request(this.decorated_func, view_args)
+    def __set_name__(self, owner: t.Type[ClassViewSubtype], name: str) -> None:
+        # `name` is almost always the existing value acquired from decorated.__name__,
+        # the exception being when the view function is defined outside the class:
+        #
+        # def external_view(self):
+        #     ...
+        # class MyView(ClassView):
+        #     internal_view = ViewMethod(external_view)
+        self.__name__ = name
+        self.__qualname__ = qualname = f'{owner.__qualname__}.{name}'
+        # We can't use `.` as a separator because Flask uses that to identify blueprint
+        # endpoints. Instead we use `_`, as in `ViewClass_method_name`
+        self.default_endpoint = qualname.replace('.', '_')
 
         # Decorate the wrapped view function with the class's desired decorators.
         # Mixin classes may provide their own decorators, and all of them will be
@@ -532,17 +465,45 @@ class ViewMethod(t.Generic[_P, _R_co]):
         #     def myview(self):
         #         pass
         decorated_func = self.__func__
-        for base in reversed(cls.__mro__):
+        for base in reversed(owner.__mro__):
             if '__decorators__' in base.__dict__:
                 for decorator in reversed(base.__dict__['__decorators__']):
                     decorated_func = decorator(decorated_func)
-                    decorated_func.__name__ = self.__name__  # See below for why
+                    decorated_func.__name__ = name  # See below for why
+
+        self.decorated_func = decorated_func
+
+        # TODO: Make async_view_func if `__func__` or `decorated_func` is async, and
+        # expect the class to provide an `async_dispatch_request`
+        def view_func(**view_args: t.Any) -> BaseResponse:
+            """
+            The actual view function registered to Flask, responsible for dispatch.
+
+            This function creates an instance of the view class, then calls
+            :meth:`~ViewClass.dispatch_request` on it passing in :attr:`decorated_func`.
+            """
+            # Instantiate the view class. We depend on its __init__ requiring no args
+            viewinst = owner()
+            # Declare ourselves (the ViewMethod) as the current view. The bind makes
+            # equivalence tests possible, such as ``self.current_method == self.index``
+            viewinst.current_method = ViewMethodBind(self, viewinst)
+            # Place view arguments in the instance, in case they are needed outside the
+            # dispatch process
+            viewinst.view_args = view_args
+            # Place the view instance on the app context for :obj:`current_view` to
+            # discover
+            if app_ctx:
+                app_ctx.current_view = viewinst  # type: ignore[attr-defined]
+            # Call the view class's dispatch method. View classes can customise this
+            # for desired behaviour.
+            return viewinst.dispatch_request(
+                decorated_func, view_args  # type: ignore[arg-type]
+            )
 
         # Make view_func resemble the decorated function...
         view_func = update_wrapper(view_func, decorated_func)
-
-        # ...but give view_func the name of the method in the class (self.__name__),
-        # self.__name__ will differ from self.__func__.__name__ only if the view method
+        # ...but give view_func the name of the method in the class.
+        # This name will differ from self.__func__.__name__ only if the view method
         # was defined outside the class and then added to the class with a different
         # name:
         #
@@ -553,17 +514,16 @@ class ViewMethod(t.Generic[_P, _R_co]):
         #         view_method = external_method
         #     assert MyView.view_method.__name__ == 'view_method'
         #     assert MyView.view_method.__func__.__name__ == 'external_method'
-        view_func.__name__ = self.__name__
-
-        # Stick `decorated_func` and `cls` into view_func to avoid creating a closure.
-        view_func.decorated_func = decorated_func  # type: ignore[attr-defined]
-        view_func.view_class = cls  # type: ignore[attr-defined]
-        view_func.view = self  # type: ignore[attr-defined]
-
-        # Keep a copy of these functions (we already have self.__func__)
-        self.decorated_func = decorated_func
+        view_func.__name__ = name
         self.view_func = view_func
 
+    def init_app(
+        self,
+        app: t.Union[FlaskApp, Blueprint],
+        cls: t.Type[ClassView],
+        callback: t.Optional[InitAppCallback] = None,
+    ) -> None:
+        """Register routes for a given app and :class:`ClassView` class."""
         for class_rule, class_options in cls.__routes__:
             if 'endpoint' in class_options:
                 raise ValueError(
@@ -575,9 +535,9 @@ class ViewMethod(t.Generic[_P, _R_co]):
                 endpoint = use_options.pop('endpoint', self.default_endpoint)
                 self.endpoints.add(endpoint)
                 use_rule = rulejoin(class_rule, method_rule)
-                app.add_url_rule(use_rule, endpoint, view_func, **use_options)
+                app.add_url_rule(use_rule, endpoint, self.view_func, **use_options)
                 if callback:
-                    callback(app, use_rule, endpoint, view_func, **use_options)
+                    callback(app, use_rule, endpoint, self.view_func, **use_options)
 
 
 class ViewMethodBind(t.Generic[_P, _R_co]):
@@ -823,10 +783,6 @@ class ClassView:
                         # Copy ViewMethod instances into subclasses. We know an attr
                         # with the same name doesn't exist in the subclass because it
                         # was processed first in the MRO and added to the processed set.
-                        # FIXME: If this handler is registered with an app because the
-                        # base class is not a mixin, it may be a conflicting route.
-                        # init_app on both classes will be called in the future, so it
-                        # needs a guard condition there. How will the guard work?
                         attr = attr.copy()
                         setattr(cls, name, attr)
                         attr.__set_name__(cls, name)
