@@ -398,6 +398,7 @@ class LazyRoleSet(abc.MutableSet):
         '_present',
         '_not_present',
         '_scanned_granted_by',
+        '_contents_fully_evaluated',
     )
 
     def __init__(
@@ -409,8 +410,10 @@ class LazyRoleSet(abc.MutableSet):
         self._present: t.Set[str] = set(initial)
         #: Roles the actor does not have
         self._not_present: t.Set[str] = set()
-        # Relationships that have been scanned already
+        #: Relationships that have been scanned already
         self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
+        #: Has :meth:`_contents` been called?
+        self._contents_fully_evaluated = False
 
     def __repr__(self) -> str:  # pragma: no cover
         return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
@@ -508,9 +511,11 @@ class LazyRoleSet(abc.MutableSet):
 
     def _contents(self) -> t.Set[str]:
         """Return all available roles."""
-        # Populate cache (TODO: cache this step to avoid repeat checks)
-        for role in self.obj.__roles__:
-            self._role_is_present(role)
+        if not self._contents_fully_evaluated:
+            # Populate cache
+            for role in self.obj.__roles__:
+                self._role_is_present(role)
+            self._contents_fully_evaluated = True
         # self._present may have roles that are not specified in self.obj.__roles__,
         # notably implicit roles like `all` and `auth`. Therefore we must return the
         # cache instead of capturing available roles in the loop above
@@ -573,8 +578,11 @@ class LazyRoleSet(abc.MutableSet):
 
     def copy(self) -> LazyRoleSet:
         """Return a shallow copy of the :class:`LazyRoleSet`."""
+        # pylint: disable=protected-access
         result = LazyRoleSet(self.obj, self.actor, self._present)
-        result._not_present = set(self._not_present)  # pylint: disable=protected-access
+        result._not_present = set(self._not_present)
+        result._scanned_granted_by = self._scanned_granted_by
+        result._contents_fully_evaluated = self._contents_fully_evaluated
         return result
 
     # Sets offer these names as synonyms for operators
