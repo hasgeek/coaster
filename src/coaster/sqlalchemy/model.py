@@ -121,9 +121,9 @@ class ModelWarning(UserWarning):
 
 bigint: te.TypeAlias = te.Annotated[int, mapped_column(sa.BigInteger())]
 smallint: te.TypeAlias = te.Annotated[int, mapped_column(sa.SmallInteger())]
-int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True, init=False)]
+int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True)]
 uuid4_pkey: te.TypeAlias = te.Annotated[
-    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4, init=False)
+    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4)
 ]
 timestamp: te.TypeAlias = te.Annotated[
     datetime.datetime, mapped_column(sa.TIMESTAMP(timezone=True))
@@ -270,7 +270,7 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
     """
 
     # AppenderMixin does not specify a type for query_class
-    query_class = Query  # type: ignore[assignment]
+    query_class = Query
 
 
 class QueryProperty:
@@ -318,7 +318,7 @@ class ModelBase:
         #    __init_subclass__ scanned it. We can't stop a programmer from shooting
         #   their own foot. At best, we can warn of an accidental error.
         bind_key = cls.__bind_key__
-        for base in cls.mro():
+        for base in cls.__mro__:
             if ModelBase in base.__bases__:
                 # We've found the direct subclass of ModelBase...
                 base = cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet

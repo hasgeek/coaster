@@ -320,7 +320,7 @@ class TestCoasterModels(AppTestCase):
     def test_container(self) -> None:
         c = self.make_container()
         assert c.id is None
-        self.session.commit()  # type: ignore[unreachable]
+        self.session.commit()
         assert c.id == 1
 
     def test_timestamp(self) -> None:

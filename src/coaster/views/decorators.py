@@ -227,7 +227,7 @@ def requestbody(
     return requestargs(*args, source='body')
 
 
-def load_model(  # pylint: disable=too-many-arguments
+def load_model(
     model: t.Type,
     attributes: t.Dict[str, str],
     parameter: str,
@@ -257,7 +257,7 @@ def load_model(  # pylint: disable=too-many-arguments
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profile')
-        def profile_view(profile):
+        def profile_view(profile: Profile):
             return f"Hello, {profile.name}"
 
     ``load_model`` aborts with a 404 if no instance is found.
@@ -590,8 +590,8 @@ def render_with(
                         status_code = status_or_headers
                         headers = None
                 elif len(resultset) == 3:
-                    status_code = resultset[1]  # type: ignore[assignment,misc]
-                    headers = resultset[2]  # type: ignore[misc]
+                    status_code = resultset[1]
+                    headers = resultset[2]
                 else:
                     raise TypeError("View's response is an oversized tuple")
             else:

@@ -301,18 +301,9 @@ class TestCoasterAnnotations(AppTestCase):
         )
 
         # Confirm there is no value for is_immutable
-        assert (
-            sa.inspect(pi1).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
-            is NO_VALUE
-        )
-        assert (
-            sa.inspect(pi2).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
-            is NO_VALUE
-        )
-        assert (
-            sa.inspect(pi3).attrs.is_immutable.loaded_value  # type: ignore[union-attr]
-            is NO_VALUE
-        )
+        assert sa.inspect(pi1).attrs.is_immutable.loaded_value is NO_VALUE
+        assert sa.inspect(pi2).attrs.is_immutable.loaded_value is NO_VALUE
+        assert sa.inspect(pi3).attrs.is_immutable.loaded_value is NO_VALUE
 
         # Immutable columns are immutable even if not loaded
         with pytest.raises(ImmutableColumnError):
@@ -332,19 +323,19 @@ class TestCoasterAnnotations(AppTestCase):
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
 
-        i1.referral_target_id = rt1.id  # type: ignore[assignment]
-        i2.referral_target_id = rt1.id  # type: ignore[assignment]
-        i3.referral_target_id = rt1.id  # type: ignore[assignment]
+        i1.referral_target_id = rt1.id
+        i2.referral_target_id = rt1.id
+        i3.referral_target_id = rt1.id
 
         self.session.add_all([i1, i2, i3])
         self.session.commit()
 
         # Now try changing the value. i1 and i3 should block, i2 should allow
         with pytest.raises(ImmutableColumnError):
-            i1.referral_target_id = rt2.id  # type: ignore[assignment]
-        i2.referral_target_id = rt2.id  # type: ignore[assignment]
+            i1.referral_target_id = rt2.id
+        i2.referral_target_id = rt2.id
         with pytest.raises(ImmutableColumnError):
-            i3.referral_target_id = rt2.id  # type: ignore[assignment]
+            i3.referral_target_id = rt2.id
 
     def test_immutable_relationship(self) -> None:
         rt1 = ReferralTarget()
@@ -356,9 +347,9 @@ class TestCoasterAnnotations(AppTestCase):
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
 
-        i1.referral_target_id = rt1.id  # type: ignore[assignment]
-        i2.referral_target_id = rt1.id  # type: ignore[assignment]
-        i3.referral_target_id = rt1.id  # type: ignore[assignment]
+        i1.referral_target_id = rt1.id
+        i2.referral_target_id = rt1.id
+        i3.referral_target_id = rt1.id
 
         self.session.add_all([i1, i2, i3])
         # If we don't commit and flush session cache, i2.referral_target

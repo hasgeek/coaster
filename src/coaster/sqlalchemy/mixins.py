@@ -22,14 +22,13 @@ Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your mode
 base classes.
 """
 
-# pylint: disable=too-few-public-methods,no-self-argument
-
 from __future__ import annotations
 
 import typing as t
 import typing_extensions as te
 import warnings
-from collections import abc, namedtuple
+from collections import abc
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import cast, overload
@@ -37,7 +36,7 @@ from uuid import UUID, uuid4
 
 from flask import current_app, url_for
 
-try:  # Flask >= 3.0  # pragma: no cover
+try:  # Flask >= 3.0
     from flask.sansio.app import App as FlaskApp
 except ModuleNotFoundError:  # Flask < 3.0
     from flask import Flask as FlaskApp
@@ -90,8 +89,6 @@ __all__ = [
     'RoleMixin',
     'RegistryMixin',
 ]
-
-_T = t.TypeVar('_T', bound=t.Any)
 
 PkeyType = te.TypeVar('PkeyType', int, UUID, default=int)
 # `default=int` is processed by type checkers implementing PEP 696, but seemingly has no
@@ -153,7 +150,7 @@ class IdMixin(t.Generic[PkeyType]):
             # XXX: Is this the correct way to examine a generic subclass that may have
             # more generic args in a redefined order? The docs suggest Generic args are
             # assumed positional, but they may be reordered, so how do we determine the
-            # arg to IdMixin itself? There is no variant of `cls.mro()` that returns
+            # arg to IdMixin itself? There is no variant of `cls.__mro__` that returns
             # original base classes with their generic args. For now, we expect that
             # generic subclasses _must_ use the static `PkeyType` typevar in their
             # definitions. This may need to be revisited with Python 3.12's new type
@@ -198,6 +195,7 @@ class IdMixin(t.Generic[PkeyType]):
 
     @immutable
     @declared_attr
+    @classmethod
     def id(cls) -> Mapped[PkeyType]:  # noqa: A003
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
@@ -208,6 +206,7 @@ class IdMixin(t.Generic[PkeyType]):
         return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
 
     @declared_attr
+    @classmethod
     def url_id(cls) -> Mapped[str]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
@@ -270,6 +269,7 @@ class UuidMixin:
     @immutable
     @with_roles(read={'all'})
     @declared_attr
+    @classmethod
     def uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
@@ -320,6 +320,7 @@ class UuidMixin:
         self.uuid = uuid_from_base58(value)
 
     @uuid_b58.inplace.comparator
+    @classmethod
     def _uuid_b58_comparator(cls) -> SqlUuidB58Comparator:
         """Return SQL comparator for UUID in Base58 format."""
         return SqlUuidB58Comparator(cls.uuid)
@@ -338,6 +339,7 @@ class TimestampMixin:
 
     @immutable
     @declared_attr
+    @classmethod
     def created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
         return sa.orm.mapped_column(
@@ -347,6 +349,7 @@ class TimestampMixin:
         )
 
     @declared_attr
+    @classmethod
     def updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.orm.mapped_column(
@@ -392,13 +395,16 @@ class PermissionMixin:
         )
 
 
-UrlEndpointData = namedtuple(
-    'UrlEndpointData',
-    ['endpoint', 'paramattrs', 'external', 'roles', 'requires_kwargs'],
-)
-
-
 _UR = t.TypeVar('_UR', bound='NoIdMixin')
+
+
+@dataclass
+class UrlEndpointData:
+    endpoint: str
+    paramattrs: t.Dict[str, t.Union[str, t.Tuple[str, ...], t.Callable[[_UR], str]]]
+    external: t.Optional[bool]
+    roles: t.Optional[t.Collection[str]]
+    requires_kwargs: bool
 
 
 class UrlDictStub:
@@ -422,7 +428,7 @@ class UrlDictStub:
         self, obj: t.Optional[_UR], cls: t.Type[_UR]
     ) -> t.Union[te.Self, UrlDict[_UR]]:
         if obj is None:
-            return self  # pragma: no cover
+            return self
         return UrlDict(obj)
 
 
@@ -463,9 +469,10 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
                 and app
                 is current_app._get_current_object()  # type: ignore[attr-defined]
             ):
-                for action, epdata in app_actions.items():
-                    if not epdata.requires_kwargs and (
-                        epdata.roles is None or current_roles.has_any(epdata.roles)
+                for action, endpoint_data in app_actions.items():
+                    if not endpoint_data.requires_kwargs and (
+                        endpoint_data.roles is None
+                        or current_roles.has_any(endpoint_data.roles)
                     ):
                         yield action
 
@@ -473,10 +480,10 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
 class UrlForMixin:
     """Provides a :meth:`url_for` method used by BaseMixin-derived classes."""
 
-    #: Mapping of {app: {action: UrlEndpointData}}, where attr is a string or tuple of
-    #: strings. The same action can point to different endpoints in different apps. The
-    #: app may also be None as fallback. Each subclass will get its own dictionary.
-    #: This particular dictionary is only used as an inherited fallback.
+    #: Mapping of {app: {action: UrlEndpointData}}. The same action can point to
+    #: different endpoints in different apps. The app may also be None as fallback. Each
+    #: subclass will get its own dictionary. This particular dictionary is only used as
+    #: an inherited fallback.
     url_for_endpoints: t.ClassVar[
         t.Dict[t.Optional[FlaskApp], t.Dict[str, UrlEndpointData]]
     ] = {None: {}}
@@ -497,14 +504,14 @@ class UrlForMixin:
             else None
         )
         if app is not None and action in self.url_for_endpoints.get(app, {}):
-            epdata = self.url_for_endpoints[app][action]
+            endpoint_data = self.url_for_endpoints[app][action]
         else:
             try:
-                epdata = self.url_for_endpoints[None][action]
+                endpoint_data = self.url_for_endpoints[None][action]
             except KeyError as exc:
                 raise BuildError(action, kwargs, 'GET') from exc
         params = {}
-        for param, attr in list(epdata.paramattrs.items()):
+        for param, attr in list(endpoint_data.paramattrs.items()):
             if isinstance(attr, tuple):
                 # attr is a tuple containing:
                 # 1. ('parent', 'name') --> self.parent.name
@@ -518,15 +525,18 @@ class UrlForMixin:
                     item = getattr(item, subattr)
                 params[param] = item
             elif callable(attr):
-                params[param] = attr(self)
+                # TODO: Support callables expecting kwargs
+                params[param] = attr(self)  # type: ignore[type-var]
             else:
                 params[param] = getattr(self, attr)
-        if epdata.external is not None:
-            params['_external'] = epdata.external
+        if endpoint_data.external is not None:
+            params['_external'] = endpoint_data.external
+
+        # FIXME: Why do we have this? It needs test coverage
         params.update(kwargs)  # Let kwargs override params
 
         # url_for from flask
-        return url_for(epdata.endpoint, **params)
+        return url_for(endpoint_data.endpoint, **params)
 
     @property
     def absolute_url(self) -> t.Optional[str]:
@@ -542,11 +552,12 @@ class UrlForMixin:
         __action: str,
         __endpoint: t.Optional[str] = None,
         __app: t.Optional[FlaskApp] = None,
+        /,
         _external: t.Optional[bool] = None,
         **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
     ) -> ReturnDecorator:
         """
-        View decorator that registers the view as a :meth:`url_for` target.
+        Decorator that registers a view as a :meth:`url_for` target.
 
         :param __action: Action to register a URL under
         :param __endpoint: View endpoint name to pass to Flask's ``url_for``
@@ -571,6 +582,7 @@ class UrlForMixin:
     def register_endpoint(
         cls,
         action: str,
+        *,
         endpoint: str,
         app: t.Optional[FlaskApp],
         paramattrs: t.Mapping[
@@ -588,7 +600,7 @@ class UrlForMixin:
         :param app: Flask app (default: `None`)
         :param external: If `True`, URLs are assumed to be external-facing by default
         :param roles: Roles to which this URL is available, required by :class:`UrlDict`
-        :param dict paramattrs: Mapping of URL parameter to attribute on the object
+        :param dict paramattrs: Mapping of URL parameter to attribute name on the object
         """
         if 'url_for_endpoints' not in cls.__dict__:
             cls.url_for_endpoints = {
@@ -693,8 +705,9 @@ class BaseNameMixin(BaseMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for URL name of this object, unique across all instances."""
+        """URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -706,8 +719,9 @@ class BaseNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -843,8 +857,9 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
     parent: t.Any
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for URL name of this object, unique within a parent container."""
+        """URL name of this object, unique within the parent container."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -856,8 +871,9 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1007,8 +1023,9 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for the URL name of this object, non-unique."""
+        """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1020,8 +1037,9 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for the title of this object."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1119,8 +1137,9 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @with_roles(read={'all'})
     @declared_attr
+    @classmethod
     def url_id(cls) -> Mapped[int]:  # type: ignore[override]
-        """Column for an id number that is unique within the parent container."""
+        """Id number that is unique within the parent container."""
         return sa.orm.mapped_column(sa.Integer, nullable=False)
 
     def __init__(self, *args, **kw) -> None:
@@ -1139,7 +1158,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     def make_id(self) -> None:
         """Create a new URL id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
-            self.url_id = (  # type: ignore[unreachable]
+            self.url_id = (
                 # pylint: disable=not-callable
                 select(func.coalesce(func.max(self.__class__.url_id + 1), 1))
                 .where(
@@ -1202,8 +1221,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
     @declared_attr
+    @classmethod
     def name(cls) -> Mapped[str]:
-        """Column for the URL name of this instance, non-unique."""
+        """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
         else:
@@ -1215,8 +1235,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
         )
 
     @declared_attr
+    @classmethod
     def title(cls) -> Mapped[str]:
-        """Column for the title of this instance."""
+        """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:

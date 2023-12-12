@@ -512,17 +512,19 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
 
 
 @overload
-def require_one_of(__return: te.Literal[False] = False, **kwargs: t.Any) -> None:
+def require_one_of(__return: te.Literal[False] = False, /, **kwargs: t.Any) -> None:
     ...
 
 
 @overload
-def require_one_of(__return: te.Literal[True], **kwargs: t.Any) -> t.Tuple[str, t.Any]:
+def require_one_of(
+    __return: te.Literal[True], /, **kwargs: t.Any
+) -> t.Tuple[str, t.Any]:
     ...
 
 
 def require_one_of(
-    __return: bool = False, **kwargs: t.Any
+    __return: bool = False, /, **kwargs: t.Any
 ) -> t.Optional[t.Tuple[str, t.Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
@@ -540,10 +542,9 @@ def require_one_of(
             # Carry on with function logic
             pass
 
-    :param __return: Return the matching parameter name and value (positional only)
+    :param __return: Return the matching parameter name and value
     :param kwargs: Parameters, of which one and only one is mandatory
     :return: If `__return`, matching parameter name and value
-    :rtype: tuple
     :raises TypeError: If the count of parameters that aren't ``None`` is not 1
 
     .. deprecated:: 0.7.0
@@ -669,16 +670,13 @@ def domain_namespace_match(domain: str, namespace: str) -> bool:
 
 
 T = t.TypeVar('T')
+T2 = t.TypeVar('T2')
+R_co = t.TypeVar('R_co', covariant=True)
 
 
-class _CallableSameArgs(te.Protocol):  # pylint: disable=too-few-public-methods
-    """Protocl for callable that accepts multiple arguments of the same type."""
-
-    def __call__(self, lhs: T, *others: T) -> T:
-        ...
-
-
-def nary_op(f: t.Callable, doc: t.Optional[str] = None) -> _CallableSameArgs:
+def nary_op(
+    f: t.Callable[[T, T2], R_co], doc: t.Optional[str] = None
+) -> t.Callable[..., R_co]:
     """
     Convert a binary operator function into a chained n-ary operator.
 
@@ -695,10 +693,10 @@ def nary_op(f: t.Callable, doc: t.Optional[str] = None) -> _CallableSameArgs:
     """
 
     @wraps(f)
-    def inner(lhs: T, *others: T) -> T:
+    def inner(lhs: T, *others: T2) -> R_co:
         for other in others:
-            lhs = f(lhs, other)
-        return lhs
+            lhs = f(lhs, other)  # type: ignore[assignment]
+        return lhs  # type: ignore[return-value]
 
     if doc is not None:
         inner.__doc__ = doc

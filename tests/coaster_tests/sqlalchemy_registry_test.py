@@ -202,11 +202,17 @@ def test_registry_reuse_okay() -> None:
 
 
 def test_registry_param_type() -> None:
-    """Registry's param must be string or None."""
+    """Registry's param must be string that is valid as an identifier, or None."""
     r: Registry = Registry()
     assert r._default_kwarg is None
-    with pytest.raises(ValueError, match="kwarg parameter cannot be blank"):
+    with pytest.raises(
+        ValueError, match="kwarg parameter must be a valid Python identifier"
+    ):
         Registry(kwarg='')
+    with pytest.raises(
+        ValueError, match="kwarg parameter must be a valid Python identifier"
+    ):
+        Registry(kwarg='def')
     with pytest.raises(TypeError):
         r = Registry(kwarg=1)  # type: ignore[arg-type]
     r = Registry(kwarg='obj')

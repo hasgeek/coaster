@@ -27,7 +27,7 @@ from .sqlalchemy_models_test import User
 # --- App context ----------------------------------------------------------------------
 
 
-class LoginManager:  # pylint: disable=too-few-public-methods
+class LoginManager:
     """Test login manager implementing _load_user method."""
 
     def __init__(self, _app: Flask) -> None:
@@ -48,7 +48,7 @@ class LoginManager:  # pylint: disable=too-few-public-methods
                 add_auth_attribute('username', self.user.username)
 
 
-class FlaskLoginManager(LoginManager):  # pylint: disable=too-few-public-methods
+class FlaskLoginManager(LoginManager):
     """Test login manager implementing _load_user but only setting ``g._login_user``."""
 
     def _load_user(self) -> None:
@@ -170,8 +170,8 @@ def test_current_auth_with_user(
     with pytest.raises(AttributeError):
         assert current_auth.fullname == 'Mr Foo'
 
-    # current_user is immutable
-    with pytest.raises(AttributeError):
+    # current_auth is immutable
+    with pytest.raises(TypeError, match="current_auth is read-only"):
         current_auth.username = 'bar'
 
     # For full attribute access, use the user object

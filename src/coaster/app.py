@@ -40,7 +40,7 @@ mod_tomllib: t.Optional[types.ModuleType] = None
 mod_tomli: t.Optional[types.ModuleType] = None
 mod_yaml: t.Optional[types.ModuleType] = None
 
-try:  # pragma: no cover
+try:
     import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
 except ModuleNotFoundError:
     try:
@@ -52,7 +52,7 @@ except ModuleNotFoundError:
             pass
 
 
-try:  # pragma: no cover
+try:
     import yaml as mod_yaml
 except ModuleNotFoundError:
     pass
@@ -106,7 +106,7 @@ _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engine
 # --- Key rotation wrapper -------------------------------------------------------------
 
 
-class KeyRotationWrapper(t.Generic[_S]):  # pylint: disable=too-few-public-methods
+class KeyRotationWrapper(t.Generic[_S]):
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -193,7 +193,7 @@ class JSONProvider(DefaultJSONProvider):
 
     @staticmethod
     def default(o: t.Any) -> t.Any:
-        """Expand default support to check for `__json__`."""
+        """Expand default support to check for a ``__json__`` method."""
         if hasattr(o, '__json__'):
             return o.__json__()
         if isinstance(o, abc.Mapping):
@@ -330,11 +330,10 @@ def load_config_from_file(
     try:
         if load is None:
             return app.config.from_pyfile(filepath)
-        # The `text` parameter requires Flask 2.3. We still support Flask 2.2
+        # The `text` parameter was introduced in Flask 2.3, but its default value
+        # may change in a future release, so we only supply a value if we have a bool
         if text is not None:
-            return app.config.from_file(  # type: ignore[call-arg]
-                filepath, load=load, text=text
-            )
+            return app.config.from_file(filepath, load=load, text=text)
         return app.config.from_file(filepath, load=load)
     except OSError:
         app.logger.warning(

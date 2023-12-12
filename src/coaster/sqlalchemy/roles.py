@@ -43,6 +43,7 @@ Example use::
             return sa.orm.mapped_column(sa.Unicode(250))
 
         @declared_attr
+        @classmethod
         def mixed_in2(cls) -> Mapped[str]:
             return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
@@ -128,6 +129,7 @@ Example use::
 from __future__ import annotations
 
 import dataclasses
+import sys
 import typing as t
 import typing_extensions as te
 from abc import ABCMeta, abstractmethod
@@ -169,6 +171,7 @@ __all__ = [
     'RoleAccessProxy',
     'DynamicAssociationProxy',
     'RoleMixin',
+    'WithRoles',
     'with_roles',
 ]
 
@@ -207,6 +210,9 @@ class RoleAttrs(te.TypedDict, total=False):
 class WithRoles:
     """Role annotations for an attribute."""
 
+    if sys.version_info >= (3, 10):
+        _: dataclasses.KW_ONLY
+
     read: t.Set[str] = dataclasses.field(default_factory=set)
     write: t.Set[str] = dataclasses.field(default_factory=set)
     call: t.Set[str] = dataclasses.field(default_factory=set)
@@ -229,7 +235,7 @@ class WithRoles:
             write=self.write | other.write,
             call=self.call | other.call,
             grants=self.grants | other.grants,
-            grants_via={**self.grants_via, **other.grants_via},
+            grants_via=self.grants_via | other.grants_via,
             datasets=self.datasets | other.datasets,
         )
 
@@ -392,6 +398,7 @@ class LazyRoleSet(abc.MutableSet):
         '_present',
         '_not_present',
         '_scanned_granted_by',
+        '_contents_fully_evaluated',
     )
 
     def __init__(
@@ -403,8 +410,10 @@ class LazyRoleSet(abc.MutableSet):
         self._present: t.Set[str] = set(initial)
         #: Roles the actor does not have
         self._not_present: t.Set[str] = set()
-        # Relationships that have been scanned already
+        #: Relationships that have been scanned already
         self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
+        #: Has :meth:`_contents` been called?
+        self._contents_fully_evaluated = False
 
     def __repr__(self) -> str:  # pragma: no cover
         return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
@@ -502,9 +511,11 @@ class LazyRoleSet(abc.MutableSet):
 
     def _contents(self) -> t.Set[str]:
         """Return all available roles."""
-        # Populate cache (TODO: cache this step to avoid repeat checks)
-        for role in self.obj.__roles__:
-            self._role_is_present(role)
+        if not self._contents_fully_evaluated:
+            # Populate cache
+            for role in self.obj.__roles__:
+                self._role_is_present(role)
+            self._contents_fully_evaluated = True
         # self._present may have roles that are not specified in self.obj.__roles__,
         # notably implicit roles like `all` and `auth`. Therefore we must return the
         # cache instead of capturing available roles in the loop above
@@ -531,9 +542,6 @@ class LazyRoleSet(abc.MutableSet):
         if isinstance(other, LazyRoleSet):
             return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
-
-    def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
 
     def __and__(self, other: t.Iterable[str]) -> t.Set[str]:
         """Faster implementation that avoids lazy lookups where not needed."""
@@ -570,23 +578,32 @@ class LazyRoleSet(abc.MutableSet):
 
     def copy(self) -> LazyRoleSet:
         """Return a shallow copy of the :class:`LazyRoleSet`."""
+        # pylint: disable=protected-access
         result = LazyRoleSet(self.obj, self.actor, self._present)
-        result._not_present = set(self._not_present)  # pylint: disable=protected-access
+        result._not_present = set(self._not_present)
+        result._scanned_granted_by = self._scanned_granted_by
+        result._contents_fully_evaluated = self._contents_fully_evaluated
         return result
+
+    # Sets offer these names as synonyms for operators
+    issubset = abc.MutableSet.__le__
+    issuperset = abc.MutableSet.__ge__
+    symmetric_difference_update = abc.MutableSet.__ixor__
 
     # Set operators take a single `other` parameter while these methods
     # are required to take multiple `others` to be API-compatible with sets.
     # `nary_op` converts a binary operator to an n-ary operator
-    issubset = nary_op(abc.MutableSet.__le__)
-    issuperset = nary_op(abc.MutableSet.__ge__)
     union = nary_op(abc.MutableSet.__or__)
     intersection = nary_op(__and__)
     difference = nary_op(abc.MutableSet.__sub__)
     symmetric_difference = nary_op(abc.MutableSet.__xor__)
-    update = nary_op(abc.MutableSet.__ior__)
-    intersection_update = nary_op(abc.MutableSet.__iand__)
-    difference_update = nary_op(abc.MutableSet.__isub__)
-    symmetric_difference_update = nary_op(abc.MutableSet.__ixor__)
+    update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(abc.MutableSet.__ior__)
+    intersection_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+        abc.MutableSet.__iand__
+    )
+    difference_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+        abc.MutableSet.__isub__
+    )
 
 
 class DynamicAssociationProxy(t.Generic[_V]):
@@ -702,10 +719,6 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
             and self.attr == other.attr
         )
 
-    def __ne__(self, other: t.Any) -> bool:
-        # This method is required as abc.Set provides a less efficient version
-        return not self.__eq__(other)
-
 
 class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     """
@@ -782,10 +795,11 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __init__(
         self,
         obj: RoleMixinType,
+        *,
         roles: t.Union[LazyRoleSet, t.Set[str]],
-        actor: t.Optional[t.Any],
-        anchors: t.Sequence[t.Any],
-        datasets: t.Optional[t.Sequence[str]],
+        actor: t.Optional[t.Any] = None,
+        anchors: t.Sequence[t.Any] = (),
+        datasets: t.Optional[t.Sequence[str]] = None,
     ) -> None:
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
@@ -962,6 +976,18 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         yield from self._all_read
 
     def __json__(self) -> t.Dict[str, t.Any]:
+        if self._datasets is None and self._obj.__json_datasets__:
+            # This proxy was created without specifying datasets, so we create a new
+            # proxy using the object's default JSON datasets, then convert it to a dict
+            return dict(
+                RoleAccessProxy(
+                    obj=self._obj,
+                    roles=self._roles,
+                    actor=self._actor,
+                    anchors=self._anchors,
+                    datasets=self._obj.__json_datasets__,
+                )
+            )
         return dict(self)
 
     def __eq__(self, other: t.Any) -> bool:
@@ -973,10 +999,6 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         ):
             return True
         return super().__eq__(other)
-
-    def __ne__(self, other: t.Any) -> bool:
-        # Don't call __eq__ directly, it may return NotImplemented
-        return not self == other
 
     def __bool__(self) -> bool:
         return bool(self._obj)
@@ -1007,7 +1029,7 @@ def with_roles(
 @overload
 def with_roles(
     __obj: _DA,
-    *,
+    /,
     rw: t.Optional[t.Set[str]] = None,
     call: t.Optional[t.Set[str]] = None,
     read: t.Optional[t.Set[str]] = None,
@@ -1026,7 +1048,7 @@ def with_roles(
 
 def with_roles(
     __obj: t.Optional[_DA] = None,
-    *,
+    /,
     rw: t.Optional[t.Set[str]] = None,
     call: t.Optional[t.Set[str]] = None,
     read: t.Optional[t.Set[str]] = None,

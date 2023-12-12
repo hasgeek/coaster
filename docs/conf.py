@@ -16,7 +16,7 @@ import sys
 import typing as t
 
 sys.path.insert(0, os.path.abspath('../src'))
-from coaster import _version  # isort:skip  # pylint: disable=wrong-import-position
+from coaster import _version  # isort:skip
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
