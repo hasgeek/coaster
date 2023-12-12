@@ -856,7 +856,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
         model: t.Type[ModelType]
     else:
         #: The model that is being handled by this ModelView (autoset from Generic arg).
-        model: t.ClassVar[t.Type]
+        model: t.ClassVar[t.Type[ModelType]]
 
     #: A loaded object of the model's type
     obj: ModelType

@@ -150,7 +150,7 @@ class IdMixin(t.Generic[PkeyType]):
             # XXX: Is this the correct way to examine a generic subclass that may have
             # more generic args in a redefined order? The docs suggest Generic args are
             # assumed positional, but they may be reordered, so how do we determine the
-            # arg to IdMixin itself? There is no variant of `cls.mro()` that returns
+            # arg to IdMixin itself? There is no variant of `cls.__mro__` that returns
             # original base classes with their generic args. For now, we expect that
             # generic subclasses _must_ use the static `PkeyType` typevar in their
             # definitions. This may need to be revisited with Python 3.12's new type

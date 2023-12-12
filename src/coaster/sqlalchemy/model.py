@@ -121,9 +121,9 @@ class ModelWarning(UserWarning):
 
 bigint: te.TypeAlias = te.Annotated[int, mapped_column(sa.BigInteger())]
 smallint: te.TypeAlias = te.Annotated[int, mapped_column(sa.SmallInteger())]
-int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True, init=False)]
+int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True)]
 uuid4_pkey: te.TypeAlias = te.Annotated[
-    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4, init=False)
+    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4)
 ]
 timestamp: te.TypeAlias = te.Annotated[
     datetime.datetime, mapped_column(sa.TIMESTAMP(timezone=True))
