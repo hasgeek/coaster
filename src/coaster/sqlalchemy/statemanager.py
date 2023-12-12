@@ -520,9 +520,6 @@ class ManagedStateInstance(t.Generic[_T]):
             and self._obj == other._obj
         )
 
-    def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
-
     def __bool__(self) -> bool:
         return self._mstate.is_current_in(self._obj)
 

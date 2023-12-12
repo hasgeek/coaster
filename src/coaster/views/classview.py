@@ -663,9 +663,6 @@ class ClassView:
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self)
 
-    def __ne__(self, other: t.Any) -> bool:
-        return type(other) is not type(self)
-
     def dispatch_request(
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
     ) -> BaseResponse:
@@ -953,9 +950,6 @@ class ModelView(ClassView, t.Generic[ModelType]):
 
     def __eq__(self, other: t.Any) -> bool:
         return type(other) is type(self) and other.obj == self.obj
-
-    def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
 
     def dispatch_request(
         self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]

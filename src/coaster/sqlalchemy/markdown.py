@@ -92,10 +92,6 @@ class MarkdownComposite(MutableComposite):
             self.__composite_values__() == other.__composite_values__()
         )
 
-    def __ne__(self, other: t.Any) -> bool:
-        """Compare for inequality."""
-        return not self.__eq__(other)
-
     # Pickle support methods implemented as per SQLAlchemy documentation, but not
     # tested here as we don't use them.
     # https://docs.sqlalchemy.org/en/13/orm/extensions/mutable.html#id1

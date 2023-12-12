@@ -538,9 +538,6 @@ class LazyRoleSet(abc.MutableSet):
             return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
 
-    def __ne__(self, other: t.Any) -> bool:
-        return not self.__eq__(other)
-
     def __and__(self, other: t.Iterable[str]) -> t.Set[str]:
         """Faster implementation that avoids lazy lookups where not needed."""
         return {role for role in other if self._role_is_present(role)}
@@ -713,10 +710,6 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
             and self.rel == other.rel
             and self.attr == other.attr
         )
-
-    def __ne__(self, other: t.Any) -> bool:
-        # This method is required as abc.Set provides a less efficient version
-        return not self.__eq__(other)
 
 
 class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
@@ -985,10 +978,6 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         ):
             return True
         return super().__eq__(other)
-
-    def __ne__(self, other: t.Any) -> bool:
-        # Don't call __eq__ directly, it may return NotImplemented
-        return not self == other
 
     def __bool__(self) -> bool:
         return bool(self._obj)
