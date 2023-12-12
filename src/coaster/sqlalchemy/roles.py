@@ -795,10 +795,11 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __init__(
         self,
         obj: RoleMixinType,
+        *,
         roles: t.Union[LazyRoleSet, t.Set[str]],
-        actor: t.Optional[t.Any],
-        anchors: t.Sequence[t.Any],
-        datasets: t.Optional[t.Sequence[str]],
+        actor: t.Optional[t.Any] = None,
+        anchors: t.Sequence[t.Any] = (),
+        datasets: t.Optional[t.Sequence[str]] = None,
     ) -> None:
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
@@ -975,6 +976,18 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         yield from self._all_read
 
     def __json__(self) -> t.Dict[str, t.Any]:
+        if self._datasets is None and self._obj.__json_datasets__:
+            # This proxy was created without specifying datasets, so we create a new
+            # proxy using the object's default JSON datasets, then convert it to a dict
+            return dict(
+                RoleAccessProxy(
+                    obj=self._obj,
+                    roles=self._roles,
+                    actor=self._actor,
+                    anchors=self._anchors,
+                    datasets=self._obj.__json_datasets__,
+                )
+            )
         return dict(self)
 
     def __eq__(self, other: t.Any) -> bool:
