@@ -195,6 +195,7 @@ class BaseView(ClassView):
     def also_inherited(self) -> str:
         return 'also_inherited'
 
+    @viewdata()
     def latent_route(self) -> str:
         return 'latent-route'
 
@@ -204,24 +205,26 @@ class SubView(BaseView):
     """Test subclass of a ClassView."""
 
     @viewdata(title="Still first")
-    @BaseView.first.reroute
+    @BaseView.first.replace
     def first(self):
-        return 'rerouted-first'
+        return 'replaced-first'
 
     # Mypy can't process this, but Pyright can. Appears to be a Mypy bug
     @route('2')  # type: ignore[arg-type]
-    @BaseView.second.reroute
+    @BaseView.second.replace
     @viewdata(title="Not still second")
     def second(self):
-        return 'rerouted-second'
+        return 'replaced-second'
 
     def third(self):
         return 'removed-third'
 
+    also_inherited = BaseView.also_inherited.with_route('/inherited').with_route(
+        'inherited2', endpoint='just_also_inherited'
+    )
+    latent_route = BaseView.latent_route.with_route('latent')
 
-SubView.add_route_for('also_inherited', '/inherited')
-SubView.add_route_for('also_inherited', 'inherited2', endpoint='just_also_inherited')
-SubView.add_route_for('latent_route', 'latent')
+
 SubView.init_app(app)
 
 
@@ -230,9 +233,9 @@ class AnotherSubView(BaseView):
     """Test second subclass of a ClassView."""
 
     @route('2-2')
-    @BaseView.second.reroute
+    @BaseView.second.replace
     def second(self):
-        return 'also-rerouted-second'
+        return 'also-replaced-second'
 
 
 AnotherSubView.init_app(app)
@@ -487,22 +490,22 @@ class TestClassView(unittest.TestCase):
         assert rv == 'edited!'
         assert doc.title == "Edited"
 
-    def test_rerouted(self) -> None:
+    def test_replaced(self) -> None:
         """Subclass replaces view method."""
         rv = self.client.get('/subclasstest')
         assert rv.data != b'first'
-        assert rv.data == b'rerouted-first'
+        assert rv.data == b'replaced-first'
         assert rv.status_code == 200
 
-    def test_rerouted_with_new_routes(self) -> None:
+    def test_replaced_with_new_routes(self) -> None:
         """Subclass replaces view method and adds new routes."""
         rv = self.client.get('/subclasstest/second')
         assert rv.data != b'second'
-        assert rv.data == b'rerouted-second'
+        assert rv.data == b'replaced-second'
         assert rv.status_code == 200
         rv = self.client.get('/subclasstest/2')
         assert rv.data != b'second'
-        assert rv.data == b'rerouted-second'
+        assert rv.data == b'replaced-second'
         assert rv.status_code == 200
 
     def test_unrouted(self) -> None:
@@ -529,22 +532,17 @@ class TestClassView(unittest.TestCase):
         rv = self.client.get('/subclasstest/latent')
         assert rv.data == b'latent-route'
 
-    def test_cant_route_missing_method(self) -> None:
-        """Routes can't be added for missing attributes."""
-        with pytest.raises(AttributeError):
-            SubView.add_route_for('this_method_does_not_exist', '/missing')
-
-    def test_second_subview_reroute(self) -> None:
-        """Using reroute does not mutate the base class."""
+    def test_second_subview_replace(self) -> None:
+        """Using replace does not mutate the base class."""
         rv = self.client.get('/secondsub/second')
         assert rv.data != b'second'
-        assert rv.data == b'also-rerouted-second'
+        assert rv.data == b'also-replaced-second'
         assert rv.status_code == 200
         rv = self.client.get('/secondsub/2-2')
         assert rv.data != b'second'
-        assert rv.data == b'also-rerouted-second'
+        assert rv.data == b'also-replaced-second'
         assert rv.status_code == 200
-        # Confirm we did not accidentally acquire this from SubView's use of reroute
+        # Confirm we did not accidentally acquire this from SubView's use of replace
         rv = self.client.get('/secondsub/2')
         assert rv.status_code == 404
 
@@ -572,9 +570,8 @@ class TestClassView(unittest.TestCase):
         assert BaseView.first.data['title'] == "First"
         assert BaseView.second.data['title'] == "Second"
         assert SubView.first.data['title'] == "Still first"
-        assert (
-            SubView.second.data['title'] != "Not still second"
-        )  # Reroute took priority
+        # Replacement took priority
+        assert SubView.second.data['title'] != "Not still second"
         assert SubView.second.data['title'] == "Second"
 
     def test_viewlist(self) -> None:

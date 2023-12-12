@@ -11,7 +11,7 @@ import typing as t
 import typing_extensions as te
 import warnings
 from functools import partial, update_wrapper, wraps
-from inspect import getattr_static, iscoroutinefunction
+from inspect import iscoroutinefunction
 from typing import cast, overload
 
 from flask import abort, make_response, redirect, request
@@ -314,26 +314,67 @@ class ViewMethod(t.Generic[_P, _R_co]):
         # self.__name__ and self.default_endpoint will change in __set_name__
         self.__name__ = self.default_endpoint = func.__name__
 
-    def reroute(
+    def replace(
         self,
         __f: t.Union[
             ViewMethod[_P2, _R2_co], MethodProtocol[te.Concatenate[t.Any, _P2], _R2_co]
         ],
     ) -> ViewMethod[_P2, _R2_co]:
-        """Replace a view handler in a subclass while keeping its URL route rules."""
+        """
+        Replace a view method in a subclass while keeping its URL routes.
+
+        To be used when a subclass needs a custom implementation::
+
+            class CrudView:
+                @route('delete', methods=['GET', 'POST'])
+                def delete(self): ...
+
+            @route('/<doc>')
+            class MyModelView(CrudView, ModelView[MyModel]):
+                @route('remove', methods=['GET', 'POST'])  # Add another route
+                @CrudView.delete.replace  # Keep the existing 'delete' route
+                def delete(self):
+                    super().delete()  # Call into base class's implementation if needed
+        """
         cls = cast(t.Type[ViewMethod], self.__class__)
         r: ViewMethod[_P2, _R2_co] = cls(__f, data=self.data)
         r.routes = self.routes
         return r
 
-    def copy_for_subclass(self) -> te.Self:
+    def copy(self) -> te.Self:
         """Make a copy of this ViewMethod, for use in a subclass."""
-        # Like reroute, but a copy without a new function body
-        r = self.__class__(self.__func__, data=self.data)
-        r.routes = self.routes
-        # Don't copy decorated_func, as it will be re-wrapped by init_app / __set_name__
-        r.default_endpoint = self.default_endpoint
-        return r
+        return self.__class__(self)
+
+    def with_route(self, rule: str, **options: t.Any) -> te.Self:
+        """
+        Make a copy of this ViewMethod with an additional route.
+
+        To be used when a subclass needs an additional route, but doesn't need a new
+        implementation. This can also be used to provide a base implementation with no
+        routes::
+
+            class CrudView:
+                @route('delete', methods=['GET', 'POST'])
+                def delete(self): ...
+
+                @viewdata()  # This creates a ViewMethod with no routes
+                def latent(self): ...
+
+            @route('/<doc>')
+            class MyModelView(CrudView, ModelView[MyModel]):
+                delete = CrudView.delete.with_route('remove', methods=['GET', 'POST'])
+                latent = CrudView.latent.with_route('latent')
+        """
+        return self.__class__(self, rule=rule, rule_options=options)
+
+    def with_data(self, **data: t.Any) -> te.Self:
+        """
+        Make a copy of this ViewMethod with additional data.
+
+        See :meth:`with_route` for usage notes. This method adds or replaces data
+        instead of adding a URL route.
+        """
+        return self.__class__(self, data=data)
 
     def __set_name__(self, owner: t.Type, name: str) -> None:
         # `name` is almost always the existing value acquired from decorated.__name__,
@@ -730,48 +771,6 @@ class ClassView:
             getattr(self, _v).is_available() for _v in self.__views__
         )
 
-    @classmethod
-    def add_route_for(cls, __name: str, /, rule: str, **options) -> None:
-        """
-        Add a route for an existing method or view.
-
-        Useful for modifying routes that a subclass inherits from a base class::
-
-            class BaseView(ClassView):
-                def latent_view(self):
-                    return 'latent-view'
-
-                @route('other')
-                def other_view(self):
-                    return 'other-view'
-
-            @route('/path')
-            class SubView(BaseView):
-                pass
-
-            SubView.add_route_for('latent_view', 'latent')
-            SubView.add_route_for('other_view', 'another')
-            SubView.init_app(app)
-
-            # Created routes:
-            # /path/latent -> SubView.latent (added)
-            # /path/other -> SubView.other (inherited)
-            # /path/another -> SubView.other (added)
-
-        :param _name: Name of the method or view on the class
-        :param rule: URL rule to be added
-        :param options: Additional options for :meth:`~flask.Flask.add_url_rule`
-        """
-        attr = getattr_static(cls, __name)
-        # getattr_static raises AttributeError if no default is provided, but the
-        # documentation is unclear about this:
-        # https://docs.python.org/3/library/inspect.html#inspect.getattr_static
-        view_method = ViewMethod(attr, rule=rule, rule_options=options)
-        setattr(cls, __name, view_method)
-        view_method.__set_name__(cls, __name)
-        if __name not in cls.__views__:
-            cls.__views__ = frozenset(cls.__views__) | {__name}
-
     def __init_subclass__(cls) -> None:
         """Copy views from base classes into the subclass."""
         view_names = set()
@@ -790,7 +789,7 @@ class ClassView:
                         # base class is not a mixin, it may be a conflicting route.
                         # init_app on both classes will be called in the future, so it
                         # needs a guard condition there. How will the guard work?
-                        attr = attr.copy_for_subclass()
+                        attr = attr.copy()
                         setattr(cls, name, attr)
                         attr.__set_name__(cls, name)
                     view_names.add(name)
