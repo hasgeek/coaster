@@ -34,12 +34,11 @@ for ``new`` and ``edit`` actions could use those names instead.
 from __future__ import annotations
 
 import typing as t
-import typing_extensions as te
 import warnings
 from functools import partial
 from keyword import iskeyword
 from threading import Lock
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 import sqlalchemy as sa
 from sqlalchemy.orm import declarative_mixin
@@ -51,6 +50,7 @@ __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 _marker = object()
 
 _T = t.TypeVar('_T')
+_RT = t.TypeVar('_RT', bound='Registry')
 
 
 class Registry:
@@ -128,7 +128,7 @@ class Registry:
                 raise TypeError(f"Expected type for kwarg is str|None: {kwarg}")
             if not kwarg.isidentifier() or iskeyword(kwarg):
                 raise ValueError("kwarg parameter must be a valid Python identifier")
-        object.__setattr__(self, '_default_kwarg', kwarg if kwarg else None)
+        object.__setattr__(self, '_default_kwarg', kwarg)
         object.__setattr__(self, '_name', None)
         object.__setattr__(self, '_lock', Lock())
         object.__setattr__(self, '_default_property', property)
@@ -180,7 +180,7 @@ class Registry:
 
             if use_name.startswith('_'):
                 raise AttributeError(
-                    "Registry member names cannot be underscore-prefixed"
+                    f"Registry member names cannot start with an underscore: {use_name}"
                 )
             if hasattr(self, use_name):
                 raise AttributeError(f"{use_name} is already registered")
@@ -198,16 +198,16 @@ class Registry:
         return decorator
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
+    def __get__(self: _RT, obj: None, cls: t.Type) -> _RT:
         ...
 
     @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_T]:
+    def __get__(self: _RT, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_RT, _T]:
         ...
 
     def __get__(
-        self, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[te.Self, InstanceRegistry[_T]]:
+        self: _RT, obj: t.Optional[_T], cls: t.Type[_T]
+    ) -> t.Union[_RT, InstanceRegistry[_RT, _T]]:
         """Access at runtime."""
         if obj is None:
             return self
@@ -230,14 +230,14 @@ class Registry:
         # that was saved to obj.__dict__
         return ir
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Tell Mypy that it's okay for code to attempt reading an attr
 
         def __getattr__(self, attr: str) -> t.Any:
             ...
 
 
-class InstanceRegistry(t.Generic[_T]):
+class InstanceRegistry(t.Generic[_RT, _T]):
     """
     Container for accessing registered items from an instance of the model.
 
@@ -245,7 +245,7 @@ class InstanceRegistry(t.Generic[_T]):
     in an ``obj`` parameter when called.
     """
 
-    def __init__(self, registry: Registry, obj: _T) -> None:
+    def __init__(self, registry: _RT, obj: _T) -> None:
         """Prepare to serve a registry member."""
         # This would previously be cause for a memory leak due to being a cyclical
         # reference, and would have needed a weakref. However, this is no longer a
@@ -265,6 +265,8 @@ class InstanceRegistry(t.Generic[_T]):
             if kwarg is not None:
                 return func(**{kwarg: obj})
             return func(obj)
+
+        # These checks are cached to __dict__ so __getattr__ won't be called again:
 
         # If attr is a cached property, cache and return the result
         if attr in registry._cached_properties:

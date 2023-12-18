@@ -12,7 +12,7 @@ from __future__ import annotations
 import typing as t
 import typing_extensions as te
 from functools import wraps
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from flask import (
     Response,
@@ -618,7 +618,7 @@ def render_with(
             if callable(use_template):
                 response = make_response(use_template(result))
             else:
-                if t.TYPE_CHECKING:
+                if TYPE_CHECKING:
                     assert isinstance(use_template, str)  # nosec B101
                     assert isinstance(result, dict)  # nosec B101
                 response = make_response(render_template(use_template, **result))

@@ -69,17 +69,19 @@ import typing_extensions as te
 import uuid
 import warnings
 from functools import wraps
-from typing import cast
+from typing import TYPE_CHECKING, cast, overload
 
 import sqlalchemy as sa
 from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
+from sqlalchemy import ColumnExpressionArgument
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import (
     DeclarativeBase,
     DynamicMapped as DynamicMappedBase,
+    InstrumentedAttribute,
     Query as QueryBase,
     Relationship as RelationshipBase,
     backref as backref_base,
@@ -89,6 +91,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.orm.dynamic import AppenderMixin
 
 _T = t.TypeVar('_T', bound=t.Any)
+_T_co = t.TypeVar("_T_co", bound=t.Any, covariant=True)
 
 __all__ = [
     'ModelWarning',
@@ -143,13 +146,26 @@ jsonb: te.TypeAlias = te.Annotated[
 # --- Query class and property ---------------------------------------------------------
 
 
-class Query(QueryBase[_T]):  # pylint: disable=abstract-method
+class Query(QueryBase[_T]):
     """Extends SQLAlchemy's :class:`~sqlalchemy.orm.Query` with additional methods."""
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
+        # The calls to super() here will never happen. They are to aid the programmer
+        # using an editor's "Go to Definition" feature
 
         def get(self, ident: t.Any) -> t.Optional[_T]:
-            """Provide typehint certifying that `get` returns _T."""
+            """Provide type hint certifying that `get` returns `_T | None`."""
+            return super().get(ident)
+
+        def add_columns(self, *column: ColumnExpressionArgument[t.Any]) -> Query[t.Any]:
+            """Fix type hint to refer to :class:`Query`."""
+            return super().add_columns(*column)  # type: ignore[return-value]
+
+        def with_transformation(
+            self, fn: t.Callable[[QueryBase[t.Any]], QueryBase[t.Any]]
+        ) -> Query[t.Any]:
+            """Fix type hint to refer to :class:`Query`."""
+            return super().with_transformation(fn)  # type: ignore[return-value]
 
     def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:
         """
@@ -255,11 +271,8 @@ class Query(QueryBase[_T]):  # pylint: disable=abstract-method
 
 
 # AppenderMixin and Query have different definitions for ``session``, so we have to ask
-# Mypy to ignore it. Pylint and SQLAlchemy disagree on what abstract methods are for:
-# Pylint thinks they should be implemented, but SQLAlchemy doesn't seem to want them
-class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
-    AppenderMixin[_T], Query[_T]
-):
+# Mypy to ignore it
+class AppenderQuery(AppenderMixin[_T], Query[_T]):  # type: ignore[misc]
     """
     AppenderQuery, used by :func:`relationship` as the default query class.
 
@@ -270,7 +283,7 @@ class AppenderQuery(  # type: ignore[misc]  # pylint: disable=abstract-method
     """
 
     # AppenderMixin does not specify a type for query_class
-    query_class = Query
+    query_class: t.Optional[t.Type[Query[_T]]] = Query
 
 
 class QueryProperty:
@@ -372,7 +385,7 @@ class ModelBase:
     def __repr__(self) -> str:
         """Provide a default repr string."""
         state = sa.inspect(self)
-        if t.TYPE_CHECKING:
+        if TYPE_CHECKING:
             assert state is not None  # nosec B101
 
         if state.transient:
@@ -385,32 +398,38 @@ class ModelBase:
         return f'<{type(self).__name__} {pk}>'
 
 
-# --- Relationship and backref wrappers for lazy='dynamic' -----------------------------
+# --- `relationship` and `backref` wrappers for `lazy='dynamic'` -----------------------
 
 # DynamicMapped and Relationship are redefined from the original in SQLAlchemy to offer
-# a type hint to Coaster's AppenderQuery's, which in turn wraps Coaster's Query with its
+# a type hint to Coaster's AppenderQuery, which in turn wraps Coaster's Query with its
 # additional methods
 
 
-class DynamicMapped(DynamicMappedBase[_T]):
+class DynamicMapped(DynamicMappedBase[_T_co]):
     """Represent the ORM mapped attribute type for a "dynamic" relationship."""
 
     __slots__ = ()
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
 
-        def __get__(  # type: ignore[override]
+        @overload  # type: ignore[override]
+        def __get__(self, instance: None, owner: t.Any) -> InstrumentedAttribute[_T_co]:
+            ...
+
+        @overload
+        def __get__(self, instance: object, owner: t.Any) -> AppenderQuery[_T_co]:
+            ...
+
+        def __get__(
             self, instance: t.Optional[object], owner: t.Any
-        ) -> AppenderQuery[_T]:
+        ) -> t.Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]:
             ...
 
-        def __set__(self, instance: t.Any, value: t.Collection[_T]) -> None:
+        def __set__(self, instance: t.Any, value: t.Collection[_T_co]) -> None:
             ...
 
 
-class Relationship(  # type: ignore[misc]  # pylint: disable=abstract-method
-    RelationshipBase[_T], DynamicMapped[_T]
-):
+class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[misc]
     """Wraps Relationship with the updated version of DynamicMapped."""
 
     __slots__ = ()
@@ -433,7 +452,7 @@ def _create_relationship_wrapper(
             kwargs['query_class'] = AppenderQuery
         if 'backref' in kwargs:
             warnings.warn(
-                "backref is not compatible with type hinting. Use back_populates:"
+                "`backref` is not compatible with type hinting. Use `back_populates`:"
                 " https://docs.sqlalchemy.org/en/20/orm/backref.html",
                 ModelWarning,
                 stacklevel=2,
@@ -443,13 +462,13 @@ def _create_relationship_wrapper(
     return wrapper
 
 
-# Backref does not change return type, unlike relationship
+# `backref` does not change return type, unlike `relationship`
 def _create_backref_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
-    """Create a wrapper for backref."""
+    """Create a wrapper for `backref`."""
 
     @wraps(f)
     def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-        """Insert a default query_class when constructing a backref."""
+        """Insert a default query_class when constructing a `backref`."""
         if 'query_class' not in kwargs:
             kwargs['query_class'] = AppenderQuery
         return f(*args, **kwargs)

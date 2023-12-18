@@ -10,6 +10,7 @@ import unittest
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import (
     DynamicMapped,
@@ -48,7 +49,7 @@ class DeclaredAttrMixin:
     @classmethod
     def mixed_in1(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` inside a `declared_attr`."""
-        return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
+        return with_roles(sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
     # This previously used the declared_attr_roles decorator, now deprecated and removed
     @with_roles(rw={'owner', 'editor'}, read={'all'})
@@ -56,7 +57,7 @@ class DeclaredAttrMixin:
     @classmethod
     def mixed_in2(cls) -> Mapped[t.Optional[str]]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
-        return sa.orm.mapped_column(sa.Unicode(250))
+        return sa_orm.mapped_column(sa.Unicode(250))
 
     # with_roles can also be used outside a declared attr
     @with_roles(rw={'owner'})
@@ -64,10 +65,10 @@ class DeclaredAttrMixin:
     @classmethod
     def mixed_in3(cls) -> Mapped[t.Optional[str]]:
         """Test using `with_roles` to wrap a `declared_attr`."""
-        return sa.orm.mapped_column(sa.Unicode(250))
+        return sa_orm.mapped_column(sa.Unicode(250))
 
     # A regular column from the mixin
-    mixed_in4 = sa.orm.mapped_column(sa.Unicode(250))
+    mixed_in4 = sa_orm.mapped_column(sa.Unicode(250))
     mixed_in4 = with_roles(mixed_in4, rw={'owner'})
 
 
@@ -87,9 +88,9 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     # Approach two, annotate roles on the attributes.
     # These annotations always add to anything specified in __roles__
 
-    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
+    id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     name: Mapped[str] = with_roles(
-        sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'}
+        sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'}
     )  # Specify read+write access
 
     title: Mapped[str] = with_roles(
@@ -99,7 +100,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     )  # Grant 'owner' and 'editor' write but not read access
 
     defval: Mapped[str] = with_roles(
-        sa.orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}
+        sa_orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}
     )
 
     @with_roles(call={'all'})  # 'call' grants call access to the decorated method
@@ -131,10 +132,10 @@ class AutoRoleModel(RoleMixin, Model):
 
     # This model doesn't specify __roles__. It only uses with_roles.
     # It should still work
-    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
+    id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     with_roles(id, read={'all'})
 
-    name: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    name: Mapped[t.Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     with_roles(name, rw={'owner'}, read={'all'})
 
     __datasets__ = {'default': {'name'}}
@@ -158,7 +159,7 @@ class RelationshipChild(BaseNameMixin, Model):
 
     __tablename__ = 'relationship_child'
 
-    parent_id: Mapped[int] = sa.orm.mapped_column(
+    parent_id: Mapped[int] = sa_orm.mapped_column(
         sa.ForeignKey('relationship_parent.id'), nullable=False
     )
     parent: Mapped[RelationshipParent] = relationship(back_populates='children_list')
@@ -258,7 +259,7 @@ class RoleUser(BaseMixin, Model):
 
     __tablename__ = 'role_user'
 
-    doc_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    doc_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_grant_many.id')
     )
     doc: Mapped[t.Optional[RoleGrantMany]] = relationship(
@@ -274,7 +275,7 @@ class RoleGrantOne(BaseMixin, Model):
 
     __tablename__ = 'role_grant_one'
 
-    user_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    user_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_user.id')
     )
     user: Mapped[t.Optional[RoleUser]] = with_roles(
@@ -289,10 +290,10 @@ class RoleGrantSynonym(BaseMixin, Model):
 
     # Base column has roles defined
     datacol: Mapped[t.Optional[str]] = with_roles(
-        sa.orm.mapped_column(sa.Unicode()), rw={'owner'}
+        sa_orm.mapped_column(sa.Unicode()), rw={'owner'}
     )
     # Synonym cannot have independent roles and will mirror the target
-    altcol: Mapped[t.Optional[str]] = sa.orm.synonym('datacol')
+    altcol: Mapped[t.Optional[str]] = sa_orm.synonym('datacol')
 
 
 class RoleMembership(BaseMixin, Model):
@@ -300,19 +301,19 @@ class RoleMembership(BaseMixin, Model):
 
     __tablename__ = 'role_membership'
 
-    user_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    user_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_user.id')
     )
     user: Mapped[t.Optional[RoleUser]] = relationship(RoleUser)
 
-    doc_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    doc_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('multirole_document.id')
     )
     doc: Mapped[t.Optional[MultiroleDocument]] = relationship('MultiroleDocument')
 
-    role1: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
-    role2: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
-    role3: Mapped[bool] = sa.orm.mapped_column(sa.Boolean, default=False)
+    role1: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
+    role2: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
+    role3: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
 
     @property
     def offered_roles(self) -> t.Set[str]:
@@ -331,7 +332,7 @@ class MultiroleParent(BaseMixin, Model):
     """Test model to serve as a role granter to the child model."""
 
     __tablename__ = 'multirole_parent'
-    user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('role_user.id'))
+    user_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
     user: Mapped[RoleUser] = with_roles(
         relationship(RoleUser), grants={'prole1', 'prole2'}
     )
@@ -342,7 +343,7 @@ class MultiroleDocument(BaseMixin, Model):
 
     __tablename__ = 'multirole_document'
 
-    parent_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('multirole_parent.id'))
+    parent_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('multirole_parent.id'))
     parent: Mapped[MultiroleParent] = with_roles(
         relationship(MultiroleParent),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
@@ -389,7 +390,7 @@ class MultiroleChild(BaseMixin, Model):
     """Model that inherits roles from its parent."""
 
     __tablename__ = 'multirole_child'
-    parent_id: Mapped[int] = sa.orm.mapped_column(
+    parent_id: Mapped[int] = sa_orm.mapped_column(
         sa.ForeignKey('multirole_document.id')
     )
     parent: Mapped[MultiroleDocument] = with_roles(
@@ -746,7 +747,7 @@ class TestCoasterRoles(AppTestCase):
         pchild = child.access_for(roles={'all'}, datasets=('primary',))
         assert set(pchild) == {'name', 'title', 'parent'}
 
-        # pchild's 'primary' profile includes 'parent', but we haven't specified a
+        # `pchild`'s 'primary' profile includes 'parent', but we haven't specified a
         # profile for the parent so it will be empty
         assert pchild.parent == {}
 
@@ -906,15 +907,15 @@ class TestCoasterRoles(AppTestCase):
         assert rgs.altcol == 'abc'
 
         owner_proxy = rgs.access_for(roles={'owner'})
-        # datacol is present as it has owner read access defined
+        # `datacol` is present as it has owner read access defined
         assert 'datacol' in owner_proxy
-        # altcol mirrors datacol
+        # `altcol` mirrors `datacol`
         assert 'altcol' in owner_proxy
 
         assert owner_proxy.datacol == 'abc'
         assert owner_proxy['datacol'] == 'abc'
 
-        # The datacol column gives write access to the owner role
+        # The `datacol` column gives write access to the owner role
         owner_proxy.datacol = 'xyz'
         assert owner_proxy.datacol == 'xyz'
 
@@ -962,10 +963,10 @@ class TestCoasterRoles(AppTestCase):
         assert bool(parent2.children_names) is True
         assert bool(parent3.children_names) is False
 
-        # Each access constructs a separate wrapper. Assert they are equal
+        # Repeat access returns proxy wrappers from instance cache
         p1a = parent1.children_names
         p1b = parent1.children_names
-        assert p1a is not p1b
+        assert p1a is p1b
         assert p1a == p1b  # Test __eq__
         assert not p1a != p1b  # Test __ne__
         assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
@@ -1045,7 +1046,7 @@ class TestCoasterRoles(AppTestCase):
         assert 'parent_other_role' in roles1._present
         assert 'parent_other_role' in roles1
 
-        # Confirm these lazyrolesets are not already populated with the test roles
+        # Confirm these lazy role sets are not already populated with the test roles
         # by looking at their internal data structure
         assert 'role1' not in roles1._present
         assert 'role2' not in roles1._present
@@ -1144,7 +1145,7 @@ class TestCoasterRoles(AppTestCase):
         self.session.add_all([user, document, membership])
         roles = document.roles_for(user)
         with pytest.raises(TypeError):
-            'incorrectly_specified_role' in roles  # pylint: disable=pointless-statement
+            _ = 'incorrectly_specified_role' in roles
 
     def test_actors_from_granted_via(self) -> None:
         """
@@ -1413,7 +1414,7 @@ class TestLazyRoleSet(unittest.TestCase):
         assert 'owner' in d.roles_for(u2)
 
         # We know it's via 'userlist' because the flag is set. Further,
-        # 'user' was also examined because it has prority (`granted_by` is ordered)
+        # 'user' was also examined because it has priority (`granted_by` is ordered)
         assert d.accessed_user is True
         assert d.accessed_userlist is True
 

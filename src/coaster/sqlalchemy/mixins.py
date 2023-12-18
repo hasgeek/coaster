@@ -21,6 +21,7 @@ your Flask app::
 Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your model's
 base classes.
 """
+# pyright: reportMissingImports=false
 
 from __future__ import annotations
 
@@ -749,7 +750,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
         """Format using self.title."""
         if format_spec:
             # pylint: disable=not-callable
-            return (self.title or '').__format__(format_spec)
+            return format((self.title or ''), format_spec)
         return self.title or ''
 
     @classmethod
@@ -894,7 +895,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
         """Format using self.title."""
         if format_spec:
             # pylint: disable=not-callable
-            return (self.title or '').__format__(format_spec)
+            return format((self.title or ''), format_spec)
         return self.title or ''
 
     @classmethod
@@ -1067,7 +1068,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
         """Format using self.title."""
         if format_spec:
             # pylint: disable=not-callable
-            return (self.title or '').__format__(format_spec)
+            return format((self.title or ''), format_spec)
         return self.title or ''
 
     def make_name(self) -> None:
@@ -1270,7 +1271,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
         """Format using self.title."""
         if format_spec:
             # pylint: disable=not-callable
-            return (self.title or '').__format__(format_spec)
+            return format((self.title or ''), format_spec)
         return self.title or ''
 
     @classmethod

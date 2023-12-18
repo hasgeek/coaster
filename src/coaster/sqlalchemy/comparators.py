@@ -25,7 +25,7 @@ __all__ = [
 _T = t.TypeVar('_T', bound=t.Any)
 
 
-class SplitIndexComparator(Comparator):  # pylint: disable=abstract-method
+class SplitIndexComparator(Comparator):
     """Base class for comparators that split a string and compare with one part."""
 
     def __init__(
@@ -80,7 +80,7 @@ class SplitIndexComparator(Comparator):  # pylint: disable=abstract-method
         return self.__clause_element__().in_(valid_values)  # type: ignore[attr-defined]
 
 
-class SqlSplitIdComparator(SplitIndexComparator):  # pylint: disable=abstract-method
+class SqlSplitIdComparator(SplitIndexComparator):
     """
     Given an ``id-text`` string, split out the integer id and allows comparison on it.
 
@@ -109,7 +109,7 @@ class SqlSplitIdComparator(SplitIndexComparator):  # pylint: disable=abstract-me
         )
 
 
-class SqlUuidHexComparator(SplitIndexComparator):  # pylint: disable=abstract-method
+class SqlUuidHexComparator(SplitIndexComparator):
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 
@@ -129,7 +129,7 @@ class SqlUuidHexComparator(SplitIndexComparator):  # pylint: disable=abstract-me
         return other
 
 
-class SqlUuidB64Comparator(SplitIndexComparator):  # pylint: disable=abstract-method
+class SqlUuidB64Comparator(SplitIndexComparator):
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 
@@ -153,7 +153,7 @@ class SqlUuidB64Comparator(SplitIndexComparator):  # pylint: disable=abstract-me
         return other
 
 
-class SqlUuidB58Comparator(SplitIndexComparator):  # pylint: disable=abstract-method
+class SqlUuidB58Comparator(SplitIndexComparator):
     """
     Given an ``uuid-text`` string, split out the UUID and allow comparisons on it.
 

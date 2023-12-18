@@ -23,7 +23,7 @@ __all__ = ['JsonDict', 'UrlType']
 # #establishing-mutability-on-scalar-column-values
 
 
-class JsonDict(TypeDecorator):  # pylint: disable=abstract-method
+class JsonDict(TypeDecorator):
     """
     Represents a JSON data structure.
 
@@ -100,7 +100,7 @@ class MutableDict(Mutable, dict):
 MutableDict.associate_with(JsonDict)
 
 
-class UrlType(UrlTypeBase):  # pylint: disable=abstract-method
+class UrlType(UrlTypeBase):
     """
     Extension of URLType_ from SQLAlchemy-Utils that ensures URLs are well formed.
 

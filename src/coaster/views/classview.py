@@ -4,6 +4,7 @@ Class-based views
 
 Group related views into a class for easier management.
 """
+# pyright: reportMissingImports=false
 
 from __future__ import annotations
 
@@ -12,7 +13,7 @@ import typing_extensions as te
 import warnings
 from functools import partial, update_wrapper, wraps
 from inspect import iscoroutinefunction
-from typing import cast, overload
+from typing import TYPE_CHECKING, cast, overload
 
 from flask import abort, make_response, redirect, request
 from flask.globals import _cv_app, app_ctx
@@ -290,6 +291,8 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
     #: The name of this view method, derived from the wrapped function
     __name__: str
+    #: Template-accessible name, same as :attr:`__name__`
+    name: str
     #: The unmodified wrapped method, made available for future decorators
     __func__: t.Callable[te.Concatenate[t.Any, _P], _R_co]
     #: The wrapped method with the class's :attr:`~ClassView.__decorators__` applied
@@ -331,7 +334,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
         self.__module__ = func.__module__
 
         # These may change in __set_name__
-        self.__name__ = func.__name__
+        self.__name__ = self.name = func.__name__
         self.__qualname__ = func.__qualname__
         self.default_endpoint = self.__qualname__.replace('.', '_')
 
@@ -444,7 +447,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
         #     ...
         # class MyView(ClassView):
         #     internal_view = ViewMethod(external_view)
-        self.__name__ = name
+        self.__name__ = self.name = name
         self.__qualname__ = qualname = f'{owner.__qualname__}.{name}'
         # We can't use `.` as a separator because Flask uses that to identify blueprint
         # endpoints. Instead we use `_`, as in `ViewClass_method_name`
@@ -547,6 +550,7 @@ class ViewMethodBind(t.Generic[_P, _R_co]):
 
     # Provide type hints for proxied attributes
     __name__: str
+    name: str
     __qualname__: str
     __module__: str
     __doc__: t.Optional[str]
@@ -841,7 +845,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
     # Place obj in slots for potentially faster access at runtime
     __slots__ = ('obj',)
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Pretend `model` is an instance-var for type-checking, as a classvar cannot be
         # bound to a generic arg
         model: t.Type[ModelType]
@@ -904,6 +908,9 @@ class ModelView(ClassView, t.Generic[ModelType]):
             class MyModelView(Mixin, ModelView[MyModel]):
                 class GetAttr(Mixin.GetAttr):
                     ...
+
+        :class:`~ModelView.GetAttr` is verbose but its utility shows in static type
+        checking and code refactoring.
         """
 
     def __init__(self, obj: t.Optional[ModelType] = None) -> None:
@@ -970,7 +977,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
         # Call the view method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Type-checking version without argspec, so subclasses can specify explicit args
         loader: t.Callable[..., ModelType]
 
@@ -992,7 +999,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
             """
             raise NotImplementedError("View class is missing a loader method")
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Type-checking version without argspec, so subclasses can specify explicit args
         load: t.Callable[..., t.Optional[ResponseReturnValue]]
 
@@ -1291,8 +1298,10 @@ class InstanceLoader:
     the target class.
 
     .. deprecated:: 0.7.0
-        This loader adds needless complexity. You are recommended to implement a loader
-        method directly.
+        This loader cannot process complex joins and the query it produces is not
+        cached. Consider implementing a :meth:`~ModelView.loader` method directly, for
+        static type checking, easier refactoring, and better performance from query
+        caching.
     """
 
     __slots__ = ()
@@ -1300,7 +1309,7 @@ class InstanceLoader:
     model: t.ClassVar[t.Type]
     query: t.ClassVar[t.Optional[Query]] = None
 
-    def loader(self, **view_args) -> t.Any:
+    def loader(self, **view_args: t.Any) -> t.Any:
         """Load instance based on view arguments."""
         if any(name in self.route_model_map for name in view_args):
             # We have a URL route attribute that matches one of the model's attributes.

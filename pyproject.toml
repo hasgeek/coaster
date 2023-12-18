@@ -125,6 +125,7 @@ astroid.bases.POSSIBLE_PROPERTIES.add('cached_property')
 [tool.pylint.message_control]
 max-line-length = 88
 disable = [
+  'abstract-method',
   'duplicate-code',
   'fixme',
   'invalid-name',

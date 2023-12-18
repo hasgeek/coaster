@@ -6,6 +6,7 @@ Coaster can help your application log errors at run-time. Initialize with
 :func:`coaster.logger.init_app`. If you use :func:`coaster.app.init_app`,
 this is done automatically for you.
 """
+# pyright: reportMissingImports=false
 
 from __future__ import annotations
 
@@ -24,8 +25,10 @@ from html import escape
 from io import StringIO
 from pprint import pprint
 from threading import Lock, Thread
+from typing import TYPE_CHECKING
 
-if t.TYPE_CHECKING:
+if TYPE_CHECKING:
+    # This type definition is only available in the typeshed stub
     from logging import _SysExcInfoType
 
 import requests
