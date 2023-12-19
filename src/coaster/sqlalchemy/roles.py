@@ -132,11 +132,11 @@ import dataclasses
 import sys
 import typing as t
 import typing_extensions as te
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from collections import abc
 from copy import deepcopy
 from itertools import chain
-from typing import cast, overload
+from typing import TYPE_CHECKING, cast, overload
 
 import sqlalchemy as sa
 from flask import g
@@ -191,7 +191,7 @@ ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
 
 RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
 _T = t.TypeVar('_T')
-_V = t.TypeVar('_V')
+_V = te.TypeVar('_V', default=t.Any)  # Var type for DynamicAssociationProxy
 
 
 class RoleAttrs(te.TypedDict, total=False):
@@ -290,9 +290,9 @@ def _roles_via_relationship(
     relobj = None  # Role-granting object found via the relationship
 
     # If there is no actor_attr, check if the relationship is a RoleMixin and call
-    # roles_for to get offered roles, then remap using the offer map, subsetting the
-    # offer map to the wanted roles. The offer map may be larger than currently wanted,
-    # and lookups in the offered roles could be expensive.
+    # roles_for to get lazy roles, then remap using the offer map, subsetting the offer
+    # map to the wanted roles. The offer map may be larger than currently wanted, and
+    # lookups in the lazy roles could be expensive.
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
             offered_roles: t.Union[t.Set[str], LazyRoleSet]
@@ -370,8 +370,10 @@ def _roles_via_relationship(
     return wanted_roles
 
 
-class RoleGrantABC(metaclass=ABCMeta):
-    """Base class for an object that grants roles to a subject."""
+class RoleGrantABC(ABC):
+    """Abstract class for an object that grants roles to a subject."""
+
+    __slots__ = ()
 
     @property
     @abstractmethod
@@ -383,6 +385,7 @@ class RoleGrantABC(metaclass=ABCMeta):
     def __subclasshook__(cls, c: t.Type) -> bool:
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
+            # Don't use getattr because that'll trigger descriptor __get__ protocol
             if any('offered_roles' in b.__dict__ for b in c.__mro__):
                 return True
             return False
@@ -496,7 +499,7 @@ class LazyRoleSet(abc.MutableSet):
                     if is_present:
                         self._present.add(role)
                         # Optimization: does this relationship grant other roles?
-                        # Get them rightaway. Don't query again later.
+                        # Get them right away. Don't query again later.
                         for arole, actions in self.obj.__roles__.items():
                             if (
                                 arole != role
@@ -641,11 +644,16 @@ class DynamicAssociationProxy(t.Generic[_V]):
     :param str attr: Attribute on the target of the relationship
     """
 
-    __slots__ = ('rel', 'attr')
+    __slots__ = ('rel', 'attr', 'name')
+    name: t.Optional[str]
 
     def __init__(self, rel: str, attr: str) -> None:
         self.rel = rel
         self.attr = attr
+        self.name = None
+
+    def __set_name__(self, owner: _T, name: str) -> None:
+        self.name = name
 
     def __repr__(self) -> str:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
@@ -665,7 +673,13 @@ class DynamicAssociationProxy(t.Generic[_V]):
     ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[_V, _T]]:
         if obj is None:
             return self
-        return DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
+        wrapper = DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
+        if name := self.name:
+            # Cache it for repeat access. SQLAlchemy models cannot use __slots__ or
+            # must include __dict__ in slots for state management, so we don't need to
+            # worry about this being blocked by slots.
+            setattr(obj, name, wrapper)
+        return wrapper
 
 
 class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
@@ -692,7 +706,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
 
     def __contains__(self, value: t.Any) -> bool:
         relattr = self.relattr
-        if t.TYPE_CHECKING:
+        if TYPE_CHECKING:
             assert relattr.session is not None  # nosec B101
         return relattr.session.query(
             relattr.filter_by(**{self.attr: value}).exists()
@@ -707,7 +721,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
 
     def __bool__(self) -> bool:
         relattr = self.relattr
-        if t.TYPE_CHECKING:
+        if TYPE_CHECKING:
             assert relattr.session is not None  # nosec B101
         return relattr.session.query(relattr.exists()).scalar()
 
@@ -1018,7 +1032,7 @@ def with_roles(
     grants_via: t.Optional[
         t.Dict[
             t.Optional[ActorAttrType],
-            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
@@ -1038,7 +1052,7 @@ def with_roles(
     grants_via: t.Optional[
         t.Dict[
             t.Optional[ActorAttrType],
-            t.Union[t.Set[str], t.Dict[str, str], t.Dict[str, t.Set[str]]],
+            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
@@ -1239,15 +1253,15 @@ class RoleMixin:
     """
 
     # This empty dictionary is necessary for the configure step below to work
-    __roles__: t.Dict[str, RoleAttrs] = {}
+    __roles__: t.ClassVar[t.Dict[str, RoleAttrs]] = {}
     # Datasets for limited access to attributes
-    __datasets__: t.Dict[str, t.Set[str]] = {}
+    __datasets__: t.ClassVar[t.Dict[str, t.Set[str]]] = {}
     # Datasets to use when rendering to JSON
-    __json_datasets__: t.Sequence[str] = ()
+    __json_datasets__: t.ClassVar[t.Sequence[str]] = ()
     # Relationship role offer map (used by LazyRoleSet)
-    __relationship_role_offer_map__: t.Dict[str, RoleOfferMap] = {}
+    __relationship_role_offer_map__: t.ClassVar[t.Dict[str, RoleOfferMap]] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__: t.Dict[str, RoleOfferMap] = {}
+    __relationship_reversed_role_offer_map__: t.ClassVar[t.Dict[str, RoleOfferMap]] = {}
 
     def roles_for(
         self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()

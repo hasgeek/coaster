@@ -32,7 +32,7 @@ T = t.TypeVar('T')
 # Provide sqlalchemy.func.utcnow()
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
-class UtcNow(sa.sql.functions.GenericFunction):  # pylint: disable=abstract-method
+class UtcNow(sa.sql.functions.GenericFunction):
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
     type = sa.TIMESTAMP()  # noqa: A003
@@ -293,7 +293,7 @@ def auto_init_default(
     column: t.Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
 ) -> None:
     """
-    Set the default value of a columnn on first access.
+    Set the default value of a column on first access.
 
     SQLAlchemy defaults to setting default values on commit, but code that attempts to
     read the value before commit will get None instead of the default value. This

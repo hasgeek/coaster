@@ -10,7 +10,7 @@ import typing as t
 import typing_extensions as te
 import warnings
 from reprlib import recursive_repr
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 __all__ = [
     'DataclassFromType',
@@ -216,7 +216,7 @@ class DataclassFromType:
     # tuple: https://docs.python.org/3/reference/datamodel.html#datamodel-note-slots
     __slots__ = ()
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Mypy bugs: descriptor-based fields without a default value are understood by
         # @dataclass, but not by Mypy. Therefore pretend to not be a descriptor.
         # Unfortunately, we don't know the data type and have to declare it as Any, but

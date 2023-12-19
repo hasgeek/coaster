@@ -40,8 +40,10 @@ inspection, and to control state change via transitions. Sample usage::
             nullable=False
         )
 
-        # The state managers controlling the columns
-        state = StateManager('_state', MY_STATE, doc="The post's state")
+        # The state managers controlling the columns. If the host type is optionally
+        # provided as a generic type argument, it will be applied to the lambda
+        # functions in add_conditional_state for static type checking
+        state = StateManager['MyPost']('_state', MY_STATE, doc="The post's state")
         reviewstate = StateManager(
             '_reviewstate', REVIEW_STATE, doc="Reviewer's state"
         )
@@ -231,7 +233,7 @@ import functools
 import typing as t
 import typing_extensions as te
 from dataclasses import dataclass
-from typing import cast, overload
+from typing import TYPE_CHECKING, cast, overload
 
 import sqlalchemy as sa
 from werkzeug.exceptions import BadRequest
@@ -258,7 +260,8 @@ __all__ = [
 
 # --- Internal types -------------------------------------------------------------------
 
-_T = t.TypeVar('_T')  # Type carrying a managed state
+_SG = te.TypeVar('_SG', default=t.Any)  # The declared type hosting StateManager
+_T = t.TypeVar('_T')  # The type from which StateManager was accessed in __get__
 _SM = t.TypeVar('_SM', bound='StateManager')
 _P = te.ParamSpec('_P')  # ParamSpec for wrapped functions
 _R = t.TypeVar('_R')  # Return type for wrapped functions
@@ -439,7 +442,7 @@ class ManagedStateGroup:
             ):
                 raise ValueError(f"Invalid state {state!r} for state group {self!r}")
 
-        if t.TYPE_CHECKING:
+        if TYPE_CHECKING:
             # Tell Mypy that we only have ManagedState in the list now
             states = cast(t.Iterable[ManagedState], states)
 
@@ -727,7 +730,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
         return result
 
 
-class StateManager:
+class StateManager(t.Generic[_SG]):
     """
     Provides state management around a database column or property.
 
@@ -745,9 +748,9 @@ class StateManager:
     cls: t.Type
     #: All possible states by name
     states: t.Dict[str, t.Union[ManagedState, ManagedStateGroup]]
-    #: All static states, backreferenced by value (group and conditional excluded)
+    #: All static states, back-referenced by value (group and conditional excluded)
     states_by_value: t.Dict[t.Any, ManagedState]
-    #: All states, static, group or conditional, backreferenced by value
+    #: All states, static, group or conditional, back-referenced by value
     all_states_by_value: t.Dict[t.Any, t.List[t.Union[ManagedState, ManagedStateGroup]]]
     #: Names of transitions linked to this state manager
     transitions: t.List[str]
@@ -835,9 +838,9 @@ class StateManager:
         name: str,
         value: t.Union[int, t.Set[int]],
         label: t.Optional[t.Any] = None,  # TODO: Make label `str`
-        validator: t.Optional[t.Callable[[t.Any], bool]] = None,
+        validator: t.Optional[t.Callable[[_SG], bool]] = None,
         class_validator: t.Optional[
-            t.Callable[[t.Type], sa.ColumnElement[bool]]
+            t.Callable[[t.Type[_SG]], sa.ColumnElement[bool]]
         ] = None,
     ) -> None:
         # Also see `add_state_group` for similar code
@@ -854,8 +857,8 @@ class StateManager:
             validator=validator,
             class_validator=class_validator,
         )
-        # XXX: Since mstate.statemanager == self, the following assignments setup
-        # looping references and could cause a memory leak if the statemanager is ever
+        # XXX: Since `mstate.statemanager == self`, the following assignments setup
+        # looping references and could cause a memory leak if the state manager is ever
         # deleted. We depend on it being permanent for the lifetime of the process in
         # typical use (or for advanced memory management that can detect loops).
         self.states[name] = mstate
@@ -895,9 +898,9 @@ class StateManager:
         self,
         name: str,
         state: t.Union[ManagedState, ManagedStateGroup],
-        validator: t.Callable[[t.Any], bool],
+        validator: t.Callable[[_SG], bool],
         class_validator: t.Optional[
-            t.Callable[[t.Type], sa.ColumnElement[bool]]
+            t.Callable[[t.Type[_SG]], sa.ColumnElement[bool]]
         ] = None,
         label: t.Optional[t.Any] = None,  # TODO: Make label `str`
     ) -> None:
@@ -1039,7 +1042,7 @@ class StateManager:
                 )
                 state = StateManager(_state, MY_ENUM)
 
-        Alembic may not detect the CHECK constraint when autogenerating migrations, so
+        Alembic may not detect the CHECK constraint when auto-generating migrations, so
         you may need to do this manually using the Python console to extract the SQL
         string::
 
@@ -1062,7 +1065,7 @@ class StateManager:
             **kwargs,
         )
 
-    if t.TYPE_CHECKING:
+    if TYPE_CHECKING:
         # Stub for mypy to recognise names added by _add_state_internal. There is a
         # pending proposal for proxy typing: https://github.com/python/typing/issues/802
         def __getattr__(self, name: str) -> t.Union[ManagedState, ManagedStateGroup]:
