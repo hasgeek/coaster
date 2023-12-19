@@ -1228,7 +1228,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     """
 
     def validate(context: ModelView) -> t.Optional[ResponseReturnValue]:
-        if request.method == 'GET' and context.obj is not None:
+        if request.method == 'GET' and getattr(context, 'obj', None) is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = correct_url.copy().remove(
                 username=True, password=True, port=True, query=True, fragment=True
