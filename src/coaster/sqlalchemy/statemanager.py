@@ -1162,3 +1162,16 @@ class StateManagerInstance(t.Generic[_SM, _T]):
         if isinstance(attr, (ManagedState, ManagedStateGroup)):
             return ManagedStateInstance(attr, self.obj)
         return attr
+
+    if TYPE_CHECKING:
+
+        def transition(
+            self,
+            from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
+            to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
+            **data: t.Any,
+        ) -> t.Callable[
+            [t.Callable[te.Concatenate[t.Any, _P], _R]],
+            StateTransition[_P, _R],
+        ]:
+            ...
