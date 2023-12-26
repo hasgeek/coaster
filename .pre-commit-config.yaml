@@ -60,7 +60,12 @@ repos:
       - id: mypy
         # warn-unused-ignores is unsafe with pre-commit, see
         # https://github.com/python/mypy/issues/2960
-        args: ['--no-warn-unused-ignores', '--ignore-missing-imports']
+        args:
+          [
+            '--no-warn-unused-ignores',
+            '--no-warn-redundant-casts',
+            '--ignore-missing-imports',
+          ]
         additional_dependencies:
           - flask
           - lxml-stubs

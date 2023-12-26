@@ -1612,7 +1612,7 @@ def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
                 if attr.property in __cache__:
-                    data = cast(WithRoles, __cache__[attr.property])
+                    data = __cache__[attr.property]
                 elif '_coaster_roles' in attr.info:
                     data = cast(WithRoles, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import typing as t
 import unittest
-from typing import cast
 
 import pytest
 import sqlalchemy as sa
@@ -116,6 +115,7 @@ class IndexView(ClassView):
     """Test ClassView."""
 
     @route('')
+    @route('/index.html')
     @viewdata(title="Index")
     def index(self) -> str:
         return 'index'
@@ -301,6 +301,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
     route_model_map = {'doc2': '**doc2.url_name'}
+    obj: t.Tuple[ViewDocument, RenameableDocument]  # type: ignore[assignment]
 
     class GetAttr:
         @staticmethod
@@ -393,7 +394,7 @@ class TestClassView(unittest.TestCase):
     ctx: RequestContext
 
     def setUp(self) -> None:
-        self.ctx = cast(RequestContext, self.app.test_request_context())
+        self.ctx = self.app.test_request_context()
         self.ctx.push()
         db.create_all()
         self.session = db.session

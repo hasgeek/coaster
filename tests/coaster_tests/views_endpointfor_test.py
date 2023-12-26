@@ -2,7 +2,6 @@
 
 import typing as t
 import unittest
-from typing import cast
 
 from flask import Flask
 from flask.ctx import RequestContext
@@ -29,7 +28,7 @@ class TestScaffolding(unittest.TestCase):
         if self.server_name:
             self.app.config['SERVER_NAME'] = self.server_name
 
-        self.ctx = cast(RequestContext, self.app.test_request_context())
+        self.ctx = self.app.test_request_context()
         self.ctx.push()
 
     def tearDown(self) -> None:

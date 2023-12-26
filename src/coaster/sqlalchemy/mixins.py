@@ -32,7 +32,7 @@ from collections import abc
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import cast, overload
+from typing import overload
 from uuid import UUID, uuid4
 
 from flask import current_app, url_for
@@ -208,13 +208,13 @@ class IdMixin(t.Generic[PkeyType]):
 
     @declared_attr
     @classmethod
-    def url_id(cls) -> Mapped[str]:
+    def url_id(cls) -> hybrid_property[str]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
             def url_id_uuid_func(self: te.Self) -> str:
                 """URL-safe representation of the UUID id as a hex value."""
-                return cast(UUID, self.id).hex
+                return self.id.hex  # type: ignore[attr-defined]
 
             def url_id_uuid_comparator(cls: t.Type) -> SqlUuidHexComparator:
                 """Compare two hex UUID values."""
@@ -225,7 +225,7 @@ class IdMixin(t.Generic[PkeyType]):
             url_id_property = hybrid_property(url_id_uuid_func).comparator(
                 url_id_uuid_comparator
             )
-            return url_id_property  # type: ignore[return-value]
+            return url_id_property
 
         def url_id_int_func(self: te.Self) -> str:
             """URL-safe representation of the integer id as a string."""
@@ -240,7 +240,7 @@ class IdMixin(t.Generic[PkeyType]):
         url_id_property = hybrid_property(url_id_int_func).comparator(
             url_id_int_comparator
         )
-        return url_id_property  # type: ignore[return-value]
+        return url_id_property
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.id}>'
