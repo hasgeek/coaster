@@ -146,16 +146,29 @@ jsonb: te.TypeAlias = te.Annotated[
 # --- Query class and property ---------------------------------------------------------
 
 
-class Query(QueryBase[_T]):
+# Change Query's Generic type to be covariant. This needed because:
+# 1. When using SQLAlchemy polymorphism, a query on the base type may return a subtype.
+# 2. For typing, a classmethod that returns Query[Self] will be deemed incompatible with
+#    Query[HostModel] as Query[HostModel] != Query[Self@HostModel] because Self could be
+#    a subclass.
+class Query(QueryBase[_T_co]):  # type: ignore[type-var]
     """Extends SQLAlchemy's :class:`~sqlalchemy.orm.Query` with additional methods."""
 
     if TYPE_CHECKING:
         # The calls to super() here will never happen. They are to aid the programmer
         # using an editor's "Go to Definition" feature
 
-        def get(self, ident: t.Any) -> t.Optional[_T]:
-            """Provide type hint certifying that `get` returns `_T | None`."""
+        def get(self, ident: t.Any) -> t.Optional[_T_co]:
+            """Provide type hint certifying that `get` returns `_T_co | None`."""
             return super().get(ident)
+
+        def first(self) -> t.Optional[_T_co]:
+            """Provide type hint certifying that `first` returns `_T_co | None`."""
+            return super().first()
+
+        def one(self) -> _T_co:
+            """Provide type hint certifying that `one` returns `_T_co`."""
+            return super().one()
 
         def add_columns(self, *column: ColumnExpressionArgument[t.Any]) -> Query[t.Any]:
             """Fix type hint to refer to :class:`Query`."""
@@ -167,7 +180,7 @@ class Query(QueryBase[_T]):
             """Fix type hint to refer to :class:`Query`."""
             return super().with_transformation(fn)  # type: ignore[return-value]
 
-    def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T:
+    def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.get` but aborts with 404 if no result.
 
@@ -181,7 +194,7 @@ class Query(QueryBase[_T]):
 
         return rv
 
-    def first_or_404(self, description: t.Optional[str] = None) -> _T:
+    def first_or_404(self, description: t.Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.first` but aborts with 404 if no result.
 
@@ -194,7 +207,7 @@ class Query(QueryBase[_T]):
 
         return rv
 
-    def one_or_404(self, description: t.Optional[str] = None) -> _T:
+    def one_or_404(self, description: t.Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.one`, but aborts with 404 for NoResultFound.
 
@@ -271,8 +284,9 @@ class Query(QueryBase[_T]):
 
 
 # AppenderMixin and Query have different definitions for ``session``, so we have to ask
-# Mypy to ignore it
-class AppenderQuery(AppenderMixin[_T], Query[_T]):  # type: ignore[misc]
+# Mypy to ignore it [misc]. SQLAlchemy defines the generic type as invariant but we
+# change it to covariant, so we need an ignore that too [type-var].
+class AppenderQuery(AppenderMixin[_T_co], Query[_T_co]):  # type: ignore[misc,type-var]
     """
     AppenderQuery, used by :func:`relationship` as the default query class.
 
@@ -283,13 +297,13 @@ class AppenderQuery(AppenderMixin[_T], Query[_T]):  # type: ignore[misc]
     """
 
     # AppenderMixin does not specify a type for query_class
-    query_class: t.Optional[t.Type[Query[_T]]] = Query
+    query_class: t.Optional[t.Type[Query[_T_co]]] = Query
 
 
 class QueryProperty:
     """A class property that creates a query object for a model."""
 
-    def __get__(self, _obj: t.Optional[_T], cls: t.Type[_T]) -> Query[_T]:
+    def __get__(self, _obj: t.Optional[_T_co], cls: t.Type[_T_co]) -> Query[_T_co]:
         return cls.query_class(cls, session=cls.__fsa__.session())
 
 
