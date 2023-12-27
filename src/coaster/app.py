@@ -262,7 +262,9 @@ def init_app(
         app.json = JSONProvider(app)
         app.jinja_env.policies['json.dumps_function'] = app.json.dumps
     # Make current_auth available to app templates
-    app.jinja_env.globals['current_auth'] = current_auth
+    if 'current_auth' not in app.jinja_env.globals:
+        # Don't override if the app installed a custom proxy
+        app.jinja_env.globals['current_auth'] = current_auth
     # Make the current view available to app templates
     app.jinja_env.globals['current_view'] = current_view
     # Disable Flask-SQLAlchemy events.
