@@ -39,6 +39,7 @@ Example use::
         demonstrating two ways to use `with_roles`.
         '''
         @with_roles(rw={'owner'})
+        @declared_attr
         def mixed_in1(cls) -> Mapped[str]:
             return sa.orm.mapped_column(sa.Unicode(250))
 
