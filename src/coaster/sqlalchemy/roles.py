@@ -1350,13 +1350,13 @@ class RoleMixin:
 
     @overload
     def actors_with(
-        self, roles: t.Iterable[str], with_role: te.Literal[True] = True
+        self, roles: t.Iterable[str], with_role: te.Literal[True]
     ) -> t.Iterator[t.Tuple[t.Any, str]]:
         ...
 
     def actors_with(
         self, roles: t.Iterable[str], with_role: bool = False
-    ) -> t.Iterator[t.Union[t.Any, t.Tuple[str, t.Any]]]:
+    ) -> t.Iterator[t.Union[t.Any, t.Tuple[t.Any, str]]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
 
