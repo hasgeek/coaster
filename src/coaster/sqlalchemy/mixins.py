@@ -70,7 +70,7 @@ from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
 from .model import Query, QueryProperty
 from .registry import RegistryMixin
-from .roles import RoleMixin, with_roles
+from .roles import ActorType, RoleMixin, with_roles
 
 __all__ = [
     'PkeyType',
@@ -665,7 +665,9 @@ class UrlForMixin:
 
 
 @declarative_mixin
-class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
+class NoIdMixin(
+    TimestampMixin, PermissionMixin, RoleMixin[ActorType], RegistryMixin, UrlForMixin
+):
     """
     Mixin that combines all mixin classes except :class:`IdMixin`.
 
@@ -685,12 +687,12 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
 
 
 @declarative_mixin
-class BaseMixin(IdMixin[PkeyType], NoIdMixin):
+class BaseMixin(IdMixin[PkeyType], NoIdMixin[ActorType]):
     """Base mixin class for all tables that have an id column."""
 
 
 @declarative_mixin
-class BaseNameMixin(BaseMixin[PkeyType]):
+class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects.
 
@@ -830,7 +832,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedNameMixin(BaseMixin[PkeyType]):
+class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects within containers.
 
@@ -1018,7 +1020,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseIdNameMixin(BaseMixin[PkeyType]):
+class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects with an id tag.
 
@@ -1142,7 +1144,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedIdMixin(BaseMixin[PkeyType]):
+class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for objects with an id that is unique within a parent.
 
@@ -1212,7 +1214,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
+class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects with an id tag that is unique within a parent.
 
