@@ -213,7 +213,7 @@ class IdMixin(t.Generic[PkeyType]):
     def __id_(cls) -> Mapped[t.Any]:  # Define type as `Any` for use in Protocols
         return synonym('id')
 
-    id_ = declared_attr(__id_)
+    id_: declared_attr[t.Any] = declared_attr(__id_)
     del __id_
 
     @classmethod
@@ -251,7 +251,7 @@ class IdMixin(t.Generic[PkeyType]):
         )
         return url_id_property
 
-    url_id = declared_attr(__url_id)
+    url_id: declared_attr[str] = declared_attr(__url_id)
     del __url_id
 
     def __repr__(self) -> str:
@@ -286,7 +286,9 @@ class UuidMixin:
             return synonym('id')
         return sa.orm.mapped_column(sa.Uuid, default=uuid4, unique=True, nullable=False)
 
-    uuid = immutable(with_roles(declared_attr(__uuid), read={'all'}))
+    uuid: declared_attr[UUID] = immutable(
+        with_roles(declared_attr(__uuid), read={'all'})
+    )
     del __uuid
 
     @hybrid_property
@@ -359,7 +361,7 @@ class TimestampMixin:
             nullable=False,
         )
 
-    created_at = immutable(declared_attr(__created_at))
+    created_at: declared_attr[datetime] = immutable(declared_attr(__created_at))
     del __created_at
 
     @classmethod
@@ -372,7 +374,7 @@ class TimestampMixin:
             nullable=False,
         )
 
-    updated_at = declared_attr(__updated_at)
+    updated_at: declared_attr[datetime] = declared_attr(__updated_at)
     del __updated_at
 
 
@@ -735,7 +737,7 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False, unique=True
         )
 
-    name = declared_attr(__name)
+    name: declared_attr[str] = declared_attr(__name)
     del __name
 
     @classmethod
@@ -747,7 +749,7 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
 
-    title = declared_attr(__title)
+    title: declared_attr[str] = declared_attr(__title)
     del __title
 
     @property
@@ -891,7 +893,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    name = declared_attr(__name)
+    name: declared_attr[str] = declared_attr(__name)
     del __name
 
     @classmethod
@@ -903,7 +905,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
 
-    title = declared_attr(__title)
+    title: declared_attr[str] = declared_attr(__title)
     del __title
 
     def __init__(self, *args, **kw) -> None:
@@ -1061,7 +1063,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    name = declared_attr(__name)
+    name: declared_attr[str] = declared_attr(__name)
     del __name
 
     @classmethod
@@ -1073,7 +1075,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
 
-    title = declared_attr(__title)
+    title: declared_attr[str] = declared_attr(__title)
     del __title
 
     @property
@@ -1171,7 +1173,9 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
         return sa.orm.mapped_column(sa.Integer, nullable=False)
 
     # IdMixin defined `url_id` as `str`, so we need a type-ignore to change to `int`
-    url_id = with_roles(declared_attr(__url_id), read={'all'})  # type: ignore[arg-type]
+    url_id: declared_attr[int] = with_roles(  # type: ignore[assignment]
+        declared_attr(__url_id), read={'all'}
+    )
     del __url_id
 
     def __init__(self, *args, **kw) -> None:
@@ -1268,7 +1272,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    name = declared_attr(__name)
+    name: declared_attr[str] = declared_attr(__name)
     del __name
 
     @classmethod
@@ -1280,7 +1284,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
 
-    title = declared_attr(__title)
+    title: declared_attr[str] = declared_attr(__title)
     del __title
 
     @property
