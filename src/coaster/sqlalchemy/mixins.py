@@ -202,10 +202,16 @@ class IdMixin(t.Generic[PkeyType]):
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return sa.orm.mapped_column(
-                sa.Uuid, default=uuid4, primary_key=True, nullable=False
+                sa.Uuid,
+                default=None,
+                insert_default=uuid4,
+                primary_key=True,
+                nullable=False,
             )
 
-        return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
+        return sa.orm.mapped_column(
+            sa.Integer, primary_key=True, nullable=False, default=None
+        )
 
     # Compatibility alias for use in Protocols, as a workaround for Mypy incorrectly
     # considering `id` to be read-only: https://github.com/python/mypy/issues/16709
@@ -357,7 +363,8 @@ class TimestampMixin:
         """Timestamp for when this instance was created, in UTC."""
         return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
-            default=func.utcnow(),
+            insert_default=func.utcnow(),
+            default=None,
             nullable=False,
         )
 
@@ -369,7 +376,8 @@ class TimestampMixin:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
-            default=func.utcnow(),
+            insert_default=func.utcnow(),
+            default=None,
             onupdate=func.utcnow(),
             nullable=False,
         )
