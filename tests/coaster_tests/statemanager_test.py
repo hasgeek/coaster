@@ -1,8 +1,10 @@
 """Tests for StateManager."""
 # pylint: disable=protected-access,comparison-with-callable
 
+import enum
 import types
 import typing as t
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import pytest
@@ -19,7 +21,7 @@ from coaster.sqlalchemy import (
     StateTransitionError,
     with_roles,
 )
-from coaster.utils import LabeledEnum, NameTitle
+from coaster.utils import DataclassFromType, LabeledEnum, NameTitle
 
 from .conftest import AppTestCase, Model
 
@@ -177,6 +179,90 @@ class MyPost(BaseMixin, Model):
 
 
 # --- Tests ----------------------------------------------------------------------------
+
+
+@pytest.mark.filterwarnings("ignore::coaster.utils.classes.LabeledEnumWarning")
+def test_check_constraint_labeledenum():
+    """Test check_constraint with a LabeledEnum."""
+
+    class TestEnum1(LabeledEnum):
+        ONE = (1, "One")
+        TWO = (2, "Two")
+        THREE = (3, "Three")
+
+    class TestEnum2(LabeledEnum):
+        ONE = (1, "one", "One")
+        TWO = (2, "two", "Two")
+        THREE = (3, "three", "Three")
+
+    class TestEnumStr(LabeledEnum):
+        YES = ('y', "Yes")
+        NO = ('n', "No")
+        MAYBE = ('m', "Maybe")
+
+    assert (
+        str(StateManager.check_constraint('state', TestEnum1).sqltext)
+        == 'state IN (1, 2, 3)'
+    )
+    assert (
+        str(StateManager.check_constraint('state', TestEnum2).sqltext)
+        == 'state IN (1, 2, 3)'
+    )
+    assert (
+        str(StateManager.check_constraint('state', TestEnumStr).sqltext)
+        == "state IN ('y', 'n', 'm')"
+    )
+
+
+def test_check_constraint_enum():
+    """Test check_constraint with an Enum."""
+
+    class TestEnumInt(enum.Enum):
+        ONE = 1
+        TWO = 2
+        THREE = 3
+
+    @dataclass(frozen=True)
+    class IntLabel(DataclassFromType, int):
+        label: str
+
+    class TestEnumIntLabel(IntLabel, enum.Enum):
+        ONE = 1, "one"
+        TWO = 2, "two"
+        THREE = 3, "three"
+
+    class TestEnumStr(enum.Enum):
+        YES = 'y'
+        NO = 'n'
+        MAYBE = 'm'
+
+    @dataclass(frozen=True)
+    class StrLabel(DataclassFromType, str):
+        label: str
+
+    class TestEnumStrLabel(StrLabel, enum.Enum):
+        YES = 'y', "Yes"
+        NO = 'n', "No"
+        MAYBE = 'm', "Maybe"
+
+    assert (
+        str(StateManager.check_constraint('state', TestEnumInt).sqltext)
+        == 'state IN (1, 2, 3)'
+    )
+    assert (
+        str(
+            StateManager.check_constraint('state', TestEnumIntLabel, sa.Integer).sqltext
+        )
+        == 'state IN (1, 2, 3)'
+    )
+    assert (
+        str(StateManager.check_constraint('state', TestEnumStr).sqltext)
+        == "state IN ('y', 'n', 'm')"
+    )
+    assert (
+        str(StateManager.check_constraint('state', TestEnumStrLabel, sa.String).sqltext)
+        == "state IN ('y', 'n', 'm')"
+    )
 
 
 class TestStateManager(AppTestCase):

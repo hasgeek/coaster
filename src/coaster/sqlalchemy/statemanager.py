@@ -233,6 +233,7 @@ import functools
 import typing as t
 import typing_extensions as te
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, cast, overload
 
 import sqlalchemy as sa
@@ -1025,19 +1026,22 @@ class StateManager(t.Generic[_SG]):
 
     @staticmethod
     def check_constraint(
-        column: str, lenum: t.Type[LabeledEnum], **kwargs: t.Any
+        column: str,
+        enum: t.Union[t.Type[Enum], t.Type[LabeledEnum]],
+        type_: t.Optional[t.Any] = None,
+        **kwargs: t.Any,
     ) -> sa.CheckConstraint:
         """
         Construct a SQL CHECK constraint.
 
-        Requires a column name and a :class:`~coaster.utils.classes.LabeledEnum`
-        containing valid values. Usage::
+        Requires a column name and an :class:`~enum.Enum` or
+        :class:`~coaster.utils.classes.LabeledEnum` containing valid values. Usage::
 
             class MyModel(Model):
                 _state: Mapped[int] = sa.orm.mapped_column(
                     'state',
                     sa.Integer,
-                    StateManager.check_constraint('state', MY_ENUM),
+                    StateManager.check_constraint('state', MY_ENUM, sa.Integer),
                     default=MY_ENUM.DEFAULT
                 )
                 state = StateManager(_state, MY_ENUM)
@@ -1051,15 +1055,21 @@ class StateManager(t.Generic[_SG]):
 
             print(str(StateManager.check_constraint('your_column', YOUR_ENUM).sqltext))
 
-        :param str column: Column name
-        :param LabeledEnum lenum: :class:`~coaster.utils.classes.LabeledEnum` to
-            retrieve valid values from
+        :param column: Column name
+        :param enum: :class:`~enum.Enum` or :class:`~coaster.utils.classes.LabeledEnum`
+            to retrieve valid values from
+        :param type: SQLAlchemy column type to cast values to (required if the values
+            are not plain strings or integers)
         :param kwargs: Additional options passed to CheckConstraint
         """
+        if issubclass(enum, LabeledEnum):
+            values = enum.keys()
+        else:
+            values = [_member.value for _member in enum]
         return sa.CheckConstraint(
             str(
-                sa.column(column)
-                .in_(lenum.keys())
+                sa.column(column, type_)
+                .in_(values)
                 .compile(compile_kwargs={'literal_binds': True})
             ),
             **kwargs,
