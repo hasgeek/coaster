@@ -201,15 +201,27 @@ def test_check_constraint_labeledenum():
         MAYBE = ('m', "Maybe")
 
     assert (
-        str(StateManager.check_constraint('state', TestEnum1).sqltext)
+        str(
+            StateManager.check_constraint('state', TestEnum1).sqltext.compile(
+                compile_kwargs={'literal_binds': True}
+            )
+        )
         == 'state IN (1, 2, 3)'
     )
     assert (
-        str(StateManager.check_constraint('state', TestEnum2).sqltext)
+        str(
+            StateManager.check_constraint('state', TestEnum2).sqltext.compile(
+                compile_kwargs={'literal_binds': True}
+            )
+        )
         == 'state IN (1, 2, 3)'
     )
     assert (
-        str(StateManager.check_constraint('state', TestEnumStr).sqltext)
+        str(
+            StateManager.check_constraint('state', TestEnumStr).sqltext.compile(
+                compile_kwargs={'literal_binds': True}
+            )
+        )
         == "state IN ('y', 'n', 'm')"
     )
 
@@ -246,21 +258,35 @@ def test_check_constraint_enum():
         MAYBE = 'm', "Maybe"
 
     assert (
-        str(StateManager.check_constraint('state', TestEnumInt).sqltext)
-        == 'state IN (1, 2, 3)'
-    )
-    assert (
         str(
-            StateManager.check_constraint('state', TestEnumIntLabel, sa.Integer).sqltext
+            StateManager.check_constraint('state', TestEnumInt).sqltext.compile(
+                compile_kwargs={'literal_binds': True}
+            )
         )
         == 'state IN (1, 2, 3)'
     )
     assert (
-        str(StateManager.check_constraint('state', TestEnumStr).sqltext)
+        str(
+            StateManager.check_constraint(
+                'state', TestEnumIntLabel, sa.Integer
+            ).sqltext.compile(compile_kwargs={'literal_binds': True})
+        )
+        == 'state IN (1, 2, 3)'
+    )
+    assert (
+        str(
+            StateManager.check_constraint('state', TestEnumStr).sqltext.compile(
+                compile_kwargs={'literal_binds': True}
+            )
+        )
         == "state IN ('y', 'n', 'm')"
     )
     assert (
-        str(StateManager.check_constraint('state', TestEnumStrLabel, sa.String).sqltext)
+        str(
+            StateManager.check_constraint(
+                'state', TestEnumStrLabel, sa.String
+            ).sqltext.compile(compile_kwargs={'literal_binds': True})
+        )
         == "state IN ('y', 'n', 'm')"
     )
 
@@ -328,7 +354,7 @@ class TestStateManager(AppTestCase):
             state.transition(state.DRAFT, state.REDRAFTABLE)(lambda: None)
 
     def test_has_state(self) -> None:
-        """A post has a state that can be tested with statemanager.NAME."""
+        """A post has a state that can be tested with state_manager.NAME."""
         assert self.post._state == MY_STATE.DRAFT
         assert self.post.state.value == MY_STATE.DRAFT
         assert self.post.state.DRAFT
