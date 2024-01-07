@@ -26,7 +26,7 @@ class ReferralTarget(BaseMixin, Model):
     __tablename__ = 'referral_target'
 
 
-class IdOnly(BaseMixin[int], Model):
+class IdOnly(BaseMixin[int, t.Any], Model):
     __tablename__ = 'id_only'
 
     is_regular: Mapped[t.Optional[int]] = sa.orm.mapped_column(sa.Integer)
@@ -40,7 +40,7 @@ class IdOnly(BaseMixin[int], Model):
     referral_target: Mapped[t.Optional[ReferralTarget]] = relationship(ReferralTarget)
 
 
-class IdUuid(UuidMixin, BaseMixin[int], Model):
+class IdUuid(UuidMixin, BaseMixin[int, t.Any], Model):
     __tablename__ = 'id_uuid'
 
     is_regular: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
@@ -58,7 +58,7 @@ class IdUuid(UuidMixin, BaseMixin[int], Model):
     )
 
 
-class UuidOnly(UuidMixin, BaseMixin[int], Model):
+class UuidOnly(UuidMixin, BaseMixin[int, t.Any], Model):
     __tablename__ = 'uuid_only'
 
     is_regular: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))

@@ -28,14 +28,14 @@ inspection, and to control state change via transitions. Sample usage::
         _state: Mapped[int] = sa.orm.mapped_column(
             'state',
             sa.Integer,
-            StateManager.check_constraint('state', MY_STATE),
+            StateManager.check_constraint('state', MY_STATE, sa.Integer),
             default=MY_STATE.DRAFT,
             nullable=False
         )
         _reviewstate: Mapped[int] = sa.orm.mapped_column(
             'reviewstate',
             sa.Integer,
-            StateManager.check_constraint('state', REVIEW_STATE),
+            StateManager.check_constraint('reviewstate', REVIEW_STATE, sa.Integer),
             default=REVIEW_STATE.UNSUBMITTED,
             nullable=False
         )
@@ -233,6 +233,7 @@ import functools
 import typing as t
 import typing_extensions as te
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, cast, overload
 
 import sqlalchemy as sa
@@ -1025,45 +1026,54 @@ class StateManager(t.Generic[_SG]):
 
     @staticmethod
     def check_constraint(
-        column: str, lenum: t.Type[LabeledEnum], **kwargs: t.Any
+        column: str,
+        enum: t.Union[t.Type[Enum], t.Type[LabeledEnum]],
+        type_: t.Optional[
+            t.Union[t.Type[sa.types.TypeEngine], sa.types.TypeEngine]
+        ] = None,
+        **kwargs: t.Any,
     ) -> sa.CheckConstraint:
         """
         Construct a SQL CHECK constraint.
 
-        Requires a column name and a :class:`~coaster.utils.classes.LabeledEnum`
-        containing valid values. Usage::
+        Requires a column name and an :class:`~enum.Enum` or
+        :class:`~coaster.utils.classes.LabeledEnum` containing valid values. Usage::
 
             class MyModel(Model):
                 _state: Mapped[int] = sa.orm.mapped_column(
                     'state',
                     sa.Integer,
-                    StateManager.check_constraint('state', MY_ENUM),
+                    StateManager.check_constraint('state', MY_ENUM, sa.Integer),
                     default=MY_ENUM.DEFAULT
                 )
                 state = StateManager(_state, MY_ENUM)
 
-        Alembic may not detect the CHECK constraint when auto-generating migrations, so
-        you may need to do this manually using the Python console to extract the SQL
-        string::
+        If Alembic does not detect the CHECK constraint when auto-generating migrations,
+        you can extract the SQL string using a Python shell::
 
             from coaster.sqlalchemy import StateManager
             from your_app.models import YOUR_ENUM
 
-            print(str(StateManager.check_constraint('your_column', YOUR_ENUM).sqltext))
+            print(
+                str(
+                    StateManager.check_constraint(
+                        'your_column', YOUR_ENUM, sa.Integer  # Or specific column type
+                    ).sqltext.compile(compile_kwargs={'literal_binds': True})
+                )
+            )
 
-        :param str column: Column name
-        :param LabeledEnum lenum: :class:`~coaster.utils.classes.LabeledEnum` to
-            retrieve valid values from
+        :param column: Column name
+        :param enum: :class:`~enum.Enum` or :class:`~coaster.utils.classes.LabeledEnum`
+            to retrieve valid values from
+        :param type: SQLAlchemy column type to cast values to (required if the values
+            are not plain strings or integers)
         :param kwargs: Additional options passed to CheckConstraint
         """
-        return sa.CheckConstraint(
-            str(
-                sa.column(column)
-                .in_(lenum.keys())
-                .compile(compile_kwargs={'literal_binds': True})
-            ),
-            **kwargs,
-        )
+        if issubclass(enum, LabeledEnum):
+            values = enum.keys()
+        else:
+            values = [_member.value for _member in enum]
+        return sa.CheckConstraint(sa.Column(column, type_).in_(values))
 
     if TYPE_CHECKING:
         # Stub for mypy to recognise names added by _add_state_internal. There is a

@@ -3,12 +3,10 @@
 
 import typing as t
 from types import SimpleNamespace
-from typing import cast
 
 import pytest
 import sqlalchemy as sa
 from flask import Flask, g, has_request_context, render_template_string
-from flask.ctx import RequestContext
 from sqlalchemy.orm import Mapped
 
 from coaster.auth import (
@@ -113,7 +111,7 @@ def flask_login_manager(app: Flask) -> t.Iterator[FlaskLoginManager]:
 @pytest.fixture()
 def request_ctx(app: Flask) -> t.Iterator:
     """Request context with database models."""
-    ctx = cast(RequestContext, app.test_request_context())
+    ctx = app.test_request_context()
     ctx.push()
     db.create_all()
     yield ctx

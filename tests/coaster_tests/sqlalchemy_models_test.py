@@ -220,50 +220,50 @@ class MyUrlModel(Model):
     )
 
 
-class NonUuidKey(BaseMixin[int], Model):
+class NonUuidKey(BaseMixin[int, t.Any], Model):
     __tablename__ = 'non_uuid_key'
 
 
-class UuidKey(BaseMixin[UUID], Model):
+class UuidKey(BaseMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_key'
 
 
-class UuidKeyNoDefault(BaseMixin[UUID], Model):
+class UuidKeyNoDefault(BaseMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_key_no_default'
     id: Mapped[UUID] = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
         sa.Uuid, primary_key=True
     )
 
 
-class UuidForeignKey1(BaseMixin[int], Model):
+class UuidForeignKey1(BaseMixin[int, t.Any], Model):
     __tablename__ = 'uuid_foreign_key1'
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidForeignKey2(BaseMixin[UUID], Model):
+class UuidForeignKey2(BaseMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_foreign_key2'
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidIdName(BaseIdNameMixin[UUID], Model):
+class UuidIdName(BaseIdNameMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_id_name'
 
 
-class UuidIdNameMixin(UuidMixin, BaseIdNameMixin[UUID], Model):
+class UuidIdNameMixin(UuidMixin, BaseIdNameMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_id_name_mixin'
 
 
-class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin[int], Model):
+class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin[int, t.Any], Model):
     __tablename__ = 'uuid_id_name_secondary'
 
 
-class NonUuidMixinKey(UuidMixin, BaseMixin[int], Model):
+class NonUuidMixinKey(UuidMixin, BaseMixin[int, t.Any], Model):
     __tablename__ = 'non_uuid_mixin_key'
 
 
-class UuidMixinKey(UuidMixin, BaseMixin[UUID], Model):
+class UuidMixinKey(UuidMixin, BaseMixin[UUID, t.Any], Model):
     __tablename__ = 'uuid_mixin_key'
 
 

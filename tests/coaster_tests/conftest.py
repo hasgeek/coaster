@@ -62,7 +62,7 @@ class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
 
     def setUp(self) -> None:
         """Prepare test context."""
-        self.ctx = t.cast(RequestContext, self.app.test_request_context())
+        self.ctx = self.app.test_request_context()
         self.ctx.push()
         db.create_all()
         self.session = t.cast(sa.orm.Session, db.session)

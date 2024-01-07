@@ -1,7 +1,6 @@
 """Tests for urlForMixin."""
 
 import unittest
-from typing import cast
 
 import pytest
 from flask import Flask
@@ -91,7 +90,7 @@ class TestUrlForBase(unittest.TestCase):
     ctx: RequestContext
 
     def setUp(self) -> None:
-        self.ctx = cast(RequestContext, self.app.test_request_context())
+        self.ctx = self.app.test_request_context()
         self.ctx.push()
         db.create_all()
         self.session = db.session

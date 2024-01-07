@@ -106,7 +106,7 @@ __all__ = [
     'QueryProperty',
     'AppenderQuery',
     'ModelBase',
-    'DeclarativeBase',
+    'DeclarativeBase',  # From SQLAlchemy, re-exported for convenience
     'DynamicMapped',
     'Relationship',
     'relationship',

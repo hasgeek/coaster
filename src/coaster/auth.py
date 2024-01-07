@@ -30,7 +30,14 @@ from werkzeug.wrappers import Response as BaseResponse
 
 from .utils import InspectableSet
 
-__all__ = ['add_auth_attribute', 'add_auth_anchor', 'request_has_auth', 'current_auth']
+__all__ = [
+    'CurrentAuth',
+    'GetCurrentAuth',
+    'add_auth_attribute',
+    'add_auth_anchor',
+    'request_has_auth',
+    'current_auth',
+]
 
 
 _Response = t.TypeVar('_Response', bound=BaseResponse)
@@ -38,7 +45,7 @@ _Response = t.TypeVar('_Response', bound=BaseResponse)
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
 _add_lock = Lock()  # Used by :func:`add_auth_attribute`
-_get_lock = Lock()  # Used by :func:`_get_current_auth``
+_get_lock = Lock()  # Used by :func:`GetCurrentAuth.__call__`
 _prop_lock = Lock()  # Used by :meth:`CurrentAuth.__getattr__`
 
 _internal_attrs = {
@@ -149,6 +156,8 @@ class CurrentAuth:
     is_placeholder: bool
     permissions: InspectableSet
     anchors: t.Sequence[t.Any]
+    actor: t.Any
+    user: t.Any
 
     def __init__(self, is_placeholder: bool = False) -> None:
         object.__setattr__(self, 'is_placeholder', is_placeholder)
@@ -182,7 +191,7 @@ class CurrentAuth:
         return f'CurrentAuth(is_placeholder={self.is_placeholder})'
 
     def __getattr__(self, attr: str) -> t.Any:
-        """Init CurrentAuth on first attribute access."""
+        """Init :class:`CurrentAuth` on first attribute access."""
         with _prop_lock:
             if 'actor' in self.__dict__:
                 # CurrentAuth already initialized
@@ -256,23 +265,52 @@ def init_app(app: Flask) -> None:
     app.after_request(_set_auth_cookie_after_request)
 
 
-def _get_current_auth() -> CurrentAuth:
-    """Provide current_auth for the request context."""
-    # 1. Do we have a request context?
-    if request_ctx:
-        with _get_lock:
-            # 2. Does this request already have current_auth? If so, return it
-            ca = getattr(request_ctx, 'current_auth', None)
-            if ca is None:
-                # 3. If not, create it
-                ca = CurrentAuth()
-                request_ctx.current_auth = ca  # type: ignore[attr-defined]
-        # 4. Return current_auth
-        return ca
+_CurrentAuthType_co = t.TypeVar(
+    '_CurrentAuthType_co', bound=CurrentAuth, covariant=True
+)
 
-    # 5. Fallback if there is no request context. Return a placeholder current_auth
-    # so that ``current_auth.is_authenticated`` remains valid for checking status
-    return CurrentAuth(is_placeholder=True)
+
+class GetCurrentAuth(t.Generic[_CurrentAuthType_co]):
+    """Helper for :attr:`current_auth` proxy to use a :class:`CurrentAuth` subclass."""
+
+    def __init__(self, cls: t.Type[_CurrentAuthType_co]) -> None:
+        self.cls = cls
+
+    def __call__(self) -> _CurrentAuthType_co:
+        """Provide :attr:`current_auth` for the request context."""
+        # 1. Do we have a request context?
+        if request_ctx:
+            with _get_lock:
+                # 2. Does this request already have current_auth? If so, return it
+                ca = getattr(request_ctx, 'current_auth', None)
+                if ca is None:
+                    # 3. If not, create it
+                    ca = self.cls()
+                    request_ctx.current_auth = ca  # type: ignore[attr-defined]
+                elif not isinstance(ca, self.cls):
+                    # If ca is not an instance of self.cls but self.cls is a subclass of
+                    # ca.__class__, then re-create with self.cls. This is needed because
+                    # there could be more than one version of the `current_auth` local
+                    # proxy, and if the default implementation created a default
+                    # CurrentAuth instance, but a custom proxy expected a sub-class,
+                    # then it must get the sub-class. However, the sub-class must never
+                    # be re-cast as the base class.
+                    if issubclass(self.cls, ca.__class__):
+                        new_ca = self.cls()
+                        new_ca.__dict__.update(ca.__dict__)
+                        request_ctx.current_auth = new_ca  # type: ignore[attr-defined]
+                        ca = new_ca
+            # 4. Return current_auth
+            return ca
+
+        # 5. Fallback if there is no request context. Return a placeholder current_auth
+        # so that ``current_auth.is_authenticated`` remains valid for checking status
+        return self.cls(is_placeholder=True)
+
+    @classmethod
+    def proxy(cls, subcls: t.Type[_CurrentAuthType_co]) -> _CurrentAuthType_co:
+        """Create a local proxy using a specific subclass of :class:`CurrentAuth`."""
+        return cast(_CurrentAuthType_co, LocalProxy(cls(subcls)))
 
 
 #: A proxy object that hosts state for user authentication, attempting to load
@@ -287,4 +325,4 @@ def _get_current_auth() -> CurrentAuth:
 #:             return "We have a user"
 #:         else:
 #:             return "User not logged in"
-current_auth: CurrentAuth = cast(CurrentAuth, LocalProxy(_get_current_auth))
+current_auth = GetCurrentAuth.proxy(CurrentAuth)

@@ -39,6 +39,7 @@ Example use::
         demonstrating two ways to use `with_roles`.
         '''
         @with_roles(rw={'owner'})
+        @declared_attr
         def mixed_in1(cls) -> Mapped[str]:
             return sa.orm.mapped_column(sa.Unicode(250))
 
@@ -166,6 +167,7 @@ from .functions import idfilters
 from .model import AppenderQuery
 
 __all__ = [
+    'ActorType',
     'RoleGrantABC',
     'LazyRoleSet',
     'RoleAccessProxy',
@@ -192,6 +194,7 @@ ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
 RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
 _T = t.TypeVar('_T')
 _V = te.TypeVar('_V', default=t.Any)  # Var type for DynamicAssociationProxy
+ActorType = te.TypeVar('ActorType', bound=t.Any, default=t.Any)
 
 
 class RoleAttrs(te.TypedDict, total=False):
@@ -258,7 +261,7 @@ def _attrs_equal(
     return lhs is rhs
 
 
-def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
+def _actor_in_relationship(actor: ActorType, relationship: t.Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
@@ -280,7 +283,7 @@ def _actor_in_relationship(actor: t.Any, relationship: t.Any) -> bool:
 
 
 def _roles_via_relationship(
-    actor: t.Any,
+    actor: ActorType,
     relationship: t.Any,
     actor_attr: t.Optional[ActorAttrType],
     wanted_roles: t.Set[str],
@@ -405,7 +408,7 @@ class LazyRoleSet(abc.MutableSet):
     )
 
     def __init__(
-        self, obj: RoleMixin, actor: t.Any, initial: t.Iterable[str] = ()
+        self, obj: RoleMixin, actor: ActorType, initial: t.Iterable[str] = ()
     ) -> None:
         self.obj = obj
         self.actor = actor
@@ -811,7 +814,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         obj: RoleMixinType,
         *,
         roles: t.Union[LazyRoleSet, t.Set[str]],
-        actor: t.Optional[t.Any] = None,
+        actor: t.Optional[ActorType] = None,
         anchors: t.Sequence[t.Any] = (),
         datasets: t.Optional[t.Sequence[str]] = None,
     ) -> None:
@@ -1228,7 +1231,7 @@ def with_roles(
 
 
 @declarative_mixin
-class RoleMixin:
+class RoleMixin(t.Generic[ActorType]):
     """
     Provides methods for role-based access control.
 
@@ -1264,7 +1267,7 @@ class RoleMixin:
     __relationship_reversed_role_offer_map__: t.ClassVar[t.Dict[str, RoleOfferMap]] = {}
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
+        self, actor: t.Optional[ActorType] = None, anchors: t.Sequence[t.Any] = ()
     ) -> LazyRoleSet:
         """
         Return roles available to the given ``actor`` or ``anchors`` on this object.
@@ -1344,18 +1347,18 @@ class RoleMixin:
     @overload
     def actors_with(
         self, roles: t.Iterable[str], with_role: te.Literal[False] = False
-    ) -> t.Iterator[t.Any]:
+    ) -> t.Iterator[ActorType]:
         ...
 
     @overload
     def actors_with(
-        self, roles: t.Iterable[str], with_role: te.Literal[True] = True
-    ) -> t.Iterator[t.Tuple[t.Any, str]]:
+        self, roles: t.Iterable[str], with_role: te.Literal[True]
+    ) -> t.Iterator[t.Tuple[ActorType, str]]:
         ...
 
     def actors_with(
         self, roles: t.Iterable[str], with_role: bool = False
-    ) -> t.Iterator[t.Union[t.Any, t.Tuple[str, t.Any]]]:
+    ) -> t.Iterator[t.Union[ActorType, t.Tuple[ActorType, str]]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
 
@@ -1479,7 +1482,7 @@ class RoleMixin:
     def access_for(
         self,
         roles: t.Optional[t.Union[LazyRoleSet, t.Set[str]]] = None,
-        actor: t.Optional[t.Any] = None,
+        actor: t.Optional[ActorType] = None,
         anchors: t.Sequence[t.Any] = (),
         datasets: t.Optional[t.Sequence[str]] = None,
     ) -> RoleAccessProxy:
@@ -1612,7 +1615,7 @@ def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
                 attr, (QueryableAttribute, RelationshipProperty, MapperProperty)
             ):
                 if attr.property in __cache__:
-                    data = cast(WithRoles, __cache__[attr.property])
+                    data = __cache__[attr.property]
                 elif '_coaster_roles' in attr.info:
                     data = cast(WithRoles, attr.info['_coaster_roles'])
                 elif hasattr(attr.property, '_coaster_roles'):

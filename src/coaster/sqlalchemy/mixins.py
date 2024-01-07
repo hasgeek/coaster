@@ -32,7 +32,7 @@ from collections import abc
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import cast, overload
+from typing import overload
 from uuid import UUID, uuid4
 
 from flask import current_app, url_for
@@ -70,9 +70,10 @@ from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
 from .model import Query, QueryProperty
 from .registry import RegistryMixin
-from .roles import RoleMixin, with_roles
+from .roles import ActorType, RoleMixin, with_roles
 
 __all__ = [
+    'PkeyType',
     'IdMixin',
     'TimestampMixin',
     'PermissionMixin',
@@ -201,20 +202,34 @@ class IdMixin(t.Generic[PkeyType]):
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return sa.orm.mapped_column(
-                sa.Uuid, default=uuid4, primary_key=True, nullable=False
+                sa.Uuid,
+                default=None,
+                insert_default=uuid4,
+                primary_key=True,
+                nullable=False,
             )
 
-        return sa.orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
+        return sa.orm.mapped_column(
+            sa.Integer, primary_key=True, nullable=False, default=None
+        )
 
-    @declared_attr
+    # Compatibility alias for use in Protocols, as a workaround for Mypy incorrectly
+    # considering `id` to be read-only: https://github.com/python/mypy/issues/16709
     @classmethod
-    def url_id(cls) -> Mapped[str]:
+    def __id_(cls) -> Mapped[t.Any]:  # Define type as `Any` for use in Protocols
+        return synonym('id')
+
+    id_: declared_attr[t.Any] = declared_attr(__id_)
+    del __id_
+
+    @classmethod
+    def __url_id(cls) -> hybrid_property[str]:
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
             def url_id_uuid_func(self: te.Self) -> str:
                 """URL-safe representation of the UUID id as a hex value."""
-                return cast(UUID, self.id).hex
+                return self.id.hex  # type: ignore[attr-defined]
 
             def url_id_uuid_comparator(cls: t.Type) -> SqlUuidHexComparator:
                 """Compare two hex UUID values."""
@@ -225,7 +240,7 @@ class IdMixin(t.Generic[PkeyType]):
             url_id_property = hybrid_property(url_id_uuid_func).comparator(
                 url_id_uuid_comparator
             )
-            return url_id_property  # type: ignore[return-value]
+            return url_id_property
 
         def url_id_int_func(self: te.Self) -> str:
             """URL-safe representation of the integer id as a string."""
@@ -240,7 +255,10 @@ class IdMixin(t.Generic[PkeyType]):
         url_id_property = hybrid_property(url_id_int_func).comparator(
             url_id_int_comparator
         )
-        return url_id_property  # type: ignore[return-value]
+        return url_id_property
+
+    url_id: declared_attr[str] = declared_attr(__url_id)
+    del __url_id
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.id}>'
@@ -267,15 +285,17 @@ class UuidMixin:
 
     __uuid_primary_key__: t.ClassVar[bool]
 
-    @immutable
-    @with_roles(read={'all'})
-    @declared_attr
     @classmethod
-    def uuid(cls) -> Mapped[UUID]:
+    def __uuid(cls) -> Mapped[UUID]:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
         return sa.orm.mapped_column(sa.Uuid, default=uuid4, unique=True, nullable=False)
+
+    uuid: declared_attr[UUID] = immutable(
+        with_roles(declared_attr(__uuid), read={'all'})
+    )
+    del __uuid
 
     @hybrid_property
     def uuid_hex(self) -> str:
@@ -336,29 +356,34 @@ class TimestampMixin:
 
     query_class: t.ClassVar[t.Type[Query]] = Query
     query: t.ClassVar[QueryProperty]
-    __with_timezone__: t.ClassVar[bool] = False
+    __with_timezone__: t.ClassVar[bool] = True
 
-    @immutable
-    @declared_attr
     @classmethod
-    def created_at(cls) -> Mapped[datetime]:
+    def __created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
         return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
-            default=func.utcnow(),
+            insert_default=func.utcnow(),
+            default=None,
             nullable=False,
         )
 
-    @declared_attr
+    created_at: declared_attr[datetime] = immutable(declared_attr(__created_at))
+    del __created_at
+
     @classmethod
-    def updated_at(cls) -> Mapped[datetime]:
+    def __updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
         return sa.orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
-            default=func.utcnow(),
+            insert_default=func.utcnow(),
+            default=None,
             onupdate=func.utcnow(),
             nullable=False,
         )
+
+    updated_at: declared_attr[datetime] = declared_attr(__updated_at)
+    del __updated_at
 
 
 @declarative_mixin
@@ -630,27 +655,29 @@ class UrlForMixin:
     def register_view_for(
         cls, app: t.Optional[FlaskApp], action: str, classview: t.Any, attr: str
     ) -> None:
-        """Register a classview and viewhandler for a given app and action."""
+        """Register a classview and view method for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:
             cls.view_for_endpoints = {}
         cls.view_for_endpoints.setdefault(app, {})[action] = (classview, attr)
 
     def view_for(self, action: str = 'view') -> t.Any:
-        """Return the classview viewhandler that handles the specified action."""
+        """Return the classview view method that handles the specified action."""
         # pylint: disable=protected-access
         app = current_app._get_current_object()  # type: ignore[attr-defined]
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
     def classview_for(self, action: str = 'view') -> t.Any:
-        """Return the classview containing the viewhandler for the specified action."""
+        """Return the classview containing the view method for the specified action."""
         # pylint: disable=protected-access
         app = current_app._get_current_object()  # type: ignore[attr-defined]
         return self.view_for_endpoints[app][action][0](self)
 
 
 @declarative_mixin
-class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlForMixin):
+class NoIdMixin(
+    TimestampMixin, PermissionMixin, RoleMixin[ActorType], RegistryMixin, UrlForMixin
+):
     """
     Mixin that combines all mixin classes except :class:`IdMixin`.
 
@@ -670,12 +697,12 @@ class NoIdMixin(TimestampMixin, PermissionMixin, RoleMixin, RegistryMixin, UrlFo
 
 
 @declarative_mixin
-class BaseMixin(IdMixin[PkeyType], NoIdMixin):
+class BaseMixin(IdMixin[PkeyType], NoIdMixin[ActorType]):
     """Base mixin class for all tables that have an id column."""
 
 
 @declarative_mixin
-class BaseNameMixin(BaseMixin[PkeyType]):
+class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects.
 
@@ -705,9 +732,8 @@ class BaseNameMixin(BaseMixin[PkeyType]):
     __name_length__: t.ClassVar[t.Optional[int]] = 250
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
-    @declared_attr
     @classmethod
-    def name(cls) -> Mapped[str]:
+    def __name(cls) -> Mapped[str]:
         """URL name of this object, unique across all instances."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -719,15 +745,20 @@ class BaseNameMixin(BaseMixin[PkeyType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False, unique=True
         )
 
-    @declared_attr
+    name: declared_attr[str] = declared_attr(__name)
+    del __name
+
     @classmethod
-    def title(cls) -> Mapped[str]:
+    def __title(cls) -> Mapped[str]:
         """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
+
+    title: declared_attr[str] = declared_attr(__title)
+    del __title
 
     @property
     def title_for_name(self) -> str:
@@ -811,7 +842,7 @@ class BaseNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedNameMixin(BaseMixin[PkeyType]):
+class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects within containers.
 
@@ -857,9 +888,8 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
     #: Specify expected type for a 'parent' attr
     parent: t.Any
 
-    @declared_attr
     @classmethod
-    def name(cls) -> Mapped[str]:
+    def __name(cls) -> Mapped[str]:
         """URL name of this object, unique within the parent container."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -871,15 +901,20 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    @declared_attr
+    name: declared_attr[str] = declared_attr(__name)
+    del __name
+
     @classmethod
-    def title(cls) -> Mapped[str]:
+    def __title(cls) -> Mapped[str]:
         """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
+
+    title: declared_attr[str] = declared_attr(__title)
+    del __title
 
     def __init__(self, *args, **kw) -> None:
         super().__init__(*args, **kw)
@@ -995,7 +1030,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseIdNameMixin(BaseMixin[PkeyType]):
+class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects with an id tag.
 
@@ -1023,9 +1058,8 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
     __name_length__: t.ClassVar[t.Optional[int]] = 250
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
-    @declared_attr
     @classmethod
-    def name(cls) -> Mapped[str]:
+    def __name(cls) -> Mapped[str]:
         """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -1037,15 +1071,20 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    @declared_attr
+    name: declared_attr[str] = declared_attr(__name)
+    del __name
+
     @classmethod
-    def title(cls) -> Mapped[str]:
+    def __title(cls) -> Mapped[str]:
         """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
+
+    title: declared_attr[str] = declared_attr(__title)
+    del __title
 
     @property
     def title_for_name(self) -> str:
@@ -1115,7 +1154,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedIdMixin(BaseMixin[PkeyType]):
+class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
     """
     Base mixin class for objects with an id that is unique within a parent.
 
@@ -1136,17 +1175,21 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
     parent: t.Any
 
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
-    @with_roles(read={'all'})
-    @declared_attr
     @classmethod
-    def url_id(cls) -> Mapped[int]:  # type: ignore[override]
+    def __url_id(cls) -> Mapped[int]:
         """Id number that is unique within the parent container."""
         return sa.orm.mapped_column(sa.Integer, nullable=False)
+
+    # IdMixin defined `url_id` as `str`, so we need a type-ignore to change to `int`
+    url_id: declared_attr[int] = with_roles(  # type: ignore[assignment]
+        declared_attr(__url_id), read={'all'}
+    )
+    del __url_id
 
     def __init__(self, *args, **kw) -> None:
         super().__init__(*args, **kw)
         if self.parent:
-            self.make_id()
+            self.make_scoped_id()
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.url_id} of {self.parent!r}>'
@@ -1156,8 +1199,8 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
         """Get an instance matching the parent and url_id."""
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
-    def make_id(self) -> None:
-        """Create a new URL id that is unique to the parent container."""
+    def make_scoped_id(self) -> None:
+        """Create a new scoped id that is unique to the parent container."""
         if self.url_id is None:  # Set id only if empty
             self.url_id = (
                 # pylint: disable=not-callable
@@ -1167,6 +1210,9 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
                 )
                 .scalar_subquery()
             )
+
+    # Legacy name
+    make_id = make_scoped_id
 
     def permissions(
         self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
@@ -1180,7 +1226,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType]):
 
 
 @declarative_mixin
-class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
+class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
     """
     Base mixin class for named objects with an id tag that is unique within a parent.
 
@@ -1221,9 +1267,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     __name_length__: t.ClassVar[t.Optional[int]] = 250
     __title_length__: t.ClassVar[t.Optional[int]] = 250
 
-    @declared_attr
     @classmethod
-    def name(cls) -> Mapped[str]:
+    def __name(cls) -> Mapped[str]:
         """URL name of this object, non-unique."""
         if cls.__name_length__ is None:
             column_type = sa.Unicode()
@@ -1235,15 +1280,20 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
-    @declared_attr
+    name: declared_attr[str] = declared_attr(__name)
+    del __name
+
     @classmethod
-    def title(cls) -> Mapped[str]:
+    def __title(cls) -> Mapped[str]:
         """Title of this object."""
         if cls.__title_length__ is None:
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
         return sa.orm.mapped_column(column_type, nullable=False)
+
+    title: declared_attr[str] = declared_attr(__title)
+    del __title
 
     @property
     def title_for_name(self) -> str:
@@ -1257,7 +1307,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType]):
     def __init__(self, *args, **kw) -> None:
         super().__init__(*args, **kw)
         if self.parent:
-            self.make_id()
+            self.make_scoped_id()
         if not self.name:
             self.make_name()
 
@@ -1398,7 +1448,7 @@ def _make_scoped_id(
     _mapper: t.Any, _connection: t.Any, target: BaseScopedIdMixin
 ) -> None:
     if target.url_id is None and target.parent is not None:  # type: ignore[unreachable]
-        target.make_id()  # type: ignore[unreachable]
+        target.make_scoped_id()  # type: ignore[unreachable]
 
 
 event.listen(BaseNameMixin, 'before_insert', _make_name, propagate=True)

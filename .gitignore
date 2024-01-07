@@ -7,6 +7,8 @@ test.db
 .settings
 *.egg-info
 .coverage
+coverage/
+coverage.xml
 docs/_build
 build/
 dist/
