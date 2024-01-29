@@ -6,6 +6,7 @@ Helper functions for view handlers.
 
 All items in this module can be imported directly from :mod:`coaster.views`.
 """
+
 # pyright: reportMissingImports=false
 
 from __future__ import annotations

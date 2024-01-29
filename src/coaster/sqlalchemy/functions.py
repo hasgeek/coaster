@@ -87,13 +87,11 @@ session_type = t.Union[sa.orm.Session, sa.orm.scoped_session]
 
 
 @overload
-def failsafe_add(__session: session_type, __instance: t.Any, /) -> None:
-    ...
+def failsafe_add(__session: session_type, __instance: t.Any, /) -> None: ...
 
 
 @overload
-def failsafe_add(__session: session_type, __instance: T, /, **filters: t.Any) -> T:
-    ...
+def failsafe_add(__session: session_type, __instance: T, /, **filters: t.Any) -> T: ...
 
 
 def failsafe_add(

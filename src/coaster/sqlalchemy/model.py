@@ -427,20 +427,18 @@ class DynamicMapped(DynamicMappedBase[_T_co]):
     if TYPE_CHECKING:
 
         @overload  # type: ignore[override]
-        def __get__(self, instance: None, owner: t.Any) -> InstrumentedAttribute[_T_co]:
-            ...
+        def __get__(
+            self, instance: None, owner: t.Any
+        ) -> InstrumentedAttribute[_T_co]: ...
 
         @overload
-        def __get__(self, instance: object, owner: t.Any) -> AppenderQuery[_T_co]:
-            ...
+        def __get__(self, instance: object, owner: t.Any) -> AppenderQuery[_T_co]: ...
 
         def __get__(
             self, instance: t.Optional[object], owner: t.Any
-        ) -> t.Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]:
-            ...
+        ) -> t.Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]: ...
 
-        def __set__(self, instance: t.Any, value: t.Collection[_T_co]) -> None:
-            ...
+        def __set__(self, instance: t.Any, value: t.Collection[_T_co]) -> None: ...
 
 
 class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[misc]

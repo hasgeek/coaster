@@ -1,4 +1,5 @@
 """Tests for `RoleMixin`."""
+
 # pylint: disable=protected-access,use-implicit-booleaness-not-comparison
 # pylint: disable=comparison-with-callable
 

@@ -6,6 +6,7 @@ Coaster can help your application log errors at run-time. Initialize with
 :func:`coaster.logger.init_app`. If you use :func:`coaster.app.init_app`,
 this is done automatically for you.
 """
+
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
@@ -321,9 +322,9 @@ class SlackHandler(logging.Handler):
                         'mrkdwn_in': ['text'],
                         'fallback': section[0],
                         'pretext': section[0],
-                        'text': ('```\n' + section[1] + '\n```')
-                        if len(section) > 1
-                        else '',
+                        'text': (
+                            ('```\n' + section[1] + '\n```') if len(section) > 1 else ''
+                        ),
                     }
                     for section in sections
                 ],

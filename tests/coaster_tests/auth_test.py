@@ -1,4 +1,5 @@
 """Test current_auth."""
+
 # pylint: disable=redefined-outer-name
 
 import typing as t

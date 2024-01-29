@@ -1,4 +1,5 @@
 """Tests for asset management helpers."""
+
 # pylint: disable=redefined-outer-name,pointless-statement
 
 import json

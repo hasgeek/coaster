@@ -1,4 +1,5 @@
 """Registry and RegistryMixin tests."""
+
 # pylint: disable=redefined-outer-name,protected-access
 
 import typing as t

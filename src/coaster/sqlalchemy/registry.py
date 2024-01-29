@@ -198,12 +198,10 @@ class Registry:
         return decorator
 
     @overload
-    def __get__(self: _RT, obj: None, cls: t.Type) -> _RT:
-        ...
+    def __get__(self: _RT, obj: None, cls: t.Type) -> _RT: ...
 
     @overload
-    def __get__(self: _RT, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_RT, _T]:
-        ...
+    def __get__(self: _RT, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_RT, _T]: ...
 
     def __get__(
         self: _RT, obj: t.Optional[_T], cls: t.Type[_T]
@@ -233,8 +231,7 @@ class Registry:
     if TYPE_CHECKING:
         # Tell Mypy that it's okay for code to attempt reading an attr
 
-        def __getattr__(self, attr: str) -> t.Any:
-            ...
+        def __getattr__(self, attr: str) -> t.Any: ...
 
 
 class InstanceRegistry(t.Generic[_RT, _T]):

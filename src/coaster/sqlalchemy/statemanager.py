@@ -620,12 +620,12 @@ class StateTransition(t.Generic[_P, _R]):
         self.data['name'] = name
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
-        ...
+    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
 
     @overload
-    def __get__(self, obj: _T, cls: t.Type[_T]) -> StateTransitionWrapper[_P, _R, _T]:
-        ...
+    def __get__(
+        self, obj: _T, cls: t.Type[_T]
+    ) -> StateTransitionWrapper[_P, _R, _T]: ...
 
     def __get__(
         self, obj: t.Optional[_T], cls: t.Type[_T]
@@ -795,12 +795,12 @@ class StateManager(t.Generic[_SG]):
         return f'<StateManager {self.name}>'  # type: ignore[unreachable]
 
     @overload
-    def __get__(self: _SM, obj: None, cls: t.Type) -> _SM:
-        ...
+    def __get__(self: _SM, obj: None, cls: t.Type) -> _SM: ...
 
     @overload
-    def __get__(self: _SM, obj: _T, cls: t.Type[_T]) -> StateManagerInstance[_SM, _T]:
-        ...
+    def __get__(
+        self: _SM, obj: _T, cls: t.Type[_T]
+    ) -> StateManagerInstance[_SM, _T]: ...
 
     def __get__(
         self: _SM, obj: t.Optional[_T], cls: t.Type[_T]
@@ -1183,5 +1183,4 @@ class StateManagerInstance(t.Generic[_SM, _T]):
         ) -> t.Callable[
             [t.Callable[te.Concatenate[t.Any, _P], _R]],
             StateTransition[_P, _R],
-        ]:
-            ...
+        ]: ...

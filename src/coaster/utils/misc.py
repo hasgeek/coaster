@@ -512,15 +512,13 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
 
 
 @overload
-def require_one_of(__return: te.Literal[False] = False, /, **kwargs: t.Any) -> None:
-    ...
+def require_one_of(__return: te.Literal[False] = False, /, **kwargs: t.Any) -> None: ...
 
 
 @overload
 def require_one_of(
     __return: te.Literal[True], /, **kwargs: t.Any
-) -> t.Tuple[str, t.Any]:
-    ...
+) -> t.Tuple[str, t.Any]: ...
 
 
 def require_one_of(

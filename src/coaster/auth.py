@@ -15,6 +15,7 @@ attributes. For compatibility with Flask-Login, if the login manager fails to ca
 called, as the app context may be re-used between requests if it was created prior to
 request processing.
 """
+
 # pylint: disable=protected-access
 
 from __future__ import annotations

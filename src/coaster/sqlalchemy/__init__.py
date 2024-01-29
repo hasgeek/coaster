@@ -8,6 +8,7 @@ that add standard columns or special functionality.
 All functions and mixins are importable from the :mod:`coaster.sqlalchemy`
 namespace.
 """
+
 # flake8: noqa
 # pylint: disable:unused-import
 

@@ -1,4 +1,5 @@
 """Test SQLAlchemy model mixins."""
+
 # pylint: disable=attribute-defined-outside-init,comparison-with-callable
 # pylint: disable=not-callable
 

@@ -29,12 +29,10 @@ class SelfProperty:
     """Provides :attr:`DataclassFromType.self` (singleton instance)."""
 
     @t.overload
-    def __get__(self, obj: None, _cls: t.Type) -> t.NoReturn:
-        ...
+    def __get__(self, obj: None, _cls: t.Type) -> t.NoReturn: ...
 
     @t.overload
-    def __get__(self, obj: _T, _cls: t.Type[_T]) -> _T:
-        ...
+    def __get__(self, obj: _T, _cls: t.Type[_T]) -> _T: ...
 
     def __get__(self, obj: t.Optional[_T], _cls: t.Type[_T]) -> _T:
         if obj is None:

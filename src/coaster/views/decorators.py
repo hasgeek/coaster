@@ -351,9 +351,7 @@ def load_models(
             permission_required = (
                 {permission}
                 if isinstance(permission, str)
-                else set(permission)
-                if permission is not None
-                else None
+                else set(permission) if permission is not None else None
             )
             url_check_attributes = config.get('urlcheck', [])
             result: t.Dict[str, t.Any] = {}
