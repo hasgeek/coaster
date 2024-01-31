@@ -4,6 +4,7 @@ Class-based views
 
 Group related views into a class for easier management.
 """
+
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
@@ -80,18 +81,15 @@ class RouteDecoratorProtocol(te.Protocol):
     """Protocol for the decorator returned by ``@route(...)``."""
 
     @t.overload
-    def __call__(self, __decorated: ClassViewType) -> ClassViewType:
-        ...
+    def __call__(self, __decorated: ClassViewType) -> ClassViewType: ...
 
     @t.overload
-    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
-        ...
+    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @t.overload
     def __call__(
         self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]:
-        ...
+    ) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
@@ -100,30 +98,26 @@ class RouteDecoratorProtocol(te.Protocol):
             MethodProtocol[te.Concatenate[t.Any, _P], _R_co],
             ViewMethod[_P, _R_co],
         ],
-    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]:
-        ...
+    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
 
 
 class ViewDataDecoratorProtocol(te.Protocol):
     """Protocol for the decorator returned by ``@viewdata(...)``."""
 
     @t.overload
-    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
-        ...
+    def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @t.overload
     def __call__(
         self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]:
-        ...
+    ) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: t.Union[
             MethodProtocol[te.Concatenate[t.Any, _P], _R_co], ViewMethod[_P, _R_co]
         ],
-    ) -> ViewMethod[_P, _R_co]:
-        ...
+    ) -> ViewMethod[_P, _R_co]: ...
 
 
 class InitAppCallback(te.Protocol):
@@ -136,8 +130,7 @@ class InitAppCallback(te.Protocol):
         endpoint: str,
         view_func: t.Callable,
         **options,
-    ) -> t.Any:
-        ...
+    ) -> t.Any: ...
 
 
 # --- Class views and utilities --------------------------------------------------------
@@ -183,18 +176,15 @@ def route(
     """
 
     @t.overload
-    def decorator(decorated: ClassViewType) -> ClassViewType:
-        ...
+    def decorator(decorated: ClassViewType) -> ClassViewType: ...
 
     @t.overload
-    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
-        ...
+    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @t.overload
     def decorator(
         decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]:
-        ...
+    ) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
         decorated: t.Union[
@@ -232,14 +222,12 @@ def viewdata(**kwargs: t.Any) -> ViewDataDecoratorProtocol:
     """
 
     @t.overload
-    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]:
-        ...
+    def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @t.overload
     def decorator(
         decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]:
-        ...
+    ) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
         decorated: t.Union[
@@ -404,12 +392,10 @@ class ViewMethod(t.Generic[_P, _R_co]):
         return self.__class__(self, data=data)
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
-        ...
+    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
 
     @overload
-    def __get__(self, obj: t.Any, cls: t.Type) -> ViewMethodBind[_P, _R_co]:
-        ...
+    def __get__(self, obj: t.Any, cls: t.Type) -> ViewMethodBind[_P, _R_co]: ...
 
     def __get__(
         self, obj: t.Optional[t.Any], cls: t.Type
@@ -1135,9 +1121,11 @@ class UrlForView:
                 # variables
                 try:
                     params = {
-                        v: getattr(cls.GetAttr, v)
-                        if hasattr(cls.GetAttr, v)
-                        else cls.route_model_map[v]
+                        v: (
+                            getattr(cls.GetAttr, v)
+                            if hasattr(cls.GetAttr, v)
+                            else cls.route_model_map[v]
+                        )
                         for v in rulevars
                     }
                 except KeyError as exc:

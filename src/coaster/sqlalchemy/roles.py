@@ -662,14 +662,12 @@ class DynamicAssociationProxy(t.Generic[_V]):
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self:
-        ...
+    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
 
     @overload
     def __get__(
         self, obj: _T, cls: t.Type[_T]
-    ) -> DynamicAssociationProxyWrapper[_V, _T]:
-        ...
+    ) -> DynamicAssociationProxyWrapper[_V, _T]: ...
 
     def __get__(
         self, obj: t.Optional[_T], cls: t.Type[_T]
@@ -1039,8 +1037,7 @@ def with_roles(
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
-) -> t.Callable[[_DA], _DA]:
-    ...
+) -> t.Callable[[_DA], _DA]: ...
 
 
 @overload
@@ -1059,8 +1056,7 @@ def with_roles(
         ]
     ] = None,
     datasets: t.Optional[t.Set[str]] = None,
-) -> _DA:
-    ...
+) -> _DA: ...
 
 
 def with_roles(
@@ -1347,14 +1343,12 @@ class RoleMixin(t.Generic[ActorType]):
     @overload
     def actors_with(
         self, roles: t.Iterable[str], with_role: te.Literal[False] = False
-    ) -> t.Iterator[ActorType]:
-        ...
+    ) -> t.Iterator[ActorType]: ...
 
     @overload
     def actors_with(
         self, roles: t.Iterable[str], with_role: te.Literal[True]
-    ) -> t.Iterator[t.Tuple[ActorType, str]]:
-        ...
+    ) -> t.Iterator[t.Tuple[ActorType, str]]: ...
 
     def actors_with(
         self, roles: t.Iterable[str], with_role: bool = False
@@ -1444,9 +1438,13 @@ class RoleMixin(t.Generic[ActorType]):
                                 ):
                                     actor = getattr(
                                         obj,
-                                        actor_attr.key
-                                        if isinstance(actor_attr, QueryableAttribute)
-                                        else actor_attr,
+                                        (
+                                            actor_attr.key
+                                            if isinstance(
+                                                actor_attr, QueryableAttribute
+                                            )
+                                            else actor_attr
+                                        ),
                                     )
                                     if is_new(actor):
                                         yield (actor, role) if with_role else actor
@@ -1454,9 +1452,11 @@ class RoleMixin(t.Generic[ActorType]):
                             else:
                                 actor = getattr(
                                     obj,
-                                    actor_attr.key
-                                    if isinstance(actor_attr, QueryableAttribute)
-                                    else actor_attr,
+                                    (
+                                        actor_attr.key
+                                        if isinstance(actor_attr, QueryableAttribute)
+                                        else actor_attr
+                                    ),
                                 )
                                 if is_new(actor):
                                     yield (actor, role) if with_role else actor
@@ -1687,9 +1687,9 @@ def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
                     if offer_map is not None:
                         cls.__relationship_role_offer_map__[dotted_name] = offer_map
                     if reverse_offer_map is not None:
-                        cls.__relationship_reversed_role_offer_map__[
-                            dotted_name
-                        ] = reverse_offer_map
+                        cls.__relationship_reversed_role_offer_map__[dotted_name] = (
+                            reverse_offer_map
+                        )
                     for role in roles:
                         granted_via = cls.__roles__.setdefault(role, {}).setdefault(
                             'granted_via', {}

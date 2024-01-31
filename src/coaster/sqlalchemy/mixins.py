@@ -21,6 +21,7 @@ your Flask app::
 Mixin classes must always appear *before* ``Model`` or ``db.Model`` in your model's
 base classes.
 """
+
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
@@ -443,12 +444,10 @@ class UrlDictStub:
     """
 
     @overload
-    def __get__(self, obj: None, cls: t.Type[_UR]) -> te.Self:
-        ...
+    def __get__(self, obj: None, cls: t.Type[_UR]) -> te.Self: ...
 
     @overload
-    def __get__(self, obj: _UR, cls: t.Type[_UR]) -> UrlDict[_UR]:
-        ...
+    def __get__(self, obj: _UR, cls: t.Type[_UR]) -> UrlDict[_UR]: ...
 
     def __get__(
         self, obj: t.Optional[_UR], cls: t.Type[_UR]

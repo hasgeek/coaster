@@ -166,8 +166,7 @@ def markdown(
     valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
     extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
     extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
-) -> None:
-    ...
+) -> None: ...
 
 
 @overload
@@ -178,8 +177,7 @@ def markdown(
     valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
     extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
     extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
-) -> Markup:
-    ...
+) -> Markup: ...
 
 
 def markdown(

@@ -1,4 +1,5 @@
 """Test classviews."""
+
 # pylint: disable=comparison-with-callable
 
 from __future__ import annotations

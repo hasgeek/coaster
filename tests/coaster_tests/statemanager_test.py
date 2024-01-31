@@ -1,4 +1,5 @@
 """Tests for StateManager."""
+
 # pylint: disable=protected-access,comparison-with-callable
 
 import enum

@@ -1,4 +1,5 @@
 """Tests for dataclass extensions of base types."""
+
 # pylint: disable=redefined-outer-name,unused-variable
 
 import pickle  # nosec B403

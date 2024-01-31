@@ -65,7 +65,7 @@ where = ['src']
 
 [tool.black]
 line-length = 88
-target_version = ['py39']
+target-version = ['py39']
 skip-string-normalization = true
 include = '\.pyi?$'
 exclude = '''

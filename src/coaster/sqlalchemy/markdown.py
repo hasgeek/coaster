@@ -156,9 +156,11 @@ def markdown_column(
     )
 
     return composite(
-        CustomMarkdownComposite
-        if (markdown is not None or options is not None)
-        else MarkdownComposite,
+        (
+            CustomMarkdownComposite
+            if (markdown is not None or options is not None)
+            else MarkdownComposite
+        ),
         sa.Column(name + '_text', sa.UnicodeText, **kwargs),
         sa.Column(name + '_html', sa.UnicodeText, **kwargs),
         deferred=deferred,
