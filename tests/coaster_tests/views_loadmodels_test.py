@@ -2,7 +2,7 @@
 
 # pylint: disable=redefined-outer-name,no-value-for-parameter
 
-import typing as t
+from typing import Optional
 
 import pytest
 import sqlalchemy as sa
@@ -45,8 +45,8 @@ class ParentDocument(BaseNameMixin, Model):
         self.middle = MiddleContainer()
 
     def permissions(
-        self, actor: User, inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+        self, actor: User, inherited: Optional[set[str]] = None
+    ) -> set[str]:
         perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor.username == 'foo':
@@ -63,8 +63,8 @@ class ChildDocument(BaseScopedIdMixin, Model):
     parent: Mapped[MiddleContainer] = relationship(MiddleContainer, backref='children')
 
     def permissions(
-        self, actor: User, inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+        self, actor: User, inherited: Optional[set[str]] = None
+    ) -> set[str]:
         if inherited is None:
             perms = set()
         else:
@@ -86,11 +86,11 @@ class RedirectDocument(BaseNameMixin, Model):
     )
     target: Mapped[NamedDocument] = relationship(NamedDocument)
 
-    def redirect_view_args(self) -> t.Dict[str, str]:
+    def redirect_view_args(self) -> dict[str, str]:
         return {'document': self.target.name}
 
 
-def return_siteadmin_perms() -> t.Set[str]:
+def return_siteadmin_perms() -> set[str]:
     return {'siteadmin'}
 
 
@@ -105,7 +105,7 @@ def return_siteadmin_perms() -> t.Set[str]:
     kwargs=True,
     addlperms=return_siteadmin_perms,
 )
-def t_container(container: Container, kwargs: t.Dict[str, str]) -> Container:
+def t_container(container: Container, kwargs: dict[str, str]) -> Container:
     return container
 
 

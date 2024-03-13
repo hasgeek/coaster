@@ -64,12 +64,23 @@ created.
 from __future__ import annotations
 
 import datetime
-import typing as t
-import typing_extensions as te
 import uuid
 import warnings
+from collections.abc import Collection
 from functools import wraps
-from typing import TYPE_CHECKING, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    ClassVar,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
+from typing_extensions import ParamSpec, TypeAlias
 
 import sqlalchemy as sa
 from flask import abort
@@ -90,8 +101,8 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
 
-_T = t.TypeVar('_T', bound=t.Any)
-_T_co = t.TypeVar("_T_co", bound=t.Any, covariant=True)
+_T = TypeVar('_T', bound=Any)
+_T_co = TypeVar("_T_co", bound=Any, covariant=True)
 
 __all__ = [
     'ModelWarning',
@@ -122,16 +133,16 @@ class ModelWarning(UserWarning):
 
 # --- SQLAlchemy type aliases ----------------------------------------------------------
 
-bigint: te.TypeAlias = te.Annotated[int, mapped_column(sa.BigInteger())]
-smallint: te.TypeAlias = te.Annotated[int, mapped_column(sa.SmallInteger())]
-int_pkey: te.TypeAlias = te.Annotated[int, mapped_column(primary_key=True)]
-uuid4_pkey: te.TypeAlias = te.Annotated[
+bigint: TypeAlias = Annotated[int, mapped_column(sa.BigInteger())]
+smallint: TypeAlias = Annotated[int, mapped_column(sa.SmallInteger())]
+int_pkey: TypeAlias = Annotated[int, mapped_column(primary_key=True)]
+uuid4_pkey: TypeAlias = Annotated[
     uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4)
 ]
-timestamp: te.TypeAlias = te.Annotated[
+timestamp: TypeAlias = Annotated[
     datetime.datetime, mapped_column(sa.TIMESTAMP(timezone=True))
 ]
-timestamp_now: te.TypeAlias = te.Annotated[
+timestamp_now: TypeAlias = Annotated[
     datetime.datetime,
     mapped_column(
         sa.TIMESTAMP(timezone=True),
@@ -139,7 +150,7 @@ timestamp_now: te.TypeAlias = te.Annotated[
         nullable=False,
     ),
 ]
-jsonb: te.TypeAlias = te.Annotated[
+jsonb: TypeAlias = Annotated[
     dict, mapped_column(sa.JSON().with_variant(postgresql.JSONB, 'postgresql'))
 ]
 
@@ -158,11 +169,11 @@ class Query(QueryBase[_T_co]):  # type: ignore[type-var]
         # The calls to super() here will never happen. They are to aid the programmer
         # using an editor's "Go to Definition" feature
 
-        def get(self, ident: t.Any) -> t.Optional[_T_co]:
+        def get(self, ident: Any) -> Optional[_T_co]:
             """Provide type hint certifying that `get` returns `_T_co | None`."""
             return super().get(ident)
 
-        def first(self) -> t.Optional[_T_co]:
+        def first(self) -> Optional[_T_co]:
             """Provide type hint certifying that `first` returns `_T_co | None`."""
             return super().first()
 
@@ -170,17 +181,18 @@ class Query(QueryBase[_T_co]):  # type: ignore[type-var]
             """Provide type hint certifying that `one` returns `_T_co`."""
             return super().one()
 
-        def add_columns(self, *column: ColumnExpressionArgument[t.Any]) -> Query[t.Any]:
+        def add_columns(self, *column: ColumnExpressionArgument[Any]) -> Query[Any]:
             """Fix type hint to refer to :class:`Query`."""
+            # pylint: disable=useless-parent-delegation
             return super().add_columns(*column)  # type: ignore[return-value]
 
         def with_transformation(
-            self, fn: t.Callable[[QueryBase[t.Any]], QueryBase[t.Any]]
-        ) -> Query[t.Any]:
+            self, fn: Callable[[QueryBase[Any]], QueryBase[Any]]
+        ) -> Query[Any]:
             """Fix type hint to refer to :class:`Query`."""
             return super().with_transformation(fn)  # type: ignore[return-value]
 
-    def get_or_404(self, ident: t.Any, description: t.Optional[str] = None) -> _T_co:
+    def get_or_404(self, ident: Any, description: Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.get` but aborts with 404 if no result.
 
@@ -194,7 +206,7 @@ class Query(QueryBase[_T_co]):  # type: ignore[type-var]
 
         return rv
 
-    def first_or_404(self, description: t.Optional[str] = None) -> _T_co:
+    def first_or_404(self, description: Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.first` but aborts with 404 if no result.
 
@@ -207,7 +219,7 @@ class Query(QueryBase[_T_co]):  # type: ignore[type-var]
 
         return rv
 
-    def one_or_404(self, description: t.Optional[str] = None) -> _T_co:
+    def one_or_404(self, description: Optional[str] = None) -> _T_co:
         """
         Like :meth:`~sqlalchemy.orm.Query.one`, but aborts with 404 for NoResultFound.
 
@@ -297,13 +309,13 @@ class AppenderQuery(AppenderMixin[_T_co], Query[_T_co]):  # type: ignore[misc,ty
     """
 
     # AppenderMixin does not specify a type for query_class
-    query_class: t.Optional[t.Type[Query[_T_co]]] = Query
+    query_class: Optional[type[Query[_T_co]]] = Query
 
 
 class QueryProperty:
     """A class property that creates a query object for a model."""
 
-    def __get__(self, _obj: t.Optional[_T_co], cls: t.Type[_T_co]) -> Query[_T_co]:
+    def __get__(self, _obj: Optional[_T_co], cls: type[_T_co]) -> Query[_T_co]:
         return cls.query_class(cls, session=cls.__fsa__.session())
 
 
@@ -313,14 +325,14 @@ class QueryProperty:
 class ModelBase:
     """Flask-SQLAlchemy compatible base class that supports PEP 484 type hinting."""
 
-    __fsa__: t.ClassVar[SQLAlchemy]
-    __bind_key__: t.ClassVar[t.Optional[str]]
-    metadata: t.ClassVar[sa.MetaData]
-    query_class: t.ClassVar[type[Query]] = Query
-    query: t.ClassVar[QueryProperty] = QueryProperty()
+    __fsa__: ClassVar[SQLAlchemy]
+    __bind_key__: ClassVar[Optional[str]]
+    metadata: ClassVar[sa.MetaData]
+    query_class: ClassVar[type[Query]] = Query
+    query: ClassVar[QueryProperty] = QueryProperty()
     # Added by Coaster annotations
-    __column_annotations__: t.ClassVar[t.Dict[str, t.List[str]]]
-    __column_annotations_by_attr__: t.ClassVar[t.Dict[str, t.List[str]]]
+    __column_annotations__: ClassVar[dict[str, list[str]]]
+    __column_annotations_by_attr__: ClassVar[dict[str, list[str]]]
 
     def __init_subclass__(cls) -> None:
         """Configure a declarative base class."""
@@ -348,7 +360,7 @@ class ModelBase:
         for base in cls.__mro__:
             if ModelBase in base.__bases__:
                 # We've found the direct subclass of ModelBase...
-                base = cast(t.Type[ModelBase], base)  # ...but Mypy doesn't know yet
+                base = cast(type[ModelBase], base)  # ...but Mypy doesn't know yet
                 if base.__bind_key__ == bind_key:
                     # There's a match. All good. Stop iterating through bases
                     break
@@ -428,17 +440,17 @@ class DynamicMapped(DynamicMappedBase[_T_co]):
 
         @overload  # type: ignore[override]
         def __get__(
-            self, instance: None, owner: t.Any
+            self, instance: None, owner: Any
         ) -> InstrumentedAttribute[_T_co]: ...
 
         @overload
-        def __get__(self, instance: object, owner: t.Any) -> AppenderQuery[_T_co]: ...
+        def __get__(self, instance: object, owner: Any) -> AppenderQuery[_T_co]: ...
 
         def __get__(
-            self, instance: t.Optional[object], owner: t.Any
-        ) -> t.Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]: ...
+            self, instance: Optional[object], owner: Any
+        ) -> Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]: ...
 
-        def __set__(self, instance: t.Any, value: t.Collection[_T_co]) -> None: ...
+        def __set__(self, instance: Any, value: Collection[_T_co]) -> None: ...
 
 
 class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[misc]
@@ -447,14 +459,12 @@ class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[mis
     __slots__ = ()
 
 
-_P = te.ParamSpec('_P')
+_P = ParamSpec('_P')
 
 
 # This wrapper exists solely for type hinting tools as @wraps itself does not
 # provide type hints indicating that the function's type signature is unchanged
-def _create_relationship_wrapper(
-    f: t.Callable[_P, t.Any]
-) -> t.Callable[_P, Relationship]:
+def _create_relationship_wrapper(f: Callable[_P, Any]) -> Callable[_P, Relationship]:
     """Create a wrapper for relationship."""
 
     @wraps(f)
@@ -469,13 +479,13 @@ def _create_relationship_wrapper(
                 ModelWarning,
                 stacklevel=2,
             )
-        return t.cast(Relationship, f(*args, **kwargs))
+        return cast(Relationship, f(*args, **kwargs))
 
     return wrapper
 
 
 # `backref` does not change return type, unlike `relationship`
-def _create_backref_wrapper(f: t.Callable[_P, _T]) -> t.Callable[_P, _T]:
+def _create_backref_wrapper(f: Callable[_P, _T]) -> Callable[_P, _T]:
     """Create a wrapper for `backref`."""
 
     @wraps(f)

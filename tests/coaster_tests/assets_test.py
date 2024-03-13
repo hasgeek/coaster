@@ -5,8 +5,8 @@
 import json
 import logging
 import re
-import typing as t
 from io import StringIO
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -177,7 +177,7 @@ def test_unaffiliated_manifest(app1: Flask) -> None:
         ('does-not-exist.json', "No such file or directory: '.*?/does-not-exist.json'"),
     ],
 )
-def test_manifest_filepath(app1: Flask, filepath: t.Optional[str], error: str) -> None:
+def test_manifest_filepath(app1: Flask, filepath: Optional[str], error: str) -> None:
     """If the manifest file is missing, FileNotFoundError is raised."""
     if filepath is None:
         with pytest.raises(FileNotFoundError, match=error):

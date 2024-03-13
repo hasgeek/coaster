@@ -2,8 +2,8 @@
 
 # pylint: disable=redefined-outer-name,protected-access
 
-import typing as t
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -130,7 +130,7 @@ def registrymixin_models():
     class RegisteredItem1:
         """Registered item 1."""
 
-        def __init__(self, obj: t.Any = None) -> None:
+        def __init__(self, obj: Any = None) -> None:
             """Init class."""
             self.obj = obj
 
@@ -139,7 +139,7 @@ def registrymixin_models():
     class RegisteredItem2:
         """Registered item 2."""
 
-        def __init__(self, obj: t.Any = None) -> None:
+        def __init__(self, obj: Any = None) -> None:
             """Init class."""
             self.obj = obj
 

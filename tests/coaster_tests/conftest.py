@@ -3,9 +3,9 @@
 # pylint: disable=redefined-outer-name
 
 import sys
-import typing as t
 import unittest
 from os import environ
+from typing import cast
 
 import pytest
 import sqlalchemy as sa
@@ -15,7 +15,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 from coaster.sqlalchemy import DeclarativeBase, ModelBase, Query
 
-collect_ignore: t.List[str] = []
+collect_ignore: list[str] = []
 if sys.version_info < (3, 10):
     collect_ignore.append('utils_classes_dataclass_match_test.py')
 
@@ -66,7 +66,7 @@ class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
         self.ctx = self.app.test_request_context()
         self.ctx.push()
         db.create_all()
-        self.session = t.cast(sa.orm.Session, db.session)
+        self.session = cast(sa.orm.Session, db.session)
         # SQLAlchemy doesn't fire mapper_configured events until the first time a
         # mapping is used
         db.configure_mappers()

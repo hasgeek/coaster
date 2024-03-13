@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-import typing as t
 from datetime import datetime, timedelta
 from time import sleep
+from typing import Any, Optional
 from uuid import UUID
 
 import pytest
@@ -53,89 +53,89 @@ class TimestampAware(BaseMixin, Model):
 
 class Container(BaseMixin, Model):
     __tablename__ = 'container'
-    name: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
-    title: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
+    name: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
+    title: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, Model):
     __tablename__ = 'unnamed_document'
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship(Container)
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class NamedDocument(BaseNameMixin, Model):
     __tablename__ = 'named_document'
     reserved_names = ['new']
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship(Container)
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class NamedDocumentBlank(BaseNameMixin, Model):
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
     reserved_names = ['new']
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship(Container)
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class ScopedNamedDocument(BaseScopedNameMixin, Model):
     __tablename__ = 'scoped_named_document'
     reserved_names = ['new']
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
-    parent: Mapped[t.Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship(Container)
+    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
 
 class IdNamedDocument(BaseIdNameMixin, Model):
     __tablename__ = 'id_named_document'
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship(Container)
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
 
 
 class ScopedIdDocument(BaseScopedIdMixin, Model):
     __tablename__ = 'scoped_id_document'
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
-    parent: Mapped[t.Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship(Container)
+    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, Model):
     __tablename__ = 'scoped_id_named_document'
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
-    parent: Mapped[t.Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship(Container)
+    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
 
-    content: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
@@ -152,11 +152,11 @@ class UnlimitedName(BaseNameMixin, Model):
 class UnlimitedScopedName(BaseScopedNameMixin, Model):
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
-    container_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[t.Optional[Container]] = relationship(Container)
-    parent: Mapped[t.Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship(Container)
+    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
@@ -197,74 +197,72 @@ class User(BaseMixin, Model):
 class MyData(Model):
     __tablename__ = 'my_data'
     id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    data: Mapped[t.Optional[dict]] = sa.orm.mapped_column(JsonDict)
+    data: Mapped[Optional[dict]] = sa.orm.mapped_column(JsonDict)
 
 
 class MyUrlModel(Model):
     __tablename__ = 'my_url'
     id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    url: Mapped[t.Optional[furl]] = sa.orm.mapped_column(UrlType)
-    url_all_scheme: Mapped[t.Optional[furl]] = sa.orm.mapped_column(
-        UrlType(schemes=None)
-    )
-    url_custom_scheme: Mapped[t.Optional[furl]] = sa.orm.mapped_column(
+    url: Mapped[Optional[furl]] = sa.orm.mapped_column(UrlType)
+    url_all_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(UrlType(schemes=None))
+    url_custom_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(
         UrlType(schemes=['ftp'])
     )
-    url_optional_scheme: Mapped[t.Optional[furl]] = sa.orm.mapped_column(
+    url_optional_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(
         UrlType(optional_scheme=True)
     )
-    url_optional_host: Mapped[t.Optional[furl]] = sa.orm.mapped_column(
+    url_optional_host: Mapped[Optional[furl]] = sa.orm.mapped_column(
         UrlType(schemes=('mailto', 'file'), optional_host=True)
     )
-    url_optional_scheme_host: Mapped[t.Optional[furl]] = sa.orm.mapped_column(
+    url_optional_scheme_host: Mapped[Optional[furl]] = sa.orm.mapped_column(
         UrlType(optional_scheme=True, optional_host=True)
     )
 
 
-class NonUuidKey(BaseMixin[int, t.Any], Model):
+class NonUuidKey(BaseMixin[int, Any], Model):
     __tablename__ = 'non_uuid_key'
 
 
-class UuidKey(BaseMixin[UUID, t.Any], Model):
+class UuidKey(BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_key'
 
 
-class UuidKeyNoDefault(BaseMixin[UUID, t.Any], Model):
+class UuidKeyNoDefault(BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_key_no_default'
     id: Mapped[UUID] = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
         sa.Uuid, primary_key=True
     )
 
 
-class UuidForeignKey1(BaseMixin[int, t.Any], Model):
+class UuidForeignKey1(BaseMixin[int, Any], Model):
     __tablename__ = 'uuid_foreign_key1'
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidForeignKey2(BaseMixin[UUID, t.Any], Model):
+class UuidForeignKey2(BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_foreign_key2'
     uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
     uuidkey: Mapped[UuidKey] = relationship(UuidKey)
 
 
-class UuidIdName(BaseIdNameMixin[UUID, t.Any], Model):
+class UuidIdName(BaseIdNameMixin[UUID, Any], Model):
     __tablename__ = 'uuid_id_name'
 
 
-class UuidIdNameMixin(UuidMixin, BaseIdNameMixin[UUID, t.Any], Model):
+class UuidIdNameMixin(UuidMixin, BaseIdNameMixin[UUID, Any], Model):
     __tablename__ = 'uuid_id_name_mixin'
 
 
-class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin[int, t.Any], Model):
+class UuidIdNameSecondary(UuidMixin, BaseIdNameMixin[int, Any], Model):
     __tablename__ = 'uuid_id_name_secondary'
 
 
-class NonUuidMixinKey(UuidMixin, BaseMixin[int, t.Any], Model):
+class NonUuidMixinKey(UuidMixin, BaseMixin[int, Any], Model):
     __tablename__ = 'non_uuid_mixin_key'
 
 
-class UuidMixinKey(UuidMixin, BaseMixin[UUID, t.Any], Model):
+class UuidMixinKey(UuidMixin, BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_mixin_key'
 
 
@@ -274,7 +272,7 @@ class ParentForPrimary(BaseMixin, Model):
     # The relationship must be explicitly defined for type hinting to work.
     # add_primary_relationship will replace this with a fleshed-out relationship
     # for SQLAlchemy configuration
-    primary_child: Mapped[t.Optional[ChildForPrimary]] = relationship()
+    primary_child: Mapped[Optional[ChildForPrimary]] = relationship()
 
 
 class ChildForPrimary(BaseMixin, Model):
@@ -321,7 +319,7 @@ class TestCoasterModels(AppTestCase):
     def test_container(self) -> None:
         c = self.make_container()
         assert c.id is None
-        self.session.commit()
+        self.session.commit()  # type: ignore[unreachable]
         assert c.id == 1
 
     def test_timestamp(self) -> None:
@@ -681,7 +679,7 @@ class TestCoasterModels(AppTestCase):
         d3 = ScopedNamedDocument(title="Document 3", container=c1)
         d4 = ScopedIdNamedDocument(title="Document 4", container=c1)
         d_blank = NamedDocumentBlank()
-        doc: t.Any
+        doc: Any
         for doc in (d1, d2, d3, d4):
             assert f"{doc}" == doc.title
             assert f"{doc:>11}" == " " + doc.title

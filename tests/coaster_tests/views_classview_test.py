@@ -4,8 +4,9 @@
 
 from __future__ import annotations
 
-import typing as t
 import unittest
+from collections.abc import Sequence
+from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -58,13 +59,13 @@ class ViewDocument(BaseNameMixin, Model):
     __tablename__ = 'view_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
-    children: Mapped[t.List[ScopedViewDocument]] = relationship(
+    children: Mapped[list[ScopedViewDocument]] = relationship(
         cascade='all, delete-orphan', back_populates='view_document'
     )
 
     def permissions(
-        self, actor: t.Optional[str], inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+        self, actor: Optional[str], inherited: Optional[set[str]] = None
+    ) -> set[str]:
         perms = super().permissions(actor, inherited)
         perms.add('view')
         if actor in (
@@ -76,7 +77,7 @@ class ViewDocument(BaseNameMixin, Model):
         return perms
 
     def roles_for(
-        self, actor: t.Optional[str] = None, anchors: t.Sequence[t.Any] = ()
+        self, actor: Optional[str] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
         roles = super().roles_for(actor, anchors)
         if actor in ('this-is-the-owner', 'this-is-another-owner'):
@@ -103,7 +104,7 @@ class ScopedViewDocument(BaseScopedNameMixin, Model):
 
 
 # Use serial int pkeys so that we can get consistent `1-<name>` url_name in tests
-class RenameableDocument(BaseIdNameMixin[int, t.Any], Model):
+class RenameableDocument(BaseIdNameMixin[int, Any], Model):
     __tablename__ = 'renameable_document'
     __roles__ = {'all': {'read': {'name', 'title'}}}
 
@@ -244,8 +245,8 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
 
     @requestargs('access_token')
     def before_request(
-        self, access_token: t.Optional[str] = None
-    ) -> t.Optional[ResponseReturnValue]:
+        self, access_token: Optional[str] = None
+    ) -> Optional[ResponseReturnValue]:
         if access_token == 'owner-admin-secret':  # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             add_auth_attribute(
@@ -302,7 +303,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
     route_model_map = {'doc2': '**doc2.url_name'}
-    obj: t.Tuple[ViewDocument, RenameableDocument]  # type: ignore[assignment]
+    obj: tuple[ViewDocument, RenameableDocument]  # type: ignore[assignment]
 
     class GetAttr:
         @staticmethod
@@ -311,7 +312,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
 
     def loader(  # type: ignore[override]  # pylint: disable=arguments-differ
         self, doc1: str, doc2: str
-    ) -> t.Tuple[ViewDocument, RenameableDocument]:
+    ) -> tuple[ViewDocument, RenameableDocument]:
         obj1 = ViewDocument.query.filter_by(name=doc1).first_or_404()
         obj2 = RenameableDocument.query.filter_by(url_name=doc2).first_or_404()
         return (obj1, obj2)
@@ -334,8 +335,8 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
 
     @requestargs('access_token')
     def before_request(
-        self, access_token: t.Optional[str] = None
-    ) -> t.Optional[ResponseReturnValue]:
+        self, access_token: Optional[str] = None
+    ) -> Optional[ResponseReturnValue]:
         if access_token == 'owner-secret':  # nosec
             add_auth_attribute(
                 'user', 'this-is-the-owner'

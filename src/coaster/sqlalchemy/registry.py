@@ -33,12 +33,21 @@ for ``new`` and ``edit`` actions could use those names instead.
 
 from __future__ import annotations
 
-import typing as t
 import warnings
 from functools import partial
 from keyword import iskeyword
 from threading import Lock
-from typing import TYPE_CHECKING, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import sqlalchemy as sa
 from sqlalchemy.orm import declarative_mixin
@@ -49,8 +58,8 @@ __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
 _marker = object()
 
-_T = t.TypeVar('_T')
-_RT = t.TypeVar('_RT', bound='Registry')
+_T = TypeVar('_T')
+_RT = TypeVar('_RT', bound='Registry')
 
 
 class Registry:
@@ -97,26 +106,26 @@ class Registry:
     """
 
     #: Name of this registry
-    _name: t.Optional[str]
+    _name: Optional[str]
     #: A lock for the cache
     _lock: Lock
     #: Default value of the optional kwarg when registering a callable
-    _default_kwarg: t.Optional[str]
+    _default_kwarg: Optional[str]
     #: Default value of the property flag when registering a callable
     _default_property: bool
     #: Default value of the cached_property flag when registering a callable
     _default_cached_property: bool
     #: Dict of registered callable names and their optional kwarg parameter
-    _members: t.Dict[str, t.Optional[str]]
+    _members: dict[str, Optional[str]]
     #: Names of callables registered as properties
-    _properties: t.Set[str]
+    _properties: set[str]
     #: Names of callables registered as cached properties
-    _cached_properties: t.Set[str]
+    _cached_properties: set[str]
 
     def __init__(
         self,
         *,
-        kwarg: t.Optional[str] = None,
+        kwarg: Optional[str] = None,
         property: bool = False,  # noqa: A002  # pylint: disable=redefined-builtin
         cached_property: bool = False,
     ) -> None:
@@ -137,14 +146,14 @@ class Registry:
         object.__setattr__(self, '_properties', set())
         object.__setattr__(self, '_cached_properties', set())
 
-    def __set_name__(self, owner: t.Any, name: str) -> None:
+    def __set_name__(self, owner: Any, name: str) -> None:
         """Set a name for this registry."""
         if self._name is None:
             object.__setattr__(self, '_name', name)
         elif name != self._name:
             raise AttributeError(f"This registry is bound to the name {self._name!r}")
 
-    def __setattr__(self, name: str, value: t.Callable) -> None:
+    def __setattr__(self, name: str, value: Callable) -> None:
         """Incorporate a new registry member after validation."""
         self.__call__(name)(value)
 
@@ -152,11 +161,11 @@ class Registry:
     # for the use of ... as an undeclared sentinel value here
     def __call__(  # pylint: disable=redefined-builtin
         self,
-        name: t.Optional[str] = None,
+        name: Optional[str] = None,
         *,
-        kwarg: t.Union[str, None] = ...,  # type: ignore[assignment]
-        property: t.Optional[bool] = None,  # noqa: A002  # pylint: disable=W0622
-        cached_property: t.Optional[bool] = None,
+        kwarg: Union[str, None] = ...,  # type: ignore[assignment]
+        property: Optional[bool] = None,  # noqa: A002  # pylint: disable=W0622
+        cached_property: Optional[bool] = None,
     ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""
         use_kwarg = self._default_kwarg if kwarg is ... else kwarg
@@ -198,14 +207,14 @@ class Registry:
         return decorator
 
     @overload
-    def __get__(self: _RT, obj: None, cls: t.Type) -> _RT: ...
+    def __get__(self: _RT, obj: None, cls: type) -> _RT: ...
 
     @overload
-    def __get__(self: _RT, obj: _T, cls: t.Type[_T]) -> InstanceRegistry[_RT, _T]: ...
+    def __get__(self: _RT, obj: _T, cls: type[_T]) -> InstanceRegistry[_RT, _T]: ...
 
     def __get__(
-        self: _RT, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[_RT, InstanceRegistry[_RT, _T]]:
+        self: _RT, obj: Optional[_T], cls: type[_T]
+    ) -> Union[_RT, InstanceRegistry[_RT, _T]]:
         """Access at runtime."""
         if obj is None:
             return self
@@ -231,10 +240,10 @@ class Registry:
     if TYPE_CHECKING:
         # Tell Mypy that it's okay for code to attempt reading an attr
 
-        def __getattr__(self, attr: str) -> t.Any: ...
+        def __getattr__(self, attr: str) -> Any: ...
 
 
-class InstanceRegistry(t.Generic[_RT, _T]):
+class InstanceRegistry(Generic[_RT, _T]):
     """
     Container for accessing registered items from an instance of the model.
 
@@ -250,7 +259,7 @@ class InstanceRegistry(t.Generic[_RT, _T]):
         self.__registry = registry
         self.__obj = obj
 
-    def __getattr__(self, attr: str) -> t.Any:
+    def __getattr__(self, attr: str) -> Any:
         """Access a registry member."""
         registry = self.__registry
         obj = self.__obj
@@ -300,13 +309,13 @@ class RegistryMixin:
     registry.
     """
 
-    forms: t.ClassVar[Registry]
-    views: t.ClassVar[Registry]
-    features: t.ClassVar[Registry]
+    forms: ClassVar[Registry]
+    views: ClassVar[Registry]
+    features: ClassVar[Registry]
 
 
 @sa.event.listens_for(RegistryMixin, 'after_mapper_constructed', propagate=True)
-def _create_registries(_mapper: t.Any, cls: t.Type[RegistryMixin]) -> None:
+def _create_registries(_mapper: Any, cls: type[RegistryMixin]) -> None:
     """Create the default registries in a mapped class using RegistryMixin."""
     for registry, kwarg in [('forms', 'obj'), ('views', None), ('features', None)]:
         if hasattr(cls, registry):

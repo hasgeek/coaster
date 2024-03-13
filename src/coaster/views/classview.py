@@ -9,12 +9,33 @@ Group related views into a class for easier management.
 
 from __future__ import annotations
 
-import typing as t
 import typing_extensions as te
 import warnings
+from collections.abc import Collection
 from functools import partial, update_wrapper, wraps
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    overload,
+)
+from typing_extensions import (
+    Concatenate,
+    ParamSpec,
+    Self,
+    TypeAlias,
+    get_original_bases,
+)
 
 from flask import abort, make_response, redirect, request
 from flask.globals import _cv_app, app_ctx
@@ -63,82 +84,82 @@ __all__ = [
 # --- Types and protocols --------------------------------------------------------------
 
 #: Type for URL rules in classviews
-RouteRuleOptions = t.Dict[str, t.Any]
-ClassViewSubtype = t.TypeVar('ClassViewSubtype', bound='ClassView')
-ClassViewType: te.TypeAlias = t.Type[ClassViewSubtype]
-ModelType = te.TypeVar('ModelType', default=t.Any)
+RouteRuleOptions = dict[str, Any]
+ClassViewSubtype = TypeVar('ClassViewSubtype', bound='ClassView')
+ClassViewType: TypeAlias = type[ClassViewSubtype]
+ModelType = te.TypeVar('ModelType', default=Any)
 
-_P = te.ParamSpec('_P')
-_P2 = te.ParamSpec('_P2')
-_R_co = t.TypeVar('_R_co', covariant=True)
-_R2_co = t.TypeVar('_R2_co', covariant=True)
+_P = ParamSpec('_P')
+_P2 = ParamSpec('_P2')
+_R_co = TypeVar('_R_co', covariant=True)
+_R2_co = TypeVar('_R2_co', covariant=True)
 
 
 # These protocols are used for decorator helpers that return an overloaded decorator
 # https://typing.readthedocs.io/en/latest/source/protocols.html#callback-protocols
 # https://stackoverflow.com/a/56635360/78903
-class RouteDecoratorProtocol(te.Protocol):
+class RouteDecoratorProtocol(Protocol):
     """Protocol for the decorator returned by ``@route(...)``."""
 
-    @t.overload
+    @overload
     def __call__(self, __decorated: ClassViewType) -> ClassViewType: ...
 
-    @t.overload
+    @overload
     def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    @t.overload
+    @overload
     def __call__(
-        self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+        self, __decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
     ) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
-        __decorated: t.Union[
+        __decorated: Union[
             ClassViewType,
-            MethodProtocol[te.Concatenate[t.Any, _P], _R_co],
+            MethodProtocol[Concatenate[Any, _P], _R_co],
             ViewMethod[_P, _R_co],
         ],
-    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
+    ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
 
 
-class ViewDataDecoratorProtocol(te.Protocol):
+class ViewDataDecoratorProtocol(Protocol):
     """Protocol for the decorator returned by ``@viewdata(...)``."""
 
-    @t.overload
+    @overload
     def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    @t.overload
+    @overload
     def __call__(
-        self, __decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+        self, __decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
     ) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
-        __decorated: t.Union[
-            MethodProtocol[te.Concatenate[t.Any, _P], _R_co], ViewMethod[_P, _R_co]
+        __decorated: Union[
+            MethodProtocol[Concatenate[Any, _P], _R_co], ViewMethod[_P, _R_co]
         ],
     ) -> ViewMethod[_P, _R_co]: ...
 
 
-class InitAppCallback(te.Protocol):
+class InitAppCallback(Protocol):
     """Protocol for a callable that gets a callback from ClassView.init_app."""
 
     def __call__(
         self,
-        app: t.Union[FlaskApp, Blueprint],
+        app: Union[FlaskApp, Blueprint],
         rule: str,
         endpoint: str,
-        view_func: t.Callable,
+        view_func: Callable,
         **options,
-    ) -> t.Any: ...
+    ) -> Any: ...
 
 
 # --- Class views and utilities --------------------------------------------------------
 
 
 def _get_arguments_from_rule(
-    rule: str, endpoint: str, options: t.Dict[str, t.Any], url_map: WzMap
-) -> t.List[str]:
+    rule: str, endpoint: str, options: dict[str, Any], url_map: WzMap
+) -> list[str]:
     """Get arguments from a URL rule."""
     obj = WzRule(rule, endpoint=endpoint, **options)
     obj.bind(url_map)
@@ -147,10 +168,10 @@ def _get_arguments_from_rule(
 
 def route(
     rule: str,
-    init_app: t.Optional[
-        t.Union[FlaskApp, Blueprint, t.Tuple[t.Union[FlaskApp, Blueprint], ...]]
+    init_app: Optional[
+        Union[FlaskApp, Blueprint, tuple[Union[FlaskApp, Blueprint], ...]]
     ] = None,
-    **options: t.Any,
+    **options: Any,
 ) -> RouteDecoratorProtocol:
     """
     Decorate :class:`ClassView` and its methods to define a URL routing rule.
@@ -175,24 +196,24 @@ def route(
         :meth:`~flask.Flask.add_url_rule` after merging class and method options
     """
 
-    @t.overload
+    @overload
     def decorator(decorated: ClassViewType) -> ClassViewType: ...
 
-    @t.overload
+    @overload
     def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    @t.overload
+    @overload
     def decorator(
-        decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+        decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
     ) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
-        decorated: t.Union[
+        decorated: Union[
             ClassViewType,
-            MethodProtocol[te.Concatenate[t.Any, _P], _R_co],
+            MethodProtocol[Concatenate[Any, _P], _R_co],
             ViewMethod[_P, _R_co],
         ]
-    ) -> t.Union[ClassViewType, ViewMethod[_P, _R_co]]:
+    ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]:
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
         if isinstance(decorated, type) and issubclass(decorated, ClassView):
             if '__routes__' not in decorated.__dict__:
@@ -213,7 +234,7 @@ def route(
     return decorator
 
 
-def viewdata(**kwargs: t.Any) -> ViewDataDecoratorProtocol:
+def viewdata(**kwargs: Any) -> ViewDataDecoratorProtocol:
     """
     Decorate a view to add additional data alongside :func:`route`.
 
@@ -221,17 +242,17 @@ def viewdata(**kwargs: t.Any) -> ViewDataDecoratorProtocol:
     must always be the outermost decorator (barring :func:`route`).
     """
 
-    @t.overload
+    @overload
     def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    @t.overload
+    @overload
     def decorator(
-        decorated: MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+        decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
     ) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
-        decorated: t.Union[
-            ViewMethod[_P, _R_co], MethodProtocol[te.Concatenate[t.Any, _P], _R_co]
+        decorated: Union[
+            ViewMethod[_P, _R_co], MethodProtocol[Concatenate[Any, _P], _R_co]
         ]
     ) -> ViewMethod[_P, _R_co]:
         return ViewMethod(decorated, data=kwargs)
@@ -270,7 +291,7 @@ def rulejoin(class_rule: str, method_rule: str) -> str:
     )
 
 
-class ViewMethod(t.Generic[_P, _R_co]):
+class ViewMethod(Generic[_P, _R_co]):
     """Internal object created by the :func:`route` and :func:`viewdata` decorators."""
 
     # No __slots__ in ViewMethod because it mimics a wrapped function and must reproduce
@@ -282,25 +303,23 @@ class ViewMethod(t.Generic[_P, _R_co]):
     #: Template-accessible name, same as :attr:`__name__`
     name: str
     #: The unmodified wrapped method, made available for future decorators
-    __func__: t.Callable[te.Concatenate[t.Any, _P], _R_co]
+    __func__: Callable[Concatenate[Any, _P], _R_co]
     #: The wrapped method with the class's :attr:`~ClassView.__decorators__` applied
-    decorated_func: t.Callable
+    decorated_func: Callable
     #: The actual view function registered to Flask, responsible for creating an
     #: instance of the class view and calling :meth:`~ClassView.dispatch_request`
-    view_func: t.Callable
+    view_func: Callable
     #: The default endpoint name if not specified in the route
     default_endpoint: str
     #: All endpoint names registered to this view method (populated in :meth:`init_app`)
-    endpoints: t.Set[str]
+    endpoints: set[str]
 
     def __init__(
         self,
-        decorated: t.Union[
-            t.Callable[te.Concatenate[t.Any, _P], _R_co], ViewMethod[_P, _R_co]
-        ],
-        rule: t.Optional[str] = None,
-        rule_options: t.Optional[t.Dict[str, t.Any]] = None,
-        data: t.Optional[t.Dict[str, t.Any]] = None,
+        decorated: Union[Callable[Concatenate[Any, _P], _R_co], ViewMethod[_P, _R_co]],
+        rule: Optional[str] = None,
+        rule_options: Optional[dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
     ) -> None:
         if rule is not None:
             self.routes = [(rule, rule_options or {})]
@@ -331,8 +350,8 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
     def replace(
         self,
-        __f: t.Union[
-            ViewMethod[_P2, _R2_co], MethodProtocol[te.Concatenate[t.Any, _P2], _R2_co]
+        __f: Union[
+            ViewMethod[_P2, _R2_co], MethodProtocol[Concatenate[Any, _P2], _R2_co]
         ],
     ) -> ViewMethod[_P2, _R2_co]:
         """
@@ -351,16 +370,16 @@ class ViewMethod(t.Generic[_P, _R_co]):
                 def delete(self):
                     super().delete()  # Call into base class's implementation if needed
         """
-        cls = cast(t.Type[ViewMethod], self.__class__)
+        cls = cast(type[ViewMethod], self.__class__)
         r: ViewMethod[_P2, _R2_co] = cls(__f, data=self.data)
         r.routes = self.routes
         return r
 
-    def copy(self) -> te.Self:
+    def copy(self) -> Self:
         """Make a copy of this ViewMethod, for use in a subclass."""
         return self.__class__(self)
 
-    def with_route(self, rule: str, **options: t.Any) -> te.Self:
+    def with_route(self, rule: str, **options: Any) -> Self:
         """
         Make a copy of this ViewMethod with an additional route.
 
@@ -382,7 +401,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
         """
         return self.__class__(self, rule=rule, rule_options=options)
 
-    def with_data(self, **data: t.Any) -> te.Self:
+    def with_data(self, **data: Any) -> Self:
         """
         Make a copy of this ViewMethod with additional data.
 
@@ -392,14 +411,14 @@ class ViewMethod(t.Generic[_P, _R_co]):
         return self.__class__(self, data=data)
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
+    def __get__(self, obj: None, cls: type) -> Self: ...
 
     @overload
-    def __get__(self, obj: t.Any, cls: t.Type) -> ViewMethodBind[_P, _R_co]: ...
+    def __get__(self, obj: Any, cls: type) -> ViewMethodBind[_P, _R_co]: ...
 
     def __get__(
-        self, obj: t.Optional[t.Any], cls: t.Type
-    ) -> t.Union[te.Self, ViewMethodBind[_P, _R_co]]:
+        self, obj: Optional[Any], cls: type
+    ) -> Union[Self, ViewMethodBind[_P, _R_co]]:
         if obj is None:
             return self
         bind = ViewMethodBind(self, obj)
@@ -425,7 +444,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
         """
         return False
 
-    def __set_name__(self, owner: t.Type[ClassViewSubtype], name: str) -> None:
+    def __set_name__(self, owner: type[ClassViewSubtype], name: str) -> None:
         # `name` is almost always the existing value acquired from decorated.__name__,
         # the exception being when the view function is defined outside the class:
         #
@@ -464,7 +483,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
         # TODO: Make async_view_func if `__func__` or `decorated_func` is async, and
         # expect the class to provide an `async_dispatch_request`
-        def view_func(**view_args: t.Any) -> BaseResponse:
+        def view_func(**view_args: Any) -> BaseResponse:
             """
             The actual view function registered to Flask, responsible for dispatch.
 
@@ -508,9 +527,9 @@ class ViewMethod(t.Generic[_P, _R_co]):
 
     def init_app(
         self,
-        app: t.Union[FlaskApp, Blueprint],
-        cls: t.Type[ClassView],
-        callback: t.Optional[InitAppCallback] = None,
+        app: Union[FlaskApp, Blueprint],
+        cls: type[ClassView],
+        callback: Optional[InitAppCallback] = None,
     ) -> None:
         """Register routes for a given app and :class:`ClassView` class."""
         for class_rule, class_options in cls.__routes__:
@@ -529,7 +548,7 @@ class ViewMethod(t.Generic[_P, _R_co]):
                     callback(app, use_rule, endpoint, self.view_func, **use_options)
 
 
-class ViewMethodBind(t.Generic[_P, _R_co]):
+class ViewMethodBind(Generic[_P, _R_co]):
     """Wrapper for :class:`ViewMethod` binding it to an instance of the view class."""
 
     __slots__ = ('__weakref__', '_view_method', '__self__')
@@ -539,12 +558,12 @@ class ViewMethodBind(t.Generic[_P, _R_co]):
     name: str
     __qualname__: str
     __module__: str
-    __doc__: t.Optional[str]
-    __func__: t.Callable[te.Concatenate[t.Any, _P], _R_co]
-    decorated_func: t.Callable
-    view_func: t.Callable
+    __doc__: Optional[str]
+    __func__: Callable[Concatenate[Any, _P], _R_co]
+    decorated_func: Callable
+    view_func: Callable
     default_endpoint: str
-    endpoints: t.Set[str]
+    endpoints: set[str]
 
     def __init__(
         self,
@@ -565,13 +584,13 @@ class ViewMethodBind(t.Generic[_P, _R_co]):
         # As per the __decorators__ spec, we call .__func__, not .decorated_func
         return self._view_method.__func__(self.__self__, *args, **kwargs)
 
-    if not t.TYPE_CHECKING:
+    if not TYPE_CHECKING:
         # Hide the proxy implementation from type checkers, so we only appear to have
         # the members explicitly defined in the class
-        def __getattr__(self, name: str) -> t.Any:
+        def __getattr__(self, name: str) -> Any:
             return getattr(self._view_method, name)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, ViewMethodBind):
             return (
                 self._view_method == other._view_method
@@ -651,21 +670,21 @@ class ClassView:
     __slots__ = ('__weakref__', 'current_method', 'view_args')
 
     # If the class did not get a @route decorator, provide a fallback route
-    __routes__: t.ClassVar[t.List[t.Tuple[str, RouteRuleOptions]]] = [('', {})]
+    __routes__: ClassVar[list[tuple[str, RouteRuleOptions]]] = [('', {})]
 
     #: Track all the views registered in this class
-    __views__: t.ClassVar[t.Collection[str]] = frozenset()
+    __views__: ClassVar[Collection[str]] = frozenset()
 
     #: Subclasses may define decorators here. These will be applied to every
     #: view method in the class, but only when called as a view and not
     #: as a Python method.
-    __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = []
+    __decorators__: ClassVar[list[Callable[[Callable], Callable]]] = []
 
     #: Indicates whether meth:`is_available` should simply return `True`
     #: without conducting a test. Subclasses should not set this flag. It will
     #: be set by :meth:`init_app` if any view method is missing an
     #: ``is_available`` method, as it implies that view is always available.
-    is_always_available: t.ClassVar[bool] = False
+    is_always_available: ClassVar[bool] = False
 
     #: When a view is called, this will point to the current view method,
     #: an instance of :class:`ViewMethodBind`.
@@ -673,7 +692,7 @@ class ClassView:
 
     #: When a view is called, this will be replaced with a dictionary of
     #: arguments to the view.
-    view_args: t.Dict[str, t.Any]
+    view_args: dict[str, Any]
 
     def __init__(self) -> None:
         self.current_method = None  # type: ignore[assignment]
@@ -689,11 +708,11 @@ class ClassView:
         )
         return self.current_method
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return type(other) is type(self)
 
     def dispatch_request(
-        self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
+        self, view: Callable[..., ResponseReturnValue], view_args: dict[str, Any]
     ) -> BaseResponse:
         """
         View dispatcher that invokes before and after-view hooks.
@@ -718,7 +737,7 @@ class ClassView:
             make_response(ensure_sync(view)(self, **view_args))
         )
 
-    def before_request(self) -> t.Optional[ResponseReturnValue]:
+    def before_request(self) -> Optional[ResponseReturnValue]:
         """
         Process request before the view method.
 
@@ -787,8 +806,8 @@ class ClassView:
     @classmethod
     def init_app(
         cls,
-        app: t.Union[FlaskApp, Blueprint],
-        callback: t.Optional[InitAppCallback] = None,
+        app: Union[FlaskApp, Blueprint],
+        callback: Optional[InitAppCallback] = None,
     ) -> None:
         """
         Register views on an app.
@@ -803,7 +822,7 @@ class ClassView:
                 cls.is_always_available = True
 
 
-class ModelView(ClassView, t.Generic[ModelType]):
+class ModelView(ClassView, Generic[ModelType]):
     """
     Base class for constructing views around a model.
 
@@ -834,15 +853,15 @@ class ModelView(ClassView, t.Generic[ModelType]):
     if TYPE_CHECKING:
         # Pretend `model` is an instance-var for type-checking, as a classvar cannot be
         # bound to a generic arg
-        model: t.Type[ModelType]
+        model: type[ModelType]
     else:
         #: The model that is being handled by this ModelView (autoset from Generic arg).
-        model: t.ClassVar[t.Type[ModelType]]
+        model: ClassVar[type[ModelType]]
 
     #: A loaded object of the model's type
     obj: ModelType
 
-    route_model_map: t.ClassVar[t.Dict[str, str]] = {}
+    route_model_map: ClassVar[dict[str, str]] = {}
     """
     A mapping of URL rule variables to attributes on the model. For example, if the URL
     rule is ``/<parent>/<document>``, the attribute map can be::
@@ -899,7 +918,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
         checking and code refactoring.
         """
 
-    def __init__(self, obj: t.Optional[ModelType] = None) -> None:
+    def __init__(self, obj: Optional[ModelType] = None) -> None:
         """
         Instantiate ModelView with an optional object.
 
@@ -923,20 +942,20 @@ class ModelView(ClassView, t.Generic[ModelType]):
     def __init_subclass__(cls) -> None:
         """Extract model type from generic args and set on cls if unset."""
         if getattr(cls, 'model', None) is None:  # Allow a base/mixin class to set it
-            for base in te.get_original_bases(cls):
-                origin_base = t.get_origin(base)
+            for base in get_original_bases(cls):
+                origin_base = get_origin(base)
                 if origin_base is ModelView:
-                    (model_type,) = t.get_args(base)
-                    if model_type is not t.Any:
+                    (model_type,) = get_args(base)
+                    if model_type is not Any:
                         cls.model = model_type
                     break
         super().__init_subclass__()
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return type(other) is type(self) and other.obj == self.obj
 
     def dispatch_request(
-        self, view: t.Callable[..., ResponseReturnValue], view_args: t.Dict[str, t.Any]
+        self, view: Callable[..., ResponseReturnValue], view_args: dict[str, Any]
     ) -> BaseResponse:
         """
         Dispatch a view.
@@ -965,10 +984,10 @@ class ModelView(ClassView, t.Generic[ModelType]):
 
     if TYPE_CHECKING:
         # Type-checking version without argspec, so subclasses can specify explicit args
-        loader: t.Callable[..., ModelType]
+        loader: Callable[..., ModelType]
 
     else:
-        # Actual default implementation has varargs
+        # Actual default implementation has variadic arguments
         def loader(self, **__view_args) -> ModelType:  # pragma: no cover
             """
             Load database object and return it.
@@ -987,11 +1006,11 @@ class ModelView(ClassView, t.Generic[ModelType]):
 
     if TYPE_CHECKING:
         # Type-checking version without argspec, so subclasses can specify explicit args
-        load: t.Callable[..., t.Optional[ResponseReturnValue]]
+        load: Callable[..., Optional[ResponseReturnValue]]
 
     else:
-        # Actual default implementation has varargs
-        def load(self, **__view_args) -> t.Optional[ResponseReturnValue]:
+        # Actual default implementation has variadic arguments
+        def load(self, **__view_args) -> Optional[ResponseReturnValue]:
             """
             Load the database object given view parameters.
 
@@ -1020,7 +1039,7 @@ class ModelView(ClassView, t.Generic[ModelType]):
 
     def after_loader(  # pylint: disable=useless-return
         self,
-    ) -> t.Optional[ResponseReturnValue]:
+    ) -> Optional[ResponseReturnValue]:
         """Process loaded value after :meth:`loader` is called (deprecated)."""
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
@@ -1040,32 +1059,35 @@ class ModelView(ClassView, t.Generic[ModelType]):
         return None
 
 
-def requires_roles(roles: t.Set) -> tc.ReturnDecorator:
+ModelViewType = TypeVar('ModelViewType', bound=ModelView)
+
+
+def requires_roles(roles: set[str]) -> tc.ReturnDecorator:
     """Decorate to require specific roles in a :class:`ModelView` view."""
 
     def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
-        def is_available_here(context: ModelView) -> bool:
+        def is_available_here(context: ModelViewType) -> bool:
             return context.obj.roles_for(current_auth.actor).has_any(roles)
 
-        def is_available(context: ModelView) -> bool:
+        def is_available(context: ModelViewType) -> bool:
             result = is_available_here(context)
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well
                 return f.is_available(context)
             return result
 
-        def validate(context: ModelView) -> None:
+        def validate(context: ModelViewType) -> None:
             add_auth_attribute('login_required', True)
             if not is_available_here(context):
                 abort(403)
 
         @wraps(f)
-        def wrapper(self: ModelView, *args, **kwargs) -> t.Any:
+        def wrapper(self: ModelViewType, *args: Any, **kwargs: Any) -> Any:
             validate(self)
             return f(self, *args, **kwargs)
 
         @wraps(f)
-        async def async_wrapper(self: ModelView, *args, **kwargs) -> t.Any:
+        async def async_wrapper(self: ModelViewType, *args: Any, **kwargs: Any) -> Any:
             validate(self)
             return await f(self, *args, **kwargs)
 
@@ -1090,25 +1112,25 @@ class UrlForView:
     @classmethod
     def init_app(
         cls,
-        app: t.Union[FlaskApp, Blueprint],
-        callback: t.Optional[InitAppCallback] = None,
+        app: Union[FlaskApp, Blueprint],
+        callback: Optional[InitAppCallback] = None,
     ) -> None:
         """Register view on an app."""
 
         def register_view_on_model(
-            cls: t.Type[ModelView],
-            callback: t.Optional[InitAppCallback],
-            app: t.Union[FlaskApp, Blueprint],
+            cls: type[ModelView],
+            callback: Optional[InitAppCallback],
+            app: Union[FlaskApp, Blueprint],
             rule: str,
             endpoint: str,
-            view_func: t.Callable,
-            **options: t.Any,
+            view_func: Callable,
+            **options: Any,
         ) -> None:
             def register_paths_from_app(
                 reg_app: FlaskApp,
                 reg_rule: str,
                 reg_endpoint: str,
-                reg_options: t.Dict[str, t.Any],
+                reg_options: dict[str, Any],
             ) -> None:
                 model = cls.model
                 assert issubclass(model, UrlForMixin)  # nosec B101
@@ -1215,7 +1237,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     (``#target_id``) is not available to the server and will be lost.
     """
 
-    def validate(context: ModelView) -> t.Optional[ResponseReturnValue]:
+    def validate(context: ModelView) -> Optional[ResponseReturnValue]:
         if request.method == 'GET' and getattr(context, 'obj', None) is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = correct_url.copy().remove(
@@ -1234,14 +1256,14 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
         return None
 
     @wraps(f)
-    def wrapper(self: ModelView, *args, **kwargs) -> t.Any:
+    def wrapper(self: ModelView, *args, **kwargs) -> Any:
         retval = validate(self)
         if retval is not None:
             return retval
         return f(self, *args, **kwargs)
 
     @wraps(f)
-    async def async_wrapper(self: ModelView, *args, **kwargs) -> t.Any:
+    async def async_wrapper(self: ModelView, *args, **kwargs) -> Any:
         retval = validate(self)
         if retval is not None:
             return retval
@@ -1271,9 +1293,7 @@ class UrlChangeCheck:
     """
 
     __slots__ = ()
-    __decorators__: t.ClassVar[t.List[t.Callable[[t.Callable], t.Callable]]] = [
-        url_change_check
-    ]
+    __decorators__: ClassVar[list[Callable[[Callable], Callable]]] = [url_change_check]
 
 
 class InstanceLoader:
@@ -1293,11 +1313,11 @@ class InstanceLoader:
     """
 
     __slots__ = ()
-    route_model_map: t.ClassVar[t.Dict[str, str]]
-    model: t.ClassVar[t.Type]
-    query: t.ClassVar[t.Optional[Query]] = None
+    route_model_map: ClassVar[dict[str, str]]
+    model: ClassVar[type[Any]]
+    query: ClassVar[Optional[Query]] = None
 
-    def loader(self, **view_args: t.Any) -> t.Any:
+    def loader(self, **view_args: Any) -> Any:
         """Load instance based on view arguments."""
         if any(name in self.route_model_map for name in view_args):
             # We have a URL route attribute that matches one of the model's attributes.

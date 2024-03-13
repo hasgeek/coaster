@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import typing as t
+from typing import Any, Callable, Optional, Union
 
 import sqlalchemy as sa
 from markupsafe import Markup
@@ -21,25 +21,25 @@ class MarkdownComposite(MutableComposite):
     #: or the markdown processor will receive `self` as first parameter
     markdown = staticmethod(markdown_processor)
     #: Markdown options. Subclasses can override this
-    options: t.Union[
+    options: Union[
         # Options may be a dictionary of string keys,
-        t.Dict[str, t.Any],
+        dict[str, Any],
         # or a callable that returns such a dictionary
-        t.Callable[[], t.Dict[str, t.Any]],
+        Callable[[], dict[str, Any]],
     ] = {}
 
-    def __init__(self, text: t.Optional[str], html: t.Optional[str] = None) -> None:
+    def __init__(self, text: Optional[str], html: Optional[str] = None) -> None:
         """Create a composite."""
         if html is None:
             self.text = text  # This will regenerate HTML
         else:
             self._text = text
-            self._html: t.Optional[str] = html
+            self._html: Optional[str] = html
 
     # Return column values for SQLAlchemy to insert into the database
     def __composite_values__(
         self,
-    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
+    ) -> tuple[Optional[str], Optional[str]]:
         """Return composite values."""
         return (self._text, self._html)
 
@@ -55,17 +55,17 @@ class MarkdownComposite(MutableComposite):
 
     # Return a Markup string of the HTML
     @property
-    def html(self) -> t.Optional[Markup]:
+    def html(self) -> Optional[Markup]:
         """Return HTML as a property."""
         return Markup(self._html) if self._html is not None else None
 
     @property
-    def text(self) -> t.Optional[str]:
+    def text(self) -> Optional[str]:
         """Return text as a property."""
         return self._text
 
     @text.setter
-    def text(self, value: t.Optional[str]) -> None:
+    def text(self, value: Optional[str]) -> None:
         """Set the text value."""
         self._text = None if value is None else str(value)
         # Mypy and Pylance appear to be incorrectly typing self.markdown as taking
@@ -81,12 +81,12 @@ class MarkdownComposite(MutableComposite):
         )
         self.changed()
 
-    def __json__(self) -> t.Dict[str, t.Optional[str]]:
+    def __json__(self) -> dict[str, Optional[str]]:
         """Return JSON-compatible rendering of composite."""
         return {'text': self._text, 'html': self._html}
 
     # Compare text value
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """Compare for equality."""
         return isinstance(other, MarkdownComposite) and (
             self.__composite_values__() == other.__composite_values__()
@@ -98,13 +98,13 @@ class MarkdownComposite(MutableComposite):
 
     def __getstate__(  # pragma: no cover
         self,
-    ) -> t.Tuple[t.Optional[str], t.Optional[str]]:
+    ) -> tuple[Optional[str], Optional[str]]:
         """Get state for pickling."""
         # Return state for pickling
         return (self._text, self._html)
 
     def __setstate__(  # pragma: no cover
-        self, state: t.Tuple[t.Optional[str], t.Optional[str]]
+        self, state: tuple[Optional[str], Optional[str]]
     ) -> None:
         """Set state from pickle."""
         # Set state from pickle
@@ -116,7 +116,7 @@ class MarkdownComposite(MutableComposite):
         return bool(self._text)
 
     @classmethod
-    def coerce(cls, key: str, value: t.Any) -> MarkdownComposite:
+    def coerce(cls, key: str, value: Any) -> MarkdownComposite:
         """Allow a composite column to be assigned a string value."""
         return cls(value)
 
@@ -124,9 +124,9 @@ class MarkdownComposite(MutableComposite):
 def markdown_column(
     name: str,
     deferred: bool = False,
-    group: t.Optional[str] = None,
-    markdown: t.Optional[t.Callable] = None,
-    options: t.Optional[dict] = None,
+    group: Optional[str] = None,
+    markdown: Optional[Callable] = None,
+    options: Optional[dict] = None,
     **kwargs,
 ) -> Composite[MarkdownComposite]:
     """

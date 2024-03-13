@@ -179,11 +179,11 @@ skips = ['*/*_test.py', '*/test_*.py']
 # 2. Rule E501 (line too long) is left to Black; some strings are worse for wrapping
 
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
-select = ["E", "F"]
-ignore = ["E402", "E501"]
+lint.select = ["E", "F"]
+lint.ignore = ["E402", "E501"]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
-fixable = [
+lint.fixable = [
   "A",
   "B",
   "C",
@@ -229,7 +229,7 @@ fixable = [
   "UP",
   "YTT",
 ]
-unfixable = []
+lint.unfixable = []
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -259,16 +259,16 @@ exclude = [
 line-length = 88
 
 # Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 # Target Python 3.9
 target-version = "py39"
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 # Unlike Flake8, default to a complexity level of 10.
 max-complexity = 10
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 # These config options should match isort config above under [tool.isort]
 combine-as-imports = true
 extra-standard-library = ['typing_extensions']

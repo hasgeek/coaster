@@ -3,9 +3,9 @@
 # pylint: disable=redefined-outer-name,unused-variable
 
 import pickle  # nosec B403
-import typing as t
 from dataclasses import FrozenInstanceError, dataclass
 from enum import Enum
+from typing import Any, Optional
 
 import pytest
 
@@ -15,7 +15,7 @@ from coaster.utils import DataclassFromType
 @dataclass(frozen=True, eq=False)
 class StringMetadata(DataclassFromType, str):
     description: str
-    extra: t.Optional[str] = None
+    extra: Optional[str] = None
 
 
 @dataclass(frozen=True, eq=False)
@@ -135,7 +135,7 @@ def test_dataclass_fields_set(
 
 def test_dict_keys(a: StringMetadata, b: StringMetadata, b2: StringMetadata) -> None:
     """DataclassFromType-based dataclasses can be used as dict keys."""
-    d: t.Dict[t.Any, t.Any] = {a: a.description, b: b.description}
+    d: dict[Any, Any] = {a: a.description, b: b.description}
     assert d['a'] == a.description
     assert set(d) == {a, b}
     assert set(d) == {'a', 'b'}

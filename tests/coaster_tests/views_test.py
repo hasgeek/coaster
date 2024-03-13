@@ -1,5 +1,5 @@
-import typing as t
 import unittest
+from typing import Any, Optional
 
 import pytest
 from flask import Flask, json, session
@@ -32,35 +32,35 @@ def somewhere() -> str:
 
 @requestargs('p1', ('p2', int), ('p3[]', int))
 def requestargs_test1(
-    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
-) -> t.Tuple[t.Any, ...]:
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
     return p1, p2, p3
 
 
 @requestargs('p1', ('p2', int), 'p3[]')
 def requestargs_test2(
-    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[str]] = None
-) -> t.Tuple[t.Any, ...]:
+    p1: str, p2: Optional[int] = None, p3: Optional[list[str]] = None
+) -> tuple[Any, ...]:
     return p1, p2, p3
 
 
 @requestquery('p1', ('p2', int), ('p3[]', int))
 def requestquery_test(
-    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
-) -> t.Tuple[t.Any, ...]:
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
     return p1, p2, p3
 
 
 @requestform('p1', ('p2', int), ('p3[]', int))
 def requestform_test(
-    p1: str, p2: t.Optional[int] = None, p3: t.Optional[t.List[int]] = None
-) -> t.Tuple[t.Any, ...]:
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
     return p1, p2, p3
 
 
 @requestquery('query1')
 @requestform('form1')
-def requestcombo_test(query1: str, form1: str) -> t.Tuple[str, str]:
+def requestcombo_test(query1: str, form1: str) -> tuple[str, str]:
     return query1, form1
 
 

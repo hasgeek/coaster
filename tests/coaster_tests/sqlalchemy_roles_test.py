@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import json
-import typing as t
 import unittest
+from collections.abc import MutableSet, Sequence
+from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -48,7 +49,7 @@ class DeclaredAttrMixin:
     # with_roles can be used within a declared attr
     @declared_attr
     @classmethod
-    def mixed_in1(cls) -> Mapped[t.Optional[str]]:
+    def mixed_in1(cls) -> Mapped[Optional[str]]:
         """Test using `with_roles` inside a `declared_attr`."""
         return with_roles(sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
@@ -56,7 +57,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner', 'editor'}, read={'all'})
     @declared_attr
     @classmethod
-    def mixed_in2(cls) -> Mapped[t.Optional[str]]:
+    def mixed_in2(cls) -> Mapped[Optional[str]]:
         """Test (deprecated) using `with_roles` to wrap a `declared_attr`."""
         return sa_orm.mapped_column(sa.Unicode(250))
 
@@ -64,7 +65,7 @@ class DeclaredAttrMixin:
     @with_roles(rw={'owner'})
     @declared_attr
     @classmethod
-    def mixed_in3(cls) -> Mapped[t.Optional[str]]:
+    def mixed_in3(cls) -> Mapped[Optional[str]]:
         """Test using `with_roles` to wrap a `declared_attr`."""
         return sa_orm.mapped_column(sa.Unicode(250))
 
@@ -116,7 +117,7 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     # anchors is not specified by RoleMixin.
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
+        self, actor: Optional[Any] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
         """Find roles for a given actor."""
         # Calling super gives us a set with the standard roles
@@ -136,7 +137,7 @@ class AutoRoleModel(RoleMixin, Model):
     id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
     with_roles(id, read={'all'})
 
-    name: Mapped[t.Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
+    name: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     with_roles(name, rw={'owner'}, read={'all'})
 
     __datasets__ = {'default': {'name'}}
@@ -177,23 +178,23 @@ class RelationshipParent(BaseNameMixin, Model):
 
     __tablename__ = 'relationship_parent'
 
-    children_list: Mapped[t.List[RelationshipChild]] = relationship(
+    children_list: Mapped[list[RelationshipChild]] = relationship(
         RelationshipChild, back_populates='parent'
     )
     children_list_lazy: DynamicMapped[RelationshipChild] = relationship(
         RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
     )
-    children_set: Mapped[t.MutableSet[RelationshipChild]] = relationship(
+    children_set: Mapped[MutableSet[RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=set,
         overlaps='children_list,children_list_lazy,parent',
     )
-    children_dict_attr: Mapped[t.Dict[str, RelationshipChild]] = relationship(
+    children_dict_attr: Mapped[dict[str, RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=attribute_keyed_dict('name'),
         overlaps='children_list,children_list_lazy,children_set,parent',
     )
-    children_dict_column: Mapped[t.Dict[str, RelationshipChild]] = relationship(
+    children_dict_column: Mapped[dict[str, RelationshipChild]] = relationship(
         RelationshipChild,
         collection_class=column_keyed_dict(
             RelationshipChild.name  # type: ignore[arg-type]
@@ -250,7 +251,7 @@ class RoleGrantMany(BaseMixin, Model):
     primary_users: DynamicMapped[RoleUser] = relationship(
         lazy='dynamic', back_populates='doc'
     )
-    secondary_users: Mapped[t.List[RoleUser]] = relationship(
+    secondary_users: Mapped[list[RoleUser]] = relationship(
         secondary=granted_users, back_populates='secondary_docs'
     )
 
@@ -260,13 +261,13 @@ class RoleUser(BaseMixin, Model):
 
     __tablename__ = 'role_user'
 
-    doc_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
+    doc_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_grant_many.id')
     )
-    doc: Mapped[t.Optional[RoleGrantMany]] = relationship(
+    doc: Mapped[Optional[RoleGrantMany]] = relationship(
         foreign_keys=[doc_id], back_populates='primary_users'
     )
-    secondary_docs: Mapped[t.List[RoleGrantMany]] = relationship(
+    secondary_docs: Mapped[list[RoleGrantMany]] = relationship(
         RoleGrantMany, secondary=granted_users, back_populates='secondary_users'
     )
 
@@ -276,10 +277,8 @@ class RoleGrantOne(BaseMixin, Model):
 
     __tablename__ = 'role_grant_one'
 
-    user_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
-        sa.ForeignKey('role_user.id')
-    )
-    user: Mapped[t.Optional[RoleUser]] = with_roles(
+    user_id: Mapped[Optional[int]] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
+    user: Mapped[Optional[RoleUser]] = with_roles(
         relationship(RoleUser), grants={'creator'}
     )
 
@@ -290,11 +289,11 @@ class RoleGrantSynonym(BaseMixin, Model):
     __tablename__ = 'role_grant_synonym'
 
     # Base column has roles defined
-    datacol: Mapped[t.Optional[str]] = with_roles(
+    datacol: Mapped[Optional[str]] = with_roles(
         sa_orm.mapped_column(sa.Unicode()), rw={'owner'}
     )
     # Synonym cannot have independent roles and will mirror the target
-    altcol: Mapped[t.Optional[str]] = sa_orm.synonym('datacol')
+    altcol: Mapped[Optional[str]] = sa_orm.synonym('datacol')
 
 
 class RoleMembership(BaseMixin, Model):
@@ -302,22 +301,20 @@ class RoleMembership(BaseMixin, Model):
 
     __tablename__ = 'role_membership'
 
-    user_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
-        sa.ForeignKey('role_user.id')
-    )
-    user: Mapped[t.Optional[RoleUser]] = relationship(RoleUser)
+    user_id: Mapped[Optional[int]] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
+    user: Mapped[Optional[RoleUser]] = relationship(RoleUser)
 
-    doc_id: Mapped[t.Optional[int]] = sa_orm.mapped_column(
+    doc_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('multirole_document.id')
     )
-    doc: Mapped[t.Optional[MultiroleDocument]] = relationship('MultiroleDocument')
+    doc: Mapped[Optional[MultiroleDocument]] = relationship('MultiroleDocument')
 
     role1: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
     role2: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
     role3: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
 
     @property
-    def offered_roles(self) -> t.Set[str]:
+    def offered_roles(self) -> set[str]:
         """Return roles offered by this object."""
         roles = set()
         if self.role1:
@@ -375,7 +372,7 @@ class MultiroleDocument(BaseMixin, Model):
     )
     with_roles(rel_lazy, grants_via={RoleMembership.user: {'role2'}})
     # Grant via a list-like relationship
-    rel_list: Mapped[t.List[RoleMembership]] = with_roles(
+    rel_list: Mapped[list[RoleMembership]] = with_roles(
         relationship(RoleMembership, overlaps='doc,rel_lazy'),
         grants_via={'user': {'role3'}},
     )
@@ -414,7 +411,7 @@ class MultiroleChild(BaseMixin, Model):
 class JsonTestEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
-    def default(self, o: t.Any) -> t.Any:
+    def default(self, o: Any) -> Any:
         """Encode JSON."""
         if isinstance(o, RoleAccessProxy):
             return dict(o)
@@ -424,7 +421,7 @@ class JsonTestEncoder(json.JSONEncoder):
 class JsonProtocolEncoder(json.JSONEncoder):
     """Encode to JSON."""
 
-    def default(self, o: t.Any) -> t.Any:
+    def default(self, o: Any) -> Any:
         """Encode JSON."""
         if hasattr(o, '__json__'):
             return o.__json__()
@@ -1225,7 +1222,7 @@ class TestLazyRoleSet(unittest.TestCase):
         pass
 
     class Document(RoleMixin):
-        _user: t.Optional[TestLazyRoleSet.User] = None
+        _user: Optional[TestLazyRoleSet.User] = None
         _userlist = ()
         __roles__ = {'owner': {'granted_by': ['user', 'userlist']}}
 

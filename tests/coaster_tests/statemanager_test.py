@@ -4,9 +4,10 @@
 
 import enum
 import types
-import typing as t
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -158,7 +159,7 @@ class MyPost(BaseMixin, Model):
     @reviewstate.transition(reviewstate.UNLOCKED, reviewstate.PENDING, title="Publish")
     def abort(
         self, success: bool = False, empty_abort: bool = False
-    ) -> t.Optional[t.Tuple[bool, str]]:
+    ) -> Optional[tuple[bool, str]]:
         """Demonstrate use of AbortTransition."""
         if not success:
             if empty_abort:
@@ -167,7 +168,7 @@ class MyPost(BaseMixin, Model):
         return success, 'passed'
 
     def roles_for(
-        self, actor: t.Optional[t.Any] = None, anchors: t.Sequence[t.Any] = ()
+        self, actor: Optional[Any] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
         """Return roles for the actor."""
         roles = super().roles_for(actor, anchors)

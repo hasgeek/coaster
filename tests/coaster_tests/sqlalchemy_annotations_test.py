@@ -1,5 +1,5 @@
-import typing as t
 import warnings
+from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -26,52 +26,52 @@ class ReferralTarget(BaseMixin, Model):
     __tablename__ = 'referral_target'
 
 
-class IdOnly(BaseMixin[int, t.Any], Model):
+class IdOnly(BaseMixin[int, Any], Model):
     __tablename__ = 'id_only'
 
-    is_regular: Mapped[t.Optional[int]] = sa.orm.mapped_column(sa.Integer)
-    is_immutable: Mapped[t.Optional[int]] = immutable(sa.orm.mapped_column(sa.Integer))
-    is_cached: Mapped[t.Optional[int]] = cached(sa.orm.mapped_column(sa.Integer))
+    is_regular: Mapped[Optional[int]] = sa.orm.mapped_column(sa.Integer)
+    is_immutable: Mapped[Optional[int]] = immutable(sa.orm.mapped_column(sa.Integer))
+    is_cached: Mapped[Optional[int]] = cached(sa.orm.mapped_column(sa.Integer))
 
     # Make the raw column immutable, but allow changes via the relationship
-    referral_target_id: Mapped[t.Optional[int]] = immutable(
+    referral_target_id: Mapped[Optional[int]] = immutable(
         sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
     )
-    referral_target: Mapped[t.Optional[ReferralTarget]] = relationship(ReferralTarget)
+    referral_target: Mapped[Optional[ReferralTarget]] = relationship(ReferralTarget)
 
 
-class IdUuid(UuidMixin, BaseMixin[int, t.Any], Model):
+class IdUuid(UuidMixin, BaseMixin[int, Any], Model):
     __tablename__ = 'id_uuid'
 
-    is_regular: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
-    is_immutable: Mapped[t.Optional[str]] = immutable(
+    is_regular: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    is_immutable: Mapped[Optional[str]] = immutable(
         sa.orm.mapped_column(sa.Unicode(250))
     )
-    is_cached: Mapped[t.Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
+    is_cached: Mapped[Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
 
     # Only block changes via the relationship; raw column remains mutable
-    referral_target_id: Mapped[t.Optional[int]] = sa.orm.mapped_column(
+    referral_target_id: Mapped[Optional[int]] = sa.orm.mapped_column(
         sa.ForeignKey('referral_target.id'), nullable=True
     )
-    referral_target: Mapped[t.Optional[ReferralTarget]] = immutable(
+    referral_target: Mapped[Optional[ReferralTarget]] = immutable(
         relationship(ReferralTarget)
     )
 
 
-class UuidOnly(UuidMixin, BaseMixin[int, t.Any], Model):
+class UuidOnly(UuidMixin, BaseMixin[int, Any], Model):
     __tablename__ = 'uuid_only'
 
-    is_regular: Mapped[t.Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
-    is_immutable: Mapped[t.Optional[str]] = immutable(
+    is_regular: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    is_immutable: Mapped[Optional[str]] = immutable(
         sa.orm.mapped_column(sa.Unicode(250), deferred=True)
     )
-    is_cached: Mapped[t.Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
+    is_cached: Mapped[Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
 
     # Make both raw column and relationship immutable
-    referral_target_id: Mapped[t.Optional[int]] = immutable(
+    referral_target_id: Mapped[Optional[int]] = immutable(
         sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
     )
-    referral_target: Mapped[t.Optional[ReferralTarget]] = immutable(
+    referral_target: Mapped[Optional[ReferralTarget]] = immutable(
         relationship(ReferralTarget)
     )
 

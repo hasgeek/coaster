@@ -3,12 +3,11 @@
 ci:
   skip: ['yesqa', 'no-commit-to-branch']
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.2
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.1
     hooks:
-      - id: ruff
-        args: ['--fix', '--exit-non-zero-on-fix']
-        # Extra args, only after removing flake8 and yesqa: '--extend-select', 'RUF100'
+      - id: pyupgrade
+        args: ['--keep-runtime-typing', '--py39-plus']
   - repo: https://github.com/lucasmbrown/mirrors-autoflake
     rev: v1.3
     hooks:
@@ -21,11 +20,12 @@ repos:
             '--remove-unused-variables',
             '--remove-duplicate-keys',
           ]
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.2
     hooks:
-      - id: pyupgrade
-        args: ['--keep-runtime-typing', '--py39-plus']
+      - id: ruff
+        args: ['--fix', '--exit-non-zero-on-fix']
+        # Extra args, only after removing flake8 and yesqa: '--extend-select', 'RUF100'
   - repo: https://github.com/asottile/yesqa
     rev: v1.5.0
     hooks:

@@ -9,10 +9,10 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
-import typing as t
-import typing_extensions as te
+from collections.abc import Collection, Container, Iterable, Mapping
 from functools import wraps
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypeVar, Union, cast
+from typing_extensions import ParamSpec
 
 from flask import (
     Response,
@@ -50,17 +50,17 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithResponse = t.Union[WerkzeugResponse, t.Mapping[str, t.Any]]
-ReturnRenderWithHeaders = t.Union[t.List[t.Tuple[str, str]], t.Dict[str, str], Headers]
-ReturnRenderWith = t.Union[
+ReturnRenderWithResponse = Union[WerkzeugResponse, Mapping[str, Any]]
+ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
+ReturnRenderWith = Union[
     ReturnRenderWithResponse,
-    t.Tuple[ReturnRenderWithResponse],
-    t.Tuple[ReturnRenderWithResponse, ReturnRenderWithHeaders],
-    t.Tuple[ReturnRenderWithResponse, int],
-    t.Tuple[ReturnRenderWithResponse, int, ReturnRenderWithHeaders],
+    tuple[ReturnRenderWithResponse],
+    tuple[ReturnRenderWithResponse, ReturnRenderWithHeaders],
+    tuple[ReturnRenderWithResponse, int],
+    tuple[ReturnRenderWithResponse, int, ReturnRenderWithHeaders],
 ]
-_VP = te.ParamSpec('_VP')  # View parameters as accepted by the decorated view
-_VR = t.TypeVar('_VR', bound=t.Any)  # View return value
+_VP = ParamSpec('_VP')  # View parameters as accepted by the decorated view
+_VR = TypeVar('_VR', bound=Any)  # View return value
 
 
 class RequestTypeError(BadRequest, TypeError):
@@ -72,12 +72,12 @@ class RequestValueError(BadRequest, ValueError):
 
 
 def requestargs(
-    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]],
-    source: t.Union[
-        te.Literal['values'],
-        te.Literal['form'],
-        te.Literal['query'],
-        te.Literal['body'],
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
+    source: Union[
+        Literal['values'],
+        Literal['form'],
+        Literal['query'],
+        Literal['body'],
     ] = 'values',
 ) -> tc.ReturnDecorator:
     """
@@ -133,7 +133,7 @@ def requestargs(
 
     def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
         """Apply config to wrapped function."""
-        namefilt: t.List[t.Tuple[str, t.Optional[t.Callable[[str], t.Any]], bool]] = [
+        namefilt: list[tuple[str, Optional[Callable[[str], Any]], bool]] = [
             (name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
             for name, filt in [
                 (a[0], a[1]) if isinstance(a, (list, tuple)) else (a, None)
@@ -143,17 +143,17 @@ def requestargs(
 
         if source == 'query':
 
-            def datasource() -> t.Tuple[t.Any, bool]:
+            def datasource() -> tuple[Any, bool]:
                 return (request.args, True) if request else ({}, False)
 
         elif source == 'form':
 
-            def datasource() -> t.Tuple[t.Any, bool]:
+            def datasource() -> tuple[Any, bool]:
                 return (request.form, True) if request else ({}, False)
 
         elif source == 'body':
 
-            def datasource() -> t.Tuple[t.Any, bool]:
+            def datasource() -> tuple[Any, bool]:
                 if not request:
                     return ({}, False)
                 return (
@@ -162,14 +162,14 @@ def requestargs(
 
         elif source == 'values':
 
-            def datasource() -> t.Tuple[t.Any, bool]:
+            def datasource() -> tuple[Any, bool]:
                 return (request.values, True) if request else ({}, False)
 
         else:
             raise TypeError("Unknown data source")
 
         @wraps(f)
-        def wrapper(*args, **kwargs) -> t.Any:
+        def wrapper(*args, **kwargs) -> Any:
             """Wrap a view to insert keyword arguments."""
             values, has_gettype = datasource()
             for name, filt, is_list in namefilt:
@@ -207,39 +207,35 @@ def requestargs(
 
 
 def requestquery(
-    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]]
 ) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
 
 
 def requestform(
-    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]]
 ) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
 def requestbody(
-    *args: t.Union[str, t.Tuple[str, t.Callable[[str], t.Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]]
 ) -> tc.ReturnDecorator:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
 
 def load_model(
-    model: t.Type,
-    attributes: t.Dict[str, str],
+    model: type,
+    attributes: dict[str, str],
     parameter: str,
     kwargs: bool = False,
-    permission: t.Optional[t.Union[str, t.Set[str]]] = None,
-    addlperms: t.Optional[
-        t.Union[t.Iterable[str], t.Callable[[], t.Iterable[str]]]
-    ] = None,
-    urlcheck: t.Collection[str] = (),
-) -> t.Callable[
-    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
-]:
+    permission: Optional[Union[str, set[str]]] = None,
+    addlperms: Optional[Union[Iterable[str], Callable[[], Iterable[str]]]] = None,
+    urlcheck: Collection[str] = (),
+) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -305,10 +301,8 @@ def load_model(
 
 
 def load_models(
-    *chain, permission: t.Optional[t.Union[str, t.Set[str]]] = None, **config
-) -> t.Callable[
-    [t.Callable[..., _VR]], t.Callable[..., t.Union[_VR, WerkzeugResponse]]
-]:
+    *chain, permission: Optional[Union[str, set[str]]] = None, **config
+) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
     """
     Decorator to load a chain of models from the given parameters. This works just like
     :func:`load_model` and accepts the same parameters, with some small differences.
@@ -340,21 +334,19 @@ def load_models(
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def decorator(
-        f: t.Callable[..., _VR]
-    ) -> t.Callable[..., t.Union[_VR, WerkzeugResponse]]:
+    def decorator(f: Callable[..., _VR]) -> Callable[..., Union[_VR, WerkzeugResponse]]:
         @wraps(f)
-        def wrapper(*args, **kwargs) -> t.Union[_VR, WerkzeugResponse]:
-            view_args: t.Optional[t.Dict[str, t.Any]]
+        def wrapper(*args, **kwargs) -> Union[_VR, WerkzeugResponse]:
+            view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
-            permissions: t.Optional[t.Set[str]] = None
+            permissions: Optional[set[str]] = None
             permission_required = (
                 {permission}
                 if isinstance(permission, str)
                 else set(permission) if permission is not None else None
             )
             url_check_attributes = config.get('urlcheck', [])
-            result: t.Dict[str, t.Any] = {}
+            result: dict[str, Any] = {}
             for models, attributes, parameter in chain:
                 if not isinstance(models, (list, tuple)):
                     models = (models,)
@@ -447,7 +439,7 @@ def load_models(
 
 
 def _best_mimetype_match(
-    available_list: t.List[str], accept_mimetypes: MIMEAccept, default: str
+    available_list: list[str], accept_mimetypes: MIMEAccept, default: str
 ) -> str:
     for acceptable_mimetype, _quality in accept_mimetypes:
         acceptable_mimetype = acceptable_mimetype.lower()
@@ -458,11 +450,11 @@ def _best_mimetype_match(
 
 
 def render_with(
-    template: t.Union[
-        t.Dict[str, t.Union[str, t.Callable[..., ResponseReturnValue]]], str, None
+    template: Union[
+        dict[str, Union[str, Callable[..., ResponseReturnValue]]], str, None
     ] = None,
     json: bool = False,
-) -> t.Callable[[t.Callable[..., ReturnRenderWith]], t.Callable[..., WerkzeugResponse]]:
+) -> Callable[[Callable[..., ReturnRenderWith]], Callable[..., WerkzeugResponse]]:
     """
     Render the view's dict output with a MIMEtype-specific renderer.
 
@@ -520,8 +512,8 @@ def render_with(
         render_with no longer has a shorthand for JSONP. If still required, specify a
         template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
-    templates: t.Dict[str, t.Union[str, t.Callable[..., ResponseReturnValue]]]
-    default_mimetype: t.Optional[str] = None
+    templates: dict[str, Union[str, Callable[..., ResponseReturnValue]]]
+    default_mimetype: Optional[str] = None
     if json:
         templates = {'application/json': jsonify}
     else:
@@ -550,8 +542,8 @@ def render_with(
     template_mimetypes.remove('*/*')
 
     def decorator(
-        f: t.Callable[..., ReturnRenderWith]
-    ) -> t.Callable[..., WerkzeugResponse]:
+        f: Callable[..., ReturnRenderWith]
+    ) -> Callable[..., WerkzeugResponse]:
         @wraps(f)
         def wrapper(*args, **kwargs) -> WerkzeugResponse:
             # Check if we need to bypass rendering
@@ -568,8 +560,8 @@ def render_with(
             if isinstance(result, WerkzeugResponse):
                 return result
 
-            headers: t.Optional[ReturnRenderWithHeaders]
-            status_code: t.Optional[int]
+            headers: Optional[ReturnRenderWithHeaders]
+            status_code: Optional[int]
 
             # Did the result include status code and headers?
             if isinstance(result, tuple):
@@ -639,8 +631,8 @@ def render_with(
 
 
 def cors(
-    origins: t.Union[te.Literal['*'], t.Container[str], t.Callable[[str], bool]],
-    methods: t.Iterable[str] = (
+    origins: Union[Literal['*'], Container[str], Callable[[str], bool]],
+    methods: Iterable[str] = (
         'OPTIONS',
         'HEAD',
         'GET',
@@ -649,14 +641,14 @@ def cors(
         'PATCH',
         'PUT',
     ),
-    headers: t.Iterable[str] = (
+    headers: Iterable[str] = (
         'Accept',
         'Accept-Language',
         'Content-Language',
         'Content-Type',
         'X-Requested-With',
     ),
-    max_age: t.Optional[int] = None,
+    max_age: Optional[int] = None,
 ) -> tc.ReturnDecorator:
     """
     Add CORS headers to the decorated view function.
@@ -749,7 +741,7 @@ def cors(
     return decorator
 
 
-def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecorator:
+def requires_permission(permission: Union[str, set[str]]) -> tc.ReturnDecorator:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.
 
@@ -770,7 +762,7 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
                 return bool(current_auth.permissions & permission)
             return permission in current_auth.permissions
 
-        def is_available(context: t.Optional[t.Any] = None) -> bool:
+        def is_available(context: Optional[Any] = None) -> bool:
             result = is_available_here()
             if result and hasattr(f, 'is_available'):
                 # We passed, but we're wrapping another test, so ask there as well
@@ -778,7 +770,7 @@ def requires_permission(permission: t.Union[str, t.Set[str]]) -> tc.ReturnDecora
             return result
 
         @wraps(f)
-        def wrapper(*args, **kwargs) -> t.Any:
+        def wrapper(*args, **kwargs) -> Any:
             add_auth_attribute('login_required', True)
             if not is_available_here():
                 abort(403)

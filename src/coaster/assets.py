@@ -19,10 +19,10 @@ be found in your app's static folder, alongside the built assets.
 from __future__ import annotations
 
 import re
-import typing as t
 import warnings
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, Optional, Union
 from urllib.parse import urljoin
 
 from flask import Flask, current_app
@@ -41,7 +41,7 @@ __all__ = [
 ]
 
 
-def split_namespec(namespec: str) -> t.Tuple[str, SimpleSpec]:
+def split_namespec(namespec: str) -> tuple[str, SimpleSpec]:
     find_mark = _VERSION_SPECIFIER_RE.search(namespec)
     if find_mark is None:
         name = namespec
@@ -126,8 +126,8 @@ class VersionedAssets(defaultdict):
         # Override dict's __init__ to prevent parameters
         super().__init__(dict)
 
-    def _require_recursive(self, *namespecs: str) -> t.List[t.Tuple[str, Version, str]]:
-        asset_versions: t.Dict[str, Version] = {}  # Name: version
+    def _require_recursive(self, *namespecs: str) -> list[tuple[str, Version, str]]:
+        asset_versions: dict[str, Version] = {}  # Name: version
         bundles = []
         for namespec in namespecs:
             name, spec = split_namespec(namespec)
@@ -141,8 +141,8 @@ class VersionedAssets(defaultdict):
                         )
                 else:
                     asset = self[name][version]
-                    requires: t.Union[t.List[str], t.Tuple[str, ...], str]
-                    provides: t.Union[t.List[str], t.Tuple[str, ...], str]
+                    requires: Union[list[str], tuple[str, ...], str]
+                    provides: Union[list[str], tuple[str, ...], str]
                     if isinstance(asset, (list, tuple)):
                         # We have (requires, bundle). Get requirements
                         requires = asset[:-1]
@@ -205,7 +205,7 @@ class VersionedAssets(defaultdict):
 EXTENSION_KEY = 'manifest.json'
 
 
-def _get_assets_for_current_app() -> t.Dict[str, str]:
+def _get_assets_for_current_app() -> dict[str, str]:
     """Get assets from current_app's extension registry (internal use only)."""
     return current_app.extensions.get(EXTENSION_KEY, {})
 
@@ -265,7 +265,7 @@ class WebpackManifest(Mapping):
     .. _Webpack: https://webpack.js.org/
     """
 
-    substitutes: t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]] = [
+    substitutes: Sequence[tuple[Union[str, re.Pattern], str]] = [
         (r'\.scss$', '.css'),
         (r'\.sass$', '.css'),
         (r'\.ts$', '.js'),
@@ -273,15 +273,13 @@ class WebpackManifest(Mapping):
 
     def __init__(
         self,
-        app: t.Optional[Flask] = None,
+        app: Optional[Flask] = None,
         *,
         filepath: str = 'static/manifest.json',
-        urlpath: t.Optional[str] = None,
-        substitutes: t.Optional[
-            t.Sequence[t.Tuple[t.Union[str, re.Pattern], str]]
-        ] = None,
+        urlpath: Optional[str] = None,
+        substitutes: Optional[Sequence[tuple[Union[str, re.Pattern], str]]] = None,
         detect_legacy_webpack: bool = True,
-        jinja_global: t.Optional[str] = 'manifest',
+        jinja_global: Optional[str] = 'manifest',
     ) -> None:
         self.filepath = filepath
         self.urlpath = urlpath
@@ -378,7 +376,7 @@ class WebpackManifest(Mapping):
         except KeyError:
             return default
 
-    def get(self, key: str, default: t.Optional[t.Any] = None) -> t.Any:
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
         """
         Get an asset if it exists, returning the default otherwise.
 
@@ -397,12 +395,12 @@ class WebpackManifest(Mapping):
 
     # These methods will typically not be used but are present for the Mapping ABC
 
-    def __contains__(self, key: t.Any) -> bool:
+    def __contains__(self, key: Any) -> bool:
         if not current_app:
             return False
         return key in _get_assets_for_current_app()
 
-    def __iter__(self) -> t.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         if not current_app:
             return iter({})
         return iter(_get_assets_for_current_app())

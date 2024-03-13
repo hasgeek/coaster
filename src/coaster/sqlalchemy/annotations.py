@@ -42,8 +42,8 @@ reverse lookup ``__column_annotations_by_attr__`` of attribute names to annotati
 
 from __future__ import annotations
 
-import typing as t
 from collections.abc import Hashable
+from typing import Any, Callable, Optional, TypeVar
 
 import sqlalchemy as sa
 from sqlalchemy.orm import (
@@ -63,17 +63,17 @@ __all__ = ['annotations_configured', 'annotation_wrapper']
 
 # Global dictionary for temporary storage of annotations until the
 # mapper_configured events
-__cache__: t.Dict[t.Any, list] = {}
+__cache__: dict[Any, list] = {}
 
 # --- Constructor ----------------------------------------------------------------------
 
 
-_A = t.TypeVar('_A', bound=t.Any)
+_A = TypeVar('_A', bound=Any)
 
 
 def annotation_wrapper(
-    annotation: str, doc: t.Optional[str] = None
-) -> t.Callable[[_A], _A]:
+    annotation: str, doc: Optional[str] = None
+) -> Callable[[_A], _A]:
     """Define an annotation, which can be applied to attributes in a database model."""
 
     def decorator(attr: _A) -> _A:
@@ -122,7 +122,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @sa.event.listens_for(Mapper, 'mapper_configured')
-def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
+def _configure_annotations(_mapper: Any, cls: type) -> None:
     """
     Extract annotations from attributes.
 
@@ -130,8 +130,8 @@ def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
     :func:`annotation_wrapper` and add them to :attr:`cls.__column_annotations__`
     and :attr:`cls.__column_annotations_by_attr__`
     """
-    annotations: t.Dict[str, t.List[str]] = {}  # Annotation name: list of attrs
-    annotations_by_attr: t.Dict[str, t.List[str]] = {}  # Attr name: annotations
+    annotations: dict[str, list[str]] = {}  # Annotation name: list of attrs
+    annotations_by_attr: dict[str, list[str]] = {}  # Attr name: annotations
 
     # An attribute may be defined more than once in base classes. Only handle the first
     processed = set()
@@ -182,7 +182,7 @@ def _configure_annotations(_mapper: t.Any, cls: t.Type) -> None:
     # Classes specifying ``__column_annotations__`` directly isn't supported,
     # so we don't bother preserving existing content, if any.
     if annotations:
-        cls.__column_annotations__ = annotations
+        cls.__column_annotations__ = annotations  # type: ignore[attr-defined]
     if annotations_by_attr:
-        cls.__column_annotations_by_attr__ = annotations_by_attr
+        cls.__column_annotations_by_attr__ = annotations_by_attr  # type: ignore[attr-defined]
     annotations_configured.send(cls)

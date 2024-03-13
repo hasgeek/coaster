@@ -6,11 +6,24 @@ Utility classes
 from __future__ import annotations
 
 import dataclasses
-import typing as t
-import typing_extensions as te
 import warnings
+from collections.abc import Collection, Iterator
 from reprlib import recursive_repr
-from typing import TYPE_CHECKING, NamedTuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    NamedTuple,
+    NoReturn,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
+from typing_extensions import Self
 
 __all__ = [
     'DataclassFromType',
@@ -21,20 +34,20 @@ __all__ = [
     'classmethodproperty',
 ]
 
-_T = t.TypeVar('_T')
-_R = t.TypeVar('_R')
+_T = TypeVar('_T')
+_R = TypeVar('_R')
 
 
 class SelfProperty:
     """Provides :attr:`DataclassFromType.self` (singleton instance)."""
 
-    @t.overload
-    def __get__(self, obj: None, _cls: t.Type) -> t.NoReturn: ...
+    @overload
+    def __get__(self, obj: None, _cls: type) -> NoReturn: ...
 
-    @t.overload
-    def __get__(self, obj: _T, _cls: t.Type[_T]) -> _T: ...
+    @overload
+    def __get__(self, obj: _T, _cls: type[_T]) -> _T: ...
 
-    def __get__(self, obj: t.Optional[_T], _cls: t.Type[_T]) -> _T:
+    def __get__(self, obj: Optional[_T], _cls: type[_T]) -> _T:
         if obj is None:
             raise AttributeError("Flag for @dataclass to recognise no default value")
 
@@ -44,7 +57,7 @@ class SelfProperty:
     # the acceptable parameters to the base data type's constructor. For example, `str`
     # will accept almost anything, not just another string. The type defined here will
     # flow down to the eventual dataclass's `self` field's type.
-    def __set__(self, _obj: t.Any, _value: t.Any) -> None:
+    def __set__(self, _obj: Any, _value: Any) -> None:
         # Do nothing. This method will get exactly one call from the dataclass-generated
         # __init__. Future attempts to set the attr will be blocked in a frozen
         # dataclass. __set__ must exist despite being a no-op to follow Python's data
@@ -206,7 +219,7 @@ class DataclassFromType:
     static type checkers.
     """
 
-    __dataclass_params__: t.ClassVar[t.Any]
+    __dataclass_params__: ClassVar[Any]
 
     # Allow subclasses to use `@dataclass(slots=True)` (Python 3.10+). Slots must be
     # empty as non-empty slots are incompatible with other base classes that also have
@@ -223,7 +236,7 @@ class DataclassFromType:
         # but only if both are frozen. Descriptor fields cannot be marked as InitVar
         # because mypy thinks they do not exist as attributes on the class. Bug report
         # for both: https://github.com/python/mypy/issues/16538
-        self: t.Union[SelfProperty, t.Any]
+        self: Union[SelfProperty, Any]
     else:
         # For runtime, make `self` a dataclass descriptor field with no default value
         self: SelfProperty = SelfProperty()
@@ -245,7 +258,7 @@ class DataclassFromType:
     # doesn't work. Without a descriptor, we'll be keeping two copies of the value, with
     # the risk that the copy can be mutated to differ from the self value.
 
-    def __new__(cls, self: t.Any, *_args: t.Any, **_kwargs: t.Any) -> te.Self:
+    def __new__(cls, self: Any, *_args: Any, **_kwargs: Any) -> Self:
         """Construct a new instance using only the first arg for the base data type."""
         if cls is DataclassFromType:
             raise TypeError("DataclassFromType cannot be directly instantiated")
@@ -311,14 +324,14 @@ class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
     def __new__(
-        mcs: t.Type,  # noqa: N804
+        mcs: type,  # noqa: N804
         name: str,
-        bases: t.Tuple[t.Type, ...],
-        attrs: t.Dict[str, t.Any],
-        **kwargs: t.Any,
-    ) -> t.Type[LabeledEnum]:
-        labels: t.Dict[str, t.Any] = {}
-        names: t.Dict[str, t.Any] = {}
+        bases: tuple[type, ...],
+        attrs: dict[str, Any],
+        **kwargs: Any,
+    ) -> type[LabeledEnum]:
+        labels: dict[str, Any] = {}
+        names: dict[str, Any] = {}
 
         for key, value in tuple(attrs.items()):
             if key != '__order__' and isinstance(value, tuple):
@@ -354,10 +367,10 @@ class _LabeledEnumMeta(type):
         attrs['__names__'] = names
         return type.__new__(mcs, name, bases, attrs)
 
-    def __getitem__(cls, key: t.Any) -> t.Any:
+    def __getitem__(cls, key: Any) -> Any:
         return cls.__labels__[key]  # type: ignore[attr-defined]
 
-    def __contains__(cls, key: t.Any) -> bool:
+    def __contains__(cls, key: Any) -> bool:
         return key in cls.__labels__  # type: ignore[attr-defined]
 
 
@@ -475,31 +488,31 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         ['RSVP_Y', 'RSVP_N', 'RSVP_M', 'RSVP_U', 'RSVP_A', 'UNCERTAIN']
     """
 
-    __labels__: t.ClassVar[t.Dict[t.Any, t.Any]]
-    __names__: t.ClassVar[t.Dict[str, t.Any]]
+    __labels__: ClassVar[dict[Any, Any]]
+    __names__: ClassVar[dict[str, Any]]
 
     @classmethod
-    def get(cls, key: t.Any, default: t.Optional[t.Any] = None) -> t.Any:
+    def get(cls, key: Any, default: Optional[Any] = None) -> Any:
         """Get the label for an enum value."""
         return cls.__labels__.get(key, default)
 
     @classmethod
-    def keys(cls) -> t.List[t.Any]:
+    def keys(cls) -> list[Any]:
         """Get all enum values."""
         return list(cls.__labels__.keys())
 
     @classmethod
-    def values(cls) -> t.List[t.Union[str, NameTitle]]:
+    def values(cls) -> list[Union[str, NameTitle]]:
         """Get all enum labels."""
         return list(cls.__labels__.values())
 
     @classmethod
-    def items(cls) -> t.List[t.Tuple[t.Any, t.Union[str, NameTitle]]]:
+    def items(cls) -> list[tuple[Any, Union[str, NameTitle]]]:
         """Get all enum values and associated labels."""
         return list(cls.__labels__.items())
 
     @classmethod
-    def value_for(cls, name: str) -> t.Any:
+    def value_for(cls, name: str) -> Any:
         """Get enum value given a label name."""
         for key, value in list(cls.__labels__.items()):
             if isinstance(value, NameTitle) and value.name == name:
@@ -507,15 +520,15 @@ class LabeledEnum(metaclass=_LabeledEnumMeta):
         return None
 
     @classmethod
-    def nametitles(cls) -> t.List[NameTitle]:
+    def nametitles(cls) -> list[NameTitle]:
         """Get names and titles of labels."""
         return [label for label in cls.values() if isinstance(label, tuple)]
 
 
-_C = t.TypeVar('_C', bound=t.Collection)
+_C = TypeVar('_C', bound=Collection)
 
 
-class InspectableSet(t.Generic[_C]):
+class InspectableSet(Generic[_C]):
     """
     InspectableSet provides an ``elem in set`` test via attribute or dictionary access.
 
@@ -568,7 +581,7 @@ class InspectableSet(t.Generic[_C]):
     __slots__ = ('_members',)
     _members: _C
 
-    def __init__(self, members: t.Union[_C, InspectableSet[_C], None] = None) -> None:
+    def __init__(self, members: Union[_C, InspectableSet[_C], None] = None) -> None:
         if isinstance(members, InspectableSet):
             members = members._members
         object.__setattr__(self, '_members', members if members is not None else set())
@@ -579,10 +592,10 @@ class InspectableSet(t.Generic[_C]):
     def __hash__(self) -> int:
         return hash(self._members)
 
-    def __contains__(self, key: t.Any) -> bool:
+    def __contains__(self, key: Any) -> bool:
         return key in self._members
 
-    def __iter__(self) -> t.Iterator:
+    def __iter__(self) -> Iterator:
         yield from self._members
 
     def __len__(self) -> int:
@@ -591,17 +604,17 @@ class InspectableSet(t.Generic[_C]):
     def __bool__(self) -> bool:
         return bool(self._members)
 
-    def __getitem__(self, key: t.Any) -> bool:
+    def __getitem__(self, key: Any) -> bool:
         return key in self._members  # Return True if present, False otherwise
 
-    def __setattr__(self, attr: str, _value: t.Any) -> t.NoReturn:
+    def __setattr__(self, attr: str, _value: Any) -> NoReturn:
         """Prevent accidental attempts to set a value."""
         raise AttributeError(attr)
 
     def __getattr__(self, attr: str) -> bool:
         return attr in self._members  # Return True if present, False otherwise
 
-    def _op_bool(self, op: str, other: t.Any) -> bool:
+    def _op_bool(self, op: str, other: Any) -> bool:
         """Return result of a boolean operation."""
         if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
@@ -609,31 +622,31 @@ class InspectableSet(t.Generic[_C]):
             return getattr(self._members, op)(other)
         return NotImplemented
 
-    def __le__(self, other: t.Any) -> bool:
+    def __le__(self, other: Any) -> bool:
         """Return self <= other."""
         return self._op_bool('__le__', other)
 
-    def __lt__(self, other: t.Any) -> bool:
+    def __lt__(self, other: Any) -> bool:
         """Return self < other."""
         return self._op_bool('__lt__', other)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """Return self == other."""
         return self._op_bool('__eq__', other)
 
-    def __ne__(self, other: t.Any) -> bool:
+    def __ne__(self, other: Any) -> bool:
         """Return self != other."""
         return self._op_bool('__ne__', other)
 
-    def __gt__(self, other: t.Any) -> bool:
+    def __gt__(self, other: Any) -> bool:
         """Return self > other."""
         return self._op_bool('__gt__', other)
 
-    def __ge__(self, other: t.Any) -> bool:
+    def __ge__(self, other: Any) -> bool:
         """Return self >= other."""
         return self._op_bool('__ge__', other)
 
-    def _op_copy(self, op: str, other: t.Any) -> InspectableSet[_C]:
+    def _op_copy(self, op: str, other: Any) -> InspectableSet[_C]:
         """Return result of a copy operation."""
         if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
@@ -643,47 +656,47 @@ class InspectableSet(t.Generic[_C]):
                 return self.__class__(retval)
         return NotImplemented
 
-    def __add__(self, other: t.Any) -> InspectableSet[_C]:
+    def __add__(self, other: Any) -> InspectableSet[_C]:
         """Return self + other (add)."""
         return self._op_copy('__add__', other)
 
-    def __radd__(self, other: t.Any) -> InspectableSet[_C]:
+    def __radd__(self, other: Any) -> InspectableSet[_C]:
         """Return other + self (reverse add)."""
         return self._op_copy('__radd__', other)
 
-    def __sub__(self, other: t.Any) -> InspectableSet[_C]:
+    def __sub__(self, other: Any) -> InspectableSet[_C]:
         """Return self - other (subset)."""
         return self._op_copy('__sub__', other)
 
-    def __rsub__(self, other: t.Any) -> InspectableSet[_C]:
+    def __rsub__(self, other: Any) -> InspectableSet[_C]:
         """Return other - self (reverse subset)."""
         return self._op_copy('__rsub__', other)
 
-    def __and__(self, other: t.Any) -> InspectableSet[_C]:
+    def __and__(self, other: Any) -> InspectableSet[_C]:
         """Return self & other (intersection)."""
         return self._op_copy('__and__', other)
 
-    def __rand__(self, other: t.Any) -> InspectableSet[_C]:
+    def __rand__(self, other: Any) -> InspectableSet[_C]:
         """Return other & self (intersection)."""
         return self._op_copy('__rand__', other)
 
-    def __or__(self, other: t.Any) -> InspectableSet[_C]:
+    def __or__(self, other: Any) -> InspectableSet[_C]:
         """Return self | other (union)."""
         return self._op_copy('__or__', other)
 
-    def __ror__(self, other: t.Any) -> InspectableSet[_C]:
+    def __ror__(self, other: Any) -> InspectableSet[_C]:
         """Return other | self (union)."""
         return self._op_copy('__ror__', other)
 
-    def __xor__(self, other: t.Any) -> InspectableSet[_C]:
+    def __xor__(self, other: Any) -> InspectableSet[_C]:
         """Return self ^ other (non-intersecting)."""
         return self._op_copy('__xor__', other)
 
-    def __rxor__(self, other: t.Any) -> InspectableSet[_C]:
+    def __rxor__(self, other: Any) -> InspectableSet[_C]:
         """Return other ^ self (non-intersecting)."""
         return self._op_copy('__rxor__', other)
 
-    def _op_inplace(self, op: str, other: t.Any) -> te.Self:
+    def _op_inplace(self, op: str, other: Any) -> Self:
         """Return self after an inplace operation."""
         if hasattr(self._members, op):
             if isinstance(other, InspectableSet):
@@ -697,28 +710,28 @@ class InspectableSet(t.Generic[_C]):
             return self
         return NotImplemented
 
-    def __iadd__(self, other: t.Any) -> te.Self:
+    def __iadd__(self, other: Any) -> Self:
         """Operate self += other (list/tuple add)."""
         return self._op_inplace('__iadd__', other)
 
-    def __isub__(self, other: t.Any) -> te.Self:
+    def __isub__(self, other: Any) -> Self:
         """Operate self -= other (set.difference_update)."""
         return self._op_inplace('__isub__', other)
 
-    def __iand__(self, other: t.Any) -> te.Self:
+    def __iand__(self, other: Any) -> Self:
         """Operate self &= other (set.intersection_update)."""
         return self._op_inplace('__iand__', other)
 
-    def __ior__(self, other: t.Any) -> te.Self:
+    def __ior__(self, other: Any) -> Self:
         """Operate self |= other (set.update)."""
         return self._op_inplace('__ior__', other)
 
-    def __ixor__(self, other: t.Any) -> te.Self:
+    def __ixor__(self, other: Any) -> Self:
         """Operate self ^= other (set.symmetric_difference_update)."""
         return self._op_inplace('__isub__', other)
 
 
-class classproperty(t.Generic[_T, _R]):  # noqa: N801
+class classproperty(Generic[_T, _R]):  # noqa: N801
     """
     Decorator to make class methods behave like read-only properties.
 
@@ -769,7 +782,7 @@ class classproperty(t.Generic[_T, _R]):  # noqa: N801
         'bar'
     """
 
-    def __init__(self, func: t.Callable[[t.Type[_T]], _R]) -> None:
+    def __init__(self, func: Callable[[type[_T]], _R]) -> None:
         if isinstance(func, classmethod):
             func = func.__func__  # type: ignore[unreachable]
         # For using `help(...)` on instances in Python >= 3.9.
@@ -780,20 +793,20 @@ class classproperty(t.Generic[_T, _R]):  # noqa: N801
 
         self.__wrapped__ = func
 
-    def __set_name__(self, owner: t.Type[_T], name: str) -> None:
+    def __set_name__(self, owner: type[_T], name: str) -> None:
         self.__module__ = owner.__module__
         self.__name__ = name
         self.__qualname__ = f'{owner.__qualname__}.{name}'
 
-    def __get__(self, obj: t.Optional[_T], cls: t.Optional[t.Type[_T]] = None) -> _R:
+    def __get__(self, obj: Optional[_T], cls: Optional[type[_T]] = None) -> _R:
         if cls is None:
-            cls = type(t.cast(_T, obj))
+            cls = type(cast(_T, obj))
         return self.__wrapped__(cls)
 
-    def __set__(self, _obj: t.Any, _value: t.Any) -> t.NoReturn:
+    def __set__(self, _obj: Any, _value: Any) -> NoReturn:
         raise AttributeError(f"{self.__wrapped__.__name__} is read-only")
 
-    def __delete__(self, _obj: t.Any) -> t.NoReturn:
+    def __delete__(self, _obj: Any) -> NoReturn:
         raise AttributeError(f"{self.__wrapped__.__name__} is read-only")
 
 

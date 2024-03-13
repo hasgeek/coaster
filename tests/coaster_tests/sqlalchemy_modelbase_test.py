@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import typing as t
+from typing import ClassVar, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -66,12 +66,12 @@ def test_bind_key_must_match_base() -> None:
     class BindModel(ModelBase, DeclarativeBase):
         """Test bind model base."""
 
-        __bind_key__: t.ClassVar[t.Optional[str]] = 'test'
+        __bind_key__: ClassVar[Optional[str]] = 'test'
 
     class Mixin:
         """Mixin that replaces bind_key."""
 
-        __bind_key__: t.ClassVar[t.Optional[str]] = 'other'
+        __bind_key__: ClassVar[Optional[str]] = 'other'
 
     assert Model.__bind_key__ is None
     with pytest.raises(TypeError, match="__bind_key__.*does not match base class"):

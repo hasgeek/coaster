@@ -5,7 +5,8 @@ Enhanced query and custom comparators
 
 from __future__ import annotations
 
-import typing as t
+from collections.abc import Iterator
+from typing import Any, Optional, TypeVar, Union
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -22,7 +23,7 @@ __all__ = [
 ]
 
 
-_T = t.TypeVar('_T', bound=t.Any)
+_T = TypeVar('_T', bound=Any)
 
 
 class SplitIndexComparator(Comparator):
@@ -30,18 +31,18 @@ class SplitIndexComparator(Comparator):
 
     def __init__(
         self,
-        expression: t.Any,
-        splitindex: t.Optional[int] = None,
+        expression: Any,
+        splitindex: Optional[int] = None,
         separator: str = '-',
     ) -> None:
         super().__init__(expression)
         self.splitindex = splitindex
         self.separator = separator
 
-    def _decode(self, other: str) -> t.Any:
+    def _decode(self, other: str) -> Any:
         raise NotImplementedError
 
-    def __eq__(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
+    def __eq__(self, other: Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
             other = self._decode(other)
         except (ValueError, TypeError):
@@ -51,7 +52,7 @@ class SplitIndexComparator(Comparator):
 
     is_ = __eq__  # type: ignore[assignment]
 
-    def __ne__(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
+    def __ne__(self, other: Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
             other = self._decode(other)
         except (ValueError, TypeError):
@@ -62,10 +63,10 @@ class SplitIndexComparator(Comparator):
     isnot = __ne__  # type: ignore[assignment]
     is_not = __ne__  # type: ignore[assignment]
 
-    def in_(self, other: t.Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
+    def in_(self, other: Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
         """Check if self is present in the other."""
 
-        def errordecode(otherlist: t.Any) -> t.Iterator[str]:
+        def errordecode(otherlist: Any) -> Iterator[str]:
             for val in otherlist:
                 try:
                     yield self._decode(val)
@@ -91,7 +92,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
     support all operators, accepting SQL expressions for :attr:`other`.
     """
 
-    def _decode(self, other: t.Any) -> t.Union[int, t.Any]:
+    def _decode(self, other: Any) -> Union[int, Any]:
         if isinstance(other, str):
             if self.splitindex is not None:
                 return int(other.split(self.separator)[self.splitindex])
@@ -101,7 +102,7 @@ class SqlSplitIdComparator(SplitIndexComparator):
     # FIXME: The type of `op` is not known as the sample code is not type-annotated in
     # https://docs.sqlalchemy.org/en/20/orm/extensions/hybrid.html
     # #building-custom-comparators
-    def operate(self, op: t.Any, *other: t.Any, **kwargs) -> sa.ColumnElement[t.Any]:
+    def operate(self, op: Any, *other: Any, **kwargs) -> sa.ColumnElement[Any]:
         """Perform SQL operation on decoded value for other."""
         # If `other` cannot be decoded, this operation will raise a Python exception
         return op(
@@ -119,7 +120,7 @@ class SqlUuidHexComparator(SplitIndexComparator):
     UUID value if specified as a `splitindex` parameter to the constructor.
     """
 
-    def _decode(self, other: t.Optional[t.Union[str, UUID]]) -> t.Optional[UUID]:
+    def _decode(self, other: Optional[Union[str, UUID]]) -> Optional[UUID]:
         if other is None:
             return None
         if not isinstance(other, UUID):
@@ -143,7 +144,7 @@ class SqlUuidB64Comparator(SplitIndexComparator):
     using this comparator.
     """
 
-    def _decode(self, other: t.Optional[t.Union[str, UUID]]) -> t.Optional[UUID]:
+    def _decode(self, other: Optional[Union[str, UUID]]) -> Optional[UUID]:
         if other is None:
             return None
         if not isinstance(other, UUID):
@@ -163,7 +164,7 @@ class SqlUuidB58Comparator(SplitIndexComparator):
     UUID value if specified as a `splitindex` parameter to the constructor.
     """
 
-    def _decode(self, other: t.Optional[t.Union[str, UUID]]) -> t.Optional[UUID]:
+    def _decode(self, other: Optional[Union[str, UUID]]) -> Optional[UUID]:
         if other is None:
             return None
         if not isinstance(other, UUID):

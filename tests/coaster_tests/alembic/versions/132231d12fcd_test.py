@@ -6,11 +6,11 @@ Create Date: 2013-04-27 11:09:23.896698
 
 """
 
-import typing as t
+from typing import Optional
 
 # revision identifiers, used by Alembic.
 revision = '132231d12fcd'
-down_revision: t.Optional[str] = None
+down_revision: Optional[str] = None
 
 
 def upgrade() -> None:
