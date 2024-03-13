@@ -409,13 +409,15 @@ class ViewMethod(Generic[_P, _R_co]):
         return self.__class__(self, data=data)
 
     @overload
-    def __get__(self, obj: None, cls: type) -> Self: ...
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
     @overload
-    def __get__(self, obj: Any, cls: type) -> ViewMethodBind[_P, _R_co]: ...
+    def __get__(
+        self, obj: Any, cls: Optional[type[Any]] = None
+    ) -> ViewMethodBind[_P, _R_co]: ...
 
     def __get__(
-        self, obj: Optional[Any], cls: type
+        self, obj: Optional[Any], cls: Optional[type[Any]] = None
     ) -> Union[Self, ViewMethodBind[_P, _R_co]]:
         if obj is None:
             return self

@@ -50,7 +50,7 @@ class ImmutableColumnError(AttributeError):
 
 
 @annotations_configured.connect
-def _make_immutable(cls: type) -> None:
+def _make_immutable(cls: type[Any]) -> None:
     def add_immutable_event(attr: str, col: Any) -> None:
         @sa.event.listens_for(col, 'set', raw=True)
         def immutable_column_set_listener(  # skipcq: PTC-W0065

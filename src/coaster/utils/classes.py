@@ -42,12 +42,12 @@ class SelfProperty:
     """Provides :attr:`DataclassFromType.self` (singleton instance)."""
 
     @overload
-    def __get__(self, obj: None, _cls: type) -> NoReturn: ...
+    def __get__(self, obj: None, _cls: Optional[type[Any]] = None) -> NoReturn: ...
 
     @overload
-    def __get__(self, obj: _T, _cls: type[_T]) -> _T: ...
+    def __get__(self, obj: _T, _cls: Optional[type[_T]] = None) -> _T: ...
 
-    def __get__(self, obj: Optional[_T], _cls: type[_T]) -> _T:
+    def __get__(self, obj: Optional[_T], _cls: Optional[type[_T]] = None) -> _T:
         if obj is None:
             raise AttributeError("Flag for @dataclass to recognise no default value")
 

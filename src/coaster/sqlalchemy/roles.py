@@ -396,11 +396,11 @@ class RoleGrantABC(ABC):
         return set()
 
     @classmethod
-    def __subclasshook__(cls, c: type) -> bool:
+    def __subclasshook__(cls, subcls: type[Any]) -> bool:
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             # Don't use getattr because that'll trigger descriptor __get__ protocol
-            if any('offered_roles' in b.__dict__ for b in c.__mro__):
+            if any('offered_roles' in b.__dict__ for b in subcls.__mro__):
                 return True
             return False
         return NotImplemented  # pragma: no cover
@@ -671,15 +671,15 @@ class DynamicAssociationProxy(Generic[_V]):
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls: type) -> Self: ...
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
     @overload
     def __get__(
-        self, obj: _T, cls: type[_T]
+        self, obj: _T, cls: Optional[type[_T]] = None
     ) -> DynamicAssociationProxyWrapper[_V, _T]: ...
 
     def __get__(
-        self, obj: Optional[_T], cls: type[_T]
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
     ) -> Union[Self, DynamicAssociationProxyWrapper[_V, _T]]:
         if obj is None:
             return self

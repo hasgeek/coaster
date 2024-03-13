@@ -397,7 +397,9 @@ class ManagedState:
             return valuematch and self.validator(obj)
         return valuematch
 
-    def __clause_element__(self, cls: Optional[type] = None) -> sa.ColumnElement[bool]:
+    def __clause_element__(
+        self, cls: Optional[type[Any]] = None
+    ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         if cls is None:
             cls = self.statemanager.cls
@@ -412,7 +414,7 @@ class ManagedState:
         cv = self.class_validator
         if cv is None:
             cv = cast(
-                Optional[Callable[[type], sa.ColumnElement[bool]]],
+                Optional[Callable[[type[Any]], sa.ColumnElement[bool]]],
                 self.validator,
             )
         if cv is not None:
@@ -488,7 +490,9 @@ class ManagedStateGroup:
         """Test if the given object is currently in any of this group of states."""
         return any(s.is_current_in(obj) for s in self.states)
 
-    def __clause_element__(self, cls: Optional[type] = None) -> sa.ColumnElement[bool]:
+    def __clause_element__(
+        self, cls: Optional[type[Any]] = None
+    ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         return sa.or_(*(s.__clause_element__(cls) for s in self.states))
 
@@ -624,13 +628,15 @@ class StateTransition(Generic[_P, _R]):
         self.data['name'] = name
 
     @overload
-    def __get__(self, obj: None, cls: type) -> Self: ...
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
     @overload
-    def __get__(self, obj: _T, cls: type[_T]) -> StateTransitionWrapper[_P, _R, _T]: ...
+    def __get__(
+        self, obj: _T, cls: Optional[type[_T]] = None
+    ) -> StateTransitionWrapper[_P, _R, _T]: ...
 
     def __get__(
-        self, obj: Optional[_T], cls: type[_T]
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
     ) -> Union[Self, StateTransitionWrapper[_P, _R, _T]]:
         if obj is None:
             return self
@@ -797,20 +803,22 @@ class StateManager(Generic[_SG]):
         return f'<StateManager {self.name}>'  # type: ignore[unreachable]
 
     @overload
-    def __get__(self: _SM, obj: None, cls: type) -> _SM: ...
+    def __get__(self: _SM, obj: None, cls: Optional[type[Any]] = None) -> _SM: ...
 
     @overload
-    def __get__(self: _SM, obj: _T, cls: type[_T]) -> StateManagerInstance[_SM, _T]: ...
+    def __get__(
+        self: _SM, obj: _T, cls: Optional[type[_T]] = None
+    ) -> StateManagerInstance[_SM, _T]: ...
 
     def __get__(
-        self: _SM, obj: Optional[_T], cls: type[_T]
+        self: _SM, obj: Optional[_T], cls: Optional[type[_T]] = None
     ) -> Union[_SM, StateManagerInstance[_SM, _T]]:
         if obj is None:
             return self
         # Cache for subsequent accesses to avoid re-constructing the wrapper
         if self.name in obj.__dict__:
             return obj.__dict__[self.name]
-        wrapper = StateManagerInstance(self, obj, cls)
+        wrapper = StateManagerInstance(self, obj, cls if cls is not None else type(obj))
         obj.__dict__[self.name] = wrapper
         return wrapper
 

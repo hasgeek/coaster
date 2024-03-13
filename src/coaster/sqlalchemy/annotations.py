@@ -122,7 +122,7 @@ annotations_configured = coaster_signals.signal(
 
 
 @sa.event.listens_for(Mapper, 'mapper_configured')
-def _configure_annotations(_mapper: Any, cls: type) -> None:
+def _configure_annotations(_mapper: Any, cls: type[Any]) -> None:
     """
     Extract annotations from attributes.
 
@@ -182,7 +182,7 @@ def _configure_annotations(_mapper: Any, cls: type) -> None:
     # Classes specifying ``__column_annotations__`` directly isn't supported,
     # so we don't bother preserving existing content, if any.
     if annotations:
-        cls.__column_annotations__ = annotations  # type: ignore[attr-defined]
+        cls.__column_annotations__ = annotations
     if annotations_by_attr:
-        cls.__column_annotations_by_attr__ = annotations_by_attr  # type: ignore[attr-defined]
+        cls.__column_annotations_by_attr__ = annotations_by_attr
     annotations_configured.send(cls)

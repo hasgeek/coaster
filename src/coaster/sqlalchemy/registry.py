@@ -207,13 +207,15 @@ class Registry:
         return decorator
 
     @overload
-    def __get__(self: _RT, obj: None, cls: type) -> _RT: ...
+    def __get__(self: _RT, obj: None, cls: Optional[type[Any]] = None) -> _RT: ...
 
     @overload
-    def __get__(self: _RT, obj: _T, cls: type[_T]) -> InstanceRegistry[_RT, _T]: ...
+    def __get__(
+        self: _RT, obj: _T, cls: Optional[type[_T]] = None
+    ) -> InstanceRegistry[_RT, _T]: ...
 
     def __get__(
-        self: _RT, obj: Optional[_T], cls: type[_T]
+        self: _RT, obj: Optional[_T], cls: Optional[type[_T]] = None
     ) -> Union[_RT, InstanceRegistry[_RT, _T]]:
         """Access at runtime."""
         if obj is None:
