@@ -114,7 +114,7 @@ VALID_TAGS: dict[str, list[str]] = {
     'ul': [],
 }
 
-LINKIFY_SKIP_TAGS: list = ['pre', 'code', 'kbd', 'samp', 'var']
+LINKIFY_SKIP_TAGS = ['pre', 'code', 'kbd', 'samp', 'var']
 
 # Attrs is described in the Linkify source as {(namespace, name): value}, but the code
 # that calls us sets it as `attrs = {(None, "href"): href, "_text": url}`
@@ -170,7 +170,7 @@ def sanitize_html(
     return Markup(cleaner.clean(value))
 
 
-blockish_tags: set[str] = {
+blockish_tags = {
     'address',
     'article',
     'aside',

@@ -324,9 +324,9 @@ class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
     def __new__(
-        mcs: type,  # noqa: N804
+        mcs: type[Any],  # noqa: N804
         name: str,
-        bases: tuple[type, ...],
+        bases: tuple[type[Any], ...],
         attrs: dict[str, Any],
         **kwargs: Any,
     ) -> type[LabeledEnum]:

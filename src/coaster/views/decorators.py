@@ -224,7 +224,7 @@ def requestbody(*args: Union[str, tuple[str, Callable[[str], Any]]]) -> ReturnDe
 
 
 def load_model(
-    model: type,
+    model: type[Any],
     attributes: dict[str, str],
     parameter: str,
     kwargs: bool = False,
