@@ -26,7 +26,6 @@ base classes.
 
 from __future__ import annotations
 
-import typing_extensions as te
 import warnings
 from collections import abc
 from collections.abc import Collection, Iterator, Mapping
@@ -39,13 +38,12 @@ from typing import (
     ClassVar,
     Generic,
     Optional,
-    TypeVar,
     Union,
     get_args,
     get_origin,
     overload,
 )
-from typing_extensions import Self, get_original_bases
+from typing_extensions import Self, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
 from flask import current_app, url_for
@@ -105,7 +103,7 @@ __all__ = [
     'RegistryMixin',
 ]
 
-PkeyType = te.TypeVar('PkeyType', int, UUID, default=int)
+PkeyType = TypeVar('PkeyType', int, UUID, default=int)
 # `default=int` is processed by type checkers implementing PEP 696, but seemingly has no
 # impact in runtime, so no default will be received in `IdMixin.__init_subclass__`
 

@@ -9,7 +9,6 @@ Group related views into a class for easier management.
 
 from __future__ import annotations
 
-import typing_extensions as te
 import warnings
 from collections.abc import Collection
 from functools import partial, update_wrapper, wraps
@@ -22,7 +21,6 @@ from typing import (
     Generic,
     Optional,
     Protocol,
-    TypeVar,
     Union,
     cast,
     get_args,
@@ -34,6 +32,7 @@ from typing_extensions import (
     ParamSpec,
     Self,
     TypeAlias,
+    TypeVar,
     get_original_bases,
 )
 
@@ -87,7 +86,7 @@ __all__ = [
 RouteRuleOptions = dict[str, Any]
 ClassViewSubtype = TypeVar('ClassViewSubtype', bound='ClassView')
 ClassViewType: TypeAlias = type[ClassViewSubtype]
-ModelType = te.TypeVar('ModelType', default=Any)
+ModelType = TypeVar('ModelType', default=Any)
 
 _P = ParamSpec('_P')
 _P2 = ParamSpec('_P2')

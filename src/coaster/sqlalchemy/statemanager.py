@@ -230,7 +230,6 @@ direct state value changes:
 from __future__ import annotations
 
 import functools
-import typing_extensions as te
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -241,12 +240,11 @@ from typing import (
     Generic,
     NoReturn,
     Optional,
-    TypeVar,
     Union,
     cast,
     overload,
 )
-from typing_extensions import Concatenate, ParamSpec, Self
+from typing_extensions import Concatenate, ParamSpec, Self, TypeVar
 
 import sqlalchemy as sa
 from werkzeug.exceptions import BadRequest
@@ -273,7 +271,7 @@ __all__ = [
 
 # --- Internal types -------------------------------------------------------------------
 
-_SG = te.TypeVar('_SG', default=Any)  # The declared type hosting StateManager
+_SG = TypeVar('_SG', default=Any)  # The declared type hosting StateManager
 _T = TypeVar('_T')  # The type from which StateManager was accessed in __get__
 _SM = TypeVar('_SM', bound='StateManager')
 _P = ParamSpec('_P')  # ParamSpec for wrapped functions

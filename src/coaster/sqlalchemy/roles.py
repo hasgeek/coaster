@@ -131,7 +131,6 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-import typing_extensions as te
 from abc import ABC, abstractmethod
 from collections import abc
 from collections.abc import Iterable, Iterator, Sequence
@@ -147,12 +146,11 @@ from typing import (
     NoReturn,
     Optional,
     TypedDict,
-    TypeVar,
     Union,
     cast,
     overload,
 )
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self, TypeAlias, TypeVar
 
 import sqlalchemy as sa
 from flask import g
@@ -208,8 +206,8 @@ ActorAttrType: TypeAlias = Union[str, QueryableAttribute]
 
 RoleMixinType = TypeVar('RoleMixinType', bound='RoleMixin')
 _T = TypeVar('_T')
-_V = te.TypeVar('_V', default=Any)  # Var type for DynamicAssociationProxy
-ActorType = te.TypeVar('ActorType', bound=Any, default=Any)
+_V = TypeVar('_V', default=Any)  # Var type for DynamicAssociationProxy
+ActorType = TypeVar('ActorType', bound=Any, default=Any)
 
 
 class RoleAttrs(TypedDict, total=False):
