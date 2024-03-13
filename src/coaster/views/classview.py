@@ -55,10 +55,9 @@ from werkzeug.local import LocalProxy
 from werkzeug.routing import Map as WzMap, Rule as WzRule
 from werkzeug.wrappers import Response as BaseResponse
 
-from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
 from ..sqlalchemy import Query, UrlForMixin
-from ..typing import MethodProtocol, WrappedFunc
+from ..typing import MethodProtocol, ReturnDecorator, WrappedFunc
 from ..utils import InspectableSet
 from .misc import ensure_sync
 
@@ -1061,10 +1060,10 @@ class ModelView(ClassView, Generic[ModelType]):
 ModelViewType = TypeVar('ModelViewType', bound=ModelView)
 
 
-def requires_roles(roles: set[str]) -> tc.ReturnDecorator:
+def requires_roles(roles: set[str]) -> ReturnDecorator:
     """Decorate to require specific roles in a :class:`ModelView` view."""
 
-    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+    def decorator(f: WrappedFunc) -> WrappedFunc:
         def is_available_here(context: ModelViewType) -> bool:
             return context.obj.roles_for(current_auth.actor).has_any(roles)
 
@@ -1093,7 +1092,7 @@ def requires_roles(roles: set[str]) -> tc.ReturnDecorator:
         use_wrapper = async_wrapper if iscoroutinefunction(f) else wrapper
         use_wrapper.requires_roles = roles  # type: ignore[attr-defined]
         use_wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return cast(tc.WrappedFunc, use_wrapper)
+        return cast(WrappedFunc, use_wrapper)
 
     return decorator
 
@@ -1268,7 +1267,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
             return retval
         return await f(self, *args, **kwargs)
 
-    return cast(tc.WrappedFunc, async_wrapper if iscoroutinefunction(f) else wrapper)
+    return cast(WrappedFunc, async_wrapper if iscoroutinefunction(f) else wrapper)
 
 
 class UrlChangeCheck:

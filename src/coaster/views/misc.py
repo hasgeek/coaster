@@ -35,7 +35,7 @@ except ModuleNotFoundError:
     async_to_sync = None  # type: ignore[assignment, misc]
 
 
-from .. import typing as tc  # pylint: disable=reimported
+from ..typing import WrappedFunc
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -231,10 +231,10 @@ def endpoint_for(
     return None, {}
 
 
-def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
+def ensure_sync(func: WrappedFunc) -> WrappedFunc:
     """Help use Flask's ensure_sync outside a request context."""
     if current_app:
-        return cast(tc.WrappedFunc, current_app.ensure_sync(func))
+        return cast(WrappedFunc, current_app.ensure_sync(func))
 
     if not iscoroutinefunction(func):
         return func
@@ -243,6 +243,6 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
         return async_to_sync(func)  # type: ignore[return-value]
 
     return cast(  # type: ignore[unreachable]
-        tc.WrappedFunc,
+        WrappedFunc,
         lambda *args, **kwargs: (asyncio.run(func(*args, **kwargs))),
     )

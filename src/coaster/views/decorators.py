@@ -30,8 +30,8 @@ from werkzeug.datastructures import Headers, MIMEAccept
 from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 
-from .. import typing as tc  # pylint: disable=reimported
 from ..auth import add_auth_attribute, current_auth
+from ..typing import ReturnDecorator, WrappedFunc
 from ..utils import InspectableSet, is_collection
 from .misc import ensure_sync
 
@@ -79,7 +79,7 @@ def requestargs(
         Literal['query'],
         Literal['body'],
     ] = 'values',
-) -> tc.ReturnDecorator:
+) -> ReturnDecorator:
     """
     Decorate a function to load parameters from the request if not supplied directly.
 
@@ -131,7 +131,7 @@ def requestargs(
         ('1', 200, [1, 2])
     """
 
-    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+    def decorator(f: WrappedFunc) -> WrappedFunc:
         """Apply config to wrapped function."""
         namefilt: list[tuple[str, Optional[Callable[[str], Any]], bool]] = [
             (name[:-2], filt, True) if name.endswith('[]') else (name, filt, False)
@@ -201,28 +201,24 @@ def requestargs(
             except TypeError as e:
                 raise RequestTypeError(str(e)) from e
 
-        return cast(tc.WrappedFunc, wrapper)
+        return cast(WrappedFunc, wrapper)
 
     return decorator
 
 
 def requestquery(
     *args: Union[str, tuple[str, Callable[[str], Any]]]
-) -> tc.ReturnDecorator:
+) -> ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
 
 
-def requestform(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
-) -> tc.ReturnDecorator:
+def requestform(*args: Union[str, tuple[str, Callable[[str], Any]]]) -> ReturnDecorator:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
-def requestbody(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
-) -> tc.ReturnDecorator:
+def requestbody(*args: Union[str, tuple[str, Callable[[str], Any]]]) -> ReturnDecorator:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
@@ -649,7 +645,7 @@ def cors(
         'X-Requested-With',
     ),
     max_age: Optional[int] = None,
-) -> tc.ReturnDecorator:
+) -> ReturnDecorator:
     """
     Add CORS headers to the decorated view function.
 
@@ -695,7 +691,7 @@ def cors(
             return Response()
     """
 
-    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+    def decorator(f: WrappedFunc) -> WrappedFunc:
         @wraps(f)
         def wrapper(*args, **kwargs) -> WerkzeugResponse:
             origin = request.headers.get('Origin')
@@ -736,12 +732,12 @@ def cors(
         wrapper.provide_automatic_options = False  # type: ignore[attr-defined]
         wrapper.required_methods = ['OPTIONS']  # type: ignore[attr-defined]
 
-        return cast(tc.WrappedFunc, wrapper)
+        return cast(WrappedFunc, wrapper)
 
     return decorator
 
 
-def requires_permission(permission: Union[str, set[str]]) -> tc.ReturnDecorator:
+def requires_permission(permission: Union[str, set[str]]) -> ReturnDecorator:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.
 
@@ -754,7 +750,7 @@ def requires_permission(permission: Union[str, set[str]]) -> tc.ReturnDecorator:
         provided, any one permission must be available
     """
 
-    def decorator(f: tc.WrappedFunc) -> tc.WrappedFunc:
+    def decorator(f: WrappedFunc) -> WrappedFunc:
         def is_available_here() -> bool:
             if not current_auth.permissions:
                 return False
@@ -778,6 +774,6 @@ def requires_permission(permission: Union[str, set[str]]) -> tc.ReturnDecorator:
 
         wrapper.requires_permission = permission  # type: ignore[attr-defined]
         wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return cast(tc.WrappedFunc, wrapper)
+        return cast(WrappedFunc, wrapper)
 
     return decorator
