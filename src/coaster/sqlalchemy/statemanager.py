@@ -623,7 +623,7 @@ class StateTransition(Generic[_P, _R]):
             to=to,  # ManagedState (is_static) of new state
         )
 
-    def __set_name__(self, _owner: type, name: str) -> None:  # pragma: no cover
+    def __set_name__(self, _owner: type[Any], name: str) -> None:  # pragma: no cover
         self.name = name
         self.data['name'] = name
 
@@ -791,7 +791,7 @@ class StateManager(Generic[_SG]):
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[Any], name: str) -> None:
         if self.cls is not object:
             raise TypeError("This StateManager is already affiliated with a host class")
         self.cls = owner
