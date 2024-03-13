@@ -18,15 +18,15 @@ import sys
 import textwrap
 import traceback
 import types
-import typing as t
 import warnings
+from collections.abc import MutableSet
 from datetime import datetime, timedelta
 from email.utils import formataddr
 from html import escape
 from io import StringIO
 from pprint import pprint
 from threading import Lock, Thread
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
 
 if TYPE_CHECKING:
     # This type definition is only available in the typeshed stub
@@ -69,7 +69,7 @@ _filter_re = re.compile(
 )
 
 # Don't allow init on the same logger twice
-log_init_cache: t.MutableSet[t.Optional[str]] = set()
+log_init_cache: MutableSet[Optional[str]] = set()
 
 
 class ConfigWarning(UserWarning):
@@ -106,7 +106,7 @@ class RepeatValueIndicator:
     __str__ = __repr__
 
 
-def filtered_value(key: t.Any, value: t.Any) -> t.Any:
+def filtered_value(key: Any, value: Any) -> Any:
     """Find and mask sensitive values based on key names."""
     if isinstance(key, str) and _filter_re.search(key):
         return filtered_value_indicator
@@ -115,7 +115,7 @@ def filtered_value(key: t.Any, value: t.Any) -> t.Any:
     return value
 
 
-def pprint_with_indent(dictlike: t.Dict, outfile: t.IO, indent: int = 4) -> None:
+def pprint_with_indent(dictlike: dict, outfile: IO, indent: int = 4) -> None:
     """Filter values and pprint with indent to create a Markdown code block."""
     out = StringIO()
     pprint(  # noqa: T203
@@ -128,7 +128,7 @@ def pprint_with_indent(dictlike: t.Dict, outfile: t.IO, indent: int = 4) -> None
 class LocalVarFormatter(logging.Formatter):
     """Log the contents of local variables in the stack frame."""
 
-    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Init formatter."""
         super().__init__(*args, **kwargs)
         self.lock = Lock()
@@ -158,7 +158,7 @@ class LocalVarFormatter(logging.Formatter):
                 break
             tb = tb.tb_next
         stack = []
-        f: t.Optional[types.FrameType] = tb.tb_frame
+        f: Optional[types.FrameType] = tb.tb_frame
         while f:
             stack.append(f)
             f = f.f_back
@@ -176,7 +176,7 @@ class LocalVarFormatter(logging.Formatter):
             Config.__repr__ = (  # type: ignore[method-assign]
                 lambda self: '<Config [FILTERED]>'
             )
-            value_cache: t.Dict[t.Any, str] = {}
+            value_cache: dict[Any, str] = {}
 
             print('\n----------\n', file=sio)  # noqa: T201
             # XXX: The following text is used as a signature in :meth:`format` above
@@ -272,13 +272,13 @@ class EmailHandler(logging.handlers.SMTPHandler):
 class SlackHandler(logging.Handler):
     """Custom logging handler to post error reports to Slack."""
 
-    def __init__(self, app_name: str, webhooks: t.List[t.Dict[str, t.Any]]) -> None:
+    def __init__(self, app_name: str, webhooks: list[dict[str, Any]]) -> None:
         """Init handler."""
         super().__init__()
         self.app_name = app_name
         self.webhooks = webhooks
         self.throttle_lock = Lock()
-        self.throttle_cache: t.Dict[t.Tuple[str, int], datetime] = {}
+        self.throttle_cache: dict[tuple[str, int], datetime] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
@@ -358,7 +358,7 @@ class TelegramHandler(logging.Handler):
     """Custom logging handler to report errors to a Telegram chat."""
 
     def __init__(
-        self, app_name: str, chatid: str, apikey: str, threadid: t.Optional[str] = None
+        self, app_name: str, chatid: str, apikey: str, threadid: Optional[str] = None
     ) -> None:
         """Init handler."""
         super().__init__()
@@ -367,7 +367,7 @@ class TelegramHandler(logging.Handler):
         self.apikey = apikey
         self.threadid = threadid
         self.throttle_lock = Lock()
-        self.throttle_cache: t.Dict[t.Tuple[str, int], datetime] = {}
+        self.throttle_cache: dict[tuple[str, int], datetime] = {}
 
     def emit(self, record: logging.LogRecord) -> None:
         """Emit an event."""
@@ -541,37 +541,35 @@ def init_app(app: FlaskApp, _warning_stacklevel: int = 2) -> None:
 
     # --- Email handler
     if app.config.get('LOG_EMAIL_TO'):
-        email_to: t.Union[str, t.List[str]] = app.config['LOG_EMAIL_TO']
+        email_to: Union[str, list[str]] = app.config['LOG_EMAIL_TO']
         if isinstance(email_to, str):
             email_to = [email_to]
 
         # From address (string or tuple/list)
-        email_from: t.Union[str, t.List[str], t.Tuple[str, str]] = (
+        email_from: Union[str, list[str], tuple[str, str]] = (
             app.config.get('LOG_EMAIL_FROM') or app.config['MAIL_DEFAULT_SENDER']
         )
         if isinstance(email_from, (list, tuple)):
             # formataddr is typed with a tuple, but when using config from env with a
             # JSON processor, it will always be a list. formataddr is okay with a list,
             # so we a use a cast here to pass type check.
-            email_from = formataddr(t.cast(t.Tuple[str, str], email_from))
+            email_from = formataddr(cast(tuple[str, str], email_from))
 
         # Optional SMTP credentials
         if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD'):
-            email_credentials: t.Optional[t.Tuple[str, str]] = (
+            email_credentials: Optional[tuple[str, str]] = (
                 app.config['MAIL_USERNAME'],
                 app.config['MAIL_PASSWORD'],
             )
         else:
             email_credentials = None
-        email_server: t.Union[str, t.Tuple[str, int]]
+        email_server: Union[str, tuple[str, int]]
         email_server = str(app.config.get('MAIL_SERVER', 'localhost'))
         if 'MAIL_PORT' in app.config:
             email_server = (email_server, int(app.config['MAIL_PORT']))
 
         # Optional TLS settings, converted to a form SMTPHandler understands
-        email_secure: t.Optional[
-            t.Union[t.Tuple[()], t.Tuple[str], t.Tuple[str, str]]
-        ] = None
+        email_secure: Optional[Union[tuple[()], tuple[str], tuple[str, str]]] = None
         if email_credentials and app.config.get('MAIL_USE_TLS'):
             email_secure = ()  # Empty tuple to enable TLS
         elif 'MAIL_SSL_KEYFILE' in app.config:

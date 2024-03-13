@@ -1,4 +1,3 @@
-import typing as t
 import unittest
 
 import pytest
@@ -13,7 +12,7 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: t.Dict[str, str]) -> BaseResponse:
+def viewcallable(data: dict[str, str]) -> BaseResponse:
     return Response(repr(data), mimetype='text/plain')
 
 
@@ -27,7 +26,7 @@ def returns_string(data) -> str:
 
 @app.route('/renderedview1')
 @render_with('renderedview1.html')
-def myview() -> t.Dict[str, str]:
+def myview() -> dict[str, str]:
     return {'data': 'value'}
 
 
@@ -40,7 +39,7 @@ def myview() -> t.Dict[str, str]:
     },
     json=True,
 )
-def otherview() -> t.Tuple[dict, int]:
+def otherview() -> tuple[dict, int]:
     return {'data': 'value'}, 201
 
 
@@ -52,19 +51,19 @@ def otherview() -> t.Tuple[dict, int]:
         'text/plain': viewcallable,
     }
 )
-def onemoreview() -> t.Tuple[dict]:
+def onemoreview() -> tuple[dict]:
     return ({'data': 'value'},)
 
 
 @app.route('/renderedview4')
 @render_with({'text/plain': viewcallable})
-def view_for_text() -> t.Tuple[dict, int, t.Dict[str, str]]:
+def view_for_text() -> tuple[dict, int, dict[str, str]]:
     return {'data': 'value'}, 201, {'Referrer': 'http://example.com'}
 
 
 @app.route('/renderedview5')
 @render_with({'text/plain': returns_string})
-def view_for_star() -> t.Tuple[dict, int]:
+def view_for_star() -> tuple[dict, int]:
     return {'data': 'value'}, 201
 
 

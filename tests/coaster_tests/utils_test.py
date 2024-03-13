@@ -1,8 +1,8 @@
 import datetime
-import typing as t
-import typing_extensions as te
 import unittest
-from collections.abc import MutableSet
+from collections.abc import Iterator, MutableSet
+from typing import Any, Callable, ClassVar
+from typing_extensions import Self
 
 import pytest
 from pytz import UTC, common_timezones
@@ -313,25 +313,25 @@ class TestCoasterUtils(unittest.TestCase):
 
     def test_nary_op(self) -> None:
         class DemoSet(MutableSet):
-            def __init__(self, members: t.Any) -> None:
+            def __init__(self, members: Any) -> None:
                 self.set = set(members)
 
-            def __contains__(self, value: t.Any) -> bool:
+            def __contains__(self, value: Any) -> bool:
                 return value in self.set
 
-            def __iter__(self) -> t.Iterator:
+            def __iter__(self) -> Iterator:
                 return iter(self.set)
 
             def __len__(self) -> int:
                 return len(self.set)
 
-            def add(self, value: t.Any) -> None:
+            def add(self, value: Any) -> None:
                 return self.set.add(value)
 
-            def discard(self, value: t.Any) -> None:
+            def discard(self, value: Any) -> None:
                 return self.set.discard(value)
 
-            update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+            update: ClassVar[Callable[..., Self]] = nary_op(
                 MutableSet.__ior__, "Custom docstring"
             )
 

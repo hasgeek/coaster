@@ -20,9 +20,9 @@ request processing.
 
 from __future__ import annotations
 
-import typing as t
+from collections.abc import Sequence
 from threading import Lock
-from typing import cast
+from typing import Any, Generic, NoReturn, TypeVar, cast
 
 from flask import Flask, current_app, g
 from flask.globals import request_ctx
@@ -41,7 +41,7 @@ __all__ = [
 ]
 
 
-_Response = t.TypeVar('_Response', bound=BaseResponse)
+_Response = TypeVar('_Response', bound=BaseResponse)
 
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
@@ -58,7 +58,7 @@ _internal_attrs = {
 }
 
 
-def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
+def add_auth_attribute(attr: str, value: Any, actor: bool = False) -> None:
     """
     Add authorization attributes to :obj:`current_auth` for the duration of the request.
 
@@ -100,7 +100,7 @@ def add_auth_attribute(attr: str, value: t.Any, actor: bool = False) -> None:
             ca.__dict__['actor'] = value
 
 
-def add_auth_anchor(anchor: t.Any) -> None:
+def add_auth_anchor(anchor: Any) -> None:
     """Add an anchor to current auth (placeholder pending a spec for anchors)."""
     existing = set(current_auth.anchors)
     existing.add(anchor)
@@ -156,9 +156,9 @@ class CurrentAuth:
 
     is_placeholder: bool
     permissions: InspectableSet
-    anchors: t.Sequence[t.Any]
-    actor: t.Any
-    user: t.Any
+    anchors: Sequence[Any]
+    actor: Any
+    user: Any
 
     def __init__(self, is_placeholder: bool = False) -> None:
         object.__setattr__(self, 'is_placeholder', is_placeholder)
@@ -168,21 +168,21 @@ class CurrentAuth:
             object.__setattr__(self, 'actor', None)
             object.__setattr__(self, 'user', None)
 
-    def __setattr__(self, attr: str, value: t.Any) -> t.NoReturn:
+    def __setattr__(self, attr: str, value: Any) -> NoReturn:
         if hasattr(self, attr) and getattr(self, attr) is value:
             # This test is used to allow in-place mutations such as:
             # current_auth.permissions |= {extra}
             return  # type: ignore[misc]
         raise TypeError('current_auth is read-only')
 
-    def __delattr__(self, attr: str) -> t.NoReturn:
+    def __delattr__(self, attr: str) -> NoReturn:
         raise TypeError('current_auth is read-only')
 
     def __contains__(self, attr: str) -> bool:
         """Check for presence of an attribute."""
         return attr in self.__dict__
 
-    def get(self, attr: str, default: t.Any = None) -> t.Any:
+    def get(self, attr: str, default: Any = None) -> Any:
         """Get an attribute."""
         # This uses :func:`getattr` instead of looking in :attr:`__dict__` because it
         # needs to trigger the first-use activity that happens in :meth:`__getattr__`
@@ -191,7 +191,7 @@ class CurrentAuth:
     def __repr__(self) -> str:  # pragma: no cover
         return f'CurrentAuth(is_placeholder={self.is_placeholder})'
 
-    def __getattr__(self, attr: str) -> t.Any:
+    def __getattr__(self, attr: str) -> Any:
         """Init :class:`CurrentAuth` on first attribute access."""
         with _prop_lock:
             if 'actor' in self.__dict__:
@@ -266,15 +266,13 @@ def init_app(app: Flask) -> None:
     app.after_request(_set_auth_cookie_after_request)
 
 
-_CurrentAuthType_co = t.TypeVar(
-    '_CurrentAuthType_co', bound=CurrentAuth, covariant=True
-)
+_CurrentAuthType_co = TypeVar('_CurrentAuthType_co', bound=CurrentAuth, covariant=True)
 
 
-class GetCurrentAuth(t.Generic[_CurrentAuthType_co]):
+class GetCurrentAuth(Generic[_CurrentAuthType_co]):
     """Helper for :attr:`current_auth` proxy to use a :class:`CurrentAuth` subclass."""
 
-    def __init__(self, cls: t.Type[_CurrentAuthType_co]) -> None:
+    def __init__(self, cls: type[_CurrentAuthType_co]) -> None:
         self.cls = cls
 
     def __call__(self) -> _CurrentAuthType_co:
@@ -309,7 +307,7 @@ class GetCurrentAuth(t.Generic[_CurrentAuthType_co]):
         return self.cls(is_placeholder=True)
 
     @classmethod
-    def proxy(cls, subcls: t.Type[_CurrentAuthType_co]) -> _CurrentAuthType_co:
+    def proxy(cls, subcls: type[_CurrentAuthType_co]) -> _CurrentAuthType_co:
         """Create a local proxy using a specific subclass of :class:`CurrentAuth`."""
         return cast(_CurrentAuthType_co, LocalProxy(cls(subcls)))
 

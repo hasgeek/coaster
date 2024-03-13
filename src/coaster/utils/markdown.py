@@ -14,10 +14,10 @@ to auto-render HTML from Markdown text.
 
 from __future__ import annotations
 
-import typing as t
+from collections.abc import Mapping
 from copy import deepcopy
 from html import unescape
-from typing import overload
+from typing import Any, Optional, Union, overload
 from xml.etree.ElementTree import Element  # nosec B405
 
 from bleach import linkify as linkify_processor
@@ -106,7 +106,7 @@ class JavascriptProtocolExtension(Extension):
 # FIXME: Disable support for custom css classes as described here:
 # https://facelessuser.github.io/pymdown-extensions/extensions/superfences/#injecting-classes-ids-and-attributes
 
-default_markdown_extensions_html: t.List[t.Union[str, Extension]] = [
+default_markdown_extensions_html: list[Union[str, Extension]] = [
     'markdown.extensions.abbr',
     'markdown.extensions.footnotes',
     'markdown.extensions.tables',
@@ -132,7 +132,7 @@ default_markdown_extensions = default_markdown_extensions_html + [
 ]
 
 
-default_markdown_extension_configs: t.Mapping[str, t.Mapping[str, t.Any]] = {
+default_markdown_extension_configs: Mapping[str, Mapping[str, Any]] = {
     'markdown.extensions.tables': {'use_align_attribute': True},
     'pymdownx.highlight': {'css_class': 'highlight', 'guess_lang': False},
     'pymdownx.superfences': {
@@ -163,9 +163,9 @@ def markdown(
     text: None,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
-    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
-    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
+    valid_tags: Optional[dict[str, list[str]]] = None,
+    extensions: Optional[list[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> None: ...
 
 
@@ -174,20 +174,20 @@ def markdown(
     text: str,
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
-    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
-    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
+    valid_tags: Optional[dict[str, list[str]]] = None,
+    extensions: Optional[list[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Markup: ...
 
 
 def markdown(
-    text: t.Optional[str],
+    text: Optional[str],
     html: bool = False,
     linkify: bool = True,
-    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
-    extensions: t.Optional[t.List[t.Union[str, Extension]]] = None,
-    extension_configs: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
-) -> t.Optional[Markup]:
+    valid_tags: Optional[dict[str, list[str]]] = None,
+    extensions: Optional[list[Union[str, Extension]]] = None,
+    extension_configs: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Optional[Markup]:
     """
     Markdown parser with a number of sane defaults that resemble GFM.
 

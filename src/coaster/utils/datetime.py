@@ -5,8 +5,8 @@ Date, time and timezone utilities
 
 from __future__ import annotations
 
-import typing as t
 from datetime import date, datetime, timedelta, tzinfo
+from typing import Optional, Union
 
 import isoweek
 import pytz
@@ -49,9 +49,9 @@ def parse_isoformat(text: str, naive: bool = True, delimiter: str = 'T') -> date
     try:
         dt = parse_datetime(text, delimiter)
     except NotImplementedError:
-        # aniso8601 misinterprets junk data and returns NotImplementedError with
+        # `aniso8601` misinterprets junk data and returns NotImplementedError with
         # "ISO 8601 extended year representation not supported"
-        raise ParseError(f"Unparseable datetime {text}") from None
+        raise ParseError(f"Cannot parse datetime {text}") from None
     if dt.tzinfo is not None and naive:
         dt = dt.astimezone(utc).replace(tzinfo=None)
     return dt
@@ -60,7 +60,7 @@ def parse_isoformat(text: str, naive: bool = True, delimiter: str = 'T') -> date
 def isoweek_datetime(
     year: int,
     week: int,
-    timezone: t.Union[tzinfo, BaseTzInfo, str] = 'UTC',
+    timezone: Union[tzinfo, BaseTzInfo, str] = 'UTC',
     naive: bool = False,
 ) -> datetime:
     """
@@ -93,8 +93,8 @@ def isoweek_datetime(
 
 
 def midnight_to_utc(
-    dt: t.Union[date, datetime],
-    timezone: t.Optional[t.Union[tzinfo, BaseTzInfo, str]] = None,
+    dt: Union[date, datetime],
+    timezone: Optional[Union[tzinfo, BaseTzInfo, str]] = None,
     naive: bool = False,
 ) -> datetime:
     """
@@ -122,7 +122,7 @@ def midnight_to_utc(
     ...   timezone='UTC')
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
-    tz: t.Union[tzinfo, BaseTzInfo]
+    tz: Union[tzinfo, BaseTzInfo]
     if timezone:
         if isinstance(timezone, str):
             tz = pytz.timezone(timezone)
@@ -142,10 +142,10 @@ def midnight_to_utc(
     return utc_dt
 
 
-def sorted_timezones() -> t.List[t.Tuple[str, str]]:
+def sorted_timezones() -> list[tuple[str, str]]:
     """Return a list of timezones sorted by offset from UTC."""
 
-    def hourmin(delta: timedelta) -> t.Tuple[int, int]:
+    def hourmin(delta: timedelta) -> tuple[int, int]:
         if delta.days < 0:
             hours, remaining = divmod(86400 - delta.seconds, 3600)
         else:

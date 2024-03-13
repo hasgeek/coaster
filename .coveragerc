@@ -29,4 +29,3 @@ exclude_lines =
 
     # Ignore type checking declarations
     if TYPE_CHECKING:
-    if t.TYPE_CHECKING:

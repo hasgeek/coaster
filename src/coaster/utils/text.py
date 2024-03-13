@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import re
 import string
-import typing as t
 from functools import partial
 from html import unescape
+from typing import Optional, Union
 from xml.etree.ElementTree import Element  # nosec B405
 
 import html5lib
@@ -82,7 +82,7 @@ re_compress_spaces = re.compile(
     r'[\s' + unicode_format_whitespace + ']+', re.UNICODE | re.MULTILINE
 )
 
-VALID_TAGS: t.Dict[str, t.List[str]] = {
+VALID_TAGS: dict[str, list[str]] = {
     'a': ['href', 'title', 'target', 'rel'],
     'abbr': ['title'],
     'b': [],
@@ -114,11 +114,11 @@ VALID_TAGS: t.Dict[str, t.List[str]] = {
     'ul': [],
 }
 
-LINKIFY_SKIP_TAGS: t.List = ['pre', 'code', 'kbd', 'samp', 'var']
+LINKIFY_SKIP_TAGS: list = ['pre', 'code', 'kbd', 'samp', 'var']
 
 # Attrs is described in the Linkify source as {(namespace, name): value}, but the code
 # that calls us sets it as `attrs = {(None, "href"): href, "_text": url}`
-LinkifyAttrsType = t.Optional[t.Dict[t.Union[t.Tuple[t.Optional[str], str], str], str]]
+LinkifyAttrsType = Optional[dict[Union[tuple[Optional[str], str], str], str]]
 
 
 # Adapted from https://bleach.readthedocs.io/en/latest/linkify.html#preventing-links
@@ -146,7 +146,7 @@ LINKIFY_CALLBACKS = list(DEFAULT_CALLBACKS) + [dont_linkify_filenames]
 
 def sanitize_html(
     value: str,
-    valid_tags: t.Optional[t.Dict[str, t.List[str]]] = None,
+    valid_tags: Optional[dict[str, list[str]]] = None,
     strip: bool = True,
     linkify: bool = False,
 ) -> Markup:
@@ -170,7 +170,7 @@ def sanitize_html(
     return Markup(cleaner.clean(value))
 
 
-blockish_tags: t.Set[str] = {
+blockish_tags: set[str] = {
     'address',
     'article',
     'aside',
@@ -212,13 +212,13 @@ blockish_tags: t.Set[str] = {
 }
 
 
-def text_blocks(html_text: str, skip_pre: bool = True) -> t.List[str]:
+def text_blocks(html_text: str, skip_pre: bool = True) -> list[str]:
     """Extract a list of paragraphs from a given HTML string."""
     doc = html5lib.parseFragment(html_text)
     blocks = []
 
     def subloop(
-        parent_tag: t.Optional[str], element: Element, lastchild: bool = False
+        parent_tag: Optional[str], element: Element, lastchild: bool = False
     ) -> None:
         if callable(
             element.tag

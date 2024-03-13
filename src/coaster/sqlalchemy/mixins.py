@@ -26,14 +26,24 @@ base classes.
 
 from __future__ import annotations
 
-import typing as t
-import typing_extensions as te
 import warnings
 from collections import abc
+from collections.abc import Collection, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import overload
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Optional,
+    Union,
+    get_args,
+    get_origin,
+    overload,
+)
+from typing_extensions import Self, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
 from flask import current_app, url_for
@@ -93,7 +103,7 @@ __all__ = [
     'RegistryMixin',
 ]
 
-PkeyType = te.TypeVar('PkeyType', int, UUID, default=int)
+PkeyType = TypeVar('PkeyType', int, UUID, default=int)
 # `default=int` is processed by type checkers implementing PEP 696, but seemingly has no
 # impact in runtime, so no default will be received in `IdMixin.__init_subclass__`
 
@@ -103,7 +113,7 @@ class PkeyWarning(UserWarning):
 
 
 @declarative_mixin
-class IdMixin(t.Generic[PkeyType]):
+class IdMixin(Generic[PkeyType]):
     """
     Provides the :attr:`id` primary key column.
 
@@ -127,14 +137,14 @@ class IdMixin(t.Generic[PkeyType]):
     :class:`IdMixin` is a base class for :class:`BaseMixin`, the standard base class.
     """
 
-    query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[QueryProperty]
+    query_class: ClassVar[type[Query]] = Query
+    query: ClassVar[QueryProperty]
     #: Use UUID primary key? If yes, UUIDs are automatically generated without
     #: the need to commit to the database. Do not set this directly; pass UUID as a
     #: Generic argument to the base class instead: ``class MyModel(IdMixin[UUID])``.
-    __uuid_primary_key__: t.ClassVar[bool] = False
+    __uuid_primary_key__: ClassVar[bool] = False
 
-    def __init_subclass__(cls, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
         # If a generic arg is specified, set `__uuid_primary_key__` from it. Do this
         # before `super().__init_subclass__` calls SQLAlchemy's implementation,
         # which processes the `declared_attr` classmethods into class attributes. They
@@ -149,7 +159,7 @@ class IdMixin(t.Generic[PkeyType]):
                 PkeyWarning,
             )
 
-        for base in te.get_original_bases(cls):
+        for base in get_original_bases(cls):
             # XXX: Is this the correct way to examine a generic subclass that may have
             # more generic args in a redefined order? The docs suggest Generic args are
             # assumed positional, but they may be reordered, so how do we determine the
@@ -158,13 +168,13 @@ class IdMixin(t.Generic[PkeyType]):
             # generic subclasses _must_ use the static `PkeyType` typevar in their
             # definitions. This may need to be revisited with Python 3.12's new type
             # parameter syntax (via PEP 695).
-            origin_base = t.get_origin(base)
+            origin_base = get_origin(base)
             if (
                 origin_base is not None
                 and issubclass(origin_base, IdMixin)
                 and PkeyType in origin_base.__parameters__  # type: ignore[misc]
             ):
-                pkey_type = t.get_args(base)[
+                pkey_type = get_args(base)[
                     origin_base.__parameters__.index(PkeyType)  # type: ignore[misc]
                 ]
                 if pkey_type is int:
@@ -217,10 +227,10 @@ class IdMixin(t.Generic[PkeyType]):
     # Compatibility alias for use in Protocols, as a workaround for Mypy incorrectly
     # considering `id` to be read-only: https://github.com/python/mypy/issues/16709
     @classmethod
-    def __id_(cls) -> Mapped[t.Any]:  # Define type as `Any` for use in Protocols
+    def __id_(cls) -> Mapped[Any]:  # Define type as `Any` for use in Protocols
         return synonym('id')
 
-    id_: declared_attr[t.Any] = declared_attr(__id_)
+    id_: declared_attr[Any] = declared_attr(__id_)
     del __id_
 
     @classmethod
@@ -228,11 +238,11 @@ class IdMixin(t.Generic[PkeyType]):
         """URL-safe representation of the id value, using hex for a UUID id."""
         if cls.__uuid_primary_key__:
 
-            def url_id_uuid_func(self: te.Self) -> str:
+            def url_id_uuid_func(self: Self) -> str:
                 """URL-safe representation of the UUID id as a hex value."""
                 return self.id.hex  # type: ignore[attr-defined]
 
-            def url_id_uuid_comparator(cls: t.Type) -> SqlUuidHexComparator:
+            def url_id_uuid_comparator(cls: type[Self]) -> SqlUuidHexComparator:
                 """Compare two hex UUID values."""
                 return SqlUuidHexComparator(cls.id)
 
@@ -243,11 +253,11 @@ class IdMixin(t.Generic[PkeyType]):
             )
             return url_id_property
 
-        def url_id_int_func(self: te.Self) -> str:
+        def url_id_int_func(self: Self) -> str:
             """URL-safe representation of the integer id as a string."""
             return str(self.id)
 
-        def url_id_int_comparator(cls: t.Type) -> SqlSplitIdComparator:
+        def url_id_int_comparator(cls: type[Self]) -> SqlSplitIdComparator:
             """Compare two integer id values."""
             return SqlSplitIdComparator(cls.id)
 
@@ -284,7 +294,7 @@ class UuidMixin:
     code.
     """
 
-    __uuid_primary_key__: t.ClassVar[bool]
+    __uuid_primary_key__: ClassVar[bool]
 
     @classmethod
     def __uuid(cls) -> Mapped[UUID]:
@@ -355,9 +365,9 @@ class UuidMixin:
 class TimestampMixin:
     """Provides the :attr:`created_at` and :attr:`updated_at` audit timestamps."""
 
-    query_class: t.ClassVar[t.Type[Query]] = Query
-    query: t.ClassVar[QueryProperty]
-    __with_timezone__: t.ClassVar[bool] = True
+    query_class: ClassVar[type[Query]] = Query
+    query: ClassVar[QueryProperty]
+    __with_timezone__: ClassVar[bool] = True
 
     @classmethod
     def __created_at(cls) -> Mapped[datetime]:
@@ -396,9 +406,7 @@ class PermissionMixin:
     should use the role granting mechanism in :class:`RoleMixin`.
     """
 
-    def permissions(
-        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+    def permissions(self, actor: Any, inherited: Optional[set[str]] = None) -> set[str]:
         """Return permissions available to the given user on this object."""
         if inherited is not None:
             return set(inherited)
@@ -422,15 +430,15 @@ class PermissionMixin:
         )
 
 
-_UR = t.TypeVar('_UR', bound='NoIdMixin')
+_UR = TypeVar('_UR', bound='NoIdMixin')
 
 
 @dataclass
 class UrlEndpointData:
     endpoint: str
-    paramattrs: t.Dict[str, t.Union[str, t.Tuple[str, ...], t.Callable[[_UR], str]]]
-    external: t.Optional[bool]
-    roles: t.Optional[t.Collection[str]]
+    paramattrs: dict[str, Union[str, tuple[str, ...], Callable[[_UR], str]]]
+    external: Optional[bool]
+    roles: Optional[Collection[str]]
     requires_kwargs: bool
 
 
@@ -444,20 +452,18 @@ class UrlDictStub:
     """
 
     @overload
-    def __get__(self, obj: None, cls: t.Type[_UR]) -> te.Self: ...
+    def __get__(self, obj: None, cls: type[_UR]) -> Self: ...
 
     @overload
-    def __get__(self, obj: _UR, cls: t.Type[_UR]) -> UrlDict[_UR]: ...
+    def __get__(self, obj: _UR, cls: type[_UR]) -> UrlDict[_UR]: ...
 
-    def __get__(
-        self, obj: t.Optional[_UR], cls: t.Type[_UR]
-    ) -> t.Union[te.Self, UrlDict[_UR]]:
+    def __get__(self, obj: Optional[_UR], cls: type[_UR]) -> Union[Self, UrlDict[_UR]]:
         if obj is None:
             return self
         return UrlDict(obj)
 
 
-class UrlDict(abc.Mapping, t.Generic[_UR]):
+class UrlDict(abc.Mapping, Generic[_UR]):
     """Provides dictionary access to an object's URLs."""
 
     def __init__(self, obj: _UR) -> None:
@@ -481,7 +487,7 @@ class UrlDict(abc.Mapping, t.Generic[_UR]):
             else 0
         )
 
-    def __iter__(self) -> t.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         # 1. Iterate through all actions available to the None app and to current_app
         # 2. If the action requires specific roles, confirm overlap with current_roles
         # 3. Confirm the action does not require additional parameters
@@ -509,12 +515,12 @@ class UrlForMixin:
     #: different endpoints in different apps. The app may also be None as fallback. Each
     #: subclass will get its own dictionary. This particular dictionary is only used as
     #: an inherited fallback.
-    url_for_endpoints: t.ClassVar[
-        t.Dict[t.Optional[FlaskApp], t.Dict[str, UrlEndpointData]]
+    url_for_endpoints: ClassVar[
+        dict[Optional[FlaskApp], dict[str, UrlEndpointData]]
     ] = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
-    view_for_endpoints: t.ClassVar[
-        t.Dict[t.Optional[FlaskApp], t.Dict[str, t.Tuple[t.Any, str]]]
+    view_for_endpoints: ClassVar[
+        dict[Optional[FlaskApp], dict[str, tuple[Any, str]]]
     ] = {}
 
     #: Dictionary of URLs available on this object
@@ -564,7 +570,7 @@ class UrlForMixin:
         return url_for(endpoint_data.endpoint, **params)
 
     @property
-    def absolute_url(self) -> t.Optional[str]:
+    def absolute_url(self) -> Optional[str]:
         """Absolute URL to this object."""
         try:
             return self.url_for(_external=True)
@@ -575,11 +581,11 @@ class UrlForMixin:
     def is_url_for(
         cls,
         __action: str,
-        __endpoint: t.Optional[str] = None,
-        __app: t.Optional[FlaskApp] = None,
+        __endpoint: Optional[str] = None,
+        __app: Optional[FlaskApp] = None,
         /,
-        _external: t.Optional[bool] = None,
-        **paramattrs: t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]],
+        _external: Optional[bool] = None,
+        **paramattrs: Union[str, tuple[str, ...], Callable[[Any], str]],
     ) -> ReturnDecorator:
         """
         Decorator that registers a view as a :meth:`url_for` target.
@@ -609,12 +615,10 @@ class UrlForMixin:
         action: str,
         *,
         endpoint: str,
-        app: t.Optional[FlaskApp],
-        paramattrs: t.Mapping[
-            str, t.Union[str, t.Tuple[str, ...], t.Callable[[t.Any], str]]
-        ],
-        roles: t.Optional[t.Collection[str]] = None,
-        external: t.Optional[bool] = None,
+        app: Optional[FlaskApp],
+        paramattrs: Mapping[str, Union[str, tuple[str, ...], Callable[[Any], str]]],
+        roles: Optional[Collection[str]] = None,
+        external: Optional[bool] = None,
     ) -> None:
         """
         Register an endpoint to a :meth:`url_for` action.
@@ -652,21 +656,21 @@ class UrlForMixin:
 
     @classmethod
     def register_view_for(
-        cls, app: t.Optional[FlaskApp], action: str, classview: t.Any, attr: str
+        cls, app: Optional[FlaskApp], action: str, classview: Any, attr: str
     ) -> None:
         """Register a classview and view method for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:
             cls.view_for_endpoints = {}
         cls.view_for_endpoints.setdefault(app, {})[action] = (classview, attr)
 
-    def view_for(self, action: str = 'view') -> t.Any:
+    def view_for(self, action: str = 'view') -> Any:
         """Return the classview view method that handles the specified action."""
         # pylint: disable=protected-access
         app = current_app._get_current_object()  # type: ignore[attr-defined]
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
-    def classview_for(self, action: str = 'view') -> t.Any:
+    def classview_for(self, action: str = 'view') -> Any:
         """Return the classview containing the view method for the specified action."""
         # pylint: disable=protected-access
         app = current_app._get_current_object()  # type: ignore[attr-defined]
@@ -684,7 +688,7 @@ class NoIdMixin(
     column is not.
     """
 
-    def _set_fields(self, fields: t.Mapping[str, t.Any]) -> None:
+    def _set_fields(self, fields: Mapping[str, Any]) -> None:
         """Set field values."""
         for f in fields:
             if hasattr(self, f):
@@ -724,12 +728,12 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: t.ClassVar[t.Collection[str]] = []
+    reserved_names: ClassVar[Collection[str]] = []
     #: Allow blank names after all?
-    __name_blank_allowed__: t.ClassVar[bool] = False
+    __name_blank_allowed__: ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.ClassVar[t.Optional[int]] = 250
-    __title_length__: t.ClassVar[t.Optional[int]] = 250
+    __name_length__: ClassVar[Optional[int]] = 250
+    __title_length__: ClassVar[Optional[int]] = 250
 
     @classmethod
     def __name(cls) -> Mapped[str]:
@@ -784,12 +788,12 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
         return self.title or ''
 
     @classmethod
-    def get(cls, name: str) -> t.Optional[te.Self]:
+    def get(cls, name: str) -> Optional[Self]:
         """Get an instance matching the name."""
         return cls.query.filter_by(name=name).one_or_none()
 
     @classmethod
-    def upsert(cls, name: str, **fields) -> te.Self:
+    def upsert(cls, name: str, **fields) -> Self:
         """Insert or update an instance."""
         instance = cls.get(name)
         if instance is not None:
@@ -799,7 +803,7 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             instance = failsafe_add(cls.query.session, instance, name=name)
         return instance
 
-    def make_name(self, reserved: t.Collection[str] = ()) -> None:
+    def make_name(self, reserved: Collection[str] = ()) -> None:
         """
         Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
 
@@ -877,15 +881,15 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
     """
 
     #: Prevent use of these reserved names
-    reserved_names: t.ClassVar[t.Collection[str]] = []
+    reserved_names: ClassVar[Collection[str]] = []
     #: Allow blank names after all?
-    __name_blank_allowed__: t.ClassVar[bool] = False
+    __name_blank_allowed__: ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.ClassVar[t.Optional[int]] = 250
-    __title_length__: t.ClassVar[t.Optional[int]] = 250
+    __name_length__: ClassVar[Optional[int]] = 250
+    __title_length__: ClassVar[Optional[int]] = 250
 
     #: Specify expected type for a 'parent' attr
-    parent: t.Any
+    parent: Any
 
     @classmethod
     def __name(cls) -> Mapped[str]:
@@ -933,12 +937,12 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
         return self.title or ''
 
     @classmethod
-    def get(cls, parent: t.Any, name: str) -> t.Optional[te.Self]:
+    def get(cls, parent: Any, name: str) -> Optional[Self]:
         """Get an instance matching the parent and name."""
         return cls.query.filter_by(parent=parent, name=name).one_or_none()
 
     @classmethod
-    def upsert(cls, parent: t.Any, name: str, **fields) -> te.Self:
+    def upsert(cls, parent: Any, name: str, **fields) -> Self:
         """Insert or update an instance."""
         instance = cls.get(parent, name)
         if instance is not None:
@@ -950,7 +954,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             )
         return instance
 
-    def make_name(self, reserved: t.Collection[str] = ()) -> None:
+    def make_name(self, reserved: Collection[str] = ()) -> None:
         """
         Autogenerate :attr:`name` from the :attr:`title` (via :attr:`title_for_name`).
 
@@ -1017,9 +1021,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
         """
         return self.short_title
 
-    def permissions(
-        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+    def permissions(self, actor: Any, inherited: Optional[set[str]] = None) -> set[str]:
         """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
@@ -1052,10 +1054,10 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
     """
 
     #: Allow blank names after all?
-    __name_blank_allowed__: t.ClassVar[bool] = False
+    __name_blank_allowed__: ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.ClassVar[t.Optional[int]] = 250
-    __title_length__: t.ClassVar[t.Optional[int]] = 250
+    __name_length__: ClassVar[Optional[int]] = 250
+    __title_length__: ClassVar[Optional[int]] = 250
 
     @classmethod
     def __name(cls) -> Mapped[str]:
@@ -1125,7 +1127,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
     @classmethod
     def _url_id_name_comparator(
         cls,
-    ) -> t.Union[SqlUuidHexComparator, SqlSplitIdComparator]:
+    ) -> Union[SqlUuidHexComparator, SqlSplitIdComparator]:
         """Return SQL comparator for id and name."""
         if cls.__uuid_primary_key__:
             return SqlUuidHexComparator(cls.id, splitindex=0)
@@ -1171,7 +1173,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
     """
 
     #: Specify expected type for a 'parent' attr
-    parent: t.Any
+    parent: Any
 
     # FIXME: Rename this to `scoped_id` and provide a migration guide.
     @classmethod
@@ -1194,7 +1196,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
         return f'<{self.__class__.__name__} {self.url_id} of {self.parent!r}>'
 
     @classmethod
-    def get(cls, parent: t.Any, url_id: t.Union[str, int]) -> t.Optional[te.Self]:
+    def get(cls, parent: Any, url_id: Union[str, int]) -> Optional[Self]:
         """Get an instance matching the parent and url_id."""
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
@@ -1213,9 +1215,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
     # Legacy name
     make_id = make_scoped_id
 
-    def permissions(
-        self, actor: t.Any, inherited: t.Optional[t.Set[str]] = None
-    ) -> t.Set[str]:
+    def permissions(self, actor: Any, inherited: Optional[set[str]] = None) -> set[str]:
         """Permissions for this model, plus permissions inherited from the parent."""
         if inherited is not None:
             return inherited | super().permissions(actor)
@@ -1261,10 +1261,10 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
     """
 
     #: Allow blank names after all?
-    __name_blank_allowed__: t.ClassVar[bool] = False
+    __name_blank_allowed__: ClassVar[bool] = False
     #: How long are names and title allowed to be? `None` for unlimited length
-    __name_length__: t.ClassVar[t.Optional[int]] = 250
-    __title_length__: t.ClassVar[t.Optional[int]] = 250
+    __name_length__: ClassVar[Optional[int]] = 250
+    __title_length__: ClassVar[Optional[int]] = 250
 
     @classmethod
     def __name(cls) -> Mapped[str]:
@@ -1324,7 +1324,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
         return self.title or ''
 
     @classmethod
-    def get(cls, parent: t.Any, url_id: t.Union[int, str]) -> t.Optional[te.Self]:
+    def get(cls, parent: Any, url_id: Union[int, str]) -> Optional[Self]:
         """Get an instance matching the parent and name."""
         return cls.query.filter_by(parent=parent, url_id=url_id).one_or_none()
 
@@ -1376,10 +1376,10 @@ class CoordinatesMixin:
     property.
     """
 
-    latitude: Mapped[t.Optional[Decimal]] = sa.orm.mapped_column(
+    latitude: Mapped[Optional[Decimal]] = sa.orm.mapped_column(
         sa.Numeric, nullable=True
     )
-    longitude: Mapped[t.Optional[Decimal]] = sa.orm.mapped_column(
+    longitude: Mapped[Optional[Decimal]] = sa.orm.mapped_column(
         sa.Numeric, nullable=True
     )
 
@@ -1396,14 +1396,14 @@ class CoordinatesMixin:
     @property
     def coordinates(
         self,
-    ) -> t.Tuple[t.Union[float, Decimal, None], t.Union[float, Decimal, None]]:
+    ) -> tuple[Union[float, Decimal, None], Union[float, Decimal, None]]:
         """Tuple of (latitude, longitude)."""
         return self.latitude, self.longitude
 
     @coordinates.setter
     def coordinates(
         self,
-        value: t.Tuple[t.Union[float, Decimal, None], t.Union[float, Decimal, None]],
+        value: tuple[Union[float, Decimal, None], Union[float, Decimal, None]],
     ) -> None:
         """Set coordinates."""
         self.latitude, self.longitude = value  # type: ignore[assignment]
@@ -1413,12 +1413,12 @@ class CoordinatesMixin:
 
 
 # Setup listeners for UUID-based subclasses
-def _configure_id_listener(mapper: t.Any, class_: t.Type[IdMixin]) -> None:
+def _configure_id_listener(mapper: Any, class_: type[IdMixin]) -> None:
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         auto_init_default(mapper.column_attrs.id)
 
 
-def _configure_uuid_listener(mapper: t.Any, class_: t.Type[UuidMixin]) -> None:
+def _configure_uuid_listener(mapper: Any, class_: type[UuidMixin]) -> None:
     if hasattr(class_, '__uuid_primary_key__') and class_.__uuid_primary_key__:
         return
     # Only configure this listener if the class doesn't use UUID primary keys,
@@ -1431,21 +1431,19 @@ event.listen(UuidMixin, 'mapper_configured', _configure_uuid_listener, propagate
 
 
 # Populate name and url_id columns
-def _make_name(_mapper: t.Any, _connection: t.Any, target: BaseNameMixin) -> None:
+def _make_name(_mapper: Any, _connection: Any, target: BaseNameMixin) -> None:
     if target.name is None:
         target.make_name()  # type: ignore[unreachable]
 
 
 def _make_scoped_name(
-    _mapper: t.Any, _connection: t.Any, target: BaseScopedNameMixin
+    _mapper: Any, _connection: Any, target: BaseScopedNameMixin
 ) -> None:
     if target.name is None and target.parent is not None:  # type: ignore[unreachable]
         target.make_name()  # type: ignore[unreachable]
 
 
-def _make_scoped_id(
-    _mapper: t.Any, _connection: t.Any, target: BaseScopedIdMixin
-) -> None:
+def _make_scoped_id(_mapper: Any, _connection: Any, target: BaseScopedIdMixin) -> None:
     if target.url_id is None and target.parent is not None:  # type: ignore[unreachable]
         target.make_scoped_id()  # type: ignore[unreachable]
 

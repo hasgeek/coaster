@@ -131,13 +131,26 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-import typing as t
-import typing_extensions as te
 from abc import ABC, abstractmethod
 from collections import abc
+from collections.abc import Iterable, Iterator, Sequence
 from copy import deepcopy
 from itertools import chain
-from typing import TYPE_CHECKING, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    NoReturn,
+    Optional,
+    TypedDict,
+    Union,
+    cast,
+    overload,
+)
+from typing_extensions import Self, TypeAlias, TypeVar
 
 import sqlalchemy as sa
 from flask import g
@@ -178,35 +191,35 @@ __all__ = [
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
-__cache__: t.Dict[t.Any, WithRoles] = {}
+__cache__: dict[Any, WithRoles] = {}
 
 
 #: Mapping of a role in first object to one or more roles in second object
 #: (for parent->child role mappings)
-RoleOfferMap: te.TypeAlias = t.Dict[str, t.Set[str]]
+RoleOfferMap: TypeAlias = dict[str, set[str]]
 #: A relationship to an actor can be specified via the name of the attribute, or
 #: directly as the relationship object
-ActorAttrType: te.TypeAlias = t.Union[str, QueryableAttribute]
+ActorAttrType: TypeAlias = Union[str, QueryableAttribute]
 # FIXME: Drop support for non-str actor attrs as the implementation is unreadable.
 # The model should supply a property or virtual set (like DynamicAssociationProxy)
 # pointing directly at the attr
 
-RoleMixinType = t.TypeVar('RoleMixinType', bound='RoleMixin')
-_T = t.TypeVar('_T')
-_V = te.TypeVar('_V', default=t.Any)  # Var type for DynamicAssociationProxy
-ActorType = te.TypeVar('ActorType', bound=t.Any, default=t.Any)
+RoleMixinType = TypeVar('RoleMixinType', bound='RoleMixin')
+_T = TypeVar('_T')
+_V = TypeVar('_V', default=Any)  # Var type for DynamicAssociationProxy
+ActorType = TypeVar('ActorType', bound=Any, default=Any)
 
 
-class RoleAttrs(te.TypedDict, total=False):
+class RoleAttrs(TypedDict, total=False):
     """Type definition for values in :attr:`RoleMixin.__roles__`."""
 
-    rw: t.Set[str]
-    read: t.Set[str]
-    write: t.Set[str]
-    call: t.Set[str]
-    grants: t.Set[str]
-    granted_by: t.List[str]
-    granted_via: t.Dict[str, t.Optional[ActorAttrType]]
+    rw: set[str]
+    read: set[str]
+    write: set[str]
+    call: set[str]
+    grants: set[str]
+    granted_by: list[str]
+    granted_via: dict[str, Optional[ActorAttrType]]
 
 
 @dataclasses.dataclass
@@ -216,17 +229,17 @@ class WithRoles:
     if sys.version_info >= (3, 10):
         _: dataclasses.KW_ONLY
 
-    read: t.Set[str] = dataclasses.field(default_factory=set)
-    write: t.Set[str] = dataclasses.field(default_factory=set)
-    call: t.Set[str] = dataclasses.field(default_factory=set)
-    grants: t.Set[str] = dataclasses.field(default_factory=set)
-    grants_via: t.Dict[
-        t.Optional[ActorAttrType], t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap]
+    read: set[str] = dataclasses.field(default_factory=set)
+    write: set[str] = dataclasses.field(default_factory=set)
+    call: set[str] = dataclasses.field(default_factory=set)
+    grants: set[str] = dataclasses.field(default_factory=set)
+    grants_via: dict[
+        Optional[ActorAttrType], Union[set[str], dict[str, str], RoleOfferMap]
     ] = dataclasses.field(default_factory=dict)
-    datasets: t.Set[str] = dataclasses.field(default_factory=set)
-    rw: dataclasses.InitVar[t.Optional[t.Set[str]]] = None
+    datasets: set[str] = dataclasses.field(default_factory=set)
+    rw: dataclasses.InitVar[Optional[set[str]]] = None
 
-    def __post_init__(self, rw: t.Optional[t.Set[str]] = None) -> None:
+    def __post_init__(self, rw: Optional[set[str]] = None) -> None:
         if rw is not None:
             self.read.update(rw)
             self.write.update(rw)
@@ -243,9 +256,7 @@ class WithRoles:
         )
 
 
-def _attrs_equal(
-    lhs: t.Optional[ActorAttrType], rhs: t.Optional[ActorAttrType]
-) -> bool:
+def _attrs_equal(lhs: Optional[ActorAttrType], rhs: Optional[ActorAttrType]) -> bool:
     """
     Compare two strings or two attributes.
 
@@ -261,7 +272,7 @@ def _attrs_equal(
     return lhs is rhs
 
 
-def _actor_in_relationship(actor: ActorType, relationship: t.Any) -> bool:
+def _actor_in_relationship(actor: ActorType, relationship: Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
     if actor == relationship:
         return True
@@ -284,11 +295,11 @@ def _actor_in_relationship(actor: ActorType, relationship: t.Any) -> bool:
 
 def _roles_via_relationship(
     actor: ActorType,
-    relationship: t.Any,
-    actor_attr: t.Optional[ActorAttrType],
-    wanted_roles: t.Set[str],
-    offer_map: t.Optional[RoleOfferMap],
-) -> t.Set[str]:
+    relationship: Any,
+    actor_attr: Optional[ActorAttrType],
+    wanted_roles: set[str],
+    offer_map: Optional[RoleOfferMap],
+) -> set[str]:
     """Find roles granted via a relationship."""
     relobj = None  # Role-granting object found via the relationship
 
@@ -298,7 +309,7 @@ def _roles_via_relationship(
     # lookups in the lazy roles could be expensive.
     if actor_attr is None:
         if isinstance(relationship, RoleMixin):
-            offered_roles: t.Union[t.Set[str], LazyRoleSet]
+            offered_roles: Union[set[str], LazyRoleSet]
             # TODO: Cache this as we'll get a different LazyRoleSet each time
             offered_roles = relationship.roles_for(actor)
             if offer_map is not None:
@@ -380,16 +391,16 @@ class RoleGrantABC(ABC):
 
     @property
     @abstractmethod
-    def offered_roles(self) -> t.Set[str]:  # pragma: no cover
+    def offered_roles(self) -> set[str]:  # pragma: no cover
         """Roles offered by this object."""
         return set()
 
     @classmethod
-    def __subclasshook__(cls, c: t.Type) -> bool:
+    def __subclasshook__(cls, subcls: type[Any]) -> bool:
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             # Don't use getattr because that'll trigger descriptor __get__ protocol
-            if any('offered_roles' in b.__dict__ for b in c.__mro__):
+            if any('offered_roles' in b.__dict__ for b in subcls.__mro__):
                 return True
             return False
         return NotImplemented  # pragma: no cover
@@ -408,16 +419,16 @@ class LazyRoleSet(abc.MutableSet):
     )
 
     def __init__(
-        self, obj: RoleMixin, actor: ActorType, initial: t.Iterable[str] = ()
+        self, obj: RoleMixin, actor: ActorType, initial: Iterable[str] = ()
     ) -> None:
         self.obj = obj
         self.actor = actor
         #: Roles that the actor has (make a copy of initial set as it will be mutated)
-        self._present: t.Set[str] = set(initial)
+        self._present: set[str] = set(initial)
         #: Roles the actor does not have
-        self._not_present: t.Set[str] = set()
+        self._not_present: set[str] = set()
         #: Relationships that have been scanned already
-        self._scanned_granted_by: t.Set[str] = set()  # Contains relattr
+        self._scanned_granted_by: set[str] = set()  # Contains relattr
         #: Has :meth:`_contents` been called?
         self._contents_fully_evaluated = False
 
@@ -425,7 +436,7 @@ class LazyRoleSet(abc.MutableSet):
         return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
 
     def _from_iterable(  # pylint: disable=arguments-differ
-        self, it: t.Iterator[str]
+        self, it: Iterator[str]
     ) -> LazyRoleSet:
         """Make a copy, as required by the `MutableSet` base class."""
         # MutableSet defines this as a classmethod. We need an instance method to get
@@ -515,7 +526,7 @@ class LazyRoleSet(abc.MutableSet):
         self._not_present.add(role)
         return False
 
-    def _contents(self) -> t.Set[str]:
+    def _contents(self) -> set[str]:
         """Return all available roles."""
         if not self._contents_fully_evaluated:
             # Populate cache
@@ -527,10 +538,10 @@ class LazyRoleSet(abc.MutableSet):
         # cache instead of capturing available roles in the loop above
         return self._present
 
-    def __contains__(self, key: t.Any) -> bool:
+    def __contains__(self, key: Any) -> bool:
         return self._role_is_present(key)
 
-    def __iter__(self) -> t.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         return iter(self._contents())
 
     def __len__(self) -> int:
@@ -544,12 +555,12 @@ class LazyRoleSet(abc.MutableSet):
             else any(self._role_is_present(role) for role in self.obj.__roles__)
         )
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, LazyRoleSet):
             return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
 
-    def __and__(self, other: t.Iterable[str]) -> t.Set[str]:
+    def __and__(self, other: Iterable[str]) -> set[str]:
         """Faster implementation that avoids lazy lookups where not needed."""
         return {role for role in other if self._role_is_present(role)}
 
@@ -563,7 +574,7 @@ class LazyRoleSet(abc.MutableSet):
         self._present.discard(value)
         self._not_present.add(value)
 
-    def has_any(self, roles: t.Iterable[str]) -> bool:
+    def has_any(self, roles: Iterable[str]) -> bool:
         """
         Check if any of the given roles is present in the set.
 
@@ -603,16 +614,14 @@ class LazyRoleSet(abc.MutableSet):
     intersection = nary_op(__and__)
     difference = nary_op(abc.MutableSet.__sub__)
     symmetric_difference = nary_op(abc.MutableSet.__xor__)
-    update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(abc.MutableSet.__ior__)
-    intersection_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
+    update: ClassVar[Callable[..., Self]] = nary_op(abc.MutableSet.__ior__)
+    intersection_update: ClassVar[Callable[..., Self]] = nary_op(
         abc.MutableSet.__iand__
     )
-    difference_update: t.ClassVar[t.Callable[..., te.Self]] = nary_op(
-        abc.MutableSet.__isub__
-    )
+    difference_update: ClassVar[Callable[..., Self]] = nary_op(abc.MutableSet.__isub__)
 
 
-class DynamicAssociationProxy(t.Generic[_V]):
+class DynamicAssociationProxy(Generic[_V]):
     """
     Association proxy for dynamic relationships.
 
@@ -648,7 +657,7 @@ class DynamicAssociationProxy(t.Generic[_V]):
     """
 
     __slots__ = ('rel', 'attr', 'name')
-    name: t.Optional[str]
+    name: Optional[str]
 
     def __init__(self, rel: str, attr: str) -> None:
         self.rel = rel
@@ -662,16 +671,16 @@ class DynamicAssociationProxy(t.Generic[_V]):
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
     @overload
     def __get__(
-        self, obj: _T, cls: t.Type[_T]
+        self, obj: _T, cls: Optional[type[_T]] = None
     ) -> DynamicAssociationProxyWrapper[_V, _T]: ...
 
     def __get__(
-        self, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[te.Self, DynamicAssociationProxyWrapper[_V, _T]]:
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
+    ) -> Union[Self, DynamicAssociationProxyWrapper[_V, _T]]:
         if obj is None:
             return self
         wrapper = DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
@@ -683,7 +692,7 @@ class DynamicAssociationProxy(t.Generic[_V]):
         return wrapper
 
 
-class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
+class DynamicAssociationProxyWrapper(abc.Set, Generic[_V, _T]):
     """:class:`DynamicAssociationProxy` wrapped around an instance."""
 
     __slots__ = ('obj', 'rel', 'relattr', 'attr')
@@ -705,7 +714,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
             f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
         )
 
-    def __contains__(self, value: t.Any) -> bool:
+    def __contains__(self, value: Any) -> bool:
         relattr = self.relattr
         if TYPE_CHECKING:
             assert relattr.session is not None  # nosec B101
@@ -713,7 +722,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
             relattr.filter_by(**{self.attr: value}).exists()
         ).scalar()
 
-    def __iter__(self) -> t.Iterator[_V]:
+    def __iter__(self) -> Iterator[_V]:
         for obj in self.relattr:
             yield getattr(obj, self.attr)
 
@@ -726,7 +735,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
             assert relattr.session is not None  # nosec B101
         return relattr.session.query(relattr.exists()).scalar()
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return (
             isinstance(other, DynamicAssociationProxyWrapper)
             and self.obj == other.obj
@@ -735,7 +744,7 @@ class DynamicAssociationProxyWrapper(abc.Set, t.Generic[_V, _T]):
         )
 
 
-class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
+class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
     """
     Provide restricted access to a wrapped object based on available roles.
 
@@ -785,36 +794,36 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         '_all_read_cache',
     )
     _obj: RoleMixinType
-    current_roles: InspectableSet[t.Union[LazyRoleSet, t.Set[str]]]
-    _roles: t.Union[LazyRoleSet, t.Set[str]]
-    _actor: t.Any
-    _anchors: t.Sequence[t.Any]
-    _datasets: t.Optional[t.Sequence[str]]
-    _dataset_attrs: t.Optional[t.Set[str]]
-    _call: t.Set[str]
-    _read: t.Set[str]
-    _write: t.Set[str]
-    _no_call: t.Set[str]
-    _no_read: t.Set[str]
-    _no_write: t.Set[str]
-    _all_read_cache: t.Optional[t.Set[str]]
+    current_roles: InspectableSet[Union[LazyRoleSet, set[str]]]
+    _roles: Union[LazyRoleSet, set[str]]
+    _actor: Any
+    _anchors: Sequence[Any]
+    _datasets: Optional[Sequence[str]]
+    _dataset_attrs: Optional[set[str]]
+    _call: set[str]
+    _read: set[str]
+    _write: set[str]
+    _no_call: set[str]
+    _no_read: set[str]
+    _no_write: set[str]
+    _all_read_cache: Optional[set[str]]
 
     @property  # type: ignore[override]
-    def __class__(self) -> t.Type[RoleMixinType]:
+    def __class__(self) -> type[RoleMixinType]:
         return self._obj.__class__
 
     @__class__.setter
-    def __class__(self, value: t.Any) -> t.NoReturn:  # noqa: F811
+    def __class__(self, value: Any) -> NoReturn:  # noqa: F811
         raise TypeError("__class__ cannot be set")
 
     def __init__(
         self,
         obj: RoleMixinType,
         *,
-        roles: t.Union[LazyRoleSet, t.Set[str]],
-        actor: t.Optional[ActorType] = None,
-        anchors: t.Sequence[t.Any] = (),
-        datasets: t.Optional[t.Sequence[str]] = None,
+        roles: Union[LazyRoleSet, set[str]],
+        actor: Optional[ActorType] = None,
+        anchors: Sequence[Any] = (),
+        datasets: Optional[Sequence[str]] = None,
     ) -> None:
         object.__setattr__(self, '_obj', obj)
         object.__setattr__(self, 'current_roles', InspectableSet(roles))
@@ -849,11 +858,11 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
-    def current_access(self, datasets: t.Optional[t.Sequence[str]] = None) -> te.Self:
+    def current_access(self, datasets: Optional[Sequence[str]] = None) -> Self:
         """Mimic :meth:`RoleMixin.current_access`, but simply return self."""
         return self
 
-    def __get_processed_attr(self, name: str) -> t.Any:
+    def __get_processed_attr(self, name: str) -> Any:
         attr = getattr(self._obj, name)
         # TODO: Implement 'write' permission control for collection relationships.
         # A proper take will require custom dict and list subclasses, similar to the
@@ -887,7 +896,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         return attr
 
     def __attr_available(
-        self, attr: str, action: te.Literal['call', 'read', 'write']
+        self, attr: str, action: Literal['call', 'read', 'write']
     ) -> bool:
         """Check for attr availability using a cache."""
         if action == 'read':
@@ -925,7 +934,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         return False
 
     @property
-    def _all_read(self) -> t.Set[str]:
+    def _all_read(self) -> set[str]:
         """All readable attributes."""
         if self._all_read_cache is not None:
             return self._all_read_cache
@@ -945,7 +954,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         object.__setattr__(self, '_all_read_cache', available_read_attrs)
         return available_read_attrs
 
-    def __getattr__(self, attr: str) -> t.Any:
+    def __getattr__(self, attr: str) -> Any:
         # See also __getitem__, which doesn't consult _call
         if self.__attr_available(attr, 'read') or self.__attr_available(attr, 'call'):
             return self.__get_processed_attr(attr)
@@ -954,7 +963,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             f" current roles {self.current_roles!r}"
         )
 
-    def __setattr__(self, attr: str, value: t.Any) -> None:
+    def __setattr__(self, attr: str, value: Any) -> None:
         # See also __setitem__
         if self.__attr_available(attr, 'write'):
             return setattr(self._obj, attr, value)
@@ -963,7 +972,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             f" current roles {self.current_roles!r}"
         )
 
-    def __getitem__(self, key: str) -> t.Any:
+    def __getitem__(self, key: str) -> Any:
         # See also __getattr__, which also looks in _call
         if self.__attr_available(key, 'read'):
             return self.__get_processed_attr(key)
@@ -975,7 +984,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
     def __len__(self) -> int:
         return len(self._all_read)
 
-    def __contains__(self, key: t.Any) -> bool:
+    def __contains__(self, key: Any) -> bool:
         return self.__attr_available(key, 'read') or self.__attr_available(key, 'call')
 
     def __setitem__(self, key: str, value: str) -> None:
@@ -987,10 +996,10 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             f" current roles {self.current_roles!r}"
         )
 
-    def __iter__(self) -> t.Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         yield from self._all_read
 
-    def __json__(self) -> t.Dict[str, t.Any]:
+    def __json__(self) -> dict[str, Any]:
         if self._datasets is None and self._obj.__json_datasets__:
             # This proxy was created without specifying datasets, so we create a new
             # proxy using the object's default JSON datasets, then convert it to a dict
@@ -1005,7 +1014,7 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
             )
         return dict(self)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if other == self._obj:
             return True
         if (
@@ -1019,62 +1028,62 @@ class RoleAccessProxy(abc.Mapping, t.Generic[RoleMixinType]):
         return bool(self._obj)
 
 
-_DA = t.TypeVar('_DA')  # Decorated attr
+_DA = TypeVar('_DA')  # Decorated attr
 
 
 @overload
 def with_roles(
     *,
-    rw: t.Optional[t.Set[str]] = None,
-    call: t.Optional[t.Set[str]] = None,
-    read: t.Optional[t.Set[str]] = None,
-    write: t.Optional[t.Set[str]] = None,
-    grants: t.Optional[t.Set[str]] = None,
-    grants_via: t.Optional[
-        t.Dict[
-            t.Optional[ActorAttrType],
-            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
+    rw: Optional[set[str]] = None,
+    call: Optional[set[str]] = None,
+    read: Optional[set[str]] = None,
+    write: Optional[set[str]] = None,
+    grants: Optional[set[str]] = None,
+    grants_via: Optional[
+        dict[
+            Optional[ActorAttrType],
+            Union[set[str], dict[str, str], RoleOfferMap],
         ]
     ] = None,
-    datasets: t.Optional[t.Set[str]] = None,
-) -> t.Callable[[_DA], _DA]: ...
+    datasets: Optional[set[str]] = None,
+) -> Callable[[_DA], _DA]: ...
 
 
 @overload
 def with_roles(
     __obj: _DA,
     /,
-    rw: t.Optional[t.Set[str]] = None,
-    call: t.Optional[t.Set[str]] = None,
-    read: t.Optional[t.Set[str]] = None,
-    write: t.Optional[t.Set[str]] = None,
-    grants: t.Optional[t.Set[str]] = None,
-    grants_via: t.Optional[
-        t.Dict[
-            t.Optional[ActorAttrType],
-            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
+    rw: Optional[set[str]] = None,
+    call: Optional[set[str]] = None,
+    read: Optional[set[str]] = None,
+    write: Optional[set[str]] = None,
+    grants: Optional[set[str]] = None,
+    grants_via: Optional[
+        dict[
+            Optional[ActorAttrType],
+            Union[set[str], dict[str, str], RoleOfferMap],
         ]
     ] = None,
-    datasets: t.Optional[t.Set[str]] = None,
+    datasets: Optional[set[str]] = None,
 ) -> _DA: ...
 
 
 def with_roles(
-    __obj: t.Optional[_DA] = None,
+    __obj: Optional[_DA] = None,
     /,
-    rw: t.Optional[t.Set[str]] = None,
-    call: t.Optional[t.Set[str]] = None,
-    read: t.Optional[t.Set[str]] = None,
-    write: t.Optional[t.Set[str]] = None,
-    grants: t.Optional[t.Set[str]] = None,
-    grants_via: t.Optional[
-        t.Dict[
-            t.Optional[ActorAttrType],
-            t.Union[t.Set[str], t.Dict[str, str], RoleOfferMap],
+    rw: Optional[set[str]] = None,
+    call: Optional[set[str]] = None,
+    read: Optional[set[str]] = None,
+    write: Optional[set[str]] = None,
+    grants: Optional[set[str]] = None,
+    grants_via: Optional[
+        dict[
+            Optional[ActorAttrType],
+            Union[set[str], dict[str, str], RoleOfferMap],
         ]
     ] = None,
-    datasets: t.Optional[t.Set[str]] = None,
-) -> t.Union[_DA, t.Callable[[_DA], _DA]]:
+    datasets: Optional[set[str]] = None,
+) -> Union[_DA, Callable[[_DA], _DA]]:
     """
     Define roles on an attribute and return the attribute.
 
@@ -1227,7 +1236,7 @@ def with_roles(
 
 
 @declarative_mixin
-class RoleMixin(t.Generic[ActorType]):
+class RoleMixin(Generic[ActorType]):
     """
     Provides methods for role-based access control.
 
@@ -1252,18 +1261,18 @@ class RoleMixin(t.Generic[ActorType]):
     """
 
     # This empty dictionary is necessary for the configure step below to work
-    __roles__: t.ClassVar[t.Dict[str, RoleAttrs]] = {}
+    __roles__: ClassVar[dict[str, RoleAttrs]] = {}
     # Datasets for limited access to attributes
-    __datasets__: t.ClassVar[t.Dict[str, t.Set[str]]] = {}
+    __datasets__: ClassVar[dict[str, set[str]]] = {}
     # Datasets to use when rendering to JSON
-    __json_datasets__: t.ClassVar[t.Sequence[str]] = ()
+    __json_datasets__: ClassVar[Sequence[str]] = ()
     # Relationship role offer map (used by LazyRoleSet)
-    __relationship_role_offer_map__: t.ClassVar[t.Dict[str, RoleOfferMap]] = {}
+    __relationship_role_offer_map__: ClassVar[dict[str, RoleOfferMap]] = {}
     # Relationship reversed role offer map (used by actors_with)
-    __relationship_reversed_role_offer_map__: t.ClassVar[t.Dict[str, RoleOfferMap]] = {}
+    __relationship_reversed_role_offer_map__: ClassVar[dict[str, RoleOfferMap]] = {}
 
     def roles_for(
-        self, actor: t.Optional[ActorType] = None, anchors: t.Sequence[t.Any] = ()
+        self, actor: Optional[ActorType] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
         """
         Return roles available to the given ``actor`` or ``anchors`` on this object.
@@ -1281,7 +1290,7 @@ class RoleMixin(t.Generic[ActorType]):
         boilerplate::
 
             def roles_for(
-                self, actor: t.Optional[User] = None, anchors: t.Sequence[t.Any] = ()
+                self, actor: Optional[User] = None, anchors: Sequence[Any] = ()
             ) -> LazyRoleSet:
                 roles = super().roles_for(actor, anchors)
                 # 'roles' is a set. Add more roles here
@@ -1328,10 +1337,10 @@ class RoleMixin(t.Generic[ActorType]):
             )
         return cache[cache_key]
 
-    def _get_relationship(self, relattr: str) -> t.Optional[t.Any]:
+    def _get_relationship(self, relattr: str) -> Optional[Any]:
         if '.' in relattr:
             # Did we get a 'relationship.attr'? Find the referred item
-            relationship: t.Any = self
+            relationship: Any = self
             for part in relattr.split('.'):
                 if relationship is None:
                     return None
@@ -1342,17 +1351,17 @@ class RoleMixin(t.Generic[ActorType]):
 
     @overload
     def actors_with(
-        self, roles: t.Iterable[str], with_role: te.Literal[False] = False
-    ) -> t.Iterator[ActorType]: ...
+        self, roles: Iterable[str], with_role: Literal[False] = False
+    ) -> Iterator[ActorType]: ...
 
     @overload
     def actors_with(
-        self, roles: t.Iterable[str], with_role: te.Literal[True]
-    ) -> t.Iterator[t.Tuple[ActorType, str]]: ...
+        self, roles: Iterable[str], with_role: Literal[True]
+    ) -> Iterator[tuple[ActorType, str]]: ...
 
     def actors_with(
-        self, roles: t.Iterable[str], with_role: bool = False
-    ) -> t.Iterator[t.Union[ActorType, t.Tuple[ActorType, str]]]:
+        self, roles: Iterable[str], with_role: bool = False
+    ) -> Iterator[Union[ActorType, tuple[ActorType, str]]]:
         """
         Return actors who have the specified roles on this object, as an iterator.
 
@@ -1376,7 +1385,7 @@ class RoleMixin(t.Generic[ActorType]):
         # been returned
         actor_ids = set()
 
-        def is_new(actor: t.Optional[t.Any]) -> bool:
+        def is_new(actor: Optional[Any]) -> bool:
             if not actor:
                 return False
             # Use identity_key, NOT identity:
@@ -1481,10 +1490,10 @@ class RoleMixin(t.Generic[ActorType]):
 
     def access_for(
         self,
-        roles: t.Optional[t.Union[LazyRoleSet, t.Set[str]]] = None,
-        actor: t.Optional[ActorType] = None,
-        anchors: t.Sequence[t.Any] = (),
-        datasets: t.Optional[t.Sequence[str]] = None,
+        roles: Optional[Union[LazyRoleSet, set[str]]] = None,
+        actor: Optional[ActorType] = None,
+        anchors: Sequence[Any] = (),
+        datasets: Optional[Sequence[str]] = None,
     ) -> RoleAccessProxy:
         """
         Return an access control proxy for this instance.
@@ -1536,7 +1545,7 @@ class RoleMixin(t.Generic[ActorType]):
         )
 
     def current_access(
-        self, datasets: t.Optional[t.Sequence[str]] = None
+        self, datasets: Optional[Sequence[str]] = None
     ) -> RoleAccessProxy:
         """
         Return an access control proxy for this instance for the current actor.
@@ -1549,13 +1558,13 @@ class RoleMixin(t.Generic[ActorType]):
             actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
         )
 
-    def __json__(self) -> t.Dict[str, t.Any]:
+    def __json__(self) -> dict[str, Any]:
         """Render to a JSON-compatible data structure."""
         return dict(self.current_access(self.__json_datasets__))
 
 
 @event.listens_for(RoleMixin, 'mapper_configured', propagate=True)
-def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
+def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
     """
     Configure roles on all models when configuring SQLAlchemy mappers.
 
@@ -1645,8 +1654,8 @@ def _configure_roles(_mapper: t.Any, cls: t.Type[RoleMixin]) -> None:
                     if name not in granted_by:
                         granted_by.append(name)
                 for actor_attr, roles in data.grants_via.items():
-                    offer_map: t.Optional[RoleOfferMap]
-                    reverse_offer_map: t.Optional[RoleOfferMap]
+                    offer_map: Optional[RoleOfferMap]
+                    reverse_offer_map: Optional[RoleOfferMap]
                     if isinstance(roles, dict):
                         offer_map = {
                             k: {v} if isinstance(v, str) else set(v)

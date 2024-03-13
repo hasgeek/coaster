@@ -1,7 +1,7 @@
 """Tests for endpoint_for view helper."""
 
-import typing as t
 import unittest
+from typing import Optional
 
 from flask import Flask
 from flask.ctx import RequestContext
@@ -14,7 +14,7 @@ def view() -> str:
 
 
 class TestScaffolding(unittest.TestCase):
-    server_name: t.Optional[str] = None
+    server_name: Optional[str] = None
     app: Flask
     ctx: RequestContext
 

@@ -10,10 +10,20 @@ from __future__ import annotations
 import json
 import os
 import types
-import typing as t
-import typing_extensions as te
 from collections import abc
-from typing import NamedTuple, cast
+from collections.abc import Sequence
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Literal,
+    NamedTuple,
+    NoReturn,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import itsdangerous
 from flask.json.provider import DefaultJSONProvider
@@ -37,10 +47,10 @@ __all__ = [
 
 # --- Optional config loaders ----------------------------------------------------------
 
-mod_toml: t.Optional[types.ModuleType] = None
-mod_tomllib: t.Optional[types.ModuleType] = None
-mod_tomli: t.Optional[types.ModuleType] = None
-mod_yaml: t.Optional[types.ModuleType] = None
+mod_toml: Optional[types.ModuleType] = None
+mod_tomllib: Optional[types.ModuleType] = None
+mod_tomli: Optional[types.ModuleType] = None
+mod_yaml: Optional[types.ModuleType] = None
 
 try:
     import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
@@ -66,9 +76,9 @@ except ModuleNotFoundError:
 class ConfigLoader(NamedTuple):
     """Configuration loader registry entry."""
 
-    extn: t.Optional[str]
-    loader: t.Optional[t.Callable]
-    text: t.Optional[bool] = None
+    extn: Optional[str]
+    loader: Optional[Callable]
+    text: Optional[bool] = None
 
 
 _additional_config = {
@@ -80,7 +90,7 @@ _additional_config = {
     'production': 'production',
 }
 
-_config_loaders: t.Dict[str, ConfigLoader] = {
+_config_loaders: dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
 }
@@ -99,7 +109,7 @@ if mod_yaml is not None:
     _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=mod_yaml.safe_load)
 
 
-_S = t.TypeVar('_S', bound=itsdangerous.Serializer)
+_S = TypeVar('_S', bound=itsdangerous.Serializer)
 
 
 _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engines.")
@@ -108,7 +118,7 @@ _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engine
 # --- Key rotation wrapper -------------------------------------------------------------
 
 
-class KeyRotationWrapper(t.Generic[_S]):
+class KeyRotationWrapper(Generic[_S]):
     """
     Wrapper to support multiple secret keys in itsdangerous.
 
@@ -121,21 +131,21 @@ class KeyRotationWrapper(t.Generic[_S]):
     """
 
     @property
-    def __class__(self) -> t.Type:
+    def __class__(self) -> type:
         """Mimic wrapped engine's class."""
         if self._engines:
             return type(self._engines[0])
         return super().__class__
 
     @__class__.setter
-    def __class__(self, value: t.Any) -> t.NoReturn:  # noqa: F811
+    def __class__(self, value: Any) -> NoReturn:  # noqa: F811
         raise TypeError("__class__ cannot be set.")
 
     def __init__(
         self,
-        cls: t.Type[_S],
-        secret_keys: t.List[str],
-        **kwargs: t.Any,
+        cls: type[_S],
+        secret_keys: list[str],
+        **kwargs: Any,
     ) -> None:
         """Init key rotation wrapper."""
         if isinstance(secret_keys, str):  # type: ignore[unreachable]
@@ -144,13 +154,13 @@ class KeyRotationWrapper(t.Generic[_S]):
             raise ValueError("No secret keys in the list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
-    def __getattr__(self, attr: str) -> t.Any:
+    def __getattr__(self, attr: str) -> Any:
         """Read a wrapped attribute."""
         item = getattr(self._engines[0], attr)
         return self._make_wrapper(attr) if callable(item) else item
 
-    def _make_wrapper(self, attr: str) -> t.Callable:
-        def wrapper(*args: t.Any, **kwargs: t.Any) -> t.Any:
+    def _make_wrapper(self, attr: str) -> Callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             saved_exc: Exception = _sentinel_keyrotation_exception
             for engine in self._engines:
                 try:
@@ -169,7 +179,7 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
 
     def get_signing_serializer(  # type: ignore[override]
         self, app: FlaskApp
-    ) -> t.Optional[KeyRotationWrapper]:
+    ) -> Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
             return None
@@ -194,7 +204,7 @@ class JSONProvider(DefaultJSONProvider):
     """Expand Flask's JSON provider to support the ``__json__`` protocol."""
 
     @staticmethod
-    def default(o: t.Any) -> t.Any:
+    def default(o: Any) -> Any:
         """Expand default support to check for a ``__json__`` method."""
         if hasattr(o, '__json__'):
             return o.__json__()
@@ -208,9 +218,9 @@ class JSONProvider(DefaultJSONProvider):
 
 def init_app(
     app: FlaskApp,
-    config: t.Optional[t.List[te.Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
+    config: Optional[list[Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
     *,
-    env_prefix: t.Optional[t.Union[str, t.Sequence[str]]] = None,
+    env_prefix: Optional[Union[str, Sequence[str]]] = None,
     init_logging: bool = True,
 ) -> None:
     """
@@ -283,7 +293,7 @@ def init_app(
             else:
                 # Load config for each of the requested prefixes, checking for overlaps
                 # in prefix names
-                used_prefixes: t.Set[str] = set()
+                used_prefixes: set[str] = set()
                 for prefix in env_prefix:
                     if any(
                         prefix.startswith(used + '_') for used in used_prefixes
@@ -327,8 +337,8 @@ def init_app(
 def load_config_from_file(
     app: FlaskApp,
     filepath: str,
-    load: t.Optional[t.Callable] = None,
-    text: t.Optional[bool] = None,
+    load: Optional[Callable] = None,
+    text: Optional[bool] = None,
 ) -> bool:
     """Load config from a specified file with a specified loader (default Python)."""
     try:

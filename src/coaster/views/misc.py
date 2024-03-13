@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import re
-import typing as t
+from collections.abc import Container
 from inspect import iscoroutinefunction
-from typing import cast
+from typing import Any, Optional, Union, cast
 from urllib.parse import urlsplit
 
 from flask import (
@@ -35,7 +35,7 @@ except ModuleNotFoundError:
     async_to_sync = None  # type: ignore[assignment, misc]
 
 
-from .. import typing as tc  # pylint: disable=reimported
+from ..typing import WrappedFunc
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -49,7 +49,7 @@ def _index_url() -> str:
 
 
 def _clean_external_url(
-    url: str, allowed_schemes: t.Container[str] = ('http', 'https')
+    url: str, allowed_schemes: Container[str] = ('http', 'https')
 ) -> str:
     """Allow external URLs if they match current request's hostname."""
     # Do the domains and ports match?
@@ -104,7 +104,7 @@ def get_next_url(
     referrer: bool = False,
     external: bool = False,
     session: bool = False,
-    default: t.Optional[str] = None,
+    default: Optional[str] = None,
 ) -> str:
     """
     Get the next URL to redirect to.
@@ -135,7 +135,7 @@ def get_next_url(
     return default if default is not None else _index_url()
 
 
-def jsonp(*args: t.Any, **kwargs: t.Any) -> Response:
+def jsonp(*args: Any, **kwargs: Any) -> Response:
     """
     Return a JSON response with a callback wrapper, if asked for.
 
@@ -155,10 +155,10 @@ def jsonp(*args: t.Any, **kwargs: t.Any) -> Response:
 
 def endpoint_for(
     url: str,
-    method: t.Optional[str] = None,
+    method: Optional[str] = None,
     return_rule: bool = False,
     follow_redirects: bool = True,
-) -> t.Tuple[t.Optional[t.Union[Rule, str]], t.Dict[str, t.Any]]:
+) -> tuple[Optional[Union[Rule, str]], dict[str, Any]]:
     """
     Retrieve endpoint or rule and view arguments given an absolute URL.
 
@@ -231,10 +231,10 @@ def endpoint_for(
     return None, {}
 
 
-def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
+def ensure_sync(func: WrappedFunc) -> WrappedFunc:
     """Help use Flask's ensure_sync outside a request context."""
     if current_app:
-        return cast(tc.WrappedFunc, current_app.ensure_sync(func))
+        return cast(WrappedFunc, current_app.ensure_sync(func))
 
     if not iscoroutinefunction(func):
         return func
@@ -243,6 +243,6 @@ def ensure_sync(func: tc.WrappedFunc) -> tc.WrappedFunc:
         return async_to_sync(func)  # type: ignore[return-value]
 
     return cast(  # type: ignore[unreachable]
-        tc.WrappedFunc,
+        WrappedFunc,
         lambda *args, **kwargs: (asyncio.run(func(*args, **kwargs))),
     )

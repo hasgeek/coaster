@@ -6,8 +6,8 @@ SQLAlchemy column types
 from __future__ import annotations
 
 import json
-import typing as t
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
+from typing import Any, Optional
 
 import sqlalchemy as sa
 from furl import furl
@@ -47,17 +47,17 @@ class JsonDict(TypeDecorator):
             return dialect.type_descriptor(postgresql.JSONB)  # type: ignore[arg-type]
         return dialect.type_descriptor(self.impl)
 
-    def coerce_compared_value(self, op: t.Any, value: t.Any) -> sa.types.TypeEngine:
+    def coerce_compared_value(self, op: Any, value: Any) -> sa.types.TypeEngine:
         """Coerce an incoming value using the JSON type's default handler."""
         return self.impl.coerce_compared_value(op, value)
 
-    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+    def process_bind_param(self, value: Any, dialect: sa.Dialect) -> Any:
         """Convert a Python value into a JSON string for the database."""
         if value is not None:
             value = json.dumps(value, default=str)  # Callable default
         return value
 
-    def process_result_value(self, value: t.Any, dialect: sa.Dialect) -> t.Any:
+    def process_result_value(self, value: Any, dialect: sa.Dialect) -> Any:
         """Convert a JSON string from the database into a dict."""
         if value is not None and isinstance(value, str):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
@@ -70,7 +70,7 @@ class JsonDict(TypeDecorator):
 
 class MutableDict(Mutable, dict):
     @classmethod
-    def coerce(cls, key: t.Any, value: t.Any) -> t.Optional[MutableDict]:
+    def coerce(cls, key: Any, value: Any) -> Optional[MutableDict]:
         """Convert plain dictionaries to MutableDict."""
         if value is None:
             return None
@@ -86,12 +86,12 @@ class MutableDict(Mutable, dict):
             raise ValueError(f"Value is not dict-like: {value!r}")
         return value
 
-    def __setitem__(self, key: t.Any, value: t.Any) -> None:
+    def __setitem__(self, key: Any, value: Any) -> None:
         """Detect dictionary set events and emit change events."""
         dict.__setitem__(self, key, value)
         self.changed()
 
-    def __delitem__(self, key: t.Any) -> None:
+    def __delitem__(self, key: Any) -> None:
         """Detect dictionary del events and emit change events."""
         dict.__delitem__(self, key)
         self.changed()
@@ -119,7 +119,7 @@ class UrlType(UrlTypeBase):
 
     def __init__(
         self,
-        schemes: t.Optional[t.Collection[str]] = ('http', 'https'),
+        schemes: Optional[Collection[str]] = ('http', 'https'),
         optional_scheme: bool = False,
         optional_host: bool = False,
     ) -> None:
@@ -128,7 +128,7 @@ class UrlType(UrlTypeBase):
         self.optional_host = optional_host
         self.optional_scheme = optional_scheme
 
-    def process_bind_param(self, value: t.Any, dialect: sa.Dialect) -> t.Optional[str]:
+    def process_bind_param(self, value: Any, dialect: sa.Dialect) -> Optional[str]:
         """Validate URL before storing to the database."""
         value = super().process_bind_param(value, dialect)
         if value:
@@ -146,15 +146,13 @@ class UrlType(UrlTypeBase):
                 raise ValueError("Missing URL host")
         return value
 
-    def process_result_value(
-        self, value: t.Any, dialect: sa.Dialect
-    ) -> t.Optional[furl]:
+    def process_result_value(self, value: Any, dialect: sa.Dialect) -> Optional[furl]:
         """Cast URL loaded from database into a furl object."""
         if value is not None:
             return self.url_parser(value)
         return None
 
-    def _coerce(self, value: t.Any) -> t.Optional[furl]:
+    def _coerce(self, value: Any) -> Optional[furl]:
         if value is not None and not isinstance(value, self.url_parser):
             return self.url_parser(value)
         return value

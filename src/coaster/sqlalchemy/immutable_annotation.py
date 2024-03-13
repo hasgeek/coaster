@@ -5,7 +5,7 @@ Immutable annotation
 
 from __future__ import annotations
 
-import typing as t
+from typing import Any, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
@@ -32,9 +32,9 @@ class ImmutableColumnError(AttributeError):
         self,
         class_name: str,
         column_name: str,
-        old_value: t.Any,
-        new_value: t.Any,
-        message: t.Optional[str] = None,
+        old_value: Any,
+        new_value: Any,
+        message: Optional[str] = None,
     ) -> None:
         """Create exception."""
         if message is None:
@@ -50,14 +50,14 @@ class ImmutableColumnError(AttributeError):
 
 
 @annotations_configured.connect
-def _make_immutable(cls: t.Type) -> None:
-    def add_immutable_event(attr: str, col: t.Any) -> None:
+def _make_immutable(cls: type[Any]) -> None:
+    def add_immutable_event(attr: str, col: Any) -> None:
         @sa.event.listens_for(col, 'set', raw=True)
         def immutable_column_set_listener(  # skipcq: PTC-W0065
             target: sa.orm.InstanceState,
-            value: t.Any,
-            old_value: t.Any,
-            _initiator: t.Any,
+            value: Any,
+            old_value: Any,
+            _initiator: Any,
         ) -> None:
             # Note:
             # NEVER_SET is for columns getting a default value during a commit, but in

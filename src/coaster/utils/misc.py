@@ -9,8 +9,6 @@ import email.utils
 import hashlib
 import re
 import time
-import typing as t
-import typing_extensions as te
 import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import abc
@@ -18,7 +16,7 @@ from datetime import datetime
 from functools import wraps
 from random import SystemRandom
 from secrets import token_bytes
-from typing import overload
+from typing import Any, Callable, Literal, Optional, TypeVar, Union, overload
 from urllib.parse import urlparse
 
 import base58
@@ -69,7 +67,7 @@ _ipv4_re = re.compile(
 # --- Utilities ------------------------------------------------------------------------
 
 
-def is_collection(item: t.Any) -> bool:
+def is_collection(item: Any) -> bool:
     """
     Return True if the item is a collection class but not a string or dict.
 
@@ -147,7 +145,7 @@ def uuid1mc() -> uuid.UUID:
     return uuid.uuid1(node=uuid._random_getnode())  # type: ignore[attr-defined]
 
 
-def uuid1mc_from_datetime(dt: t.Union[datetime, float]) -> uuid.UUID:
+def uuid1mc_from_datetime(dt: Union[datetime, float]) -> uuid.UUID:
     """
     Return a UUID1 with a specific timestamp and a random multicast MAC id.
 
@@ -288,7 +286,7 @@ def make_name(
     text: str,
     delim: str = '-',
     maxlength: int = 50,
-    checkused: t.Optional[t.Callable[[str], bool]] = None,
+    checkused: Optional[Callable[[str], bool]] = None,
     counter: int = 2,
 ) -> str:
     r"""
@@ -393,7 +391,7 @@ def make_name(
     return candidate
 
 
-def format_currency(value: t.Union[int, float], decimals: int = 2) -> str:
+def format_currency(value: Union[int, float], decimals: int = 2) -> str:
     """
     Return a number suitably formatted for display as currency.
 
@@ -450,7 +448,7 @@ def md5sum(data: str) -> str:
     return hashlib.md5(data.encode('utf-8')).hexdigest()  # nosec  # skipcq: PTC-W1003
 
 
-def getbool(value: t.Union[str, int, bool, None]) -> t.Optional[bool]:
+def getbool(value: Union[str, int, bool, None]) -> Optional[bool]:
     """
     Return a boolean from any of a range of boolean-like values.
 
@@ -483,7 +481,7 @@ def getbool(value: t.Union[str, int, bool, None]) -> t.Optional[bool]:
     return None
 
 
-def nullint(value: t.Optional[t.Any]) -> t.Optional[int]:
+def nullint(value: Optional[Any]) -> Optional[int]:
     """
     Return `int(value)` if `bool(value)` is not `False`. Return `None` otherwise.
 
@@ -497,7 +495,7 @@ def nullint(value: t.Optional[t.Any]) -> t.Optional[int]:
     return int(value) if value else None
 
 
-def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
+def nullstr(value: Optional[Any]) -> Optional[str]:
     """
     Return `str(value)` if `bool(value)` is not `False`. Return `None` otherwise.
 
@@ -512,18 +510,16 @@ def nullstr(value: t.Optional[t.Any]) -> t.Optional[str]:
 
 
 @overload
-def require_one_of(__return: te.Literal[False] = False, /, **kwargs: t.Any) -> None: ...
+def require_one_of(__return: Literal[False] = False, /, **kwargs: Any) -> None: ...
 
 
 @overload
-def require_one_of(
-    __return: te.Literal[True], /, **kwargs: t.Any
-) -> t.Tuple[str, t.Any]: ...
+def require_one_of(__return: Literal[True], /, **kwargs: Any) -> tuple[str, Any]: ...
 
 
 def require_one_of(
-    __return: bool = False, /, **kwargs: t.Any
-) -> t.Optional[t.Tuple[str, t.Any]]:
+    __return: bool = False, /, **kwargs: Any
+) -> Optional[tuple[str, Any]]:
     """
     Validate that only one of multiple parameters has a non-None value.
 
@@ -580,7 +576,7 @@ def require_one_of(
     return None
 
 
-def get_email_domain(emailaddr: str) -> t.Optional[str]:
+def get_email_domain(emailaddr: str) -> Optional[str]:
     """
     Return the domain component of an email address.
 
@@ -606,7 +602,7 @@ def get_email_domain(emailaddr: str) -> t.Optional[str]:
         return None
 
 
-def namespace_from_url(url: str) -> t.Optional[str]:
+def namespace_from_url(url: str) -> Optional[str]:
     """Construct a dotted namespace string from a URL."""
     parsed = urlparse(url)
     if (
@@ -667,14 +663,14 @@ def domain_namespace_match(domain: str, namespace: str) -> bool:
     return base_domain_matches(domain, '.'.join(namespace.split('.')[::-1]))
 
 
-T = t.TypeVar('T')
-T2 = t.TypeVar('T2')
-R_co = t.TypeVar('R_co', covariant=True)
+T = TypeVar('T')
+T2 = TypeVar('T2')
+R_co = TypeVar('R_co', covariant=True)
 
 
 def nary_op(
-    f: t.Callable[[T, T2], R_co], doc: t.Optional[str] = None
-) -> t.Callable[..., R_co]:
+    f: Callable[[T, T2], R_co], doc: Optional[str] = None
+) -> Callable[..., R_co]:
     """
     Convert a binary operator function into a chained n-ary operator.
 

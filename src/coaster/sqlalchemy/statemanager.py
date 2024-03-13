@@ -230,11 +230,21 @@ direct state value changes:
 from __future__ import annotations
 
 import functools
-import typing as t
-import typing_extensions as te
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    NoReturn,
+    Optional,
+    Union,
+    cast,
+    overload,
+)
+from typing_extensions import Concatenate, ParamSpec, Self, TypeVar
 
 import sqlalchemy as sa
 from werkzeug.exceptions import BadRequest
@@ -261,19 +271,19 @@ __all__ = [
 
 # --- Internal types -------------------------------------------------------------------
 
-_SG = te.TypeVar('_SG', default=t.Any)  # The declared type hosting StateManager
-_T = t.TypeVar('_T')  # The type from which StateManager was accessed in __get__
-_SM = t.TypeVar('_SM', bound='StateManager')
-_P = te.ParamSpec('_P')  # ParamSpec for wrapped functions
-_R = t.TypeVar('_R')  # Return type for wrapped functions
+_SG = TypeVar('_SG', default=Any)  # The declared type hosting StateManager
+_T = TypeVar('_T')  # The type from which StateManager was accessed in __get__
+_SM = TypeVar('_SM', bound='StateManager')
+_P = ParamSpec('_P')  # ParamSpec for wrapped functions
+_R = TypeVar('_R')  # Return type for wrapped functions
 
 
 @dataclass
 class _TransitionPerStateManager:
     """Internal data on how a transition involves each of multiple StateManagers."""
 
-    from_: t.Optional[t.Dict[t.Any, ManagedState]]
-    to: t.Optional[ManagedState]
+    from_: Optional[dict[Any, ManagedState]]
+    to: Optional[ManagedState]
 
 
 # --- Signals --------------------------------------------------------------------------
@@ -318,7 +328,7 @@ class AbortTransition(BaseException):
     :param result: Value to return to the transition's caller
     """
 
-    def __init__(self, result: t.Any = None) -> None:
+    def __init__(self, result: Any = None) -> None:
         super().__init__()
         self.result = result
 
@@ -338,12 +348,10 @@ class ManagedState:
         self,
         name: str,
         statemanager: StateManager,
-        value: t.Any,
-        label: t.Optional[t.Any] = None,  # TODO: Make this `str` (drop NameTitle)
-        validator: t.Optional[t.Callable[[t.Any], bool]] = None,
-        class_validator: t.Optional[
-            t.Callable[[t.Type[t.Any]], sa.ColumnElement[bool]]
-        ] = None,
+        value: Any,
+        label: Optional[Any] = None,  # TODO: Make this `str` (drop NameTitle)
+        validator: Optional[Callable[[Any], bool]] = None,
+        class_validator: Optional[Callable[[type[Any]], sa.ColumnElement[bool]]] = None,
     ) -> None:
         self.name = name
         self.statemanager = statemanager
@@ -378,7 +386,7 @@ class ManagedState:
         """
         return self.validator is None and not is_collection(self.value)
 
-    def is_current_in(self, obj: t.Any) -> bool:
+    def is_current_in(self, obj: Any) -> bool:
         """Test if the given object is currently in this state."""
         # pylint: disable=protected-access
         if is_collection(self.value):
@@ -390,7 +398,7 @@ class ManagedState:
         return valuematch
 
     def __clause_element__(
-        self, cls: t.Optional[t.Type] = None
+        self, cls: Optional[type[Any]] = None
     ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         if cls is None:
@@ -406,7 +414,7 @@ class ManagedState:
         cv = self.class_validator
         if cv is None:
             cv = cast(
-                t.Optional[t.Callable[[t.Type], sa.ColumnElement[bool]]],
+                Optional[Callable[[type[Any]], sa.ColumnElement[bool]]],
                 self.validator,
             )
         if cv is not None:
@@ -428,11 +436,11 @@ class ManagedStateGroup:
         self,
         name: str,
         statemanager: StateManager,
-        states: t.Iterable[t.Union[ManagedState, ManagedStateGroup]],
+        states: Iterable[Union[ManagedState, ManagedStateGroup]],
     ) -> None:
         self.name = name
         self.statemanager = statemanager
-        self.states: t.List[ManagedState] = []
+        self.states: list[ManagedState] = []
 
         # First, ensure all provided states are StateManager instances and associated
         # with the state manager
@@ -445,7 +453,7 @@ class ManagedStateGroup:
 
         if TYPE_CHECKING:
             # Tell Mypy that we only have ManagedState in the list now
-            states = cast(t.Iterable[ManagedState], states)
+            states = cast(Iterable[ManagedState], states)
 
         # Second, separate conditional from regular states (regular states may still be
         # grouped states)
@@ -478,12 +486,12 @@ class ManagedStateGroup:
     def __repr__(self) -> str:
         return f'<ManagedStateGroup {self.statemanager.name}.{self.name}>'
 
-    def is_current_in(self, obj: t.Any) -> bool:
+    def is_current_in(self, obj: Any) -> bool:
         """Test if the given object is currently in any of this group of states."""
         return any(s.is_current_in(obj) for s in self.states)
 
     def __clause_element__(
-        self, cls: t.Optional[t.Type] = None
+        self, cls: Optional[type[Any]] = None
     ) -> sa.ColumnElement[bool]:
         """Return a SQL expression for testing if this state is current."""
         return sa.or_(*(s.__clause_element__(cls) for s in self.states))
@@ -492,7 +500,7 @@ class ManagedStateGroup:
         return ~self.__clause_element__()  # pylint: disable=invalid-unary-operand-type
 
 
-class ManagedStateInstance(t.Generic[_T]):
+class ManagedStateInstance(Generic[_T]):
     """
     Provides runtime access to a managed state or group in the instance.
 
@@ -502,7 +510,7 @@ class ManagedStateInstance(t.Generic[_T]):
 
     def __init__(
         self,
-        mstate: t.Union[ManagedState, ManagedStateGroup],
+        mstate: Union[ManagedState, ManagedStateGroup],
         obj: _T,
     ) -> None:
         if not isinstance(mstate, (ManagedState, ManagedStateGroup)):
@@ -514,10 +522,10 @@ class ManagedStateInstance(t.Generic[_T]):
     def __repr__(self) -> str:
         return repr(self._mstate)
 
-    def __getattr__(self, attr: str) -> t.Any:
+    def __getattr__(self, attr: str) -> Any:
         return getattr(self._mstate, attr)
 
-    def __eq__(self, other: t.Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         return (
             isinstance(other, ManagedStateInstance)
             and self._mstate == other._mstate
@@ -528,7 +536,7 @@ class ManagedStateInstance(t.Generic[_T]):
         return self._mstate.is_current_in(self._obj)
 
 
-class StateTransition(t.Generic[_P, _R]):
+class StateTransition(Generic[_P, _R]):
     """
     Defines a transition from one state to another.
 
@@ -536,16 +544,16 @@ class StateTransition(t.Generic[_P, _R]):
     instead. It creates an instance of this class to replace.
     """
 
-    transitions: t.Dict[StateManager, _TransitionPerStateManager]
-    data: t.Dict[str, t.Any]
+    transitions: dict[StateManager, _TransitionPerStateManager]
+    data: dict[str, Any]
 
     def __init__(
         self,
-        func: t.Callable[te.Concatenate[t.Any, _P], _R],
+        func: Callable[Concatenate[Any, _P], _R],
         statemanager: StateManager,
-        from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        data: t.Optional[t.Dict[str, t.Any]] = None,
+        from_: Optional[Union[ManagedState, ManagedStateGroup]],
+        to: Optional[Union[ManagedState, ManagedStateGroup]],
+        data: Optional[dict[str, Any]] = None,
     ) -> None:
         self.func = func
         functools.update_wrapper(self, func)
@@ -562,9 +570,9 @@ class StateTransition(t.Generic[_P, _R]):
     def add_transition(
         self,
         statemanager: StateManager,
-        from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        data: t.Optional[t.Dict[str, t.Any]] = None,
+        from_: Optional[Union[ManagedState, ManagedStateGroup]],
+        to: Optional[Union[ManagedState, ManagedStateGroup]],
+        data: Optional[dict[str, Any]] = None,
     ) -> None:
         """Add a transition. For internal use by :meth:`ManagedState.transition`."""
         if statemanager in self.transitions:
@@ -592,7 +600,7 @@ class StateTransition(t.Generic[_P, _R]):
             self.data.update(data)
 
         if from_ is None:
-            state_values: t.Optional[t.Dict[t.Any, ManagedState]] = None
+            state_values: Optional[dict[Any, ManagedState]] = None
         else:
             # Unroll grouped values so we can do a quick IN test when performing the
             # transition
@@ -615,31 +623,31 @@ class StateTransition(t.Generic[_P, _R]):
             to=to,  # ManagedState (is_static) of new state
         )
 
-    def __set_name__(self, _owner: t.Type, name: str) -> None:  # pragma: no cover
+    def __set_name__(self, _owner: type, name: str) -> None:  # pragma: no cover
         self.name = name
         self.data['name'] = name
 
     @overload
-    def __get__(self, obj: None, cls: t.Type) -> te.Self: ...
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
     @overload
     def __get__(
-        self, obj: _T, cls: t.Type[_T]
+        self, obj: _T, cls: Optional[type[_T]] = None
     ) -> StateTransitionWrapper[_P, _R, _T]: ...
 
     def __get__(
-        self, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[te.Self, StateTransitionWrapper[_P, _R, _T]]:
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
+    ) -> Union[Self, StateTransitionWrapper[_P, _R, _T]]:
         if obj is None:
             return self
         return StateTransitionWrapper(self, obj)
 
-    def __call__(self, obj: t.Any, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def __call__(self, obj: Any, *args: _P.args, **kwargs: _P.kwargs) -> _R:
         """Call transition directly from the class with an instance parameter."""
         return StateTransitionWrapper(self, obj)(*args, **kwargs)
 
 
-class StateTransitionWrapper(t.Generic[_P, _R, _T]):
+class StateTransitionWrapper(Generic[_P, _R, _T]):
     """
     Wraps :class:`StateTransition` with the context of the object it is accessed from.
 
@@ -651,13 +659,13 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
         self.obj = obj
 
     @property
-    def data(self) -> t.Dict[str, t.Any]:
+    def data(self) -> dict[str, Any]:
         """Return data as provided to the :meth:`~StateManager.transition` decorator."""
         return self.statetransition.data
 
     def _validate_available(
         self,
-    ) -> t.Optional[t.Tuple[StateManager, t.Any, t.Any]]:  # TODO: make label `str`
+    ) -> Optional[tuple[StateManager, Any, Any]]:  # TODO: make label `str`
         """
         If the state is invalid for the transition, return details on what didn't match.
 
@@ -685,7 +693,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
         """Property that indicates whether this transition is currently available."""
         return not self._validate_available()
 
-    def __getattr__(self, name: str) -> t.Any:
+    def __getattr__(self, name: str) -> Any:
         return getattr(self.statetransition, name)
 
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R:
@@ -731,7 +739,7 @@ class StateTransitionWrapper(t.Generic[_P, _R, _T]):
         return result
 
 
-class StateManager(t.Generic[_SG]):
+class StateManager(Generic[_SG]):
     """
     Provides state management around a database column or property.
 
@@ -746,18 +754,18 @@ class StateManager(t.Generic[_SG]):
     """
 
     #: Host class for the state manager
-    cls: t.Type
+    cls: type
     #: All possible states by name
-    states: t.Dict[str, t.Union[ManagedState, ManagedStateGroup]]
+    states: dict[str, Union[ManagedState, ManagedStateGroup]]
     #: All static states, back-referenced by value (group and conditional excluded)
-    states_by_value: t.Dict[t.Any, ManagedState]
+    states_by_value: dict[Any, ManagedState]
     #: All states, static, group or conditional, back-referenced by value
-    all_states_by_value: t.Dict[t.Any, t.List[t.Union[ManagedState, ManagedStateGroup]]]
+    all_states_by_value: dict[Any, list[Union[ManagedState, ManagedStateGroup]]]
     #: Names of transitions linked to this state manager
-    transitions: t.List[str]
+    transitions: list[str]
 
     def __init__(
-        self, propname: str, lenum: t.Type[LabeledEnum], doc: t.Optional[str] = None
+        self, propname: str, lenum: type[LabeledEnum], doc: Optional[str] = None
     ) -> None:
         self.cls = object  # Depend on __set_name__ to update
         self.propname = propname
@@ -783,7 +791,7 @@ class StateManager(t.Generic[_SG]):
                 label=lenum[value] if not isinstance(value, (list, set)) else None,
             )
 
-    def __set_name__(self, owner: t.Type, name: str) -> None:
+    def __set_name__(self, owner: type, name: str) -> None:
         if self.cls is not object:
             raise TypeError("This StateManager is already affiliated with a host class")
         self.cls = owner
@@ -795,54 +803,52 @@ class StateManager(t.Generic[_SG]):
         return f'<StateManager {self.name}>'  # type: ignore[unreachable]
 
     @overload
-    def __get__(self: _SM, obj: None, cls: t.Type) -> _SM: ...
+    def __get__(self: _SM, obj: None, cls: Optional[type[Any]] = None) -> _SM: ...
 
     @overload
     def __get__(
-        self: _SM, obj: _T, cls: t.Type[_T]
+        self: _SM, obj: _T, cls: Optional[type[_T]] = None
     ) -> StateManagerInstance[_SM, _T]: ...
 
     def __get__(
-        self: _SM, obj: t.Optional[_T], cls: t.Type[_T]
-    ) -> t.Union[_SM, StateManagerInstance[_SM, _T]]:
+        self: _SM, obj: Optional[_T], cls: Optional[type[_T]] = None
+    ) -> Union[_SM, StateManagerInstance[_SM, _T]]:
         if obj is None:
             return self
         # Cache for subsequent accesses to avoid re-constructing the wrapper
         if self.name in obj.__dict__:
             return obj.__dict__[self.name]
-        wrapper = StateManagerInstance(self, obj, cls)
+        wrapper = StateManagerInstance(self, obj, cls if cls is not None else type(obj))
         obj.__dict__[self.name] = wrapper
         return wrapper
 
-    def __set__(self, obj: t.Any, value: t.Any) -> t.NoReturn:
+    def __set__(self, obj: Any, value: Any) -> NoReturn:
         raise AttributeError("StateManager cannot be set directly")
 
-    def _set_state_value(self, obj: t.Any, value: t.Any) -> None:
+    def _set_state_value(self, obj: Any, value: Any) -> None:
         """Set state; internal method called by meth:`StateTransition.__call__`."""
         if value not in self.lenum:
             raise ValueError(f"Not a valid value: {value!r}")
 
         setattr(obj, self.propname, value)
 
-    def _get_state_value(self, obj: t.Optional[t.Any]) -> t.Any:
+    def _get_state_value(self, obj: Optional[Any]) -> Any:
         """Get current state value given an instance, or state column in the class."""
         if obj is not None:
             return getattr(obj, self.propname)
         return getattr(self.cls, self.propname)
 
-    def current(self) -> t.NoReturn:  # skipcq: PYL-R6301
+    def current(self) -> NoReturn:  # skipcq: PYL-R6301
         """Get current state (not available without an instance)."""
         raise TypeError("Current state requires an instance")
 
     def _add_state_internal(
         self,
         name: str,
-        value: t.Union[int, t.Set[int]],
-        label: t.Optional[t.Any] = None,  # TODO: Make label `str`
-        validator: t.Optional[t.Callable[[_SG], bool]] = None,
-        class_validator: t.Optional[
-            t.Callable[[t.Type[_SG]], sa.ColumnElement[bool]]
-        ] = None,
+        value: Union[int, set[int]],
+        label: Optional[Any] = None,  # TODO: Make label `str`
+        validator: Optional[Callable[[_SG], bool]] = None,
+        class_validator: Optional[Callable[[type[_SG]], sa.ColumnElement[bool]]] = None,
     ) -> None:
         # Also see `add_state_group` for similar code
         if hasattr(self, name):  # Don't clobber self with a state name
@@ -872,7 +878,7 @@ class StateManager(t.Generic[_SG]):
         setattr(self, name, mstate)
 
     def add_state_group(
-        self, name: str, *states: t.Union[ManagedState, ManagedStateGroup]
+        self, name: str, *states: Union[ManagedState, ManagedStateGroup]
     ) -> None:
         """
         Add a group of managed states.
@@ -898,12 +904,10 @@ class StateManager(t.Generic[_SG]):
     def add_conditional_state(
         self,
         name: str,
-        state: t.Union[ManagedState, ManagedStateGroup],
-        validator: t.Callable[[_SG], bool],
-        class_validator: t.Optional[
-            t.Callable[[t.Type[_SG]], sa.ColumnElement[bool]]
-        ] = None,
-        label: t.Optional[t.Any] = None,  # TODO: Make label `str`
+        state: Union[ManagedState, ManagedStateGroup],
+        validator: Callable[[_SG], bool],
+        class_validator: Optional[Callable[[type[_SG]], sa.ColumnElement[bool]]] = None,
+        label: Optional[Any] = None,  # TODO: Make label `str`
     ) -> None:
         """
         Add a conditional state (direct state + condition validator).
@@ -939,11 +943,11 @@ class StateManager(t.Generic[_SG]):
 
     def transition(
         self,
-        from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-        **data: t.Any,
-    ) -> t.Callable[
-        [t.Callable[te.Concatenate[t.Any, _P], _R]],
+        from_: Optional[Union[ManagedState, ManagedStateGroup]],
+        to: Optional[Union[ManagedState, ManagedStateGroup]],
+        **data: Any,
+    ) -> Callable[
+        [Callable[Concatenate[Any, _P], _R]],
         StateTransition[_P, _R],
     ]:
         """
@@ -962,7 +966,7 @@ class StateManager(t.Generic[_SG]):
         """
 
         def decorator(
-            f: t.Union[StateTransition, t.Callable[te.Concatenate[t.Any, _P], _R]]
+            f: Union[StateTransition, Callable[Concatenate[Any, _P], _R]]
         ) -> StateTransition[_P, _R]:
             if isinstance(f, StateTransition):
                 f.add_transition(self, from_, to, data)
@@ -976,11 +980,9 @@ class StateManager(t.Generic[_SG]):
 
     def requires(
         self,
-        from_: t.Union[ManagedState, ManagedStateGroup],
-        **data: t.Any,
-    ) -> t.Callable[
-        [t.Callable[te.Concatenate[t.Any, _P], _R]], StateTransition[_P, _R]
-    ]:
+        from_: Union[ManagedState, ManagedStateGroup],
+        **data: Any,
+    ) -> Callable[[Callable[Concatenate[Any, _P], _R]], StateTransition[_P, _R]]:
         """
         Decorate a method to only be callable when the given state is currently active.
 
@@ -993,8 +995,8 @@ class StateManager(t.Generic[_SG]):
         return self.transition(from_, None, **data)
 
     def group(
-        self, items: t.Iterable[_T], keep_empty: bool = False
-    ) -> t.Dict[ManagedState, t.List[_T]]:
+        self, items: Iterable[_T], keep_empty: bool = False
+    ) -> dict[ManagedState, list[_T]]:
         """
         Given an iterable of instances, groups them by state.
 
@@ -1003,7 +1005,7 @@ class StateManager(t.Generic[_SG]):
 
         :param keep_empty: If ``True``, empty state groups are included in the result
         """
-        groups: t.Dict[ManagedState, t.List[_T]] = {}
+        groups: dict[ManagedState, list[_T]] = {}
         for mstate in self.states_by_value.values():
             # Ensure we sort groups using the order of states in the source LabeledEnum.
             # We'll discard the unused states later.
@@ -1017,7 +1019,7 @@ class StateManager(t.Generic[_SG]):
                 )
             statevalue = self._get_state_value(item)
             mstate = self.states_by_value[statevalue]
-            groups[mstate].append(item)
+            groups[mstate].append(item)  # type: ignore[arg-type]  # Something odd here
         if not keep_empty:
             for key, value in list(groups.items()):
                 if not value:
@@ -1027,11 +1029,9 @@ class StateManager(t.Generic[_SG]):
     @staticmethod
     def check_constraint(
         column: str,
-        enum: t.Union[t.Type[Enum], t.Type[LabeledEnum]],
-        type_: t.Optional[
-            t.Union[t.Type[sa.types.TypeEngine], sa.types.TypeEngine]
-        ] = None,
-        **kwargs: t.Any,
+        enum: Union[type[Enum], type[LabeledEnum]],
+        type_: Optional[Union[type[sa.types.TypeEngine], sa.types.TypeEngine]] = None,
+        **kwargs: Any,
     ) -> sa.CheckConstraint:
         """
         Construct a SQL CHECK constraint.
@@ -1078,14 +1078,14 @@ class StateManager(t.Generic[_SG]):
     if TYPE_CHECKING:
         # Stub for mypy to recognise names added by _add_state_internal. There is a
         # pending proposal for proxy typing: https://github.com/python/typing/issues/802
-        def __getattr__(self, name: str) -> t.Union[ManagedState, ManagedStateGroup]:
+        def __getattr__(self, name: str) -> Union[ManagedState, ManagedStateGroup]:
             raise AttributeError(name)
 
 
-class StateManagerInstance(t.Generic[_SM, _T]):
+class StateManagerInstance(Generic[_SM, _T]):
     """Wraps :class:`StateManager` when accessed from an instance."""
 
-    def __init__(self, statemanager: _SM, obj: _T, cls: t.Type[_T]) -> None:
+    def __init__(self, statemanager: _SM, obj: _T, cls: type[_T]) -> None:
         self.statemanager = statemanager
         self.obj = obj
         self.cls = cls
@@ -1094,12 +1094,12 @@ class StateManagerInstance(t.Generic[_SM, _T]):
         return f'<StateManagerInstance {self.cls.__name__}.{self.statemanager.name})>'
 
     @property
-    def value(self) -> t.Any:
+    def value(self) -> Any:
         """Return current state's value from the host object."""
         return getattr(self.obj, self.statemanager.propname)
 
     @property
-    def label(self) -> t.Any:  # TODO: Make label `str`
+    def label(self) -> Any:  # TODO: Make label `str`
         """Label for the current state's value (using :meth:`bestmatch`)."""
         return self.bestmatch().label
 
@@ -1115,7 +1115,7 @@ class StateManagerInstance(t.Generic[_SM, _T]):
                 return msw
         raise RuntimeError("Unknown state value")
 
-    def current(self) -> t.Dict[str, ManagedStateInstance]:
+    def current(self) -> dict[str, ManagedStateInstance]:
         """Return all states and state groups that are currently active."""
         return {
             name: ManagedStateInstance(mstate, self.obj)
@@ -1123,14 +1123,14 @@ class StateManagerInstance(t.Generic[_SM, _T]):
             if mstate.is_current_in(self.obj)
         }
 
-    def transitions(self, current: bool = True) -> t.Dict[str, StateTransitionWrapper]:
+    def transitions(self, current: bool = True) -> dict[str, StateTransitionWrapper]:
         """
         Return available transitions for the current state.
 
         :param bool current: Limit to transitions available in ``obj.``
            :meth:`~coaster.sqlalchemy.mixins.RoleMixin.current_access`
         """
-        proxy: t.Union[dict, RoleAccessProxy]
+        proxy: Union[dict, RoleAccessProxy]
         if current and isinstance(self.obj, RoleMixin):
             proxy = self.obj.current_access()
         else:
@@ -1146,10 +1146,10 @@ class StateManagerInstance(t.Generic[_SM, _T]):
 
     def transitions_for(
         self,
-        roles: t.Optional[t.Set[str]] = None,
-        actor: t.Optional[t.Any] = None,
-        anchors: t.Sequence[t.Any] = (),
-    ) -> t.Dict[str, StateTransitionWrapper]:
+        roles: Optional[set[str]] = None,
+        actor: Optional[Any] = None,
+        anchors: Sequence[Any] = (),
+    ) -> dict[str, StateTransitionWrapper]:
         """
         Return currently available transitions for the given actor or roles.
 
@@ -1177,10 +1177,10 @@ class StateManagerInstance(t.Generic[_SM, _T]):
 
         def transition(
             self,
-            from_: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-            to: t.Optional[t.Union[ManagedState, ManagedStateGroup]],
-            **data: t.Any,
-        ) -> t.Callable[
-            [t.Callable[te.Concatenate[t.Any, _P], _R]],
+            from_: Optional[Union[ManagedState, ManagedStateGroup]],
+            to: Optional[Union[ManagedState, ManagedStateGroup]],
+            **data: Any,
+        ) -> Callable[
+            [Callable[Concatenate[Any, _P], _R]],
             StateTransition[_P, _R],
         ]: ...

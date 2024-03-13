@@ -5,9 +5,8 @@ Helper functions
 
 from __future__ import annotations
 
-import typing as t
 from datetime import datetime
-from typing import cast, overload
+from typing import Any, Optional, TypeVar, Union, cast, overload
 
 import sqlalchemy as sa
 from sqlalchemy import inspect
@@ -24,7 +23,7 @@ __all__ = [
     'idfilters',
 ]
 
-T = t.TypeVar('T')
+T = TypeVar('T')
 
 # --- SQL functions --------------------------------------------------------------------
 
@@ -41,21 +40,17 @@ class UtcNow(sa.sql.functions.GenericFunction):
 
 
 @compiles(UtcNow)
-def _utcnow_default(element: UtcNow, _compiler: t.Any, **kwargs) -> str:
+def _utcnow_default(element: UtcNow, _compiler: Any, **kwargs) -> str:
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(UtcNow, 'mysql')
-def _utcnow_mysql(  # pragma: no cover
-    element: UtcNow, _compiler: t.Any, **kwargs
-) -> str:
+def _utcnow_mysql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(UtcNow, 'mssql')
-def _utcnow_mssql(  # pragma: no cover
-    element: UtcNow, _compiler: t.Any, **kwargs
-) -> str:
+def _utcnow_mssql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
     return 'SYSUTCDATETIME()'
 
 
@@ -64,7 +59,7 @@ def _utcnow_mssql(  # pragma: no cover
 
 def make_timestamp_columns(
     timezone: bool = False,
-) -> t.Tuple[sa.Column[datetime], sa.Column[datetime]]:
+) -> tuple[sa.Column[datetime], sa.Column[datetime]]:
     """Return two columns, `created_at` and `updated_at`, with appropriate defaults."""
     return (
         sa.Column(
@@ -83,20 +78,20 @@ def make_timestamp_columns(
     )
 
 
-session_type = t.Union[sa.orm.Session, sa.orm.scoped_session]
+session_type = Union[sa.orm.Session, sa.orm.scoped_session]
 
 
 @overload
-def failsafe_add(__session: session_type, __instance: t.Any, /) -> None: ...
+def failsafe_add(__session: session_type, __instance: Any, /) -> None: ...
 
 
 @overload
-def failsafe_add(__session: session_type, __instance: T, /, **filters: t.Any) -> T: ...
+def failsafe_add(__session: session_type, __instance: T, /, **filters: Any) -> T: ...
 
 
 def failsafe_add(
-    __session: session_type, __instance: T, /, **filters: t.Any
-) -> t.Optional[T]:
+    __session: session_type, __instance: T, /, **filters: Any
+) -> Optional[T]:
     """
     Add and commit a new instance in a nested transaction (using SQL SAVEPOINT).
 
@@ -150,9 +145,9 @@ def failsafe_add(
 
 
 def add_primary_relationship(
-    parent: t.Type[DeclarativeBase],
+    parent: type[DeclarativeBase],
     childrel: str,
-    child: t.Type[DeclarativeBase],
+    child: type[DeclarativeBase],
     parentrel: str,
     parentcol: str,
 ) -> sa.Table:
@@ -188,7 +183,7 @@ def add_primary_relationship(
     parent_id_columns = [c.name for c in sa.inspect(parent).primary_key]
     child_id_columns = [c.name for c in sa.inspect(child).primary_key]
 
-    primary_table_columns: t.List[sa.Column] = (
+    primary_table_columns: list[sa.Column] = (
         [
             sa.Column(
                 parent_table_name + '_' + name,
@@ -209,7 +204,7 @@ def add_primary_relationship(
             for name in child_id_columns
         ]
         + cast(
-            t.List[sa.Column],
+            list[sa.Column],
             list(
                 make_timestamp_columns(
                     timezone=getattr(parent, '__with_timezone__', False)
@@ -226,7 +221,7 @@ def add_primary_relationship(
 
     @sa.event.listens_for(rel, 'set')
     def _validate_child(
-        target: t.Any, value: t.Any, _oldvalue: t.Any, _initiator: t.Any
+        target: Any, value: Any, _oldvalue: Any, _initiator: Any
     ) -> None:
         if value and getattr(value, parentrel) != target:
             raise ValueError("The target is not affiliated with this parent")
@@ -288,7 +283,7 @@ def add_primary_relationship(
 
 
 def auto_init_default(
-    column: t.Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
+    column: Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
 ) -> None:
     """
     Set the default value of a column on first access.
@@ -308,9 +303,7 @@ def auto_init_default(
         default = column.default
 
     @sa.event.listens_for(column, 'init_scalar', retval=True, propagate=True)
-    def init_scalar(
-        _target: t.Any, value: t.Any, dict_: t.Dict[str, t.Any]
-    ) -> t.Optional[t.Any]:
+    def init_scalar(_target: Any, value: Any, dict_: dict[str, Any]) -> Optional[Any]:
         # A subclass may override the column and not provide a default. Watch out for
         # that.
         if default:
@@ -327,7 +320,7 @@ def auto_init_default(
         return None
 
 
-def idfilters(obj: DeclarativeBase) -> t.Optional[t.List[sa.BinaryExpression]]:
+def idfilters(obj: DeclarativeBase) -> Optional[list[sa.BinaryExpression]]:
     """
     Return SQLAlchemy expressions for the identity of the given object.
 

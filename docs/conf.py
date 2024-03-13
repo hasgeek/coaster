@@ -13,7 +13,6 @@
 
 import os
 import sys
-import typing as t
 
 sys.path.insert(0, os.path.abspath('../src'))
 from coaster import _version  # isort:skip
@@ -171,7 +170,7 @@ htmlhelp_basename = 'coasterdoc'
 
 # -- Options for LaTeX output --------------------------------------------------
 
-latex_elements: t.Dict[str, str] = {
+latex_elements: dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #'papersize': 'letterpaper',
     # The font size ('10pt', '11pt' or '12pt').

@@ -10,8 +10,8 @@ Flask-SQLAlchemy instance
 
 from __future__ import annotations
 
-import typing as t
 from sqlite3 import Connection as SQLite3Connection
+from typing import Any
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
@@ -36,11 +36,11 @@ db = SQLAlchemy(query_class=Query)  # type: ignore[arg-type]
 
 
 @event.listens_for(Engine, 'connect')
-def _emit_engine_directives(dbapi_connection: t.Any, _connection_record: t.Any) -> None:
+def _emit_engine_directives(dbapi_connection: Any, _connection_record: Any) -> None:
     if isinstance(dbapi_connection, SQLite3Connection):  # pragma: no cover
         # Enable foreign key support in SQLite3. The command must
         # be issued once per connection.
-        cursor: t.Any = dbapi_connection.cursor()
+        cursor: Any = dbapi_connection.cursor()
         cursor.execute('PRAGMA foreign_keys=ON;')
         cursor.close()
     if (

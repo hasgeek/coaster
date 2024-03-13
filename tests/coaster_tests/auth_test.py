@@ -2,8 +2,9 @@
 
 # pylint: disable=redefined-outer-name
 
-import typing as t
+from collections.abc import Iterator
 from types import SimpleNamespace
+from typing import Optional
 
 import pytest
 import sqlalchemy as sa
@@ -31,7 +32,7 @@ class LoginManager:
 
     def __init__(self, _app: Flask) -> None:
         _app.login_manager = self  # type: ignore[attr-defined]
-        self.user: t.Optional[User] = None
+        self.user: Optional[User] = None
 
     def set_user_for_testing(self, user: User, load: bool = False) -> None:
         """Test auth by setting a user."""
@@ -96,21 +97,21 @@ def models() -> SimpleNamespace:
 
 
 @pytest.fixture()
-def login_manager(app: Flask) -> t.Iterator[LoginManager]:
+def login_manager(app: Flask) -> Iterator[LoginManager]:
     """Login manager fixture."""
     yield LoginManager(app)
     del app.login_manager  # type: ignore[attr-defined]
 
 
 @pytest.fixture()
-def flask_login_manager(app: Flask) -> t.Iterator[FlaskLoginManager]:
+def flask_login_manager(app: Flask) -> Iterator[FlaskLoginManager]:
     """Flask-Login style login manager fixture."""
     yield FlaskLoginManager(app)
     del app.login_manager  # type: ignore[attr-defined]
 
 
 @pytest.fixture()
-def request_ctx(app: Flask) -> t.Iterator:
+def request_ctx(app: Flask) -> Iterator:
     """Request context with database models."""
     ctx = app.test_request_context()
     ctx.push()
