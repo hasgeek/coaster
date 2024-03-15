@@ -155,6 +155,7 @@ from typing_extensions import Self, TypeAlias, TypeVar
 import sqlalchemy as sa
 from flask import g
 from sqlalchemy import event, select
+from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -175,7 +176,7 @@ from sqlalchemy.orm.collections import (
 from sqlalchemy.schema import SchemaItem
 
 from ..auth import current_auth
-from ..utils import InspectableSet, is_collection, nary_op
+from ..utils import InspectableSet, is_collection, is_dunder, nary_op
 from .functions import idfilters
 from .model import AppenderQuery
 
@@ -187,7 +188,9 @@ __all__ = [
     'DynamicAssociationProxy',
     'RoleMixin',
     'WithRoles',
+    'ConditionalRole',
     'with_roles',
+    'role_check',
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
@@ -1235,6 +1238,140 @@ def with_roles(
     return decorator
 
 
+_CRM = TypeVar('_CRM')  # Model type for ConditionalRole
+_CRA = TypeVar('_CRA')  # Actor type for ConditionalRole
+
+
+def role_check(
+    *roles: str,
+) -> Callable[[Callable[[_CRM, _CRA], bool]], ConditionalRole[_CRM, _CRA]]:
+    """
+    Register a method that takes an actor and confirms if they have the given roles.
+
+    This decorator converts the method into an instance of :class:`ConditionalRole`.
+    Usage::
+
+        class MyModel(RoleMixin, ...):
+            ...
+            @role_check('reader', 'viewer')  # Takes multiple roles as necessary
+            def has_reader_role(self, actor: ActorType) -> bool:
+                # If this object is public, everyone gets the 'reader' role
+                if self.state.PUBLIC:
+                    return True
+                # If not public, only creators and owners get the role
+                return self.roles_for(actor).has_any(('creator', 'owner'))
+
+            @has_reader_role.iterable
+            def _(self) -> Iterable[ActorType]:
+                # When enumerating actors who get 'reader', we can't reasonably
+                # enumerate all user accounts, so limit this to specific users
+                if not self.state.PUBLIC:
+                    return [self.created_by]
+                return itertools.chain([self.created_by], self.actors_with('owner'))
+
+    The decorated method can be used with the Callable, Container and Iterable
+    protocols::
+
+        obj: MyModel
+        obj.has_reader_role(user)
+        user in obj.has_reader_role
+        'reader' in obj.roles_for(user)
+        list(obj.has_reader_role) == [user]
+        user in list(obj.actors_with({'reader'}))
+
+    :param roles: Roles to be granted
+    """
+
+    def decorator(func: Callable[[_CRM, _CRA], bool]) -> ConditionalRole[_CRM, _CRA]:
+        return ConditionalRole(roles, func)
+
+    return decorator
+
+
+class ConditionalRole(Generic[_CRM, _CRA]):
+    """
+    Descriptor for conditional role grant checks.
+
+    Do not use this class directly. Use the :func:`role_check` decorator instead.
+    """
+
+    __slots___ = ('__weakref__', 'name', 'check_func', 'iter_func', '__wrapped__')
+
+    def __init__(
+        self, roles: Iterable[str], func: Callable[[_CRM, _CRA], bool]
+    ) -> None:
+        self.roles = roles
+        self.check_func = self.__wrapped__ = func
+        self.name = func.__name__  # May change in __set_name__
+        self.iter_func: Callable[[_CRM], Iterable[_CRA]] | None = None
+
+    def __set_name__(self, owner: type[RoleMixin], name: str) -> None:
+        """Register ourselves as a role-granting iterable of actors."""
+        self.name = name
+        for role in self.roles:
+            owner.__roles__.setdefault(role, {}).setdefault('granted_by', [])
+            owner.__roles__[role]['granted_by'].append(name)
+
+    def __call__(self, __obj: _CRM, actor: _CRA) -> bool:
+        return self.check_func(__obj, actor)
+
+    def iterable(self, func: Callable[[_CRM], Iterable[_CRA]]) -> Self:
+        """Register a method that returns an iterable of actors with the role."""
+        self.iter_func = func
+        return self
+
+    @overload
+    def __get__(self, obj: None, cls: type[_CRM] | None = None) -> Self: ...
+
+    @overload
+    def __get__(
+        self, obj: _CRM, cls: type[_CRM] | None = None
+    ) -> ConditionalRoleBind[_CRM, _CRA]: ...
+
+    def __get__(
+        self, obj: _CRM | None, cls: type[_CRM] | None = None
+    ) -> ConditionalRoleBind[_CRM, _CRA] | Self:
+        if obj is None:
+            return self
+        # Cache the instance so future access is directly via obj
+        obj.__dict__[self.name] = (inst := ConditionalRoleBind(self, obj))
+        return inst
+
+
+class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
+    """Wrapper for :class:`ConditionalRole` bound to an instance of the host class."""
+
+    __slots__ = ('__weakref__', '__self__', '_rolecheck')
+
+    def __init__(self, __cr: ConditionalRole[_CRM, _CRA], __obj: _CRM) -> None:
+        self._rolecheck = __cr
+        # Named `__self__` to ducktype the API for instance methods:
+        # https://docs.python.org/3/reference/datamodel.html#instance-methods
+        self.__self__ = __obj
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._rolecheck, name)
+
+    def __call__(self, actor: _CRA) -> bool:
+        return self._rolecheck.check_func(self.__self__, actor)
+
+    def __contains__(self, __actor: Any) -> bool:
+        return self._rolecheck.check_func(self.__self__, __actor)
+
+    def __iter__(self) -> Iterator[_CRA]:
+        iter_func = self._rolecheck.iter_func
+        if iter_func is None:
+            return iter(())
+        return iter(iter_func(self.__self__))
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, ConditionalRoleBind):
+            return (
+                self._rolecheck == other._rolecheck and self.__self__ == other.__self__
+            )
+        return NotImplemented
+
+
 @declarative_mixin
 class RoleMixin(Generic[ActorType]):
     """
@@ -1248,11 +1385,12 @@ class RoleMixin(Generic[ActorType]):
                 'call': {'meth1', 'meth2'},
                 'read': {'attr1', 'attr2'},
                 'write': {'attr1', 'attr2'},
-                'grant': {'rel1', 'rel2'},
+                'granted_by': {'rel1', 'rel2'},
+                'granted_via': {'rel1': 'attr1', 'rel2': 'attr2'},
                 },
             }
 
-    The ``grant`` key works in reverse: if the actor is present in any of the
+    The ``granted_by`` key works in reverse: if the actor is present in any of the
     attributes in the set, they are granted that role via :meth:`roles_for`.
     Attributes must be SQLAlchemy relationships and can be scalar, a collection
     or dynamic.
@@ -1271,6 +1409,29 @@ class RoleMixin(Generic[ActorType]):
     # Relationship reversed role offer map (used by actors_with)
     __relationship_reversed_role_offer_map__: ClassVar[dict[str, RoleOfferMap]] = {}
 
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
+        # The subclass must have its own copy of ``__roles__`` so the base class is not
+        # mutated. Make a copy from the base class unless the subclass has a custom
+        # version.
+        if '__roles__' not in cls.__dict__:
+            # If the following line is confusing, it's because reading an
+            # attribute on an object invokes the Method Resolution Order (MRO)
+            # mechanism to find it on base classes, while writing always writes
+            # to the current object.
+            cls.__roles__ = deepcopy(cls.__roles__)
+
+        if '__relationship_role_offer_map__' not in cls.__dict__:
+            cls.__relationship_role_offer_map__ = deepcopy(
+                cls.__relationship_role_offer_map__
+            )
+        if '__relationship_reversed_role_offer_map__' not in cls.__dict__:
+            cls.__relationship_reversed_role_offer_map__ = deepcopy(
+                cls.__relationship_reversed_role_offer_map__
+            )
+        if '__datasets__' not in cls.__dict__:
+            cls.__datasets__ = deepcopy(cls.__datasets__)
+
     def roles_for(
         self, actor: Optional[ActorType] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
@@ -1281,21 +1442,23 @@ class RoleMixin(Generic[ActorType]):
         are free to define them in any way appropriate. Actors and anchors are assumed
         to be valid.
 
-        The role ``all`` is always granted. If ``actor`` is specified, the role
-        ``auth`` is granted. If not, ``anon`` is granted.
+        The role ``all`` is always granted. If ``actor`` is specified, the role ``auth``
+        is granted. If not, ``anon`` is granted.
 
-        Subclasses overriding :meth:`roles_for` must always call :func:`super` to
-        ensure they receive a lazy role set that includes the standard roles and
+        Subclasses overriding :meth:`roles_for` must always call :func:`super` to ensure
+        they receive a :class:`LazyRoleSet` that includes the standard roles and
         evaluates for declarative roles when they are first accessed. Recommended
         boilerplate::
 
             def roles_for(
                 self, actor: Optional[User] = None, anchors: Sequence[Any] = ()
             ) -> LazyRoleSet:
-                roles = super().roles_for(actor, anchors)
-                # 'roles' is a set. Add more roles here
-                # ...
-                return roles
+                roles = super().roles_for(actor, anchors) # `roles` is set-like. Add
+                more roles here... return roles
+
+        Custom roles added in :meth:`roles_for` may not be required by the caller.
+        Instead of overriding :meth:`roles_for`, use :func:`role_check` to allow for
+        lazy evaluation when the role is actually needed.
         """
         if actor is None:
             result = LazyRoleSet(self, actor, {'all', 'anon'})
@@ -1309,8 +1472,8 @@ class RoleMixin(Generic[ActorType]):
         Roles currently available on this object.
 
         Uses :obj:`~coaster.auth.current_auth` to get the current actor, and returns an
-        :class:`~coaster.utils.classes.InspectableSet`. Use in the view layer to
-        inspect for a role being present:
+        :class:`~coaster.utils.classes.InspectableSet`. Use in the view layer to inspect
+        for a role being present:
 
             if obj.current_roles.editor:
                 pass
@@ -1366,17 +1529,19 @@ class RoleMixin(Generic[ActorType]):
         Return actors who have the specified roles on this object, as an iterator.
 
         Uses:
+
         1. ``__roles__[role]['granted_by']``
         2. ``__roles__[role]['granted_via']``
 
         Subclasses of :class:`RoleMixin` that have custom role granting logic in
         :meth:`roles_for` must provide a matching :meth:`actors_with` implementation.
+        This overhead can be avoided by using :func:`role_check` for these roles.
 
-        :param set roles: Iterable specifying roles to find actors with. May be an
-            ordered type if ordering is important
-        :param bool with_role: If True, yields a tuple of the actor and the role they
-            were found with. The actor may have more roles, but only the first match
-            is returned
+        :param roles: Iterable specifying roles to find actors with. May be an ordered
+            type if ordering is important
+        :param with_role: If True, yields a tuple of the actor and the role they were
+            found with. The actor may have more roles, but only the first match is
+            returned
         """
         if not is_collection(roles):
             raise ValueError("`roles` parameter must be a list or set")
@@ -1394,7 +1559,10 @@ class RoleMixin(Generic[ActorType]):
             # itself as a backup identifier. More at:
             # <https://docs.sqlalchemy.org/en/13/orm/mapping_api.html
             # #sqlalchemy.orm.util.identity_key>
-            aid = sa.inspect(actor).identity_key or actor
+            try:
+                aid = sa.inspect(actor).identity_key or actor
+            except NoInspectionAvailable:
+                aid = actor
             if aid not in actor_ids:
                 actor_ids.add(aid)
                 return True
@@ -1419,8 +1587,8 @@ class RoleMixin(Generic[ActorType]):
                 )
                 relationship = self._get_relationship(relattr)
                 # What kind of relationship is this?
-                # 1. It's a collection of some sort
-                # 2. It's scalar item (either the 1 side of 1:n, or a property)
+                # 1. It's an iterable of some sort
+                # 2. It's a scalar item (either the 1 side of 1:n, or a property)
                 if isinstance(relationship, (QueryBase, abc.Iterable)):
                     iterable = relationship
                 else:
@@ -1490,8 +1658,9 @@ class RoleMixin(Generic[ActorType]):
 
     def access_for(
         self,
-        roles: Optional[Union[LazyRoleSet, set[str]]] = None,
+        *,
         actor: Optional[ActorType] = None,
+        roles: Optional[Union[LazyRoleSet, set[str]]] = None,
         anchors: Sequence[Any] = (),
         datasets: Optional[Sequence[str]] = None,
     ) -> RoleAccessProxy:
@@ -1526,7 +1695,7 @@ class RoleMixin(Generic[ActorType]):
 
         Objects and related objects can be safely enumerated like this::
 
-            proxy = obj.access_for(user, datasets=('primary', 'related'))
+            proxy = obj.access_for(actor=user, datasets=('primary', 'related'))
             proxydict = dict(proxy)
             proxyjson = json.dumps(proxy)  # This needs a custom JSON encoder
 
@@ -1546,7 +1715,7 @@ class RoleMixin(Generic[ActorType]):
 
     def current_access(
         self, datasets: Optional[Sequence[str]] = None
-    ) -> RoleAccessProxy:
+    ) -> RoleAccessProxy[Self]:
         """
         Return an access control proxy for this instance for the current actor.
 
@@ -1571,37 +1740,16 @@ def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
     Run through attribute of the class looking for role decorations from
     :func:`with_roles` and add them to :attr:`cls.__roles__`
     """
-    # Don't mutate ``__roles__`` in the base class.
-    # The subclass must have its own.
-    # Since classes may specify ``__roles__`` directly without
-    # using :func:`with_roles`, we must preserve existing content.
-    if '__roles__' not in cls.__dict__:
-        # If the following line is confusing, it's because reading an
-        # attribute on an object invokes the Method Resolution Order (MRO)
-        # mechanism to find it on base classes, while writing always writes
-        # to the current object.
-        cls.__roles__ = deepcopy(cls.__roles__)
-
-    if '__relationship_role_offer_map__' not in cls.__dict__:
-        cls.__relationship_role_offer_map__ = deepcopy(
-            cls.__relationship_role_offer_map__
-        )
-    if '__relationship_reversed_role_offer_map__' not in cls.__dict__:
-        cls.__relationship_reversed_role_offer_map__ = deepcopy(
-            cls.__relationship_reversed_role_offer_map__
-        )
-
-    if '__datasets__' not in cls.__dict__:
-        cls.__datasets__ = deepcopy(cls.__datasets__)
+    # RoleMixin ensures that each subclass has its own copy of `__roles__` and other
+    # required attributes, so we do not risk mutating the base class's.
 
     # An attribute may be defined more than once in base classes. Only handle the first
-    processed = set()
-
+    processed: set[str] = set()
     # Loop through all attributes in this and base classes, looking for role annotations
     for base in cls.__mro__:
         for name, attr in base.__dict__.items():
             # pylint: disable=protected-access
-            if name in processed or name.startswith('__'):
+            if name in processed or is_dunder(name):
                 continue
 
             while isinstance(attr, QueryableAttribute) and isinstance(

@@ -587,7 +587,7 @@ class InspectableSet(Generic[_C]):
         object.__setattr__(self, '_members', members if members is not None else set())
 
     def __repr__(self) -> str:
-        return f'self.__class__.__qualname__({self._members!r})'
+        return f'{self.__class__.__qualname__}({self._members!r})'
 
     def __hash__(self) -> int:
         return hash(self._members)

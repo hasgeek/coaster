@@ -138,6 +138,7 @@ disable = [
   'too-many-locals',
   'too-many-public-methods',
   'unused-argument',
+  'unsupported-membership-test',
   # These need some serious refactoring, so disabled for now
   'too-many-branches',
   'too-many-nested-blocks',
