@@ -1518,6 +1518,7 @@ class TestConditionalRole:
         (owner1, True, True),
         (owner2, True, False),
         (unrelated_user, True, False),
+        (None, True, False),  # Anonymous user
     ]
 
     def test_constructor(self) -> None:

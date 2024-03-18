@@ -277,7 +277,7 @@ def _attrs_equal(lhs: Optional[ActorAttrType], rhs: Optional[ActorAttrType]) -> 
 
 def _actor_in_relationship(actor: ActorType, relationship: Any) -> bool:
     """Test whether the given actor is present in the given attribute."""
-    if actor == relationship:
+    if actor is not None and actor == relationship:
         return True
     if isinstance(relationship, QueryBase):
         filters = idfilters(actor)
@@ -422,7 +422,7 @@ class LazyRoleSet(abc.MutableSet):
     )
 
     def __init__(
-        self, obj: RoleMixin, actor: ActorType, initial: Iterable[str] = ()
+        self, obj: RoleMixin, actor: Optional[ActorType], initial: Iterable[str] = ()
     ) -> None:
         self.obj = obj
         self.actor = actor
@@ -438,94 +438,100 @@ class LazyRoleSet(abc.MutableSet):
     def __repr__(self) -> str:  # pragma: no cover
         return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
 
+    # Base class MutableSet defines this as a classmethod. We need an instance method to
+    # get self.obj and self.actor. Pylint doesn't like it and must be silenced
     def _from_iterable(  # pylint: disable=arguments-differ
         self, it: Iterator[str]
     ) -> LazyRoleSet:
         """Make a copy, as required by the `MutableSet` base class."""
-        # MutableSet defines this as a classmethod. We need an instance method to get
-        # self.obj and self.actor. Pylint doesn't like it and must be silenced
         return LazyRoleSet(self.obj, self.actor, it)
 
     def _role_is_present(self, role: str) -> bool:
         """Test whether a role has been granted to the bound actor."""
+        # pylint: disable=protected-access
         if role in self._present:
             return True
         if role in self._not_present:
             return False
-        if self.actor is not None:
-            if role not in self.obj.__roles__:
-                self._not_present.add(role)
-                return False
+        if role not in self.obj.__roles__:
+            self._not_present.add(role)
+            return False
 
-            # `granted_via` says a role may be granted by a secondary object that sits
-            # in a relationship between the current object and the actor. The secondary
-            # could be a direct attribute of the current object, or could be inside a
-            # list or query relationship. `_roles_via_relationship` will check.
-            # The related object may grant roles in one of three ways:
-            # 1. By its mere existence (default).
-            # 2. By offering roles via an `offered_roles` property (see `RoleGrantABC`).
-            # 3. By being a `RoleMixin` instance that has a `roles_for` method.
-
-            # pylint: disable=protected-access
-            for relattr, actor_attr in (
-                self.obj.__roles__[role].get('granted_via', {}).items()
-            ):
-                offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
+        # `granted_by` says a role is granted by the actor being present in a
+        # relationship
+        for relattr in self.obj.__roles__[role].get('granted_by', ()):
+            if relattr not in self._scanned_granted_by:
                 relationship = self.obj._get_relationship(relattr)
-                if relationship is not None:
-                    possibly_granted_roles = {role}
-                    # Optimization: does the same relationship grant other roles via
-                    # the same non-None `actor_attr`? Gather those roles and check
-                    # all of them together. However, we will use a single role offer
-                    # map and not consult the one specified on the other roles. They
-                    # are expected to be identical. This is guaranteed if the offer
-                    # map was specified using `with_roles(grants_via=)` but not if
-                    # specified directly in `__roles__[role]['granted_via']`. If
-                    # `actor_attr` is None, the relationship must be a `RoleMixin`
-                    # instance that implements `roles_for` and returns a
-                    # `LazyRoleSet` that does expensive lookups. That's no longer an
-                    # optimization and the greedy grab should not be attempted.
-                    if actor_attr is not None:
-                        for arole, actions in self.obj.__roles__.items():
-                            if (
-                                arole != role
-                                and 'granted_via' in actions
-                                and relattr in actions['granted_via']
-                                and _attrs_equal(
-                                    actions['granted_via'][relattr], actor_attr
-                                )
-                            ):
-                                possibly_granted_roles.add(arole)
-
-                    granted_roles = _roles_via_relationship(
-                        self.actor,
-                        relationship,
-                        actor_attr,
-                        possibly_granted_roles,
-                        offer_map,
-                    )
-                    self._present.update(granted_roles)
-                    if role in granted_roles:
-                        return True
-            # granted_by says a role is granted by the actor being present in a
-            # relationship
-            for relattr in self.obj.__roles__[role].get('granted_by', ()):
-                if relattr not in self._scanned_granted_by:
-                    relationship = self.obj._get_relationship(relattr)
+                if isinstance(relationship, ConditionalRoleBind):
+                    is_present = self.actor in relationship
+                elif self.actor is not None:
                     is_present = _actor_in_relationship(self.actor, relationship)
-                    if is_present:
-                        self._present.add(role)
-                        # Optimization: does this relationship grant other roles?
-                        # Get them right away. Don't query again later.
-                        for arole, actions in self.obj.__roles__.items():
-                            if (
-                                arole != role
-                                and 'granted_by' in actions
-                                and relattr in actions['granted_by']
-                            ):
-                                self._present.add(arole)
-                        return True
-                    self._scanned_granted_by.add(relattr)
+                else:
+                    is_present = False
+                if is_present:
+                    self._present.add(role)
+                    # Optimization: does this relationship grant other roles?
+                    # Get them right away. Don't query again later.
+                    for arole, actions in self.obj.__roles__.items():
+                        if (
+                            arole != role
+                            and 'granted_by' in actions
+                            and relattr in actions['granted_by']
+                        ):
+                            self._present.add(arole)
+                    return True
+                self._scanned_granted_by.add(relattr)
+
+        # `granted_via` says a role may be granted by a secondary object that sits
+        # in a relationship between the current object and the actor. The secondary
+        # could be a direct attribute of the current object, or could be inside a
+        # list or query relationship. `_roles_via_relationship` will check.
+        # The related object may grant roles in one of three ways:
+        # 1. By its mere existence (default).
+        # 2. By offering roles via an `offered_roles` property (see `RoleGrantABC`).
+        # 3. By being a `RoleMixin` instance that has a `roles_for` method.
+
+        for relattr, actor_attr in (
+            self.obj.__roles__[role].get('granted_via', {}).items()
+        ):
+            offer_map = self.obj.__relationship_role_offer_map__.get(relattr)
+            relationship = self.obj._get_relationship(relattr)
+            if relationship is not None:
+                possibly_granted_roles = {role}
+                # Optimization: does the same relationship grant other roles via
+                # the same non-None `actor_attr`? Gather those roles and check
+                # all of them together. However, we will use a single role offer
+                # map and not consult the one specified on the other roles. They
+                # are expected to be identical. This is guaranteed if the offer
+                # map was specified using `with_roles(grants_via=)` but not if
+                # specified directly in `__roles__[role]['granted_via']`. If
+                # `actor_attr` is None, the relationship must be a `RoleMixin`
+                # instance that implements `roles_for` and returns a
+                # `LazyRoleSet` that does expensive lookups. That's no longer an
+                # optimization and the greedy grab should not be attempted.
+                if actor_attr is not None:
+                    for arole, actions in self.obj.__roles__.items():
+                        if (
+                            arole != role
+                            and 'granted_via' in actions
+                            and relattr in actions['granted_via']
+                            and _attrs_equal(
+                                actions['granted_via'][relattr], actor_attr
+                            )
+                        ):
+                            possibly_granted_roles.add(arole)
+
+                granted_roles = _roles_via_relationship(
+                    self.actor,
+                    relationship,
+                    actor_attr,
+                    possibly_granted_roles,
+                    offer_map,
+                )
+                self._present.update(granted_roles)
+                if role in granted_roles:
+                    return True
+
         self._not_present.add(role)
         return False
 
