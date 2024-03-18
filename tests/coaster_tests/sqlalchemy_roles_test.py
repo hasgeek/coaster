@@ -93,15 +93,15 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     # These annotations always add to anything specified in __roles__
 
     id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    name: Mapped[str] = with_roles(
-        sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'}
-    )  # Specify read+write access
+    # Specify read+write access
+    name: Mapped[str] = with_roles(sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
+    # Grant 'owner' and 'editor' write but not read access
     title: Mapped[str] = with_roles(
         mapped_column(sa.Unicode(250)),
         write={'owner', 'editor'},
         datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
-    )  # Grant 'owner' and 'editor' write but not read access
+    )
 
     defval: Mapped[str] = with_roles(
         sa_orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}

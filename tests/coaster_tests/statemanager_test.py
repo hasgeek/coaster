@@ -741,9 +741,8 @@ class TestStateManager(AppTestCase):
         """State managers indicate the currently available transitions (using current_auth)"""
         assert self.post.state.DRAFT
         assert 'submit' not in self.post.state.transitions()
-        add_auth_attribute(
-            'user', 'author'
-        )  # Add a user using the string 'author' (see MyPost.roles_for)
+        # Add a user using the string 'author' (see MyPost.roles_for)
+        add_auth_attribute('user', 'author')
         assert 'submit' in self.post.state.transitions()
         self.post.state.transitions()['submit']()
         assert not self.post.state.DRAFT

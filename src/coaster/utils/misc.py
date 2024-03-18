@@ -367,9 +367,8 @@ def make_name(
     'feedback'
     """
     name = text.replace('@', delim)
-    name = unidecode(name).replace(
-        '@', 'a'
-    )  # We don't know why unidecode uses '@' for 'a'-like chars
+    # We don't know why unidecode uses '@' for 'a'-like chars
+    name = unidecode(name).replace('@', 'a')
     name = str(
         delim.join(
             [
@@ -698,7 +697,7 @@ def nary_op(
     return inner
 
 
-def is_dunder(name: str):
+def is_dunder(name: str) -> bool:
     """Check if a __dunder__ name (copied from the enum module)."""
     return (
         len(name) > 4
