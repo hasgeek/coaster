@@ -1250,7 +1250,7 @@ _CRA = TypeVar('_CRA')  # Actor type for ConditionalRole
 
 def role_check(
     *roles: str,
-) -> Callable[[Callable[[_CRM, _CRA], bool]], ConditionalRole[_CRM, _CRA]]:
+) -> Callable[[Callable[[_CRM, Optional[_CRA]], bool]], ConditionalRole[_CRM, _CRA]]:
     """
     Register a method that takes an actor and confirms if they have the given roles.
 
@@ -1260,13 +1260,14 @@ def role_check(
         class MyModel(RoleMixin, ...):
             ...
             @role_check('reader', 'viewer')  # Takes multiple roles as necessary
-            def has_reader_role(self, actor: ActorType) -> bool:
+            def has_reader_role(self, actor: Optional[ActorType]) -> bool:
                 # If this object is public, everyone gets the 'reader' role
                 if self.state.PUBLIC:
                     return True
                 # If not public, only creators and owners get the role
                 return self.roles_for(actor).has_any(('creator', 'owner'))
 
+            # A complementing iterable of all actors with the role is optional
             @has_reader_role.iterable
             def _(self) -> Iterable[ActorType]:
                 # When enumerating actors who get 'reader', we can't reasonably
@@ -1288,7 +1289,9 @@ def role_check(
     :param roles: Roles to be granted
     """
 
-    def decorator(func: Callable[[_CRM, _CRA], bool]) -> ConditionalRole[_CRM, _CRA]:
+    def decorator(
+        func: Callable[[_CRM, Optional[_CRA]], bool]
+    ) -> ConditionalRole[_CRM, _CRA]:
         return ConditionalRole(roles, func)
 
     return decorator
@@ -1304,7 +1307,7 @@ class ConditionalRole(Generic[_CRM, _CRA]):
     __slots___ = ('__weakref__', 'name', 'check_func', 'iter_func', '__wrapped__')
 
     def __init__(
-        self, roles: Iterable[str], func: Callable[[_CRM, _CRA], bool]
+        self, roles: Iterable[str], func: Callable[[_CRM, Optional[_CRA]], bool]
     ) -> None:
         self.roles = roles
         self.check_func = self.__wrapped__ = func
@@ -1318,7 +1321,7 @@ class ConditionalRole(Generic[_CRM, _CRA]):
             owner.__roles__.setdefault(role, {}).setdefault('granted_by', [])
             owner.__roles__[role]['granted_by'].append(name)
 
-    def __call__(self, __obj: _CRM, actor: _CRA) -> bool:
+    def __call__(self, __obj: _CRM, actor: Optional[_CRA]) -> bool:
         return self.check_func(__obj, actor)
 
     def iterable(self, func: Callable[[_CRM], Iterable[_CRA]]) -> Self:
@@ -1358,7 +1361,7 @@ class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
     def __getattr__(self, name: str) -> Any:
         return getattr(self._rolecheck, name)
 
-    def __call__(self, actor: _CRA) -> bool:
+    def __call__(self, actor: Optional[_CRA]) -> bool:
         return self._rolecheck.check_func(self.__self__, actor)
 
     def __contains__(self, __actor: Any) -> bool:
@@ -1733,7 +1736,7 @@ class RoleMixin(Generic[ActorType]):
             actor=current_auth.actor, anchors=current_auth.anchors, datasets=datasets
         )
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> Any:
         """Render to a JSON-compatible data structure."""
         return dict(self.current_access(self.__json_datasets__))
 

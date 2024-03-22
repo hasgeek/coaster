@@ -1483,7 +1483,7 @@ class TestConditionalRole:
         }
 
         @role_check('reader', 'viewer')  # Takes multiple roles as necessary
-        def has_reader_role(self, actor: TestConditionalRole.User) -> bool:
+        def has_reader_role(self, actor: Optional[TestConditionalRole.User]) -> bool:
             # If this object is public, everyone gets the 'reader' role
             if self.public:
                 return True
@@ -1497,7 +1497,7 @@ class TestConditionalRole:
             return [self.created_by] + (self.owners or [])
 
         @role_check('owner')
-        def creator_is_owner(self, actor: TestConditionalRole.User) -> bool:
+        def creator_is_owner(self, actor: Optional[TestConditionalRole.User]) -> bool:
             """
             Only validates the creator as owner, while failing everyone else.
 
