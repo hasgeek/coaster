@@ -298,6 +298,7 @@ def _actor_in_relationship(actor: ActorType, relationship: Any) -> bool:
 
 def _roles_via_relationship(
     actor: ActorType,
+    anchors: Sequence[Any],
     relationship: Any,
     actor_attr: Optional[ActorAttrType],
     wanted_roles: set[str],
@@ -314,7 +315,7 @@ def _roles_via_relationship(
         if isinstance(relationship, RoleMixin):
             offered_roles: Union[set[str], LazyRoleSet]
             # TODO: Cache this as we'll get a different LazyRoleSet each time
-            offered_roles = relationship.roles_for(actor)
+            offered_roles = relationship.roles_for(actor, anchors)
             if offer_map is not None:
                 offer_map_subset = {
                     original_role
@@ -415,6 +416,7 @@ class LazyRoleSet(abc.MutableSet):
     __slots__ = (
         'obj',
         'actor',
+        'anchors',
         '_present',
         '_not_present',
         '_scanned_granted_by',
@@ -422,10 +424,15 @@ class LazyRoleSet(abc.MutableSet):
     )
 
     def __init__(
-        self, obj: RoleMixin, actor: Optional[ActorType], initial: Iterable[str] = ()
+        self,
+        obj: RoleMixin,
+        actor: Optional[ActorType],
+        anchors: Sequence[Any] = (),
+        initial: Iterable[str] = (),
     ) -> None:
         self.obj = obj
         self.actor = actor
+        self.anchors = anchors
         #: Roles that the actor has (make a copy of initial set as it will be mutated)
         self._present: set[str] = set(initial)
         #: Roles the actor does not have
@@ -436,7 +443,10 @@ class LazyRoleSet(abc.MutableSet):
         self._contents_fully_evaluated = False
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self._present!r})'
+        return (
+            f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self.anchors!r},'
+            f' {self._present!r})'
+        )
 
     # Base class MutableSet defines this as a classmethod. We need an instance method to
     # get self.obj and self.actor. Pylint doesn't like it and must be silenced
@@ -444,7 +454,7 @@ class LazyRoleSet(abc.MutableSet):
         self, it: Iterator[str]
     ) -> LazyRoleSet:
         """Make a copy, as required by the `MutableSet` base class."""
-        return LazyRoleSet(self.obj, self.actor, it)
+        return LazyRoleSet(self.obj, self.actor, self.anchors, it)
 
     def _role_is_present(self, role: str) -> bool:
         """Test whether a role has been granted to the bound actor."""
@@ -463,7 +473,7 @@ class LazyRoleSet(abc.MutableSet):
             if relattr not in self._scanned_granted_by:
                 relationship = self.obj._get_relationship(relattr)
                 if isinstance(relationship, ConditionalRoleBind):
-                    is_present = self.actor in relationship
+                    is_present = relationship(self.actor, self.anchors)
                 elif self.actor is not None:
                     is_present = _actor_in_relationship(self.actor, relationship)
                 else:
@@ -523,6 +533,7 @@ class LazyRoleSet(abc.MutableSet):
 
                 granted_roles = _roles_via_relationship(
                     self.actor,
+                    self.anchors,
                     relationship,
                     actor_attr,
                     possibly_granted_roles,
@@ -605,7 +616,7 @@ class LazyRoleSet(abc.MutableSet):
     def copy(self) -> LazyRoleSet:
         """Return a shallow copy of the :class:`LazyRoleSet`."""
         # pylint: disable=protected-access
-        result = LazyRoleSet(self.obj, self.actor, self._present)
+        result = LazyRoleSet(self.obj, self.actor, self.anchors, self._present)
         result._not_present = set(self._not_present)
         result._scanned_granted_by = self._scanned_granted_by
         result._contents_fully_evaluated = self._contents_fully_evaluated
@@ -1250,7 +1261,9 @@ _CRA = TypeVar('_CRA')  # Actor type for ConditionalRole
 
 def role_check(
     *roles: str,
-) -> Callable[[Callable[[_CRM, Optional[_CRA]], bool]], ConditionalRole[_CRM, _CRA]]:
+) -> Callable[
+    [Callable[[_CRM, Optional[_CRA], Sequence[Any]], bool]], ConditionalRole[_CRM, _CRA]
+]:
     """
     Register a method that takes an actor and confirms if they have the given roles.
 
@@ -1260,12 +1273,14 @@ def role_check(
         class MyModel(RoleMixin, ...):
             ...
             @role_check('reader', 'viewer')  # Takes multiple roles as necessary
-            def has_reader_role(self, actor: Optional[ActorType]) -> bool:
+            def has_reader_role(
+                self, actor: Optional[ActorType], anchors: Sequence[Any] = ()
+            ) -> bool:
                 # If this object is public, everyone gets the 'reader' role
                 if self.state.PUBLIC:
                     return True
                 # If not public, only creators and owners get the role
-                return self.roles_for(actor).has_any(('creator', 'owner'))
+                return self.roles_for(actor, anchors).has_any(('creator', 'owner'))
 
             # A complementing iterable of all actors with the role is optional
             @has_reader_role.iterable
@@ -1290,7 +1305,7 @@ def role_check(
     """
 
     def decorator(
-        func: Callable[[_CRM, Optional[_CRA]], bool]
+        func: Callable[[_CRM, Optional[_CRA], Sequence[Any]], bool]
     ) -> ConditionalRole[_CRM, _CRA]:
         return ConditionalRole(roles, func)
 
@@ -1307,7 +1322,9 @@ class ConditionalRole(Generic[_CRM, _CRA]):
     __slots___ = ('__weakref__', 'name', 'check_func', 'iter_func', '__wrapped__')
 
     def __init__(
-        self, roles: Iterable[str], func: Callable[[_CRM, Optional[_CRA]], bool]
+        self,
+        roles: Iterable[str],
+        func: Callable[[_CRM, Optional[_CRA], Sequence[Any]], bool],
     ) -> None:
         self.roles = roles
         self.check_func = self.__wrapped__ = func
@@ -1321,8 +1338,10 @@ class ConditionalRole(Generic[_CRM, _CRA]):
             owner.__roles__.setdefault(role, {}).setdefault('granted_by', [])
             owner.__roles__[role]['granted_by'].append(name)
 
-    def __call__(self, __obj: _CRM, actor: Optional[_CRA]) -> bool:
-        return self.check_func(__obj, actor)
+    def __call__(
+        self, __obj: _CRM, actor: Optional[_CRA], anchors: Sequence[Any] = ()
+    ) -> bool:
+        return self.check_func(__obj, actor, anchors)
 
     def iterable(self, func: Callable[[_CRM], Iterable[_CRA]]) -> Self:
         """Register a method that returns an iterable of actors with the role."""
@@ -1361,11 +1380,11 @@ class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
     def __getattr__(self, name: str) -> Any:
         return getattr(self._rolecheck, name)
 
-    def __call__(self, actor: Optional[_CRA]) -> bool:
-        return self._rolecheck.check_func(self.__self__, actor)
+    def __call__(self, actor: Optional[_CRA], anchors: Sequence[Any] = ()) -> bool:
+        return self._rolecheck.check_func(self.__self__, actor, anchors)
 
     def __contains__(self, __actor: Any) -> bool:
-        return self._rolecheck.check_func(self.__self__, __actor)
+        return self._rolecheck.check_func(self.__self__, __actor, ())
 
     def __iter__(self) -> Iterator[_CRA]:
         iter_func = self._rolecheck.iter_func
@@ -1445,34 +1464,21 @@ class RoleMixin(Generic[ActorType]):
         self, actor: Optional[ActorType] = None, anchors: Sequence[Any] = ()
     ) -> LazyRoleSet:
         """
-        Return roles available to the given ``actor`` or ``anchors`` on this object.
+        Return roles available to the given ``actor`` and/or ``anchors`` on this object.
 
-        The data type for both parameters are intentionally undefined here. Subclasses
-        are free to define them in any way appropriate. Actors and anchors are assumed
-        to be valid.
+        The actor must be of the same datatype as specified in the generic arg to
+        :class:`RoleMixin`. The datatype of anchors is intentionally undefined here.
 
         The role ``all`` is always granted. If ``actor`` is specified, the role ``auth``
         is granted. If not, ``anon`` is granted.
 
-        Subclasses overriding :meth:`roles_for` must always call :func:`super` to ensure
-        they receive a :class:`LazyRoleSet` that includes the standard roles and
-        evaluates for declarative roles when they are first accessed. Recommended
-        boilerplate::
-
-            def roles_for(
-                self, actor: Optional[User] = None, anchors: Sequence[Any] = ()
-            ) -> LazyRoleSet:
-                roles = super().roles_for(actor, anchors) # `roles` is set-like. Add
-                more roles here... return roles
-
-        Custom roles added in :meth:`roles_for` may not be required by the caller.
-        Instead of overriding :meth:`roles_for`, use :func:`role_check` to allow for
-        lazy evaluation when the role is actually needed.
+        Subclasses must avoid overriding :meth:`roles_for`. If a role must be
+        conditionally granted, use the :func:`role_check` decorator.
         """
         if actor is None:
-            result = LazyRoleSet(self, actor, {'all', 'anon'})
+            result = LazyRoleSet(self, actor, anchors, {'all', 'anon'})
         else:
-            result = LazyRoleSet(self, actor, {'all', 'auth'})
+            result = LazyRoleSet(self, actor, anchors, {'all', 'auth'})
         return result
 
     @property
@@ -1669,8 +1675,8 @@ class RoleMixin(Generic[ActorType]):
         self,
         *,
         actor: Optional[ActorType] = None,
-        roles: Optional[Union[LazyRoleSet, set[str]]] = None,
         anchors: Sequence[Any] = (),
+        roles: Optional[Union[LazyRoleSet, set[str]]] = None,
         datasets: Optional[Sequence[str]] = None,
     ) -> RoleAccessProxy:
         """

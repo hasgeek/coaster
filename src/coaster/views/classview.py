@@ -1067,7 +1067,9 @@ def requires_roles(roles: set[str]) -> ReturnDecorator:
 
     def decorator(f: WrappedFunc) -> WrappedFunc:
         def is_available_here(context: ModelViewType) -> bool:
-            return context.obj.roles_for(current_auth.actor).has_any(roles)
+            return context.obj.roles_for(
+                current_auth.actor, current_auth.anchors
+            ).has_any(roles)
 
         def is_available(context: ModelViewType) -> bool:
             result = is_available_here(context)

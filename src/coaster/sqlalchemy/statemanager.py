@@ -1157,7 +1157,7 @@ class StateManagerInstance(Generic[_SM, _T]):
         """
         # Mypy complains because it can't infer that self.obj is RoleMixin instance.
         if isinstance(self.obj, RoleMixin):
-            proxy = self.obj.access_for(actor=actor, roles=roles, anchors=anchors)
+            proxy = self.obj.access_for(actor=actor, anchors=anchors, roles=roles)
             return {
                 name: transition
                 for name, transition in self.transitions(current=False).items()

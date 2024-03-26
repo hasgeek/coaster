@@ -492,7 +492,7 @@ class UrlDict(abc.Mapping, Generic[_UR]):
         # 2. If the action requires specific roles, confirm overlap with current_roles
         # 3. Confirm the action does not require additional parameters
         # 4. Yield whatever passes the tests
-        current_roles = self.obj.roles_for(current_auth.actor)
+        current_roles = self.obj.roles_for(current_auth.actor, current_auth.anchors)
         for app, app_actions in self.obj.url_for_endpoints.items():
             # pylint: disable=protected-access
             if app is None or (
