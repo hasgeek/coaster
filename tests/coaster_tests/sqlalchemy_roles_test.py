@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 import json
-import unittest
-from collections.abc import MutableSet, Sequence
+from collections.abc import Iterable, MutableSet, Sequence
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
@@ -26,6 +26,7 @@ from sqlalchemy.orm import (
 from coaster.sqlalchemy import (
     BaseMixin,
     BaseNameMixin,
+    ConditionalRole,
     DynamicAssociationProxy,
     LazyRoleSet,
     RoleAccessProxy,
@@ -33,6 +34,7 @@ from coaster.sqlalchemy import (
     RoleMixin,
     UuidMixin,
     relationship,
+    role_check,
     with_roles,
 )
 from coaster.utils import InspectableSet
@@ -91,15 +93,15 @@ class RoleModel(DeclaredAttrMixin, RoleMixin, Model):
     # These annotations always add to anything specified in __roles__
 
     id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    name: Mapped[str] = with_roles(
-        sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'}
-    )  # Specify read+write access
+    # Specify read+write access
+    name: Mapped[str] = with_roles(sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
+    # Grant 'owner' and 'editor' write but not read access
     title: Mapped[str] = with_roles(
         mapped_column(sa.Unicode(250)),
         write={'owner', 'editor'},
         datasets={'minimal', 'extra', 'third'},  # 'third' is unique here
-    )  # Grant 'owner' and 'editor' write but not read access
+    )
 
     defval: Mapped[str] = with_roles(
         sa_orm.mapped_column(sa.Unicode(250), deferred=True), rw={'owner'}
@@ -1214,7 +1216,7 @@ class TestCoasterRoles(AppTestCase):
         assert list(child2.actors_with({'parent_role_shared'})) == []
 
 
-class TestLazyRoleSet(unittest.TestCase):
+class TestLazyRoleSet:
     """Tests for LazyRoleSet, isolated from RoleMixin"""
 
     class EmptyDocument(RoleMixin):
@@ -1453,3 +1455,136 @@ class TestLazyRoleSet(unittest.TestCase):
         role_membership = RoleMembership()
         assert issubclass(RoleMembership, RoleGrantABC)
         assert isinstance(role_membership, RoleGrantABC)
+
+
+class TestConditionalRole:
+    """Tests for conditional roles."""
+
+    @dataclass
+    class User:
+        name: str
+
+        def __repr__(self) -> str:
+            return f'{self.__class__.__qualname__}({self.name!r})'
+
+        def __hash__(self) -> int:
+            """Support hashing users for actors_with in tests."""
+            return hash(self.__repr__())
+
+    @dataclass
+    class RoleCheckModel(RoleMixin[User]):
+        public: bool
+        created_by: TestConditionalRole.User
+        owners: Optional[list[TestConditionalRole.User]] = None
+
+        __roles__ = {
+            'creator': {'granted_via': {'created_by': None}},
+            'owner': {'granted_by': ['owners']},
+        }
+
+        @role_check('reader', 'viewer')  # Takes multiple roles as necessary
+        def has_reader_role(self, actor: Optional[TestConditionalRole.User]) -> bool:
+            # If this object is public, everyone gets the 'reader' role
+            if self.public:
+                return True
+            # If not public, only creators and owners get the role
+            return actor == self.created_by or actor in (self.owners or [])
+
+        @has_reader_role.iterable
+        def _(self) -> Iterable[TestConditionalRole.User]:
+            # We can't reasonably enumerate all user accounts as the role is
+            # conditionally granted to everyone, so limit this to specific users
+            return [self.created_by] + (self.owners or [])
+
+        @role_check('owner')
+        def creator_is_owner(self, actor: Optional[TestConditionalRole.User]) -> bool:
+            """
+            Only validates the creator as owner, while failing everyone else.
+
+            No iterable for this check, to test behaviour in such a case.
+            """
+            return actor is self.created_by
+
+    user = User('user')
+    owner1 = User('owner1')
+    owner2 = User('owner2')
+    unrelated_user = User('unrelated_user')
+    public_obj = RoleCheckModel(public=True, created_by=user, owners=[owner1, owner2])
+    private_obj = RoleCheckModel(public=False, created_by=user, owners=[owner1])
+
+    # Expected results in a test for 'reader' role in `public_obj` and `private_obj`
+    expected_results_for_reader = [
+        (user, True, True),
+        (owner1, True, True),
+        (owner2, True, False),
+        (unrelated_user, True, False),
+        (None, True, False),  # Anonymous user
+    ]
+
+    def test_constructor(self) -> None:
+        assert isinstance(self.RoleCheckModel.has_reader_role, ConditionalRole)
+        assert isinstance(self.RoleCheckModel.creator_is_owner, ConditionalRole)
+
+    # --- Part 1, tests for RoleCheckModel.has_reader_role, a typical implementation
+
+    @pytest.mark.parametrize(
+        ('user', 'public_reader', 'private_reader'), expected_results_for_reader
+    )
+    def test_callable(
+        self, user: TestConditionalRole.User, public_reader: bool, private_reader: bool
+    ) -> None:
+        assert self.public_obj.has_reader_role(user) is public_reader
+        assert self.private_obj.has_reader_role(user) is private_reader
+
+    @pytest.mark.parametrize(
+        ('user', 'public_reader', 'private_reader'), expected_results_for_reader
+    )
+    def test_container(
+        self, user: TestConditionalRole.User, public_reader: bool, private_reader: bool
+    ) -> None:
+        assert (user in self.public_obj.has_reader_role) is public_reader
+        assert (user in self.private_obj.has_reader_role) is private_reader
+
+    @pytest.mark.parametrize(
+        ('user', 'public_reader', 'private_reader'), expected_results_for_reader
+    )
+    def test_roles_for(
+        self, user: TestConditionalRole.User, public_reader: bool, private_reader: bool
+    ) -> None:
+        assert ('reader' in self.public_obj.roles_for(user)) is public_reader
+        assert ('reader' in self.private_obj.roles_for(user)) is private_reader
+
+    @pytest.mark.parametrize(
+        ('user', 'public_reader', 'private_reader'), expected_results_for_reader
+    )
+    def test_roles_for_second_role(
+        self, user: TestConditionalRole.User, public_reader: bool, private_reader: bool
+    ) -> None:
+        assert ('viewer' in self.public_obj.roles_for(user)) is public_reader
+        assert ('viewer' in self.private_obj.roles_for(user)) is private_reader
+
+    def test_iterable(self) -> None:
+        assert list(self.public_obj.has_reader_role) == [
+            self.user,
+            self.owner1,
+            self.owner2,
+        ]
+        assert list(self.private_obj.has_reader_role) == [self.user, self.owner1]
+
+    # --- Part 2, tests for RoleCheckModel.creator_is_owner, a partial implementation
+
+    def test_owner_via_conditional_role(self) -> None:
+        # The conditional role check only returns True for `user`, not `owner1`
+        assert self.public_obj.created_by == self.user
+        assert self.public_obj.creator_is_owner(self.user) is True
+        assert self.public_obj.creator_is_owner(self.owner1) is False
+        assert self.public_obj.creator_is_owner(self.owner2) is False
+        assert self.public_obj.creator_is_owner(self.unrelated_user) is False
+        # However, using roles_for, we get a more comprehensive check across providers
+        assert 'owner' in self.public_obj.roles_for(self.user)
+        assert 'owner' in self.public_obj.roles_for(self.owner1)
+        assert 'owner' in self.public_obj.roles_for(self.owner2)
+        assert 'owner' not in self.public_obj.roles_for(self.unrelated_user)
+        # Since `creator_is_owner` did not provide an iterable, calling actors_with
+        # will not enumerate `user`
+        assert set(self.public_obj.actors_with({'owner'})) == {self.owner1, self.owner2}

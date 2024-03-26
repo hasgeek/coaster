@@ -249,13 +249,11 @@ class ModelDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     ) -> Optional[ResponseReturnValue]:
         if access_token == 'owner-admin-secret':  # nosec
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
-            add_auth_attribute(
-                'user', 'this-is-the-owner'
-            )  # See ViewDocument.permissions
+            # See ViewDocument.permissions
+            add_auth_attribute('user', 'this-is-the-owner')
         if access_token == 'owner-secret':  # nosec
-            add_auth_attribute(
-                'user', 'this-is-the-owner'
-            )  # See ViewDocument.permissions
+            # See ViewDocument.permissions
+            add_auth_attribute('user', 'this-is-the-owner')
         return super().before_request()
 
     @route('')
@@ -338,17 +336,14 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
         self, access_token: Optional[str] = None
     ) -> Optional[ResponseReturnValue]:
         if access_token == 'owner-secret':  # nosec
-            add_auth_attribute(
-                'user', 'this-is-the-owner'
-            )  # See ViewDocument.permissions
+            # See ViewDocument.permissions
+            add_auth_attribute('user', 'this-is-the-owner')
         if access_token == 'editor-secret':  # nosec
-            add_auth_attribute(
-                'user', 'this-is-the-editor'
-            )  # See ViewDocument.permissions
+            # See ViewDocument.permissions
+            add_auth_attribute('user', 'this-is-the-editor')
         if access_token == 'another-owner-secret':  # nosec
-            add_auth_attribute(
-                'user', 'this-is-another-owner'
-            )  # See ViewDocument.permissions
+            # See ViewDocument.permissions
+            add_auth_attribute('user', 'this-is-another-owner')
         return super().before_request()
 
     @route('perm')

@@ -731,9 +731,8 @@ class StateTransitionWrapper(Generic[_P, _R, _T]):
         # Change the state for each of the state managers
         for statemanager, conditions in self.statetransition.transitions.items():
             if conditions.to is not None:  # Allow to=None for the @requires decorator
-                statemanager._set_state_value(
-                    self.obj, conditions.to.value
-                )  # Change state
+                # Change state
+                statemanager._set_state_value(self.obj, conditions.to.value)
         # Send a transition-after signal
         transition_after.send(self.obj, transition=self.statetransition)
         return result
@@ -1158,7 +1157,7 @@ class StateManagerInstance(Generic[_SM, _T]):
         """
         # Mypy complains because it can't infer that self.obj is RoleMixin instance.
         if isinstance(self.obj, RoleMixin):
-            proxy = self.obj.access_for(roles=roles, actor=actor, anchors=anchors)
+            proxy = self.obj.access_for(actor=actor, roles=roles, anchors=anchors)
             return {
                 name: transition
                 for name, transition in self.transitions(current=False).items()

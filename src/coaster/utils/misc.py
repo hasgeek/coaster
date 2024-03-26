@@ -32,6 +32,7 @@ __all__ = [
     'get_email_domain',
     'getbool',
     'is_collection',
+    'is_dunder',
     'make_name',
     'md5sum',
     'namespace_from_url',
@@ -366,9 +367,8 @@ def make_name(
     'feedback'
     """
     name = text.replace('@', delim)
-    name = unidecode(name).replace(
-        '@', 'a'
-    )  # We don't know why unidecode uses '@' for 'a'-like chars
+    # We don't know why unidecode uses '@' for 'a'-like chars
+    name = unidecode(name).replace('@', 'a')
     name = str(
         delim.join(
             [
@@ -695,3 +695,13 @@ def nary_op(
     if doc is not None:
         inner.__doc__ = doc
     return inner
+
+
+def is_dunder(name: str) -> bool:
+    """Check if a __dunder__ name (copied from the enum module)."""
+    return (
+        len(name) > 4
+        and name[:2] == name[-2:] == '__'
+        and name[2] != '_'
+        and name[-3] != '_'
+    )
