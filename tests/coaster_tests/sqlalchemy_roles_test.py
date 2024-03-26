@@ -1256,7 +1256,7 @@ class TestLazyRoleSet:
         pass
 
     def test_initial(self) -> None:
-        r1 = LazyRoleSet(self.EmptyDocument(), self.User(), {'all', 'auth'})
+        r1 = LazyRoleSet(self.EmptyDocument(), self.User(), (), {'all', 'auth'})
         assert r1._present == {'all', 'auth'}
         assert r1._not_present == set()
 
@@ -1300,10 +1300,10 @@ class TestLazyRoleSet:
         """Confirm we support common set operations."""
         doc = self.Document()
         user = self.User()
-        r = LazyRoleSet(doc, user, {'all', 'auth'})
+        r = LazyRoleSet(doc, user, (), {'all', 'auth'})
         assert r == {'all', 'auth'}
-        assert r == LazyRoleSet(doc, user, {'all', 'auth'})
-        assert r != LazyRoleSet(doc, None, {'all', 'auth'})
+        assert r == LazyRoleSet(doc, user, (), {'all', 'auth'})
+        assert r != LazyRoleSet(doc, None, (), {'all', 'auth'})
         assert len(r) == 2
         assert 'all' in r
         assert 'random' not in r
@@ -1317,12 +1317,14 @@ class TestLazyRoleSet:
         assert r >= {'all'}
         assert r > {'all'}
         assert not r > {'all', 'auth'}
-        assert r.union({'owner'}) == LazyRoleSet(doc, user, {'all', 'auth', 'owner'})
-        assert r | {'owner'} == LazyRoleSet(doc, user, {'all', 'auth', 'owner'})
+        assert r.union({'owner'}) == LazyRoleSet(
+            doc, user, (), {'all', 'auth', 'owner'}
+        )
+        assert r | {'owner'} == LazyRoleSet(doc, user, (), {'all', 'auth', 'owner'})
         assert r.union({'owner'}) == {'all', 'auth', 'owner'}
         assert r | {'owner'} == {'all', 'auth', 'owner'}
-        assert r.intersection({'all'}) == LazyRoleSet(doc, user, {'all'})
-        assert r & {'all'} == LazyRoleSet(doc, user, {'all'})
+        assert r.intersection({'all'}) == LazyRoleSet(doc, user, (), {'all'})
+        assert r & {'all'} == LazyRoleSet(doc, user, (), {'all'})
         assert r.intersection({'all'}) == {'all'}
         assert r & {'all'} == {'all'}
 
@@ -1337,7 +1339,7 @@ class TestLazyRoleSet:
         doc = self.Document()
         user = self.User()
         doc.user = user
-        r = LazyRoleSet(doc, user, {'all', 'auth'})
+        r = LazyRoleSet(doc, user, (), {'all', 'auth'})
 
         # At the start, the access flag is false and the cache sets are not populated
         assert r._present == {'all', 'auth'}
@@ -1483,7 +1485,9 @@ class TestConditionalRole:
         }
 
         @role_check('reader', 'viewer')  # Takes multiple roles as necessary
-        def has_reader_role(self, actor: Optional[TestConditionalRole.User]) -> bool:
+        def has_reader_role(
+            self, actor: Optional[TestConditionalRole.User], anchors: Sequence[Any] = ()
+        ) -> bool:
             # If this object is public, everyone gets the 'reader' role
             if self.public:
                 return True
@@ -1497,7 +1501,9 @@ class TestConditionalRole:
             return [self.created_by] + (self.owners or [])
 
         @role_check('owner')
-        def creator_is_owner(self, actor: Optional[TestConditionalRole.User]) -> bool:
+        def creator_is_owner(
+            self, actor: Optional[TestConditionalRole.User], anchors: Sequence[Any] = ()
+        ) -> bool:
             """
             Only validates the creator as owner, while failing everyone else.
 
