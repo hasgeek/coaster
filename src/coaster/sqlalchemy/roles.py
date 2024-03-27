@@ -297,7 +297,7 @@ def _actor_in_relationship(actor: ActorType, relationship: Any) -> bool:
 
 
 def _roles_via_relationship(
-    actor: ActorType,
+    actor: Optional[ActorType],
     anchors: Sequence[Any],
     relationship: Any,
     actor_attr: Optional[ActorAttrType],
@@ -336,30 +336,32 @@ def _roles_via_relationship(
     # relationship is a collection, find the item in it that relates to the actor.
 
     # TODO: Support WriteOnlyCollection
-    if isinstance(relationship, QueryBase):
-        # Query-like relationship. Run a query. It is possible to have multiple matches
-        # for the actor, so use .first()
-        # TODO: Consider retrieving all and consolidating roles from across them in case
-        # the objects are RoleGrantABC. This is not a current requirement and so is not
-        # currently supported; using the .first() object is sufficient
-        if isinstance(actor_attr, QueryableAttribute):
-            relobj = relationship.filter(actor_attr == actor).first()
-        else:
-            relobj = relationship.filter_by(**{actor_attr: actor}).first()
-    elif isinstance(actor_attr, str):
-        if isinstance(relationship, abc.Iterable):
-            # List-like object. Scan through it looking for item related to actor.
-            # Note: strings are also collections. Checking for abc.Iterable is only safe
-            # here because of the unlikeliness of a string relationship. If that becomes
-            # necessary in future, add `and not isinstance(relationship, str)`
-            for relitem in relationship:
-                if getattr(relitem, actor_attr) == actor:
-                    relobj = relitem
-                    break
+    if actor is not None:
+        if isinstance(relationship, QueryBase):
+            # Query-like relationship. Run a query. It is possible to have multiple
+            # matches for the actor, so use .first()
+            # TODO: Consider retrieving all and consolidating roles from across them in
+            # case the objects are RoleGrantABC. This is not a current requirement and
+            # so is not currently supported; using the .first() object is sufficient
+            if isinstance(actor_attr, QueryableAttribute):
+                relobj = relationship.filter(actor_attr == actor).first()
+            else:
+                relobj = relationship.filter_by(**{actor_attr: actor}).first()
+        elif isinstance(actor_attr, str):
+            if isinstance(relationship, abc.Iterable):
+                # List-like object. Scan through it looking for item related to actor.
+                # Note: strings are also collections. Checking for abc.Iterable is only
+                # safe here because of the unlikeliness of a string relationship. If
+                # that becomes necessary in future, add `and not
+                # isinstance(relationship, str)`
+                for relitem in relationship:
+                    if getattr(relitem, actor_attr) == actor:
+                        relobj = relitem
+                        break
 
-        # Not any sort of collection. May be a scalar relationship
-        elif getattr(relationship, actor_attr) == actor:
-            relobj = relationship
+            # Not any sort of collection. May be a scalar relationship
+            elif getattr(relationship, actor_attr) == actor:
+                relobj = relationship
     if not relobj:
         # Didn't find a relationship object. Actor gets no roles
         return set()
