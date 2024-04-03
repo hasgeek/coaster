@@ -205,7 +205,9 @@ class RelationshipParent(BaseNameMixin, Model):
             'children_dict_attr,children_list,children_list_lazy,children_set,parent'
         ),
     )
-    children_names = DynamicAssociationProxy[str]('children_list_lazy', 'name')
+    children_names = DynamicAssociationProxy[str, RelationshipChild](
+        'children_list_lazy', 'name'
+    )
 
     __roles__ = {
         'all': {
@@ -962,6 +964,20 @@ class TestCoasterRoles(AppTestCase):
         assert bool(parent1.children_names) is True
         assert bool(parent2.children_names) is True
         assert bool(parent3.children_names) is False
+
+        assert parent1.children_names[child1.name] == child1
+        assert parent1.children_names[child2.name] == child2
+        with pytest.raises(KeyError):
+            parent1.children_names[child3.name]  # pylint: disable=pointless-statement
+        assert parent1.children_names.get(child3.name) is None
+        assert dict(parent1.children_names) == {
+            child1.name: child1,
+            child2.name: child2,
+        }
+        assert sorted(parent1.children_names.items()) == [
+            (child1.name, child1),
+            (child2.name, child2),
+        ]
 
         # Repeat access returns proxy wrappers from instance cache
         p1a = parent1.children_names
