@@ -155,7 +155,7 @@ from typing_extensions import Self, TypeAlias, TypeVar
 import sqlalchemy as sa
 from flask import g
 from sqlalchemy import event, select
-from sqlalchemy.exc import NoInspectionAvailable
+from sqlalchemy.exc import NoInspectionAvailable, NoResultFound
 from sqlalchemy.ext.orderinglist import OrderingList
 from sqlalchemy.orm import (
     ColumnProperty,
@@ -210,6 +210,7 @@ ActorAttrType: TypeAlias = Union[str, QueryableAttribute]
 RoleMixinType = TypeVar('RoleMixinType', bound='RoleMixin')
 _T = TypeVar('_T')
 _V = TypeVar('_V', default=Any)  # Var type for DynamicAssociationProxy
+_R = TypeVar('_R', default=Any)  # Relationship type for DynamicAssociationProxy
 ActorType = TypeVar('ActorType', bound=Any, default=Any)
 
 
@@ -643,7 +644,7 @@ class LazyRoleSet(abc.MutableSet):
     difference_update: ClassVar[Callable[..., Self]] = nary_op(abc.MutableSet.__isub__)
 
 
-class DynamicAssociationProxy(Generic[_V]):
+class DynamicAssociationProxy(Generic[_V, _R]):
     """
     Association proxy for dynamic relationships.
 
@@ -657,7 +658,7 @@ class DynamicAssociationProxy(Generic[_V]):
         Document.child_relationship = relationship(ChildDocument, lazy='dynamic')
 
         # Proxy to an attribute on the target of the relationship (specifying the type):
-        Document.child_attributes = DynamicAssociationProxy[attribute_type](
+        Document.child_attributes = DynamicAssociationProxy[attr_type, rel_type](
             'child_relationship', 'attribute')
 
     This proxy does not provide access to the query capabilities of dynamic
@@ -673,6 +674,10 @@ class DynamicAssociationProxy(Generic[_V]):
     specified in the constructor::
 
         list(document.child_attributes)  # type: list[attribute_type]
+
+    The proxy also acts as a mapping interface to the relationship::
+
+        document.child_attributes[value] == relationship_object
 
     :param str rel: Relationship name (must use ``lazy='dynamic'``)
     :param str attr: Attribute on the target of the relationship
@@ -698,14 +703,14 @@ class DynamicAssociationProxy(Generic[_V]):
     @overload
     def __get__(
         self, obj: _T, cls: Optional[type[_T]] = None
-    ) -> DynamicAssociationProxyWrapper[_V, _T]: ...
+    ) -> DynamicAssociationProxyBind[_V, _R, _T]: ...
 
     def __get__(
         self, obj: Optional[_T], cls: Optional[type[_T]] = None
-    ) -> Union[Self, DynamicAssociationProxyWrapper[_V, _T]]:
+    ) -> Union[Self, DynamicAssociationProxyBind[_V, _R, _T]]:
         if obj is None:
             return self
-        wrapper = DynamicAssociationProxyWrapper(obj, self.rel, self.attr)
+        wrapper = DynamicAssociationProxyBind(obj, self.rel, self.attr)
         if name := self.name:
             # Cache it for repeat access. SQLAlchemy models cannot use __slots__ or
             # must include __dict__ in slots for state management, so we don't need to
@@ -714,8 +719,8 @@ class DynamicAssociationProxy(Generic[_V]):
         return wrapper
 
 
-class DynamicAssociationProxyWrapper(abc.Set, Generic[_V, _T]):
-    """:class:`DynamicAssociationProxy` wrapped around an instance."""
+class DynamicAssociationProxyBind(abc.Mapping, Generic[_V, _R, _T]):
+    """:class:`DynamicAssociationProxy` bound to an instance."""
 
     __slots__ = ('obj', 'rel', 'relattr', 'attr')
     relattr: AppenderQuery
@@ -728,13 +733,11 @@ class DynamicAssociationProxyWrapper(abc.Set, Generic[_V, _T]):
     ) -> None:
         self.obj = obj
         self.rel = rel
-        self.relattr = getattr(obj, rel)
+        self.relattr: AppenderQuery[_R] = getattr(obj, rel)
         self.attr = attr
 
     def __repr__(self) -> str:
-        return (
-            f'DynamicAssociationProxyWrapper({self.obj!r}, {self.rel!r}, {self.attr!r})'
-        )
+        return f'DynamicAssociationProxyBind({self.obj!r}, {self.rel!r}, {self.attr!r})'
 
     def __contains__(self, value: Any) -> bool:
         relattr = self.relattr
@@ -743,6 +746,12 @@ class DynamicAssociationProxyWrapper(abc.Set, Generic[_V, _T]):
         return relattr.session.query(
             relattr.filter_by(**{self.attr: value}).exists()
         ).scalar()
+
+    def __getitem__(self, value: Any) -> _R:
+        try:
+            return self.relattr.filter_by(**{self.attr: value}).one()
+        except NoResultFound:
+            raise KeyError(value) from None
 
     def __iter__(self) -> Iterator[_V]:
         for obj in self.relattr:
@@ -758,12 +767,13 @@ class DynamicAssociationProxyWrapper(abc.Set, Generic[_V, _T]):
         return relattr.session.query(relattr.exists()).scalar()
 
     def __eq__(self, other: Any) -> bool:
-        return (
-            isinstance(other, DynamicAssociationProxyWrapper)
-            and self.obj == other.obj
-            and self.rel == other.rel
-            and self.attr == other.attr
-        )
+        if isinstance(other, DynamicAssociationProxyBind):
+            return (
+                self.obj == other.obj
+                and self.rel == other.rel
+                and self.attr == other.attr
+            )
+        return NotImplemented
 
 
 class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
