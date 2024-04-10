@@ -703,11 +703,11 @@ class DynamicAssociationProxy(Generic[_V, _R]):
     @overload
     def __get__(
         self, obj: _T, cls: Optional[type[_T]] = None
-    ) -> DynamicAssociationProxyBind[_V, _R, _T]: ...
+    ) -> DynamicAssociationProxyBind[_T, _V, _R]: ...
 
     def __get__(
         self, obj: Optional[_T], cls: Optional[type[_T]] = None
-    ) -> Union[Self, DynamicAssociationProxyBind[_V, _R, _T]]:
+    ) -> Union[Self, DynamicAssociationProxyBind[_T, _V, _R]]:
         if obj is None:
             return self
         wrapper = DynamicAssociationProxyBind(obj, self.rel, self.attr)
@@ -719,7 +719,7 @@ class DynamicAssociationProxy(Generic[_V, _R]):
         return wrapper
 
 
-class DynamicAssociationProxyBind(abc.Mapping, Generic[_V, _R, _T]):
+class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
     """:class:`DynamicAssociationProxy` bound to an instance."""
 
     __slots__ = ('obj', 'rel', 'relattr', 'attr')
