@@ -133,6 +133,7 @@ disable = [
   'too-few-public-methods',
   'too-many-ancestors',
   'too-many-arguments',
+  'too-many-function-args',
   'too-many-instance-attributes',
   'too-many-lines',
   'too-many-locals',
@@ -283,3 +284,7 @@ section-order = [
   'first-party',
   'local-folder',
 ]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false

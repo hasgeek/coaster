@@ -1312,7 +1312,7 @@ class TestCoasterModels(AppTestCase):
         assert u4 is None
 
         # UuidMixin works likewise
-        um1 = uuidm_no.uuid
+        um1 = uuidm_no.uuid  # type: ignore[unreachable]
         assert isinstance(um1, UUID)
         um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
         assert isinstance(um2, UUID)

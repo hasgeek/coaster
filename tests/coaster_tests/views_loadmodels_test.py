@@ -310,7 +310,7 @@ class TestLoadModels(AppTestCase):
         self.session.add(self.child2)
         self.session.commit()
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_container(self) -> None:
         assert self.app.login_manager is not None  # type: ignore[attr-defined]
         with self.app.test_request_context():
@@ -326,7 +326,7 @@ class TestLoadModels(AppTestCase):
             == self.nd2
         )
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_redirect_document(self) -> None:
         with self.app.test_request_context('/c/named-document'):
             assert (
@@ -361,7 +361,7 @@ class TestLoadModels(AppTestCase):
             == self.snd2
         )
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_id_named_document(self) -> None:
         assert (
             t_id_named_document(container='c', document='1-id-named-document')
@@ -390,7 +390,7 @@ class TestLoadModels(AppTestCase):
         assert t_scoped_id_document(container='c', document=1) == self.sid1
         assert t_scoped_id_document(container='c', document=2) == self.sid2
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_scoped_id_named_document(self) -> None:
         assert (
             t_scoped_id_named_document(
@@ -447,7 +447,7 @@ class TestLoadModels(AppTestCase):
         assert self.pc.permissions(user, inherited=inherited) == {'add-video', 'view'}
         assert inherited == {'add-video'}
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_loadmodel_permissions(self) -> None:
         with self.app.test_request_context():
             self.app.login_manager.set_user_for_testing(  # type: ignore[attr-defined]
@@ -458,7 +458,7 @@ class TestLoadModels(AppTestCase):
             with pytest.raises(Forbidden):
                 t_dotted_document_delete(document='parent', child=1)
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_load_user_to_g(self) -> None:
         with self.app.test_request_context():
             user = User(username='baz')
@@ -469,7 +469,7 @@ class TestLoadModels(AppTestCase):
             with pytest.raises(NotFound):
                 t_load_user_to_g(username='boo')
 
-    @pytest.mark.flaky()
+    @pytest.mark.flaky
     def test_single_model_in_loadmodels(self) -> None:
         with self.app.test_request_context():
             user = User(username='user1')
