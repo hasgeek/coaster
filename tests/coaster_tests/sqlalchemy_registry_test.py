@@ -15,7 +15,7 @@ from .conftest import Model
 # --- Fixtures -------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def CallableRegistry():  # noqa: N802
     """Callable registry with a positional parameter."""
 
@@ -25,7 +25,7 @@ def CallableRegistry():  # noqa: N802
     return CallableRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def PropertyRegistry():  # noqa: N802
     """Registry with property and a positional parameter."""
 
@@ -35,7 +35,7 @@ def PropertyRegistry():  # noqa: N802
     return PropertyRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def CachedPropertyRegistry():  # noqa: N802
     """Registry with cached property and a positional parameter."""
 
@@ -45,7 +45,7 @@ def CachedPropertyRegistry():  # noqa: N802
     return CachedPropertyRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def CallableParamRegistry():  # noqa: N802
     """Callable registry with a keyword parameter."""
 
@@ -55,7 +55,7 @@ def CallableParamRegistry():  # noqa: N802
     return CallableParamRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def PropertyParamRegistry():  # noqa: N802
     """Registry with property and a keyword parameter."""
 
@@ -65,7 +65,7 @@ def PropertyParamRegistry():  # noqa: N802
     return PropertyParamRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def CachedPropertyParamRegistry():  # noqa: N802
     """Registry with cached property and a keyword parameter."""
 
@@ -75,7 +75,7 @@ def CachedPropertyParamRegistry():  # noqa: N802
     return CachedPropertyParamRegistry
 
 
-@pytest.fixture()
+@pytest.fixture
 def all_registry_hosts(
     CallableRegistry,  # noqa: N803
     PropertyRegistry,

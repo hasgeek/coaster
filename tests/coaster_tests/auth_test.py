@@ -96,21 +96,21 @@ def models() -> SimpleNamespace:
 # --- Fixtures -------------------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def login_manager(app: Flask) -> Iterator[LoginManager]:
     """Login manager fixture."""
     yield LoginManager(app)
     del app.login_manager  # type: ignore[attr-defined]
 
 
-@pytest.fixture()
+@pytest.fixture
 def flask_login_manager(app: Flask) -> Iterator[FlaskLoginManager]:
     """Flask-Login style login manager fixture."""
     yield FlaskLoginManager(app)
     del app.login_manager  # type: ignore[attr-defined]
 
 
-@pytest.fixture()
+@pytest.fixture
 def request_ctx(app: Flask) -> Iterator:
     """Request context with database models."""
     ctx = app.test_request_context()
@@ -227,7 +227,7 @@ def test_current_auth_with_user_loaded(
     assert current_auth.is_authenticated  # type: ignore[unreachable]
     assert current_auth
     assert current_auth.user is not None
-    assert current_auth.user == user
+    assert current_auth.user == user  # type: ignore[unreachable]
     assert current_auth.actor == user
 
 

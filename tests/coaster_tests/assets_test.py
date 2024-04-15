@@ -18,7 +18,7 @@ from coaster.assets import AssetNotFound, Version, VersionedAssets, WebpackManif
 # --- VersionedAssets tests ------------------------------------------------------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def assets() -> VersionedAssets:
     """Sample asset fixture."""
     _assets = VersionedAssets()
@@ -127,13 +127,13 @@ def test_blacklist(assets: VersionedAssets) -> None:
 # for the tests here
 
 
-@pytest.fixture()
+@pytest.fixture
 def app1() -> Flask:
     """First Flask app fixture."""
     return Flask(__name__)
 
 
-@pytest.fixture()
+@pytest.fixture
 def app2() -> Flask:
     """Second Flask app fixture."""
     return Flask(__name__)

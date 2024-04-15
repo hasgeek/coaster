@@ -33,17 +33,17 @@ del MetadataEnum.__str__
 del MetadataEnum.__format__
 
 
-@pytest.fixture()
+@pytest.fixture
 def a() -> StringMetadata:
     return StringMetadata('a', "A string")
 
 
-@pytest.fixture()
+@pytest.fixture
 def b() -> StringMetadata:
     return StringMetadata('b', "B string")
 
 
-@pytest.fixture()
+@pytest.fixture
 def b2() -> StringMetadata:
     return StringMetadata('b', "Also B string", "Extra metadata")
 
@@ -189,6 +189,7 @@ def test_repr() -> None:
 def test_metadata_enum() -> None:
     """Enum members behave like strings."""
     assert isinstance(MetadataEnum.FIRST, str)
+    assert isinstance(MetadataEnum.FIRST, MetadataEnum)
     assert MetadataEnum.FIRST.self == "first"
     assert MetadataEnum.FIRST == "first"
     assert MetadataEnum.SECOND == "second"  # type: ignore[unreachable]
