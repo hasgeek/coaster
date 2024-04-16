@@ -163,11 +163,11 @@ from sqlalchemy.orm import (
     MappedColumn,
     MapperProperty,
     Query as QueryBase,
+    QueryableAttribute,
     RelationshipProperty,
     SynonymProperty,
     declarative_mixin,
 )
-from sqlalchemy.orm.attributes import QueryableAttribute
 from sqlalchemy.orm.collections import (
     InstrumentedDict,
     InstrumentedList,
@@ -679,16 +679,25 @@ class DynamicAssociationProxy(Generic[_V, _R]):
 
         document.child_attributes[value] == relationship_object
 
-    :param str rel: Relationship name (must use ``lazy='dynamic'``)
-    :param str attr: Attribute on the target of the relationship
+    :param rel: Relationship name (must use ``lazy='dynamic'``)
+    :param attr: Attribute on the target of the relationship
+    :param qattr: Optional callable that returns a
+        :class:`~sqlalchemy.orm.QueryableAttribute` to use in the query filter, for use
+        when the relationship includes joins
     """
 
-    __slots__ = ('rel', 'attr', 'name')
+    __slots__ = ('rel', 'attr', 'qattr', 'name')
     name: Optional[str]
 
-    def __init__(self, rel: str, attr: str) -> None:
+    def __init__(
+        self,
+        rel: str,
+        attr: str,
+        qattr: Optional[Callable[[], QueryableAttribute]] = None,
+    ) -> None:
         self.rel = rel
         self.attr = attr
+        self.qattr = qattr
         self.name = None
 
     def __set_name__(self, owner: _T, name: str) -> None:
@@ -710,7 +719,10 @@ class DynamicAssociationProxy(Generic[_V, _R]):
     ) -> Union[Self, DynamicAssociationProxyBind[_T, _V, _R]]:
         if obj is None:
             return self
-        wrapper = DynamicAssociationProxyBind(obj, self.rel, self.attr)
+        qattr = self.qattr
+        wrapper = DynamicAssociationProxyBind(
+            obj, self.rel, self.attr, qattr() if qattr is not None else None
+        )
         if name := self.name:
             # Cache it for repeat access. SQLAlchemy models cannot use __slots__ or
             # must include __dict__ in slots for state management, so we don't need to
@@ -722,19 +734,18 @@ class DynamicAssociationProxy(Generic[_V, _R]):
 class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
     """:class:`DynamicAssociationProxy` bound to an instance."""
 
-    __slots__ = ('obj', 'rel', 'relattr', 'attr')
+    __slots__ = ('obj', 'rel', 'relattr', 'attr', 'qattr')
     relattr: AppenderQuery
+    qattr: Optional[QueryableAttribute]
 
     def __init__(
-        self,
-        obj: _T,
-        rel: str,
-        attr: str,
+        self, obj: _T, rel: str, attr: str, qattr: Optional[QueryableAttribute]
     ) -> None:
         self.obj = obj
         self.rel = rel
         self.relattr: AppenderQuery[_R] = getattr(obj, rel)
         self.attr = attr
+        self.qattr = qattr
 
     def __repr__(self) -> str:
         return f'DynamicAssociationProxyBind({self.obj!r}, {self.rel!r}, {self.attr!r})'
@@ -743,12 +754,18 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
         relattr = self.relattr
         if TYPE_CHECKING:
             assert relattr.session is not None  # nosec B101
+        if (qattr := self.qattr) is not None:
+            return relattr.session.query(
+                relattr.filter(qattr == value).exists()
+            ).scalar()
         return relattr.session.query(
             relattr.filter_by(**{self.attr: value}).exists()
         ).scalar()
 
     def __getitem__(self, value: Any) -> _R:
         try:
+            if (qattr := self.qattr) is not None:
+                return self.relattr.filter(qattr == value).one()
             return self.relattr.filter_by(**{self.attr: value}).one()
         except NoResultFound:
             raise KeyError(value) from None
@@ -772,6 +789,7 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
                 self.obj == other.obj
                 and self.rel == other.rel
                 and self.attr == other.attr
+                and self.qattr == other.qattr
             )
         return NotImplemented
 
