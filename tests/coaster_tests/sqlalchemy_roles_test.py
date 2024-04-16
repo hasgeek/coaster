@@ -208,6 +208,12 @@ class RelationshipParent(BaseNameMixin, Model):
     children_names = DynamicAssociationProxy[str, RelationshipChild](
         'children_list_lazy', 'name'
     )
+    # Another instance of DynamicAssociationProxy, this time using a QueryableAttribute
+    children_namesq: DynamicAssociationProxy[str, RelationshipChild] = (
+        DynamicAssociationProxy(
+            'children_list_lazy', 'name', lambda: RelationshipChild.name
+        )
+    )
 
     __roles__ = {
         'all': {
@@ -986,6 +992,65 @@ class TestCoasterRoles(AppTestCase):
         assert p1a == p1b  # Test __eq__
         assert not p1a != p1b  # Test __ne__
         assert p1a != parent2.children_names  # Cross-check with an unrelated proxy
+
+    def test_dynamic_association_proxy_qattr(self) -> None:
+        parent1 = RelationshipParent(title="Proxy Parent 1")
+        parent2 = RelationshipParent(title="Proxy Parent 2")
+        parent3 = RelationshipParent(title="Proxy Parent 3")
+        child1 = RelationshipChild(name='child1', title="Proxy Child 1", parent=parent1)
+        child2 = RelationshipChild(name='child2', title="Proxy Child 2", parent=parent1)
+        child3 = RelationshipChild(name='child3', title="Proxy Child 3", parent=parent2)
+        self.session.add_all([parent1, parent2, parent3, child1, child2, child3])
+        self.session.commit()
+
+        assert isinstance(RelationshipParent.children_namesq, DynamicAssociationProxy)
+
+        assert child1.name in parent1.children_namesq
+        assert child2.name in parent1.children_namesq
+        assert child3.name not in parent1.children_namesq
+
+        assert child1.name not in parent2.children_namesq
+        assert child2.name not in parent2.children_namesq
+        assert child3.name in parent2.children_namesq
+
+        assert child1.name not in parent3.children_namesq
+        assert child2.name not in parent3.children_namesq
+        assert child3.name not in parent3.children_namesq
+
+        assert len(parent1.children_namesq) == 2
+        assert set(parent1.children_namesq) == {child1.name, child2.name}
+
+        assert len(parent2.children_namesq) == 1
+        assert set(parent2.children_namesq) == {child3.name}
+
+        assert len(parent3.children_namesq) == 0
+        assert set(parent3.children_namesq) == set()
+
+        assert bool(parent1.children_namesq) is True
+        assert bool(parent2.children_namesq) is True
+        assert bool(parent3.children_namesq) is False
+
+        assert parent1.children_namesq[child1.name] == child1
+        assert parent1.children_namesq[child2.name] == child2
+        with pytest.raises(KeyError):
+            parent1.children_namesq[child3.name]  # pylint: disable=pointless-statement
+        assert parent1.children_namesq.get(child3.name) is None
+        assert dict(parent1.children_namesq) == {
+            child1.name: child1,
+            child2.name: child2,
+        }
+        assert sorted(parent1.children_namesq.items()) == [
+            (child1.name, child1),
+            (child2.name, child2),
+        ]
+
+        # Repeat access returns proxy wrappers from instance cache
+        p1a = parent1.children_namesq
+        p1b = parent1.children_namesq
+        assert p1a is p1b
+        assert p1a == p1b  # Test __eq__
+        assert not p1a != p1b  # Test __ne__
+        assert p1a != parent2.children_namesq  # Cross-check with an unrelated proxy
 
     def test_granted_via(self) -> None:
         """

@@ -421,7 +421,7 @@ class ModelBase:
         else:
             pk = ", ".join(map(str, state.identity))
 
-        return f'<{type(self).__name__} {pk}>'
+        return f'<{type(self).__qualname__} {pk}>'
 
 
 # --- `relationship` and `backref` wrappers for `lazy='dynamic'` -----------------------
@@ -430,13 +430,12 @@ class ModelBase:
 # a type hint to Coaster's AppenderQuery, which in turn wraps Coaster's Query with its
 # additional methods
 
+if TYPE_CHECKING:
 
-class DynamicMapped(DynamicMappedBase[_T_co]):
-    """Represent the ORM mapped attribute type for a "dynamic" relationship."""
+    class DynamicMapped(DynamicMappedBase[_T_co]):
+        """Represent the ORM mapped attribute type for a "dynamic" relationship."""
 
-    __slots__ = ()
-
-    if TYPE_CHECKING:
+        __slots__ = ()
 
         @overload  # type: ignore[override]
         def __get__(
@@ -452,11 +451,13 @@ class DynamicMapped(DynamicMappedBase[_T_co]):
 
         def __set__(self, instance: Any, value: Collection[_T_co]) -> None: ...
 
+    class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[misc]
+        """Wraps Relationship with the updated version of DynamicMapped."""
 
-class Relationship(RelationshipBase[_T], DynamicMapped[_T]):  # type: ignore[misc]
-    """Wraps Relationship with the updated version of DynamicMapped."""
-
-    __slots__ = ()
+else:
+    # Avoid the overhead of empty subclasses at runtime
+    DynamicMapped = DynamicMappedBase
+    Relationship = RelationshipBase
 
 
 _P = ParamSpec('_P')
