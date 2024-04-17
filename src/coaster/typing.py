@@ -5,29 +5,36 @@ Coaster types
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol, TypeVar
-from typing_extensions import Concatenate, ParamSpec
+from typing import Any, Callable, Protocol, TypeVar, overload
+from typing_extensions import ParamSpec, Self
 
+# These two are obsolete and should be replaced with ParamSpec-based definitions
 WrappedFunc = TypeVar('WrappedFunc', bound=Callable)
-#: Return type for decorator factories
 ReturnDecorator = Callable[[WrappedFunc], WrappedFunc]
 
-#: Recurring use ParamSpec
 _P = ParamSpec('_P')
-#: Recurring use type spec
 _T = TypeVar('_T')
+_T_contra = TypeVar('_T_contra', contravariant=True)
+_R_co = TypeVar('_R_co', covariant=True)
 
 
-class MethodProtocol(Protocol[_P, _T]):
-    """
-    Protocol that matches a method without also matching against a type constructor.
+class BoundMethod(Protocol[_T_contra, _P, _R_co]):
+    """Protocol for a bound instance method. See :class:`Method` for use."""
 
-    Replace ``Callable[Concatenate[Any, P], R]`` with ``MethodProtocol[Concatenate[Any,
-    P], R]``. This is needed because the typeshed defines ``type.__call__``, so any type
-    will also validate as a callable. Mypy special-cases callable protocols as not
-    matching ``type.__call__`` in https://github.com/python/mypy/pull/14121.
-    """
+    # pylint: disable=no-self-argument
+    def __call__(
+        __self, self: _T_contra, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _R_co: ...
 
-    # Using ``def __call__`` seems to break Mypy, so we use this hack
-    # https://github.com/python/typing/discussions/1312#discussioncomment-4416217
-    __call__: Callable[Concatenate[Any, _P], _T]
+
+class Method(Protocol[_P, _R_co]):
+    """Protocol for an instance method."""
+
+    # pylint: disable=no-self-argument
+    def __call__(__self, self: Any, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
+
+    @overload
+    def __get__(self, obj: None, cls: type[_T]) -> Self: ...
+
+    @overload
+    def __get__(self, obj: _T, cls: type[_T]) -> BoundMethod[_T, _P, _R_co]: ...

@@ -57,7 +57,7 @@ from werkzeug.wrappers import Response as BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
 from ..sqlalchemy import Query, UrlForMixin
-from ..typing import MethodProtocol, ReturnDecorator, WrappedFunc
+from ..typing import Method, ReturnDecorator, WrappedFunc
 from ..utils import InspectableSet
 from .misc import ensure_sync
 
@@ -106,15 +106,13 @@ class RouteDecoratorProtocol(Protocol):
     def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @overload
-    def __call__(
-        self, __decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]: ...
+    def __call__(self, __decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
         __decorated: Union[
             ClassViewType,
-            MethodProtocol[Concatenate[Any, _P], _R_co],
+            Method[_P, _R_co],
             ViewMethod[_P, _R_co],
         ],
     ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
@@ -127,15 +125,11 @@ class ViewDataDecoratorProtocol(Protocol):
     def __call__(self, __decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @overload
-    def __call__(
-        self, __decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]: ...
+    def __call__(self, __decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     def __call__(  # skipcq: PTC-W0049
         self,
-        __decorated: Union[
-            MethodProtocol[Concatenate[Any, _P], _R_co], ViewMethod[_P, _R_co]
-        ],
+        __decorated: Union[Method[_P, _R_co], ViewMethod[_P, _R_co]],
     ) -> ViewMethod[_P, _R_co]: ...
 
 
@@ -201,14 +195,12 @@ def route(
     def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @overload
-    def decorator(
-        decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]: ...
+    def decorator(decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
         decorated: Union[
             ClassViewType,
-            MethodProtocol[Concatenate[Any, _P], _R_co],
+            Method[_P, _R_co],
             ViewMethod[_P, _R_co],
         ]
     ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]:
@@ -244,14 +236,10 @@ def viewdata(**kwargs: Any) -> ViewDataDecoratorProtocol:
     def decorator(decorated: ViewMethod[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     @overload
-    def decorator(
-        decorated: MethodProtocol[Concatenate[Any, _P], _R_co]
-    ) -> ViewMethod[_P, _R_co]: ...
+    def decorator(decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
-        decorated: Union[
-            ViewMethod[_P, _R_co], MethodProtocol[Concatenate[Any, _P], _R_co]
-        ]
+        decorated: Union[ViewMethod[_P, _R_co], Method[_P, _R_co]]
     ) -> ViewMethod[_P, _R_co]:
         return ViewMethod(decorated, data=kwargs)
 
@@ -348,9 +336,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
     def replace(
         self,
-        __f: Union[
-            ViewMethod[_P2, _R2_co], MethodProtocol[Concatenate[Any, _P2], _R2_co]
-        ],
+        __f: Union[ViewMethod[_P2, _R2_co], Method[_P2, _R2_co]],
     ) -> ViewMethod[_P2, _R2_co]:
         """
         Replace a view method in a subclass while keeping its URL routes.
