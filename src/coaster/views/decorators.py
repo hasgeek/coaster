@@ -9,7 +9,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Container, Iterable
+from collections.abc import Collection, Container, Iterable, Mapping
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypeVar, Union, cast
 from typing_extensions import ParamSpec
@@ -50,7 +50,7 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithData = dict[str, Any]
+ReturnRenderWithData = Mapping[str, Any]
 ReturnRenderWithResponse = Union[WerkzeugResponse, ReturnRenderWithData]
 ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
 ReturnRenderWith = Union[

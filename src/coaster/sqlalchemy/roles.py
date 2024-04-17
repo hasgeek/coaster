@@ -1049,7 +1049,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
     def __iter__(self) -> Iterator[str]:
         yield from self._all_read
 
-    def __json__(self) -> dict[str, Any]:
+    def __json__(self) -> Any:
         if self._datasets is None and self._obj.__json_datasets__:
             # This proxy was created without specifying datasets, so we create a new
             # proxy using the object's default JSON datasets, then convert it to a dict

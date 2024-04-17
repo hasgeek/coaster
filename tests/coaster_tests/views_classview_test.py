@@ -349,12 +349,12 @@ class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
 
     @route('perm')
     @requires_permission('edit')
-    def by_perm(self):
+    def by_perm(self) -> str:
         return 'perm-called'
 
     @route('role')
     @requires_roles({'owner'})
-    def by_role(self):
+    def by_role(self) -> str:
         return 'role-called'
 
     @route('perm-role')

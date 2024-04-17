@@ -1,4 +1,5 @@
 import unittest
+from collections.abc import Mapping
 from typing import Any
 
 import pytest
@@ -13,7 +14,7 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: dict[str, Any]) -> BaseResponse:
+def viewcallable(data: Mapping[str, Any]) -> BaseResponse:
     return Response(repr(data), mimetype='text/plain')
 
 

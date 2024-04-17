@@ -81,7 +81,7 @@ class MarkdownComposite(MutableComposite):
         )
         self.changed()
 
-    def __json__(self) -> dict[str, Optional[str]]:
+    def __json__(self) -> Any:
         """Return JSON-compatible rendering of composite."""
         return {'text': self._text, 'html': self._html}
 
