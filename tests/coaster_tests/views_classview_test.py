@@ -155,7 +155,8 @@ class DocumentView(ClassView):
 
     @route('')
     @render_with(json=True)
-    def view(self, name):
+    def view(self, name: str):
+        """View the document."""
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         return document.current_access()
 
@@ -163,7 +164,8 @@ class DocumentView(ClassView):
     @route('/edit/<name>', methods=['POST'])  # Maps to /edit/<name>
     @route('', methods=['POST'])  # Maps to /doc/<name>
     @requestform('title')
-    def edit(self, name, title):
+    def edit(self, name: str, title: str):
+        """Edit the document."""
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         document.title = title
         return 'edited!'
@@ -208,8 +210,7 @@ class SubView(BaseView):
     def first(self):
         return 'replaced-first'
 
-    # Mypy can't process this, but Pyright can. Appears to be a Mypy bug
-    @route('2')  # type: ignore[arg-type]
+    @route('2')
     @BaseView.second.replace
     @viewdata(title="Not still second")
     def second(self):

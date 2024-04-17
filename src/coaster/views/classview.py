@@ -566,7 +566,7 @@ class ViewMethodBind(Generic[_P, _R_co]):
         return f'<ViewMethodBind {self.__qualname__}>'
 
     def __call__(self, *args: _P.args, **kwargs: _P.kwargs) -> _R_co:
-        """Treat this like a call to the original method and not to the view."""
+        # Treat this like a call to the original method and not to the view.
         # As per the __decorators__ spec, we call .__func__, not .decorated_func
         return self._view_method.__func__(self.__self__, *args, **kwargs)
 

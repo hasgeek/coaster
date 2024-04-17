@@ -9,7 +9,7 @@ All items in this module can be imported directly from :mod:`coaster.views`.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Container, Iterable, Mapping
+from collections.abc import Collection, Container, Iterable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypeVar, Union, cast
 from typing_extensions import ParamSpec
@@ -50,14 +50,14 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithResponse = Union[WerkzeugResponse, Mapping[str, Any]]
+ReturnRenderWithData = dict[str, Any]
+ReturnRenderWithResponse = Union[WerkzeugResponse, ReturnRenderWithData]
 ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
 ReturnRenderWith = Union[
     ReturnRenderWithResponse,
-    tuple[ReturnRenderWithResponse],
-    tuple[ReturnRenderWithResponse, ReturnRenderWithHeaders],
-    tuple[ReturnRenderWithResponse, int],
-    tuple[ReturnRenderWithResponse, int, ReturnRenderWithHeaders],
+    tuple[ReturnRenderWithData, ReturnRenderWithHeaders],
+    tuple[ReturnRenderWithData, int],
+    tuple[ReturnRenderWithData, int, ReturnRenderWithHeaders],
 ]
 _VP = ParamSpec('_VP')  # View parameters as accepted by the decorated view
 _VR = TypeVar('_VR', bound=Any)  # View return value
@@ -447,10 +447,12 @@ def _best_mimetype_match(
 
 def render_with(
     template: Union[
-        dict[str, Union[str, Callable[..., ResponseReturnValue]]], str, None
+        dict[str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]],
+        str,
+        None,
     ] = None,
     json: bool = False,
-) -> Callable[[Callable[..., ReturnRenderWith]], Callable[..., WerkzeugResponse]]:
+) -> Callable[[Callable[_VP, ReturnRenderWith]], Callable[_VP, WerkzeugResponse]]:
     """
     Render the view's dict output with a MIMEtype-specific renderer.
 
@@ -508,7 +510,9 @@ def render_with(
         render_with no longer has a shorthand for JSONP. If still required, specify a
         template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
-    templates: dict[str, Union[str, Callable[..., ResponseReturnValue]]]
+    templates: dict[
+        str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]
+    ]
     default_mimetype: Optional[str] = None
     if json:
         templates = {'application/json': jsonify}
@@ -538,10 +542,10 @@ def render_with(
     template_mimetypes.remove('*/*')
 
     def decorator(
-        f: Callable[..., ReturnRenderWith]
-    ) -> Callable[..., WerkzeugResponse]:
+        f: Callable[_VP, ReturnRenderWith]
+    ) -> Callable[_VP, WerkzeugResponse]:
         @wraps(f)
-        def wrapper(*args, **kwargs) -> WerkzeugResponse:
+        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
             # Check if we need to bypass rendering
             render = kwargs.pop('_render', True)
 
@@ -564,10 +568,13 @@ def render_with(
                 resultset = result
                 result = resultset[0]
                 len_resultset = len(resultset)
+                status_code = None
+                headers = None
                 if len_resultset == 1:
-                    status_code = None
-                    headers = None
-                elif len_resultset == 2:
+                    raise TypeError(
+                        "View's response is an unexpected single-element tuple"
+                    )
+                if len_resultset == 2:
                     status_or_headers = resultset[1]  # type: ignore[misc]
                     if isinstance(status_or_headers, (Headers, dict, tuple, list)):
                         status_code = None

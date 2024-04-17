@@ -1,4 +1,5 @@
 import unittest
+from typing import Any
 
 import pytest
 from flask import Flask, Response, jsonify
@@ -12,7 +13,7 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: dict[str, str]) -> BaseResponse:
+def viewcallable(data: dict[str, Any]) -> BaseResponse:
     return Response(repr(data), mimetype='text/plain')
 
 
@@ -51,8 +52,8 @@ def otherview() -> tuple[dict, int]:
         'text/plain': viewcallable,
     }
 )
-def onemoreview() -> tuple[dict]:
-    return ({'data': 'value'},)
+def onemoreview() -> dict[str, str]:
+    return {'data': 'value'}
 
 
 @app.route('/renderedview4')
