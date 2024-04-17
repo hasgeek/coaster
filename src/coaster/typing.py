@@ -18,7 +18,5 @@ _R_co = TypeVar('_R_co', covariant=True)
 class Method(Protocol[_P, _R_co]):
     """Protocol for an instance method."""
 
-    __name__: str
-
     # pylint: disable=no-self-argument
     def __call__(__self, self: Any, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
