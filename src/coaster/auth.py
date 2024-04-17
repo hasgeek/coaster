@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from threading import Lock
-from typing import Any, Generic, NoReturn, TypeVar, cast
+from typing import Any, NoReturn, TypeVar, cast
 
 from flask import Flask, current_app, g
 from flask.globals import request_ctx
@@ -269,13 +269,13 @@ def init_app(app: Flask) -> None:
 _CurrentAuthType_co = TypeVar('_CurrentAuthType_co', bound=CurrentAuth, covariant=True)
 
 
-class GetCurrentAuth(Generic[_CurrentAuthType_co]):
+class GetCurrentAuth:
     """Helper for :attr:`current_auth` proxy to use a :class:`CurrentAuth` subclass."""
 
     def __init__(self, cls: type[_CurrentAuthType_co]) -> None:
         self.cls = cls
 
-    def __call__(self) -> _CurrentAuthType_co:
+    def __call__(self) -> CurrentAuth:
         """Provide :attr:`current_auth` for the request context."""
         # 1. Do we have a request context?
         if request_ctx:

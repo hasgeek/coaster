@@ -172,7 +172,7 @@ class TestCoasterViews(unittest.TestCase):
     def test_requestargs(self) -> None:
         # pylint: disable=no-value-for-parameter
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test1() == ('1', 3, [1, 2])
+            assert requestargs_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
 
         with self.app.test_request_context('/?p2=2'):
             assert requestargs_test1(p1='1') == ('1', 2, None)
@@ -181,42 +181,42 @@ class TestCoasterViews(unittest.TestCase):
             assert requestargs_test1(p1='1', p2=3) == ('1', 3, None)
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test2() == ('1', 3, ['1', '2'])
+            assert requestargs_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
 
         with self.app.test_request_context('/?p2=2&p4=4'):
             with pytest.raises(TypeError):
-                requestargs_test1(p4='4')
+                requestargs_test1(p4='4')  # type: ignore[call-arg]
             with pytest.raises(BadRequest):
-                requestargs_test1(p4='4')
+                requestargs_test1(p4='4')  # type: ignore[call-arg]
 
         with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestquery_test() == ('1', 3, [1, 2])
+            assert requestquery_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
 
         with self.app.test_request_context(
             '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
         ):
-            assert requestform_test() == ('1', 3, [1, 2])
+            assert requestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
 
         with self.app.test_request_context(
             '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
         ):
-            assert requestcombo_test() == ('foo', 'bar')
+            assert requestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
 
         # Calling without a request context works as well
         assert requestargs_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])
 
     def test_requires_permission(self) -> None:
         with self.app.test_request_context():
-            assert permission1.is_available() is False
-            assert permission2.is_available() is False
+            assert permission1.is_available() is False  # type: ignore[attr-defined]
+            assert permission2.is_available() is False  # type: ignore[attr-defined]
 
             with pytest.raises(Forbidden):
                 permission1()
             with pytest.raises(Forbidden):
                 permission2()
 
-            assert permission1.is_available() is False
-            assert permission2.is_available() is False
+            assert permission1.is_available() is False  # type: ignore[attr-defined]
+            assert permission2.is_available() is False  # type: ignore[attr-defined]
 
             with pytest.raises(Forbidden):
                 permission1()
@@ -225,8 +225,8 @@ class TestCoasterViews(unittest.TestCase):
 
             current_auth.permissions |= {'allow-that'}
 
-            assert permission1.is_available() is False
-            assert permission2.is_available() is True
+            assert permission1.is_available() is False  # type: ignore[attr-defined]
+            assert permission2.is_available() is True  # type: ignore[attr-defined]
 
             with pytest.raises(Forbidden):
                 permission1()
@@ -234,8 +234,8 @@ class TestCoasterViews(unittest.TestCase):
 
             current_auth.permissions |= {'allow-this'}
 
-            assert permission1.is_available() is True
-            assert permission2.is_available() is True
+            assert permission1.is_available() is True  # type: ignore[attr-defined]
+            assert permission2.is_available() is True  # type: ignore[attr-defined]
 
             assert permission1() == 'allowed1'
             assert permission2() == 'allowed2'
