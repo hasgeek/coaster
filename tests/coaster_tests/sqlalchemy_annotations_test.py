@@ -4,8 +4,7 @@ from typing import Any, Optional
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.exc
-from sqlalchemy.orm import Mapped, configure_mappers
-from sqlalchemy.orm.attributes import NO_VALUE
+from sqlalchemy.orm import NO_VALUE, Mapped, configure_mappers
 
 from coaster.sqlalchemy import (
     BaseMixin,

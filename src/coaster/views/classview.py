@@ -57,7 +57,7 @@ from werkzeug.wrappers import Response as BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
 from ..sqlalchemy import Query, UrlForMixin
-from ..typing import Method, ReturnDecorator, WrappedFunc
+from ..typing import Method
 from ..utils import InspectableSet
 from .misc import ensure_sync
 
@@ -82,7 +82,7 @@ __all__ = [
 # --- Types and protocols --------------------------------------------------------------
 
 #: Type for URL rules in classviews
-RouteRuleOptions = dict[str, Any]
+RouteRuleOptions: TypeAlias = dict[str, Any]
 ClassViewSubtype = TypeVar('ClassViewSubtype', bound='ClassView')
 ClassViewType: TypeAlias = type[ClassViewSubtype]
 ModelType = TypeVar('ModelType', default=Any)
@@ -354,7 +354,9 @@ class ViewMethod(Generic[_P, _R_co]):
                 def delete(self):
                     super().delete()  # Call into base class's implementation if needed
         """
+        # Get the class, telling static type checkers to ignore generic type binding...
         cls = cast(type[ViewMethod], self.__class__)
+        # ...then bind to the replacement generic types and use it
         r: ViewMethod[_P2, _R2_co] = cls(__f, data=self.data)
         r.routes = self.routes
         return r
@@ -1048,10 +1050,12 @@ class ModelView(ClassView, Generic[ModelType]):
 ModelViewType = TypeVar('ModelViewType', bound=ModelView)
 
 
-def requires_roles(roles: set[str]) -> ReturnDecorator:
+def requires_roles(
+    roles: set[str],
+) -> Callable[[Callable[_P, _R_co]], Callable[_P, _R_co]]:
     """Decorate to require specific roles in a :class:`ModelView` view."""
 
-    def decorator(f: WrappedFunc) -> WrappedFunc:
+    def decorator(f: Callable[_P, _R_co]) -> Callable[_P, _R_co]:
         def is_available_here(context: ModelViewType) -> bool:
             return context.obj.roles_for(
                 current_auth.actor, current_auth.anchors
@@ -1069,20 +1073,25 @@ def requires_roles(roles: set[str]) -> ReturnDecorator:
             if not is_available_here(context):
                 abort(403)
 
-        @wraps(f)
-        def wrapper(self: ModelViewType, *args: Any, **kwargs: Any) -> Any:
-            validate(self)
-            return f(self, *args, **kwargs)
+        if iscoroutinefunction(f):
 
-        @wraps(f)
-        async def async_wrapper(self: ModelViewType, *args: Any, **kwargs: Any) -> Any:
-            validate(self)
-            return await f(self, *args, **kwargs)
+            @wraps(f)
+            async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+                validate(args[0])  # type: ignore[type-var]
+                return await f(*args, **kwargs)
 
-        use_wrapper = async_wrapper if iscoroutinefunction(f) else wrapper
-        use_wrapper.requires_roles = roles  # type: ignore[attr-defined]
-        use_wrapper.is_available = is_available  # type: ignore[attr-defined]
-        return cast(WrappedFunc, use_wrapper)
+            # Fix type hint for the return type
+            wrapper = cast(Callable[_P, _R_co], async_wrapper)
+        else:
+
+            @wraps(f)
+            def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R_co:
+                validate(args[0])  # type: ignore[type-var]
+                return f(*args, **kwargs)
+
+        wrapper.requires_roles = roles  # type: ignore[attr-defined]
+        wrapper.is_available = is_available  # type: ignore[attr-defined]
+        return wrapper
 
     return decorator
 
@@ -1193,7 +1202,9 @@ class UrlForView:
         )
 
 
-def url_change_check(f: WrappedFunc) -> WrappedFunc:
+def url_change_check(
+    f: Callable[_P, _R_co]
+) -> Callable[_P, Union[_R_co, BaseResponse]]:
     """
     Decorate view method in a :class:`ModelView` to check for a change in URL.
 
@@ -1225,7 +1236,7 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
     (``#target_id``) is not available to the server and will be lost.
     """
 
-    def validate(context: ModelView) -> Optional[ResponseReturnValue]:
+    def validate(context: ModelView) -> Optional[BaseResponse]:
         if request.method == 'GET' and getattr(context, 'obj', None) is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = correct_url.copy().remove(
@@ -1243,21 +1254,28 @@ def url_change_check(f: WrappedFunc) -> WrappedFunc:
                 )
         return None
 
-    @wraps(f)
-    def wrapper(self: ModelView, *args, **kwargs) -> Any:
-        retval = validate(self)
-        if retval is not None:
-            return retval
-        return f(self, *args, **kwargs)
+    if iscoroutinefunction(f):
 
-    @wraps(f)
-    async def async_wrapper(self: ModelView, *args, **kwargs) -> Any:
-        retval = validate(self)
-        if retval is not None:
-            return retval
-        return await f(self, *args, **kwargs)
+        @wraps(f)
+        async def async_wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Any:
+            retval = validate(args[0])  # type: ignore[arg-type]
+            if retval is not None:
+                return retval
+            return await f(*args, **kwargs)
 
-    return cast(WrappedFunc, async_wrapper if iscoroutinefunction(f) else wrapper)
+        # Fix return type hint
+        wrapper = cast(Callable[_P, Union[_R_co, BaseResponse]], async_wrapper)
+
+    else:
+
+        @wraps(f)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[_R_co, BaseResponse]:
+            retval = validate(args[0])  # type: ignore[arg-type]
+            if retval is not None:
+                return retval
+            return f(*args, **kwargs)
+
+    return wrapper
 
 
 class UrlChangeCheck:
