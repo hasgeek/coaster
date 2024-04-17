@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import Any, Callable, Protocol, TypeVar, overload
 from typing_extensions import ParamSpec, Self
 
-# These two are obsolete and should be replaced with ParamSpec-based definitions
 WrappedFunc = TypeVar('WrappedFunc', bound=Callable)
 ReturnDecorator = Callable[[WrappedFunc], WrappedFunc]
 
