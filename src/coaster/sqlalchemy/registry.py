@@ -36,6 +36,7 @@ from __future__ import annotations
 import warnings
 from functools import partial
 from keyword import iskeyword
+from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -116,6 +117,8 @@ class Registry:
 
     #: Name of this registry
     _name: Optional[str]
+    #: A lock for the cache
+    _lock: Lock
     #: Default value of the optional kwarg when registering a callable
     _default_kwarg: Optional[str]
     #: Default value of the property flag when registering a callable
@@ -146,6 +149,7 @@ class Registry:
                 raise ValueError("kwarg parameter must be a valid Python identifier")
         object.__setattr__(self, '_default_kwarg', kwarg)
         object.__setattr__(self, '_name', None)
+        object.__setattr__(self, '_lock', Lock())
         object.__setattr__(self, '_default_property', property)
         object.__setattr__(self, '_default_cached_property', cached_property)
         object.__setattr__(self, '_members', {})
@@ -235,11 +239,13 @@ class Registry:
                 "This registry was not bound to a class using registry.__set_name__"
                 "(owner, name)"
             )
-        # Check in cache in case it was added by another thread
-        ir: Optional[InstanceRegistry[_RT, _T]] = cache.get(name)
-        if ir is None:
-            ir = InstanceRegistry(self, obj)
-            cache[name] = ir
+        with self._lock:
+            # Check in cache in case it was added by another thread
+            if name not in cache:
+                ir = InstanceRegistry(self, obj)
+                cache[name] = ir
+            else:
+                ir = cache[name]
 
         # Subsequent accesses will bypass this __get__ method and use the instance
         # that was saved to obj.__dict__
