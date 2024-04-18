@@ -36,7 +36,6 @@ from __future__ import annotations
 import warnings
 from functools import partial
 from keyword import iskeyword
-from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -46,6 +45,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    final,
     overload,
 )
 
@@ -56,7 +56,16 @@ from ..typing import ReturnDecorator, WrappedFunc
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
-_marker = object()
+
+@final
+class Unspecified:
+    pass
+
+
+# This instance exists as a temporary workaround pending type-narrowing support for
+# final classes in Mypy: https://github.com/python/mypy/issues/15553
+unspecified = Unspecified()
+
 
 _T = TypeVar('_T')
 _RT = TypeVar('_RT', bound='Registry')
@@ -107,8 +116,6 @@ class Registry:
 
     #: Name of this registry
     _name: Optional[str]
-    #: A lock for the cache
-    _lock: Lock
     #: Default value of the optional kwarg when registering a callable
     _default_kwarg: Optional[str]
     #: Default value of the property flag when registering a callable
@@ -139,7 +146,6 @@ class Registry:
                 raise ValueError("kwarg parameter must be a valid Python identifier")
         object.__setattr__(self, '_default_kwarg', kwarg)
         object.__setattr__(self, '_name', None)
-        object.__setattr__(self, '_lock', Lock())
         object.__setattr__(self, '_default_property', property)
         object.__setattr__(self, '_default_cached_property', cached_property)
         object.__setattr__(self, '_members', {})
@@ -157,18 +163,19 @@ class Registry:
         """Incorporate a new registry member after validation."""
         self.__call__(name)(value)
 
-    # types.EllipsisType was only introduced in Python 3.10, so we must silence Mypy
-    # for the use of ... as an undeclared sentinel value here
     def __call__(  # pylint: disable=redefined-builtin
         self,
         name: Optional[str] = None,
         *,
-        kwarg: Union[str, None] = ...,  # type: ignore[assignment]
+        kwarg: Union[Unspecified, str, None] = unspecified,
         property: Optional[bool] = None,  # noqa: A002  # pylint: disable=W0622
         cached_property: Optional[bool] = None,
     ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""
-        use_kwarg = self._default_kwarg if kwarg is ... else kwarg
+        # Using the final-decorated Unspecified class as a sentinel value works in
+        # Pyright but not yet in Mypy as of 1.9.0. Therefore we use the non-singleton
+        # instance instead. Issue ticket: https://github.com/python/mypy/issues/15553
+        use_kwarg = self._default_kwarg if isinstance(kwarg, Unspecified) else kwarg
         use_property = self._default_property if property is None else property
         use_cached_property = (
             self._default_cached_property
@@ -228,12 +235,11 @@ class Registry:
                 "This registry was not bound to a class using registry.__set_name__"
                 "(owner, name)"
             )
-        with self._lock:
-            if name not in cache:
-                ir = InstanceRegistry(self, obj)
-                cache[name] = ir
-            else:
-                ir = cache[name]
+        # Check in cache in case it was added by another thread
+        ir: Optional[InstanceRegistry[_RT, _T]] = cache.get(name)
+        if ir is None:
+            ir = InstanceRegistry(self, obj)
+            cache[name] = ir
 
         # Subsequent accesses will bypass this __get__ method and use the instance
         # that was saved to obj.__dict__

@@ -286,7 +286,7 @@ class SlackHandler(logging.Handler):
             throttle_key = (record.module, record.lineno)
             with self.throttle_lock:
                 if throttle_key in self.throttle_cache and (
-                    (datetime.utcnow() - self.throttle_cache[throttle_key])
+                    (datetime.now() - self.throttle_cache[throttle_key])
                     < timedelta(minutes=5)
                 ):
                     return
@@ -349,7 +349,7 @@ class SlackHandler(logging.Handler):
                     daemon=True,
                 ).start()
             with self.throttle_lock:
-                self.throttle_cache[throttle_key] = datetime.utcnow()
+                self.throttle_cache[throttle_key] = datetime.now()
         except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
             self.handleError(record)
 
@@ -375,7 +375,7 @@ class TelegramHandler(logging.Handler):
             throttle_key = (record.module, record.lineno)
             with self.throttle_lock:
                 if throttle_key in self.throttle_cache and (
-                    (datetime.utcnow() - self.throttle_cache[throttle_key])
+                    (datetime.now() - self.throttle_cache[throttle_key])
                     < timedelta(minutes=5)
                 ):
                     return
@@ -424,7 +424,7 @@ class TelegramHandler(logging.Handler):
                 daemon=True,
             ).start()
             with self.throttle_lock:
-                self.throttle_cache[throttle_key] = datetime.utcnow()
+                self.throttle_cache[throttle_key] = datetime.now()
         except Exception:  # noqa: B902  # pylint: disable=broad-except
             self.handleError(record)
 
