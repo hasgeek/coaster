@@ -46,6 +46,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    final,
     overload,
 )
 
@@ -56,7 +57,16 @@ from ..typing import ReturnDecorator, WrappedFunc
 
 __all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
 
-_marker = object()
+
+@final
+class Unspecified:
+    pass
+
+
+# This instance exists as a temporary workaround pending type-narrowing support for
+# final classes in Mypy: https://github.com/python/mypy/issues/15553
+unspecified = Unspecified()
+
 
 _T = TypeVar('_T')
 _RT = TypeVar('_RT', bound='Registry')
@@ -157,18 +167,19 @@ class Registry:
         """Incorporate a new registry member after validation."""
         self.__call__(name)(value)
 
-    # types.EllipsisType was only introduced in Python 3.10, so we must silence Mypy
-    # for the use of ... as an undeclared sentinel value here
     def __call__(  # pylint: disable=redefined-builtin
         self,
         name: Optional[str] = None,
         *,
-        kwarg: Union[str, None] = ...,  # type: ignore[assignment]
+        kwarg: Union[Unspecified, str, None] = unspecified,
         property: Optional[bool] = None,  # noqa: A002  # pylint: disable=W0622
         cached_property: Optional[bool] = None,
     ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""
-        use_kwarg = self._default_kwarg if kwarg is ... else kwarg
+        # Using the final-decorated Unspecified class as a sentinel value works in
+        # Pyright but not yet in Mypy as of 1.10.0. Therefore we use the non-singleton
+        # instance instead. Issue ticket: https://github.com/python/mypy/issues/15553
+        use_kwarg = self._default_kwarg if isinstance(kwarg, Unspecified) else kwarg
         use_property = self._default_property if property is None else property
         use_cached_property = (
             self._default_cached_property
@@ -229,6 +240,7 @@ class Registry:
                 "(owner, name)"
             )
         with self._lock:
+            # Check in cache in case it was added by another thread
             if name not in cache:
                 ir = InstanceRegistry(self, obj)
                 cache[name] = ir

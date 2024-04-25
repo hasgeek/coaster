@@ -21,7 +21,7 @@ repos:
             '--remove-duplicate-keys',
           ]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.7
+    rev: v0.4.1
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
@@ -51,11 +51,11 @@ repos:
         additional_dependencies:
           - tomli
   - repo: https://github.com/psf/black
-    rev: 24.4.0
+    rev: 24.4.1
     hooks:
       - id: black
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.9.0
+    rev: v1.10.0
     hooks:
       - id: mypy
         # warn-unused-ignores is unsafe with pre-commit, see

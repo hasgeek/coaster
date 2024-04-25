@@ -22,7 +22,7 @@ import re
 import warnings
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Optional, Union
+from typing import Any, Final, Optional, Union
 from urllib.parse import urljoin
 
 from flask import Flask, current_app
@@ -37,6 +37,7 @@ __all__ = [
     'SimpleSpec',
     'VersionedAssets',
     'AssetNotFound',
+    'AssetNotFoundError',
     'WebpackManifest',
 ]
 
@@ -52,8 +53,11 @@ def split_namespec(namespec: str) -> tuple[str, SimpleSpec]:
     return name, spec
 
 
-class AssetNotFound(Exception):  # noqa: N818
+class AssetNotFoundError(Exception):
     """No asset with this name."""
+
+
+AssetNotFound = AssetNotFoundError
 
 
 class VersionedAssets(defaultdict):
@@ -186,7 +190,7 @@ class VersionedAssets(defaultdict):
                     if bundle is not None:
                         bundles.append((name, version, bundle))
             else:
-                raise AssetNotFound(namespec)
+                raise AssetNotFoundError(namespec)
         return bundles
 
     def require(self, *namespecs: str) -> Bundle:
@@ -202,7 +206,7 @@ class VersionedAssets(defaultdict):
         )
 
 
-EXTENSION_KEY = 'manifest.json'
+EXTENSION_KEY: Final[str] = 'manifest.json'
 
 
 def _get_assets_for_current_app() -> dict[str, str]:
