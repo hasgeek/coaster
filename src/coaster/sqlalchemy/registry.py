@@ -177,7 +177,7 @@ class Registry:
     ) -> ReturnDecorator:
         """Return decorator to aid class or function registration."""
         # Using the final-decorated Unspecified class as a sentinel value works in
-        # Pyright but not yet in Mypy as of 1.9.0. Therefore we use the non-singleton
+        # Pyright but not yet in Mypy as of 1.10.0. Therefore we use the non-singleton
         # instance instead. Issue ticket: https://github.com/python/mypy/issues/15553
         use_kwarg = self._default_kwarg if isinstance(kwarg, Unspecified) else kwarg
         use_property = self._default_property if property is None else property

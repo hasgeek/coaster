@@ -109,7 +109,7 @@ if mod_yaml is not None:
     _config_loaders['yml'] = ConfigLoader(extn='.yml', loader=mod_yaml.safe_load)
 
 
-_S = TypeVar('_S', bound=itsdangerous.Serializer)
+_S = TypeVar('_S', bound='itsdangerous.Serializer[Any]')
 
 
 _sentinel_keyrotation_exception = RuntimeError("KeyRotationWrapper has no engines.")
