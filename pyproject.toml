@@ -36,7 +36,7 @@ dependencies = [
   'base58>=2.0.0',
   'bleach',
   'blinker',
-  'Flask-Assets2',
+  'Flask-Assets',
   'Flask-Migrate',
   'Flask-SQLAlchemy',
   'Flask>=2.3',
