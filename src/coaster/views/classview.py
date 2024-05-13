@@ -56,7 +56,7 @@ from werkzeug.routing import Map as WzMap, Rule as WzRule
 from werkzeug.wrappers import Response as BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
-from ..sqlalchemy import Query, UrlForMixin
+from ..sqlalchemy import PermissionMixin, Query, UrlForMixin
 from ..typing import Method
 from ..utils import InspectableSet
 from .misc import ensure_sync
@@ -671,7 +671,7 @@ class ClassView:
     #: Indicates whether meth:`is_available` should simply return `True`
     #: without conducting a test. Subclasses should not set this flag. It will
     #: be set by :meth:`init_app` if any view method is missing an
-    #: ``is_available`` method, as it implies that view is always available.
+    #: ``is_available`` callable, as it implies that view is always available.
     is_always_available: ClassVar[bool] = False
 
     #: When a view is called, this will point to the current view method,
@@ -843,7 +843,7 @@ class ModelView(ClassView, Generic[ModelType]):
         # bound to a generic arg
         model: type[ModelType]
     else:
-        #: The model that is being handled by this ModelView (autoset from Generic arg).
+        #: The model that is being handled by this ModelView (auto-set from Generic arg)
         model: ClassVar[type[ModelType]]
 
     #: A loaded object of the model's type
@@ -920,12 +920,12 @@ class ModelView(ClassView, Generic[ModelType]):
             # Same as `view = MyModelView(obj)`
 
         This will skip any side-effects in custom :meth:`load` implementations. Place
-        those in :meth:`post_init` instead.
+        those in :meth:`post_load` instead.
         """
         super().__init__()
         if obj is not None:
             self.obj = obj
-            self.post_init()
+            self.post_load()
 
     def __init_subclass__(cls) -> None:
         """Extract model type from generic args and set on cls if unset."""
@@ -967,11 +967,13 @@ class ModelView(ClassView, Generic[ModelType]):
         resp = ensure_sync(self.load)(**view_args)
         if resp is not None:
             return ensure_sync(self.after_request)(make_response(resp))
+        # Trigger post-load processing of the object
+        self.post_load()
         # Call the view method, then pass the response to :meth:`after_response`
         return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
 
     if TYPE_CHECKING:
-        # Type-checking version without argspec, so subclasses can specify explicit args
+        # Type-checking version without arg-spec to let subclasses specify explicit args
         loader: Callable[..., ModelType]
 
     else:
@@ -993,7 +995,7 @@ class ModelView(ClassView, Generic[ModelType]):
             raise NotImplementedError("View class is missing a loader method")
 
     if TYPE_CHECKING:
-        # Type-checking version without argspec, so subclasses can specify explicit args
+        # Type-checking version without arg-spec to let subclasses specify explicit args
         load: Callable[..., Optional[ResponseReturnValue]]
 
     else:
@@ -1011,40 +1013,42 @@ class ModelView(ClassView, Generic[ModelType]):
             setting :attr:`obj`.
             """
             self.obj = self.loader(**__view_args)
-            # Trigger post-load processing of the object
-            self.post_init()
             return self.after_loader()
-
-    def post_init(self) -> None:
-        """
-        Post-process after init with an object when bypassing :meth:`load`.
-
-        Subclasses must override this if a custom :meth:`load` implementation has
-        side-effects. It will be called during init if an optional object was provided,
-        and should be called from custom :meth:`load` implementations. Unlike
-        :meth:`after_loader`, this method cannot have a return value.
-        """
 
     def after_loader(  # pylint: disable=useless-return
         self,
     ) -> Optional[ResponseReturnValue]:
         """Process loaded value after :meth:`loader` is called (deprecated)."""
+        return None
+
+    def post_load(self) -> None:
+        """
+        Optionally post-process after :meth:`load` or direct init with an object.
+
+        Subclasses may override this to post-process as necessary. The default
+        implementation adds support for retrieving available permissions from
+        :class:`~coaster.sqlalchemy.mixins.PermissionMixin` and storing them in
+        :class:`~coaster.auth.current_auth`, but only if the view method has the
+        :func:`~coaster.views.decorators.requires_permission` decorator. Overriding
+        implementations should call `super().post_load()` if this decorator is in use.
+        """
         # Determine permissions available on the object for the current actor,
         # but only if the view method has a requires_permission decorator
-        if hasattr(self.current_method.decorated_func, 'requires_permission'):
+        if self.current_method and hasattr(
+            self.current_method.decorated_func, 'requires_permission'
+        ):
             if isinstance(self.obj, tuple):
-                perms = None
+                perms: Any = None
                 for subobj in self.obj:
-                    if hasattr(subobj, 'permissions'):
+                    if isinstance(subobj, PermissionMixin):
                         perms = subobj.permissions(current_auth.actor, perms)
-                perms = InspectableSet(perms or set())
-            elif hasattr(self.obj, 'current_permissions'):
+                perms = InspectableSet(perms)
+            elif isinstance(self.obj, PermissionMixin):
                 # current_permissions always returns an InspectableSet
                 perms = self.obj.current_permissions
             else:
                 perms = InspectableSet()
             add_auth_attribute('permissions', perms)
-        return None
 
 
 ModelViewType = TypeVar('ModelViewType', bound=ModelView)
