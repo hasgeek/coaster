@@ -25,19 +25,19 @@ db.init_app(app2)
 
 @app1.route('/<doc>')
 @NamedDocument.is_url_for('view', doc='name')
-def doc_view(doc):
+def doc_view(doc) -> str:
     return f'view {doc}'
 
 
 @app1.route('/<doc>/edit')
 @NamedDocument.is_url_for('edit', doc='name')
-def doc_edit(doc):
+def doc_edit(doc) -> str:
     return f'edit {doc}'
 
 
 @app1.route('/<doc>/upper')
 @NamedDocument.is_url_for('upper', doc=lambda d: d.name.upper())
-def doc_upper(doc):
+def doc_upper(doc) -> str:
     return f'upper {doc}'
 
 
@@ -46,13 +46,13 @@ def doc_upper(doc):
 # to the parameter given to `NamedDocument.url_for` in the test below.
 @app1.route('/<doc>/with/<other>')
 @NamedDocument.is_url_for('with', doc='name', other='**other.name')
-def doc_with(doc, other):
+def doc_with(doc, other) -> str:
     return f'{doc} with {other}'
 
 
 @app1.route('/<container>/<doc>')
 @ScopedNamedDocument.is_url_for('view', container='parent.id', doc='name')
-def sdoc_view(container, doc):
+def sdoc_view(container, doc) -> str:
     return f'view {container} {doc}'
 
 
@@ -60,25 +60,25 @@ def sdoc_view(container, doc):
 @ScopedNamedDocument.is_url_for(
     'edit', _external=True, container=('parent', 'id'), doc='name'
 )
-def sdoc_edit(container, doc):
+def sdoc_edit(container, doc) -> str:
     return f'edit {container} {doc}'
 
 
 @app1.route('/<doc>/app_only')
 @NamedDocument.is_url_for('app_only', None, app1, doc='name')
-def doc_app_only(doc):
+def doc_app_only(doc) -> str:
     return f'app_only {doc}'
 
 
 @app1.route('/<doc>/app1')
 @NamedDocument.is_url_for('per_app', None, app1, doc='name')
-def doc_per_app1(doc):
+def doc_per_app1(doc) -> str:
     return f'per_app {doc}'
 
 
 @app2.route('/<doc>/app2')
 @NamedDocument.is_url_for('per_app', None, app2, doc='name')
-def doc_per_app2(doc):
+def doc_per_app2(doc) -> str:
     return f'per_app {doc}'
 
 
@@ -138,7 +138,7 @@ class TestUrlFor(TestUrlForBase):
         )
 
     def test_absolute_url(self) -> None:
-        """The .absolute_url property is the same as .url_for(_external=True)"""
+        """The .absolute_url property is the same as .url_for(_external=True)."""
         # Make two documents
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
@@ -154,18 +154,18 @@ class TestUrlFor(TestUrlForBase):
         assert doc2.absolute_url != doc2.url_for(_external=False)
 
     def test_absolute_url_missing(self) -> None:
-        """The .absolute_url property exists on all UrlForMixin-models, even if there is no view"""
+        """The .absolute_url property exists on all UrlForMixin-models, even if there is no view."""
         c1 = Container()
         assert c1.absolute_url is None
 
     def test_absolute_url_in_access_proxy(self) -> None:
-        """The .absolute_url property does not have a default access role"""
+        """The .absolute_url property does not have a default access role."""
         c1 = Container()
         d = c1.access_for(roles={'all'})
         assert 'absolute_url' not in d
 
     def test_per_app(self) -> None:
-        """Allow app-specific URLs for the same action name"""
+        """Allow app-specific URLs for the same action name."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
@@ -174,7 +174,7 @@ class TestUrlFor(TestUrlForBase):
         assert doc1.url_for('per_app') == '/document1/app1'
 
     def test_app_only(self) -> None:
-        """Allow URLs to only be available in one app"""
+        """Allow URLs to only be available in one app."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
@@ -183,7 +183,7 @@ class TestUrlFor(TestUrlForBase):
         assert doc1.url_for('app_only') == '/document1/app_only'
 
     def test_linked_doc(self) -> None:
-        """URLs linking two unrelated models are possible"""
+        """URLs linking two unrelated models are possible."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         doc2 = NamedDocument(name='document2', title="Document 2")
         self.session.add_all([doc1, doc2])
@@ -201,7 +201,7 @@ class TestUrlFor(TestUrlForBase):
         assert doc1.urls != {}
         assert doc1.urls['view'] == 'http://localhost/document1'
         with pytest.raises(KeyError):
-            doc1.urls['random']  # pylint: disable=pointless-statement
+            _ = doc1.urls['random']
 
         # The len() count includes the doc_with view, but it is excluded from actual
         # enumeration because it requires additional keyword parameters, which cannot
@@ -220,7 +220,7 @@ class TestUrlFor2(TestUrlForBase):
     app = app2
 
     def test_per_app(self) -> None:
-        """Allow app-specific URLs for the same action name"""
+        """Allow app-specific URLs for the same action name."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()
@@ -229,7 +229,7 @@ class TestUrlFor2(TestUrlForBase):
         assert doc1.url_for('per_app') == '/document1/app2'
 
     def test_app_only(self) -> None:
-        """Allow URLs to only be available in one app"""
+        """Allow URLs to only be available in one app."""
         doc1 = NamedDocument(name='document1', title="Document 1")
         self.session.add(doc1)
         self.session.commit()

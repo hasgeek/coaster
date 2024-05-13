@@ -1,7 +1,4 @@
-"""
-SQLAlchemy column types
------------------------
-"""
+"""SQLAlchemy column types."""
 
 from __future__ import annotations
 
@@ -51,13 +48,13 @@ class JsonDict(TypeDecorator):
         """Coerce an incoming value using the JSON type's default handler."""
         return self.impl.coerce_compared_value(op, value)
 
-    def process_bind_param(self, value: Any, dialect: sa.Dialect) -> Any:
+    def process_bind_param(self, value: Any, _dialect: sa.Dialect) -> Any:
         """Convert a Python value into a JSON string for the database."""
         if value is not None:
             value = json.dumps(value, default=str)  # Callable default
         return value
 
-    def process_result_value(self, value: Any, dialect: sa.Dialect) -> Any:
+    def process_result_value(self, value: Any, _dialect: sa.Dialect) -> Any:
         """Convert a JSON string from the database into a dict."""
         if value is not None and isinstance(value, str):
             # Psycopg2 >= 2.5 will auto-decode JSON columns, so
@@ -70,7 +67,7 @@ class JsonDict(TypeDecorator):
 
 class MutableDict(Mutable, dict):
     @classmethod
-    def coerce(cls, key: Any, value: Any) -> Optional[MutableDict]:
+    def coerce(cls, _key: Any, value: Any) -> Optional[MutableDict]:
         """Convert plain dictionaries to MutableDict."""
         if value is None:
             return None
@@ -146,7 +143,7 @@ class UrlType(UrlTypeBase):
                 raise ValueError("Missing URL host")
         return value
 
-    def process_result_value(self, value: Any, dialect: sa.Dialect) -> Optional[furl]:
+    def process_result_value(self, value: Any, _dialect: sa.Dialect) -> Optional[furl]:
         """Cast URL loaded from database into a furl object."""
         if value is not None:
             return self.url_parser(value)

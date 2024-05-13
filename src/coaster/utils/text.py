@@ -1,7 +1,4 @@
-"""
-Text processing utilities
--------------------------
-"""
+"""Text processing utilities."""
 
 from __future__ import annotations
 
@@ -74,7 +71,8 @@ unicode_extended_whitespace = ascii_whitespace + unicode_format_whitespace
 re_singleline_spaces = re.compile(
     '[' + unicode_extended_whitespace + ']', re.UNICODE | re.MULTILINE
 )
-re_multiline_spaces = re.compile(  # This is missing \u2028 and \u2029 (separators)
+re_multiline_spaces = re.compile(
+    # This is missing \u2028 and \u2029 (separators)
     '[' + ascii_whitespace_without_newline + unicode_format_whitespace + ']',
     re.UNICODE | re.MULTILINE,
 )
@@ -141,7 +139,7 @@ def dont_linkify_filenames(
     return attrs
 
 
-LINKIFY_CALLBACKS = list(DEFAULT_CALLBACKS) + [dont_linkify_filenames]
+LINKIFY_CALLBACKS = [*DEFAULT_CALLBACKS, dont_linkify_filenames]  # type: ignore[list-item]
 
 
 def sanitize_html(
@@ -285,8 +283,7 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> list[str]:
 
     subloop(None, doc)
     # Replace &nbsp; with ' '
-    blocks = [t.replace('\xa0', ' ') for t in blocks]
-    return blocks
+    return [t.replace('\xa0', ' ') for t in blocks]
 
 
 def normalize_spaces(text: str) -> str:
@@ -342,9 +339,7 @@ def deobfuscate_email(text: str) -> str:
     # Find the "at"
     text = _deobfuscate_at1_re.sub('@', text)
     text = _deobfuscate_at2_re.sub(r'\1@\2', text)
-    text = _deobfuscate_at3_re.sub(r'\1@\2', text)
-
-    return text
+    return _deobfuscate_at3_re.sub(r'\1@\2', text)
 
 
 def simplify_text(text: str) -> str:
@@ -356,7 +351,8 @@ def simplify_text(text: str) -> str:
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ")
     'awesome coder wanted at awesome company'
     >>> simplify_text("Awesome Coder, wanted  at Awesome Company! ") == (
-    ...   'awesome coder wanted at awesome company')
+    ...     'awesome coder wanted at awesome company'
+    ... )
     True
     """
     text = text.translate(text.maketrans('', '', string.punctuation)).lower()

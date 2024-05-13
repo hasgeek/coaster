@@ -86,7 +86,7 @@ class MarkdownComposite(MutableComposite):
         return {'text': self._text, 'html': self._html}
 
     # Compare text value
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Compare for equality."""
         return isinstance(other, MarkdownComposite) and (
             self.__composite_values__() == other.__composite_values__()
@@ -116,7 +116,7 @@ class MarkdownComposite(MutableComposite):
         return bool(self._text)
 
     @classmethod
-    def coerce(cls, key: str, value: Any) -> MarkdownComposite:
+    def coerce(cls, _key: str, value: Any) -> MarkdownComposite:
         """Allow a composite column to be assigned a string value."""
         return cls(value)
 

@@ -1,7 +1,4 @@
-"""
-Coaster types
--------------
-"""
+"""Coaster types."""
 
 from __future__ import annotations
 
@@ -19,4 +16,9 @@ class Method(Protocol[_P, _R_co]):
     """Protocol for an instance method."""
 
     # pylint: disable=no-self-argument
-    def __call__(__self, self: Any, *args: _P.args, **kwargs: _P.kwargs) -> _R_co: ...
+    def __call__(  # noqa: D102,RUF100
+        __self,  # noqa: N805
+        self: Any,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _R_co: ...

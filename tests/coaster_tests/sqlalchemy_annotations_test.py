@@ -1,3 +1,5 @@
+"""Test column annotations."""
+
 import warnings
 from typing import Any, Optional
 
@@ -92,7 +94,7 @@ warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
-    id = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
+    id = sa.orm.mapped_column(  # type: ignore[assignment]
         None,
         sa.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'),
         primary_key=True,
@@ -134,8 +136,7 @@ def test_annotation_in_annotations() -> None:
         assert issubclass(model, ModelBase)
         for annotation in (immutable, cached):
             assert (
-                annotation.__name__
-                in model.__column_annotations__  # type: ignore[attr-defined]
+                annotation.__name__ in model.__column_annotations__  # type: ignore[attr-defined]
             )
 
 
@@ -144,12 +145,10 @@ def test_attr_in_annotations() -> None:
     for model in (IdOnly, IdUuid, UuidOnly):
         assert issubclass(model, ModelBase)
         assert (
-            'is_immutable'
-            in model.__column_annotations__['immutable']  # type: ignore[attr-defined]
+            'is_immutable' in model.__column_annotations__['immutable']  # type: ignore[attr-defined]
         )
         assert (
-            'is_cached'
-            in model.__column_annotations__['cached']  # type: ignore[attr-defined]
+            'is_cached' in model.__column_annotations__['cached']  # type: ignore[attr-defined]
         )
 
 
@@ -384,7 +383,7 @@ class TestCoasterAnnotations(AppTestCase):
             child.also_immutable = 'yy'
 
     def test_synonym_annotation(self) -> None:
-        """The immutable annotation can be bypassed via synonyms"""
+        """The immutable annotation can be bypassed via synonyms."""
         syna = SynonymAnnotation(col_regular='a', col_immutable='b')
         # The columns behave as expected:
         assert syna.col_regular == 'a'

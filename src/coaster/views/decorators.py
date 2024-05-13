@@ -1,24 +1,28 @@
-"""
-View decorators
----------------
+"""View decorators."""
 
-Decorators for view handlers.
-
-All items in this module can be imported directly from :mod:`coaster.views`.
-"""
-
+# spell-checker:ignore requestargs
 from __future__ import annotations
 
-from collections.abc import Collection, Container, Iterable, Mapping
+from collections.abc import Awaitable, Collection, Container, Iterable, Mapping
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypeVar, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from typing_extensions import ParamSpec
 
 from flask import (
     Response,
     abort,
-    g,
     jsonify,
     make_response,
     redirect,
@@ -32,8 +36,8 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from ..auth import add_auth_attribute, current_auth
+from ..compat import BaseResponse, ensure_sync, flask_g, quart_g
 from ..utils import InspectableSet, is_collection
-from .misc import ensure_sync
 
 __all__ = [
     'ReturnRenderWith',
@@ -50,7 +54,7 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithData = Mapping[str, Any]
+ReturnRenderWithData = Mapping[str, object]
 ReturnRenderWithResponse = Union[WerkzeugResponse, ReturnRenderWithData]
 ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
 ReturnRenderWith = Union[
@@ -74,12 +78,7 @@ class RequestValueError(BadRequest, ValueError):
 
 def requestargs(
     *args: Union[str, tuple[str, Callable[[str], Any]]],
-    source: Union[
-        Literal['values'],
-        Literal['form'],
-        Literal['query'],
-        Literal['body'],
-    ] = 'values',
+    source: Literal['values', 'form', 'query', 'body'] = 'values',
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """
     Decorate a function to load parameters from the request if not supplied directly.
@@ -87,8 +86,7 @@ def requestargs(
     Usage::
 
         @requestargs('param1', ('param2', int), 'param3[]', ...)
-        def function(param1, param2=0, param3=None):
-            ...
+        def function(param1, param2=0, param3=None): ...
 
     :func:`requestargs` takes a list of parameters to pass to the wrapped function, with
     an optional filter (useful to convert incoming string request data into integers
@@ -208,35 +206,35 @@ def requestargs(
 
 
 def requestquery(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
 
 
 def requestform(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
 def requestbody(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
 
 def load_model(
-    model: type[Any],
-    attributes: dict[str, str],
+    model: Union[type[Any], list[type[Any]], tuple[type[Any], ...]],
+    attributes: dict[str, Union[str, Callable[[dict, dict], Any]]],
     parameter: str,
     kwargs: bool = False,
     permission: Optional[Union[str, set[str]]] = None,
     addlperms: Optional[Union[Iterable[str], Callable[[], Iterable[str]]]] = None,
     urlcheck: Collection[str] = (),
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
+) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, BaseResponse]]]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -244,7 +242,7 @@ def load_model(
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profileob')
-        def profile_view(profileob):
+        def profile_view(profileob: Profile) -> ResponseReturnValue:
             # 'profileob' is now a Profile model instance.
             # The load_model decorator replaced this:
             # profileob = Profile.query.filter_by(name=profile).first_or_404()
@@ -254,7 +252,7 @@ def load_model(
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profile')
-        def profile_view(profile: Profile):
+        def profile_view(profile: Profile) -> ResponseReturnValue:
             return f"Hello, {profile.name}"
 
     ``load_model`` aborts with a 404 if no instance is found.
@@ -302,11 +300,19 @@ def load_model(
 
 
 def load_models(
-    *chain, permission: Optional[Union[str, set[str]]] = None, **config
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
+    *chain: tuple[
+        Union[type[Any], list[type[Any]], tuple[type[Any], ...]],
+        dict[str, Union[str, Callable[[dict, dict], Any]]],
+        str,
+    ],
+    permission: Optional[Union[str, set[str]]] = None,
+    **config,
+) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, BaseResponse]]]:
     """
-    Decorator to load a chain of models from the given parameters. This works just like
-    :func:`load_model` and accepts the same parameters, with some small differences.
+    Load a chain of models from the given parameters.
+
+    This works just like :func:`load_model` and accepts the same parameters, with some
+    small differences.
 
     :param chain: The chain is a list of tuples of (``model``, ``attributes``,
         ``parameter``). Lists and tuples can be used interchangeably. All retrieved
@@ -330,21 +336,24 @@ def load_models(
         @load_models(
             (Folder, {'name': 'folder_name'}, 'folder'),
             (Page, {'name': 'page_name', 'parent': 'folder'}, 'page'),
-            permission='view')
-        def show_page(folder, page):
+            permission='view',
+        )
+        def show_page(folder: Folder, page: Page) -> ResponseReturnValue:
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def decorator(f: Callable[..., _VR]) -> Callable[..., Union[_VR, WerkzeugResponse]]:
+    def decorator(f: Callable[..., _VR]) -> Callable[..., Union[_VR, BaseResponse]]:
         @wraps(f)
-        def wrapper(*args, **kwargs) -> Union[_VR, WerkzeugResponse]:
+        def wrapper(*args, **kwargs) -> Union[_VR, BaseResponse]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
             permissions: Optional[set[str]] = None
             permission_required = (
                 {permission}
                 if isinstance(permission, str)
-                else set(permission) if permission is not None else None
+                else set(permission)
+                if permission is not None
+                else None
             )
             url_check_attributes = config.get('urlcheck', [])
             result: dict[str, Any] = {}
@@ -353,7 +362,7 @@ def load_models(
                     models = (models,)
                 item = None
                 url_check = False
-                url_check_paramvalues = {}
+                url_check_paramvalues: dict[str, tuple[Union[str, Callable], Any]] = {}
                 for model in models:
                     query = model.query
                     for k, v in attributes.items():
@@ -398,22 +407,22 @@ def load_models(
                     if callable(addlperms):
                         addlperms = addlperms() or []
                     permissions.update(addlperms)
-                if g:  # XXX: Deprecated
+                if g := (quart_g or flask_g):  # XXX: Deprecated
                     g.permissions = permissions
                 if request:
                     add_auth_attribute('permissions', InspectableSet(permissions))
-                if (
-                    url_check and request.method == 'GET'
-                ):  # Only do urlcheck redirects on GET requests
+                if url_check and request.method == 'GET':
+                    # Only do url_check redirects on GET requests
                     url_redirect = False
                     view_args = None
-                    for k, v in url_check_paramvalues.items():
-                        uparam, uvalue = v
-                        if getattr(item, k) != uvalue:
+                    for k2, v2 in url_check_paramvalues.items():
+                        uparam, uvalue = v2
+                        if (vvalue := getattr(item, k2)) != uvalue:
                             url_redirect = True
                             if view_args is None:
                                 view_args = dict(request.view_args or {})
-                            view_args[uparam] = getattr(item, k)
+                            if isinstance(uparam, str):
+                                view_args[uparam] = vvalue
                     if url_redirect:
                         if view_args is None:
                             location = url_for(request_endpoint)
@@ -422,7 +431,7 @@ def load_models(
                         if request.query_string:
                             location = location + '?' + request.query_string.decode()
                         return redirect(location, code=302)
-                if parameter.startswith('g.'):
+                if parameter.startswith('g.') and g:
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
                 result[parameter] = item
@@ -473,22 +482,29 @@ def render_with(
         def myview():
             return {'data': 'value'}
 
+
         @app.route('/myview_with_json')
         @render_with('myview.html', json=True)
         def myview_no_json():
             return {'data': 'value'}
 
+
         @app.route('/otherview')
-        @render_with({
-            'text/html': 'otherview.html',
-            'text/xml': 'otherview.xml'})
+        @render_with(
+            {
+                'text/html': 'otherview.html',
+                'text/xml': 'otherview.xml',
+            }
+        )
         def otherview():
             return {'data': 'value'}
+
 
         @app.route('/404view')
         @render_with('myview.html')
         def myview():
             return {'error': '404 Not Found'}, 404
+
 
         @app.route('/headerview')
         @render_with('myview.html')
@@ -519,10 +535,7 @@ def render_with(
         str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]
     ]
     default_mimetype: Optional[str] = None
-    if json:
-        templates = {'application/json': jsonify}
-    else:
-        templates = {}
+    templates = {'application/json': jsonify} if json else {}
     if isinstance(template, str):
         templates['*/*'] = template
     elif isinstance(template, dict):
@@ -547,7 +560,7 @@ def render_with(
     template_mimetypes.remove('*/*')
 
     def decorator(
-        f: Callable[_VP, ReturnRenderWith]
+        f: Callable[_VP, ReturnRenderWith],
     ) -> Callable[_VP, WerkzeugResponse]:
         @wraps(f)
         def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
@@ -558,7 +571,7 @@ def render_with(
             result = ensure_sync(f)(*args, **kwargs)
 
             if not render or not request:
-                # Return value is not a WerkzeugResponse here
+                # Return value is not a BaseResponse here
                 return result  # type: ignore[return-value]
 
             # Is the result a Response object? Don't attempt rendering
@@ -638,6 +651,18 @@ def render_with(
     return decorator
 
 
+class CorsDecoratorProtocol(Protocol):
+    @overload
+    def __call__(
+        self, __decorated: Callable[_VP, Awaitable[ResponseReturnValue]]
+    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+
+    @overload
+    def __call__(
+        self, __decorated: Callable[_VP, ResponseReturnValue]
+    ) -> Callable[_VP, BaseResponse]: ...
+
+
 def cors(
     origins: Union[Literal['*'], Container[str], Callable[[str], bool]],
     methods: Iterable[str] = (
@@ -657,7 +682,7 @@ def cors(
         'X-Requested-With',
     ),
     max_age: Optional[int] = None,
-) -> Callable[[Callable[_VP, ResponseReturnValue]], Callable[_VP, WerkzeugResponse]]:
+) -> CorsDecoratorProtocol:
     """
     Add CORS headers to the decorated view function.
 
@@ -668,9 +693,9 @@ def cors(
 
     The :obj:`origins` parameter may be one of:
 
-    1. A callable that receives the origin as a parameter.
+    1. A callable that receives the origin as a parameter and returns True/False.
     2. A list of origins.
-    3. ``*``, indicating that this resource is accessible by any origin.
+    3. Literal['*'], indicating that this resource is accessible by any origin.
 
     Example use::
 
@@ -679,23 +704,28 @@ def cors(
 
         app = Flask(__name__)
 
+
         @app.route('/any')
         @cors('*')
         def any_origin():
             return Response()
+
 
         @app.route('/static', methods=['GET', 'POST'])
         @cors(
             ['https://hasgeek.com'],
             methods=['GET', 'POST'],
             headers=['Content-Type', 'X-Requested-With'],
-            max_age=3600)
+            max_age=3600,
+        )
         def static_list():
             return Response()
+
 
         def check_origin(origin):
             # check if origin should be allowed
             return True
+
 
         @app.route('/callable', methods=['GET'])
         @cors(check_origin)
@@ -703,36 +733,43 @@ def cors(
             return Response()
     """
 
+    @overload
     def decorator(
-        f: Callable[_VP, ResponseReturnValue]
-    ) -> Callable[_VP, WerkzeugResponse]:
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
+        f: Callable[_VP, Awaitable[ResponseReturnValue]],
+    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+
+    @overload
+    def decorator(
+        f: Callable[_VP, ResponseReturnValue],
+    ) -> Callable[_VP, BaseResponse]: ...
+
+    def decorator(
+        f: Union[
+            Callable[_VP, ResponseReturnValue],
+            Callable[_VP, Awaitable[ResponseReturnValue]],
+        ],
+    ) -> Union[Callable[_VP, BaseResponse], Callable[_VP, Awaitable[BaseResponse]]]:
+        def check_origin() -> Optional[str]:
             origin = request.headers.get('Origin')
             if not origin or origin == 'null':
                 if request.method == 'OPTIONS':
                     abort(400)
-                # If no Origin header is supplied, CORS checks don't apply
-                return make_response(ensure_sync(f)(*args, **kwargs))
+                return None
 
             if request.method not in methods:
                 abort(405)
 
-            if origins == '*':
-                pass
-            elif is_collection(origins) and origin in origins:  # type: ignore[operator]
-                pass
-            elif callable(origins) and origins(origin):
-                pass
-            else:
+            if not (
+                origins == '*'
+                or (
+                    is_collection(origins) and origin in origins  # type: ignore[operator]
+                )
+                or (callable(origins) and origins(origin))
+            ):
                 abort(403)
+            return origin
 
-            if request.method == 'OPTIONS':
-                # pre-flight request
-                resp = Response()
-            else:
-                resp = make_response(ensure_sync(f)(*args, **kwargs))
-
+        def set_headers(origin: str, resp: BaseResponse) -> BaseResponse:
             resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
@@ -743,6 +780,36 @@ def cors(
 
             return resp
 
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+                origin = check_origin()
+                if origin is None:
+                    # If no Origin header is supplied, CORS checks don't apply
+                    return make_response(await f(*args, **kwargs))
+                if request.method == 'OPTIONS':
+                    # pre-flight request
+                    resp = Response()
+                else:
+                    resp = make_response(await f(*args, **kwargs))
+                return set_headers(origin, resp)
+
+        else:
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+                origin = check_origin()
+                if origin is None:
+                    # If no Origin header is supplied, CORS checks don't apply
+                    return make_response(f(*args, **kwargs))
+                if request.method == 'OPTIONS':
+                    # pre-flight request
+                    resp = Response()
+                else:
+                    resp = make_response(f(*args, **kwargs))
+                return set_headers(origin, resp)
+
         wrapper.provide_automatic_options = False  # type: ignore[attr-defined]
         wrapper.required_methods = ['OPTIONS']  # type: ignore[attr-defined]
 
@@ -752,7 +819,7 @@ def cors(
 
 
 def requires_permission(
-    permission: Union[str, set[str]]
+    permission: Union[str, set[str]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.

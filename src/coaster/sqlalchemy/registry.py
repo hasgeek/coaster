@@ -1,6 +1,5 @@
 """
-Model helper registry
----------------------
+Model helper registry.
 
 Provides a :class:`Registry` type and a :class:`RegistryMixin` base class
 with three registries, used by other mixin classes.
@@ -8,14 +7,14 @@ with three registries, used by other mixin classes.
 Helper classes such as forms and views can be registered to the model and
 later accessed from an instance::
 
-    class MyModel(BaseMixin, Model):
-        ...
+    class MyModel(BaseMixin, Model): ...
 
-    class MyForm(Form):
-        ...
 
-    class MyView(ModelView):
-        ...
+    class MyForm(Form): ...
+
+
+    class MyView(ModelView): ...
+
 
     MyModel.forms.main = MyForm
     MyModel.views.main = MyView
@@ -254,7 +253,7 @@ class Registry:
     if TYPE_CHECKING:
         # Tell Mypy that it's okay for code to attempt reading an attr
 
-        def __getattr__(self, attr: str) -> Any: ...
+        def __getattr__(self, name: str) -> Any: ...
 
 
 class InstanceRegistry(Generic[_RT, _T]):
@@ -273,15 +272,15 @@ class InstanceRegistry(Generic[_RT, _T]):
         self.__registry = registry
         self.__obj = obj
 
-    def __getattr__(self, attr: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Access a registry member."""
         registry = self.__registry
         obj = self.__obj
-        func = getattr(registry, attr)  # Raise AttributeError if unknown
-        kwarg = registry._members[attr]
+        func = getattr(registry, name)  # Raise AttributeError if unknown
+        kwarg = registry._members[name]
 
         # If attr is a property, return the result
-        if attr in registry._properties:
+        if name in registry._properties:
             if kwarg is not None:
                 return func(**{kwarg: obj})
             return func(obj)
@@ -289,12 +288,9 @@ class InstanceRegistry(Generic[_RT, _T]):
         # These checks are cached to __dict__ so __getattr__ won't be called again:
 
         # If attr is a cached property, cache and return the result
-        if attr in registry._cached_properties:
-            if kwarg is not None:
-                val = func(**{kwarg: obj})
-            else:
-                val = func(obj)
-            setattr(self, attr, val)
+        if name in registry._cached_properties:
+            val = func(**{kwarg: obj}) if kwarg is not None else func(obj)
+            setattr(self, name, val)
             return val
 
         # Not a property or cached_property. Construct a partial, cache and return it
@@ -302,7 +298,7 @@ class InstanceRegistry(Generic[_RT, _T]):
             partial_func = partial(func, **{kwarg: obj})
         else:
             partial_func = partial(func, obj)
-        setattr(self, attr, partial_func)
+        setattr(self, name, partial_func)
         return partial_func
 
 

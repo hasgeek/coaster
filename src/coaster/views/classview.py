@@ -1,8 +1,8 @@
 """
-Class-based views
------------------
+Class-based views.
 
-Group related views into a class for easier management.
+Group related views into a class for easier management. See :class:`ClassView` and
+:class:`ModelView` for two different ways to use them.
 """
 
 # pyright: reportMissingImports=false
@@ -10,7 +10,7 @@ Group related views into a class for easier management.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Collection
+from collections.abc import Awaitable, Collection
 from functools import partial, update_wrapper, wraps
 from inspect import iscoroutinefunction
 from typing import (
@@ -37,29 +37,21 @@ from typing_extensions import (
 )
 
 from flask import abort, make_response, redirect, request
+from flask.blueprints import BlueprintSetupState
 from flask.globals import _cv_app, app_ctx
 from flask.typing import ResponseReturnValue
-
-try:  # Flask >= 3.0
-    from flask.sansio.app import App as FlaskApp
-    from flask.sansio.blueprints import Blueprint, BlueprintSetupState
-except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Blueprint, Flask as FlaskApp
-    from flask.blueprints import BlueprintSetupState
-
 from furl import furl
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.descriptor_props import SynonymProperty
 from sqlalchemy.orm.properties import RelationshipProperty
 from werkzeug.local import LocalProxy
 from werkzeug.routing import Map as WzMap, Rule as WzRule
-from werkzeug.wrappers import Response as BaseResponse
 
 from ..auth import add_auth_attribute, current_auth
+from ..compat import BaseApp, BaseBlueprint, BaseResponse
 from ..sqlalchemy import PermissionMixin, Query, UrlForMixin
 from ..typing import Method
 from ..utils import InspectableSet
-from .misc import ensure_sync
 
 __all__ = [
     # Functions
@@ -115,7 +107,7 @@ class RouteDecoratorProtocol(Protocol):
             Method[_P, _R_co],
             ViewMethod[_P, _R_co],
         ],
-    ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
+    ) -> Union[ClassViewType, ViewMethod[_P, _R_co], AsyncViewMethod[_P, _R_co]]: ...
 
 
 class ViewDataDecoratorProtocol(Protocol):
@@ -138,7 +130,7 @@ class InitAppCallback(Protocol):
 
     def __call__(
         self,
-        app: Union[FlaskApp, Blueprint],
+        app: Union[BaseApp, BaseBlueprint],
         rule: str,
         endpoint: str,
         view_func: Callable,
@@ -161,7 +153,7 @@ def _get_arguments_from_rule(
 def route(
     rule: str,
     init_app: Optional[
-        Union[FlaskApp, Blueprint, tuple[Union[FlaskApp, Blueprint], ...]]
+        Union[BaseApp, BaseBlueprint, tuple[Union[BaseApp, BaseBlueprint], ...]]
     ] = None,
     **options: Any,
 ) -> RouteDecoratorProtocol:
@@ -202,23 +194,34 @@ def route(
             ClassViewType,
             Method[_P, _R_co],
             ViewMethod[_P, _R_co],
-        ]
+        ],
     ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]:
         # Are we decorating a ClassView? If so, annotate the ClassView and return it
-        if isinstance(decorated, type) and issubclass(decorated, ClassView):
-            if '__routes__' not in decorated.__dict__:
-                decorated.__routes__ = []
-            decorated.__routes__.append((rule, options))
-            if init_app is not None:
-                apps = init_app if isinstance(init_app, tuple) else (init_app,)
-                for each in apps:
-                    decorated.init_app(each)
-            return decorated
+        if isinstance(decorated, type):
+            if issubclass(decorated, ClassView):
+                if '__routes__' not in decorated.__dict__:
+                    decorated.__routes__ = []
+                decorated.__routes__.append((rule, options))
+                if init_app is not None:
+                    apps = init_app if isinstance(init_app, tuple) else (init_app,)
+                    for each in apps:
+                        decorated.init_app(each)
+                return decorated
+            raise TypeError("@route can only decorate ClassView subclasses")
 
         if init_app is not None:
             raise TypeError(
                 "@route accepts init_app only when decorating a ClassView or ModelView"
             )
+
+        if iscoroutinefunction(decorated):
+            return AsyncViewMethod(
+                cast(Callable[Concatenate[Any, _P], Awaitable[_R_co]], decorated),
+                rule=rule,
+                rule_options=options,
+            )
+        if isinstance(decorated, AsyncViewMethod):
+            return AsyncViewMethod(decorated, rule=rule, rule_options=options)
         return ViewMethod(decorated, rule=rule, rule_options=options)
 
     return decorator
@@ -239,8 +242,10 @@ def viewdata(**kwargs: Any) -> ViewDataDecoratorProtocol:
     def decorator(decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
     def decorator(
-        decorated: Union[ViewMethod[_P, _R_co], Method[_P, _R_co]]
+        decorated: Union[ViewMethod[_P, _R_co], Method[_P, _R_co]],
     ) -> ViewMethod[_P, _R_co]:
+        if iscoroutinefunction(decorated) or isinstance(decorated, AsyncViewMethod):
+            return AsyncViewMethod(decorated, data=kwargs)
         return ViewMethod(decorated, data=kwargs)
 
     return decorator
@@ -289,7 +294,7 @@ class ViewMethod(Generic[_P, _R_co]):
     #: Template-accessible name, same as :attr:`__name__`
     name: str
     #: The unmodified wrapped method, made available for future decorators
-    __func__: Callable[Concatenate[Any, _P], _R_co]
+    __func__: Callable[Concatenate[Any, _P], Any]
     #: The wrapped method with the class's :attr:`~ClassView.__decorators__` applied
     decorated_func: Callable
     #: The actual view function registered to Flask, responsible for creating an
@@ -347,6 +352,7 @@ class ViewMethod(Generic[_P, _R_co]):
                 @route('delete', methods=['GET', 'POST'])
                 def delete(self): ...
 
+
             @route('/<doc>')
             class MyModelView(CrudView, ModelView[MyModel]):
                 @route('remove', methods=['GET', 'POST'])  # Add another route
@@ -379,6 +385,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
                 @viewdata()  # This creates a ViewMethod with no routes
                 def latent(self): ...
+
 
             @route('/<doc>')
             class MyModelView(CrudView, ModelView[MyModel]):
@@ -418,7 +425,10 @@ class ViewMethod(Generic[_P, _R_co]):
         return bind
 
     def __call__(  # pylint: disable=no-self-argument
-        __self, self: ClassViewSubtype, *args: _P.args, **kwargs: _P.kwargs
+        __self,  # noqa: N805
+        self: ClassViewSubtype,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _R_co:
         # Mimic an unbound method call
         return __self.__func__(self, *args, **kwargs)
@@ -473,7 +483,7 @@ class ViewMethod(Generic[_P, _R_co]):
         # expect the class to provide an `async_dispatch_request`
         def view_func(**view_args: Any) -> BaseResponse:
             """
-            The actual view function registered to Flask, responsible for dispatch.
+            Dispatch Flask/Quart view.
 
             This function creates an instance of the view class, then calls
             :meth:`~ViewClass.dispatch_request` on it passing in :attr:`decorated_func`.
@@ -492,9 +502,7 @@ class ViewMethod(Generic[_P, _R_co]):
                 app_ctx.current_view = viewinst  # type: ignore[attr-defined]
             # Call the view class's dispatch method. View classes can customise this
             # for desired behaviour.
-            return viewinst.dispatch_request(
-                decorated_func, view_args  # type: ignore[arg-type]
-            )
+            return viewinst.dispatch_request(decorated_func, view_args)
 
         # Make view_func resemble the decorated function...
         view_func = update_wrapper(view_func, decorated_func)
@@ -515,7 +523,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
     def init_app(
         self,
-        app: Union[FlaskApp, Blueprint],
+        app: Union[BaseApp, BaseBlueprint],
         cls: type[ClassView],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
@@ -536,6 +544,54 @@ class ViewMethod(Generic[_P, _R_co]):
                     callback(app, use_rule, endpoint, self.view_func, **use_options)
 
 
+class AsyncViewMethod(ViewMethod[_P, _R_co]):
+    """Async variant of :class:`ViewMethod."""
+
+    if TYPE_CHECKING:
+
+        def __init__(  # pylint: disable=super-init-not-called
+            self,
+            decorated: Union[
+                Callable[Concatenate[Any, _P], Awaitable[_R_co]],
+                AsyncViewMethod[_P, _R_co],
+            ],
+            rule: Optional[str] = None,
+            rule_options: Optional[dict[str, Any]] = None,
+            data: Optional[dict[str, Any]] = None,
+        ) -> None: ...
+
+    @overload
+    def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
+
+    @overload
+    def __get__(
+        self, obj: Any, cls: Optional[type[Any]] = None
+    ) -> AsyncViewMethodBind[_P, _R_co]: ...
+
+    def __get__(
+        self, obj: Optional[Any], cls: Optional[type[Any]] = None
+    ) -> Union[Self, AsyncViewMethodBind[_P, _R_co]]:
+        if obj is None:
+            return self
+        bind = AsyncViewMethodBind(self, obj)
+        if '__slots__' not in cls.__dict__:
+            # Cache it in the instance obj for repeat access. Since we are a non-data
+            # descriptor (no __set__ or __delete__ methods), the instance dict will have
+            # first priority for future lookups
+            setattr(obj, self.__name__, bind)
+        return bind
+
+    # pylint: disable=no-self-argument, invalid-overridden-method
+    async def __call__(  # type: ignore[override]
+        __self,  # noqa: N805
+        self: ClassViewSubtype,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _R_co:
+        # Mimic an unbound method call
+        return await __self.__func__(self, *args, **kwargs)
+
+
 class ViewMethodBind(Generic[_P, _R_co]):
     """Wrapper for :class:`ViewMethod` binding it to an instance of the view class."""
 
@@ -547,7 +603,7 @@ class ViewMethodBind(Generic[_P, _R_co]):
     __qualname__: str
     __module__: str
     __doc__: Optional[str]
-    __func__: Callable[Concatenate[Any, _P], _R_co]
+    __func__: Callable[Concatenate[Any, _P], Any]
     decorated_func: Callable
     view_func: Callable
     default_endpoint: str
@@ -578,7 +634,7 @@ class ViewMethodBind(Generic[_P, _R_co]):
         def __getattr__(self, name: str) -> Any:
             return getattr(self._view_method, name)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, ViewMethodBind):
             return (
                 self._view_method == other._view_method
@@ -594,6 +650,20 @@ class ViewMethodBind(Generic[_P, _R_co]):
         # return True. Is it an error for `is_available` to not be a callable, or to
         # expect other arguments.
         return getattr(func, 'is_available', lambda _: True)(self.__self__)
+
+
+class AsyncViewMethodBind(ViewMethodBind[_P, _R_co]):
+    """Wrapper for :class:`ViewMethod` binding it to an instance of the view class."""
+
+    __slots__ = ()
+
+    # pylint: disable=invalid-overridden-method
+    async def __call__(  # type: ignore[override]
+        self, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _R_co:
+        # Treat this like a call to the original method and not to the view.
+        # As per the __decorators__ spec, we call .__func__, not .decorated_func
+        return await self._view_method.__func__(self.__self__, *args, **kwargs)
 
 
 class ClassView:
@@ -616,6 +686,7 @@ class ClassView:
             @viewdata(title="About us")
             def about():
                 return render_template('about.html.jinja2')
+
 
         IndexView.init_app(app)
 
@@ -696,7 +767,7 @@ class ClassView:
         )
         return self.current_method
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return type(other) is type(self)
 
     def dispatch_request(
@@ -717,13 +788,11 @@ class ClassView:
         :param view_args: View arguments, to be passed on to the view method
         """
         # Call the :meth:`before_request` method
-        resp = ensure_sync(self.before_request)()
+        resp = self.before_request()  # pylint: disable=assignment-from-none
         if resp is not None:
-            return ensure_sync(self.after_request)(make_response(resp))
+            return self.after_request(make_response(resp))
         # Call the view method, then pass the response to :meth:`after_response`
-        return ensure_sync(self.after_request)(
-            make_response(ensure_sync(view)(self, **view_args))
-        )
+        return self.after_request(make_response(view(self, **view_args)))
 
     def before_request(self) -> Optional[ResponseReturnValue]:
         """
@@ -746,6 +815,7 @@ class ClassView:
 
             class MyView(ClassView):
                 ...
+
                 def after_request(self, response):
                     response = super().after_request(response)
                     ...  # Process here
@@ -755,6 +825,69 @@ class ClassView:
         :return: Response object
         """
         return response
+
+    async def async_dispatch_request(
+        self,
+        view: Callable[..., Awaitable[ResponseReturnValue]],
+        view_args: dict[str, Any],
+    ) -> BaseResponse:
+        """
+        Async view dispatcher that invokes before and after-view hooks.
+
+        Calls :meth:`async_before_request`, the view, and then
+        :meth:`async_after_request`. If :meth:`async_before_request` returns a non-None
+        response, the view is skipped and flow proceeds to :meth:`async_after_request`.
+
+        Generic subclasses may override this to provide a custom flow.
+        :class:`ModelView` overrides to insert a model loading phase.
+
+        :param view: View method wrapped in specified decorators. The dispatcher must
+            call this
+        :param view_args: View arguments, to be passed on to the view method
+        """
+        # Call the :meth:`async_before_request` method
+        resp = await self.async_before_request()
+        if resp is not None:
+            return await self.async_after_request(make_response(resp))
+        # Call the view method, then pass the response to :meth:`async_after_response`
+        return await self.async_after_request(
+            make_response(await view(self, **view_args))
+        )
+
+    async def async_before_request(self) -> Optional[ResponseReturnValue]:
+        """
+        Process request before the async view method.
+
+        This method is called after the app's ``before_request`` handlers, and before
+        the class's view method. Subclasses and mixin classes may define their own
+        :meth:`async_before_request` to pre-process requests. This method receives
+        context via `self`, in particular via :attr:`current_method` and
+        :attr:`view_args`. The default implementation calls :meth:`before_request`.
+        """
+        return self.before_request()
+
+    async def async_after_request(self, response: BaseResponse) -> BaseResponse:
+        """
+        Process response returned by async view.
+
+        This method is called with the response from the view method. It must return a
+        valid response object. Subclasses and mixin classes may override this to perform
+        any necessary post-processing::
+
+            class MyView(ClassView):
+                ...
+
+                async def async_after_request(self, response):
+                    response = await super().async_after_request(response)
+                    ...  # Process here
+                    return response
+
+        The default implementation calls :meth:`after_request`.
+
+        :param response: Response from the view method
+        :return: Response object
+        """
+        return self.after_request(response)
 
     def is_available(self) -> bool:
         """
@@ -794,7 +927,7 @@ class ClassView:
     @classmethod
     def init_app(
         cls,
-        app: Union[FlaskApp, Blueprint],
+        app: Union[BaseApp, BaseBlueprint],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
         """
@@ -822,9 +955,9 @@ class ModelView(ClassView, Generic[ModelType]):
         @route('/doc/<document>', init_app=app)
         class DocumentView(UrlForView, InstanceLoader, ModelView):
             model = Document
-            route_model_map = {
-                'document': 'name'
-                }
+            route_model_map: ClassVar = {
+                'document': 'name',
+            }
 
             @route('')
             @render_with(json=True)
@@ -856,7 +989,7 @@ class ModelView(ClassView, Generic[ModelType]):
 
         model = MyModel  # This is auto-inserted when using ModelView[MyModel]
         obj: MyModel  # This is auto-inserted when using ModelView[MyModel]
-        route_model_map = {
+        route_model_map: ClassVar = {
             'document': 'name',       # Map 'document' in URL to obj.name
             'parent': 'parent.name',  # Map 'parent' to obj.parent.name
             }
@@ -895,12 +1028,11 @@ class ModelView(ClassView, Generic[ModelType]):
         subclassed::
 
             class Mixin:
-                class GetAttr:
-                    ...
+                class GetAttr: ...
+
 
             class MyModelView(Mixin, ModelView[MyModel]):
-                class GetAttr(Mixin.GetAttr):
-                    ...
+                class GetAttr(Mixin.GetAttr): ...
 
         :class:`~ModelView.GetAttr` is verbose but its utility shows in static type
         checking and code refactoring.
@@ -914,8 +1046,9 @@ class ModelView(ClassView, Generic[ModelType]):
         registry::
 
             @MyModel.views('main')
-            class MyModelView(ModelView[MyModel]):
-                ...
+            class MyModelView(ModelView[MyModel]): ...
+
+
             view = obj.views.main()
             # Same as `view = MyModelView(obj)`
 
@@ -939,8 +1072,8 @@ class ModelView(ClassView, Generic[ModelType]):
                     break
         super().__init_subclass__()
 
-    def __eq__(self, other: Any) -> bool:
-        return type(other) is type(self) and other.obj == self.obj
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, self.__class__) and other.obj == self.obj
 
     def dispatch_request(
         self, view: Callable[..., ResponseReturnValue], view_args: dict[str, Any]
@@ -960,17 +1093,50 @@ class ModelView(ClassView, Generic[ModelType]):
             to the view
         """
         # Call the :meth:`before_request` method
-        resp = ensure_sync(self.before_request)()
+        resp = self.before_request()  # pylint: disable=assignment-from-none
         if resp is not None:
-            return ensure_sync(self.after_request)(make_response(resp))
+            return self.after_request(make_response(resp))
         # Load the database model
-        resp = ensure_sync(self.load)(**view_args)
+        resp = self.load(**view_args)
         if resp is not None:
-            return ensure_sync(self.after_request)(make_response(resp))
+            return self.after_request(make_response(resp))
         # Trigger post-load processing of the object
         self.post_load()
         # Call the view method, then pass the response to :meth:`after_response`
-        return ensure_sync(self.after_request)(make_response(ensure_sync(view)(self)))
+        return self.after_request(make_response(view(self)))
+
+    async def async_dispatch_request(
+        self,
+        view: Callable[..., Awaitable[ResponseReturnValue]],
+        view_args: dict[str, Any],
+    ) -> BaseResponse:
+        """
+        Dispatch an async view.
+
+        Calls :meth:`before_request`, :meth:`load`, the view, and then
+        :meth:`after_request`.
+
+        If :meth:`before_request` or :meth:`load` return a non-None response, it will
+        skip ahead to :meth:`after_request`, allowing either of these to override the
+        view.
+
+        :param view: View method wrapped in specified decorators
+        :param dict view_args: View arguments, to be passed on to :meth:`load` but not
+            to the view
+        """
+        # Call the :meth:`before_request` method (optionally async)
+        resp = await self.async_before_request()
+        if resp is not None:
+            # If it had a response, skip the view and call after_request, then return
+            return await self.async_after_request(make_response(resp))
+        # Load the database model
+        resp = await self.async_load(**view_args)
+        if resp is not None:
+            return await self.async_after_request(make_response(resp))
+        # Trigger post-load processing of the object
+        self.post_load()
+        # Call the view method, then pass the response to :meth:`async_after_response`
+        return await self.async_after_request(make_response(await view(self)))
 
     if TYPE_CHECKING:
         # Type-checking version without arg-spec to let subclasses specify explicit args
@@ -1014,6 +1180,21 @@ class ModelView(ClassView, Generic[ModelType]):
             """
             self.obj = self.loader(**__view_args)
             return self.after_loader()
+
+    if TYPE_CHECKING:
+        # Type-checking version without arg-spec to let subclasses specify explicit args
+        async_load: Callable[..., Awaitable[Optional[ResponseReturnValue]]]
+
+    else:
+        # Actual default implementation has variadic arguments
+        async def async_load(self, **__view_args) -> Optional[ResponseReturnValue]:
+            """
+            Load the database object given view parameters.
+
+            The default implementation calls :meth:`load`. Subclasses should override
+            this to make an actual async implementation.
+            """
+            return self.load(**__view_args)
 
     def after_loader(  # pylint: disable=useless-return
         self,
@@ -1113,7 +1294,7 @@ class UrlForView:
     @classmethod
     def init_app(
         cls,
-        app: Union[FlaskApp, Blueprint],
+        app: Union[BaseApp, BaseBlueprint],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
         """Register view on an app."""
@@ -1121,20 +1302,20 @@ class UrlForView:
         def register_view_on_model(
             cls: type[ModelView],
             callback: Optional[InitAppCallback],
-            app: Union[FlaskApp, Blueprint],
+            app: Union[BaseApp, BaseBlueprint],
             rule: str,
             endpoint: str,
             view_func: Callable,
             **options: Any,
         ) -> None:
             def register_paths_from_app(
-                reg_app: FlaskApp,
+                reg_app: BaseApp,
                 reg_rule: str,
                 reg_endpoint: str,
                 reg_options: dict[str, Any],
             ) -> None:
                 model = cls.model
-                assert issubclass(model, UrlForMixin)  # nosec B101
+                assert issubclass(model, UrlForMixin)  # nosec B101  # noqa: S101
                 # Only pass in the attrs that are included in the rule.
                 # 1. Extract list of variables from the rule
                 rulevars = _get_arguments_from_rule(
@@ -1191,23 +1372,23 @@ class UrlForView:
                 )
                 register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
 
-            if isinstance(app, FlaskApp):
+            if isinstance(app, BaseApp):
                 register_paths_from_app(app, rule, endpoint, options)
-            elif isinstance(app, Blueprint):
+            elif isinstance(app, BaseBlueprint):
                 app.record(blueprint_postprocess)
             else:
                 raise TypeError(f"App must be Flask or Blueprint: {app!r}")
             if callback:  # pragma: no cover
                 callback(app, rule, endpoint, view_func, **options)
 
-        assert issubclass(cls, ModelView)  # nosec B101
+        assert issubclass(cls, ModelView)  # nosec B101  # noqa: S101
         super().init_app(  # type: ignore[misc]
             app, callback=partial(register_view_on_model, cls, callback)
         )
 
 
 def url_change_check(
-    f: Callable[_P, _R_co]
+    f: Callable[_P, _R_co],
 ) -> Callable[_P, Union[_R_co, BaseResponse]]:
     """
     Decorate view method in a :class:`ModelView` to check for a change in URL.
@@ -1219,7 +1400,7 @@ def url_change_check(
         @route('/doc/<document>')
         class MyModelView(UrlForView, InstanceLoader, ModelView):
             model = MyModel
-            route_model_map = {'document': 'url_id_name'}
+            route_model_map: ClassVar = {'document': 'url_id_name'}
 
             @route('')
             @url_change_check
@@ -1294,7 +1475,7 @@ class UrlChangeCheck:
         @route('/doc/<document>')
         class MyModelView(UrlChangeCheck, UrlForView, InstanceLoader, ModelView):
             model = MyModel
-            route_model_map = {'document': 'url_id_name'}
+            route_model_map: ClassVar = {'document': 'url_id_name'}
 
             @route('')
             @render_with(json=True)
@@ -1369,8 +1550,7 @@ class InstanceLoader:
                     query = query.filter(source == value)
                 else:
                     query = query.filter(getattr(self.model, name) == value)
-            obj = query.one_or_404()
-            return obj
+            return query.one_or_404()
         return None
 
 

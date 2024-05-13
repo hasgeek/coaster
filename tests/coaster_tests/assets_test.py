@@ -1,6 +1,6 @@
 """Tests for asset management helpers."""
 
-# pylint: disable=redefined-outer-name,pointless-statement
+# pylint: disable=redefined-outer-name
 
 import json
 import logging
@@ -153,7 +153,7 @@ def test_create_empty_manifest() -> None:
     assert manifest.get('random') is None
     assert manifest.get('random', 'default-value') == 'default-value'
     with pytest.raises(KeyError):
-        manifest['random']
+        _ = manifest['random']
 
 
 def test_unaffiliated_manifest(app1: Flask) -> None:
@@ -167,7 +167,7 @@ def test_unaffiliated_manifest(app1: Flask) -> None:
         assert manifest.get('random') is None
         assert manifest.get('random', 'default-value') == 'default-value'
         with pytest.raises(KeyError):
-            manifest['random']
+            _ = manifest['random']
 
 
 @pytest.mark.parametrize(
@@ -228,7 +228,7 @@ def test_load_manifest_from_file(app1: Flask) -> None:
         assert manifest.get('other.css') is None
         assert manifest.get('other.css', 'default-value') == 'default-value'
         with pytest.raises(KeyError):
-            manifest['other.css']
+            _ = manifest['other.css']
 
 
 def test_manifest_limited_to_app_with_context(app1: Flask, app2: Flask) -> None:
@@ -287,7 +287,7 @@ def test_load_manifest_from_file_with_custom_basepath(app1: Flask) -> None:
         assert manifest.get('other.css') is None
         assert manifest.get('other.css', 'default-value') == 'default-value'
         with pytest.raises(KeyError):
-            manifest['other.css']
+            _ = manifest['other.css']
 
 
 def test_manifest_disable_substitutions(app1: Flask, app2: Flask) -> None:
@@ -321,9 +321,9 @@ def test_manifest_disable_substitutions(app1: Flask, app2: Flask) -> None:
         assert manifest1['index.scss'] == 'test-index.css'
         assert manifest2['index.scss'] == '/nosub/test-index.css'
         with pytest.raises(KeyError):
-            manifest1['index.css']
+            _ = manifest1['index.css']
         with pytest.raises(KeyError):
-            manifest2['index.css']
+            _ = manifest2['index.css']
 
 
 def test_compiled_regex_substitutes(app1: Flask) -> None:
@@ -555,14 +555,14 @@ def test_keyerror_caplog(caplog: pytest.LogCaptureFixture, app1: Flask) -> None:
     caplog.clear()
     # Without an app context, KeyError will not be logged
     with pytest.raises(KeyError):
-        manifest['does-not-exist.css']
+        _ = manifest['does-not-exist.css']
     assert caplog.record_tuples == []
     with app1.app_context():
         assert manifest['exists.css'] == 'asset-exists.css'
         # A successful lookup will not be logged
         assert caplog.record_tuples == []
         with pytest.raises(KeyError):
-            manifest['does-not-exist.css']
+            _ = manifest['does-not-exist.css']
         assert caplog.record_tuples == [
             (
                 __name__,

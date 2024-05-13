@@ -1,7 +1,4 @@
-"""
-Immutable annotation
---------------------
-"""
+"""Immutable annotation."""
 
 from __future__ import annotations
 
@@ -64,11 +61,11 @@ def _make_immutable(cls: type[Any]) -> None:
             # SQLAlchemy >= 1.4 it appears to also be used in place of NO_VALUE.
             # NO_VALUE is for columns that have no value (either never set, or not
             # loaded). Because of this ambiguity, we pair it with a test for persistence
-            if old_value == value:
-                pass
-            elif (
-                old_value is NEVER_SET or old_value is NO_VALUE
-            ) and target.persistent is False:
+            if (
+                old_value == value
+                or (old_value is NEVER_SET or old_value is NO_VALUE)
+                and target.persistent is False
+            ):
                 pass
             else:
                 raise ImmutableColumnError(cls.__name__, attr, old_value, value)

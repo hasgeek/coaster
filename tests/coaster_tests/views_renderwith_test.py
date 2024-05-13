@@ -1,3 +1,5 @@
+"""Test `renderwith` view decorator."""
+
 import unittest
 from collections.abc import Mapping
 from typing import Any
@@ -5,8 +7,8 @@ from typing import Any
 import pytest
 from flask import Flask, Response, jsonify
 from jinja2 import TemplateNotFound
-from werkzeug.wrappers import Response as BaseResponse
 
+from coaster.compat import BaseResponse
 from coaster.views import render_with
 
 # --- Test setup -----------------------------------------------------------------------
@@ -83,12 +85,8 @@ class TestLoadModels(unittest.TestCase):
         # with the correct template name. Since the templates don't actually exist,
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the
         # missing template is the one that was supposed to be rendered.
-        try:
-            rv = self.client.get('/renderedview1')
-        except TemplateNotFound as e:
-            assert str(e) == 'renderedview1.html'
-        else:
-            pytest.fail(f"Unexpected response: {rv.headers!r} {rv.data!r}")
+        with pytest.raises(TemplateNotFound, match='renderedview1.html'):
+            self.client.get('/renderedview1')
 
         for acceptheader, template in [
             ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
@@ -98,16 +96,8 @@ class TestLoadModels(unittest.TestCase):
                 'renderedview2.html',
             ),
         ]:
-            try:
-                rv = self.client.get(
-                    '/renderedview2', headers=[('Accept', acceptheader)]
-                )
-            except TemplateNotFound as e:
-                assert str(e) == template
-            else:
-                pytest.fail(
-                    f"Accept: {acceptheader} Response: {rv.headers!r} {rv.data!r}"
-                )
+            with pytest.raises(TemplateNotFound, match=template):
+                self.client.get('/renderedview2', headers=[('Accept', acceptheader)])
 
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.

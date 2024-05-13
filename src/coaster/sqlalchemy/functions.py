@@ -1,7 +1,4 @@
-"""
-Helper functions
-----------------
-"""
+"""SQLAlchemy helper functions."""
 
 from __future__ import annotations
 
@@ -34,23 +31,31 @@ T = TypeVar('T')
 class UtcNow(sa.sql.functions.GenericFunction):
     """Provide func.utcnow() that guarantees UTC timestamp."""
 
-    type = sa.TIMESTAMP()  # noqa: A003
+    type = sa.TIMESTAMP()
     identifier = 'utcnow'
     inherit_cache = True
 
 
 @compiles(UtcNow)
-def _utcnow_default(element: UtcNow, _compiler: Any, **kwargs) -> str:
+def _utcnow_default(_element: UtcNow, _compiler: Any, **_kwargs) -> str:
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(UtcNow, 'mysql')
-def _utcnow_mysql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
+def _utcnow_mysql(  # pragma: no cover
+    _element: UtcNow,
+    _compiler: Any,
+    **_kwargs,
+) -> str:
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(UtcNow, 'mssql')
-def _utcnow_mssql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
+def _utcnow_mssql(  # pragma: no cover
+    _element: UtcNow,
+    _compiler: Any,
+    **_kwargs,
+) -> str:
     return 'SYSUTCDATETIME()'
 
 
@@ -230,6 +235,7 @@ def add_primary_relationship(
     sa.event.listen(
         primary_table,
         'after_create',
+        # spell-checker:ignore parentcol plpgsql
         sa.DDL(
             '''
             CREATE FUNCTION %(function)s() RETURNS TRIGGER AS $$
@@ -283,7 +289,7 @@ def add_primary_relationship(
 
 
 def auto_init_default(
-    column: Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
+    column: Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute],
 ) -> None:
     """
     Set the default value of a column on first access.
@@ -294,6 +300,7 @@ def auto_init_default(
 
         class MyModel(Model):
             column: Mapped[PyType] = sa.orm.mapped_column(SqlType, default="value")
+
 
         auto_init_default(MyModel.column)
     """

@@ -1,7 +1,4 @@
-"""
-App configuration
-=================
-"""
+"""App configuration."""
 
 # pyright: reportMissingImports=false
 
@@ -29,13 +26,9 @@ import itsdangerous
 from flask.json.provider import DefaultJSONProvider
 from flask.sessions import SecureCookieSessionInterface
 
-try:  # Flask >= 3.0  # pragma: no cover
-    from flask.sansio.app import App as FlaskApp
-except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Flask as FlaskApp
-
 from . import logger
 from .auth import current_auth
+from .compat import BaseApp
 from .views import current_view
 
 __all__ = [
@@ -58,13 +51,13 @@ except ModuleNotFoundError:
     try:
         import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
     except ModuleNotFoundError:
-        try:
+        try:  # noqa: SIM105
             import tomli as mod_tomli  # type: ignore[no-redef,unused-ignore]
         except ModuleNotFoundError:
             pass
 
 
-try:
+try:  # noqa: SIM105
     import yaml as mod_yaml
 except ModuleNotFoundError:
     pass
@@ -138,7 +131,7 @@ class KeyRotationWrapper(Generic[_S]):
         return super().__class__
 
     @__class__.setter
-    def __class__(self, value: Any) -> NoReturn:  # noqa: F811
+    def __class__(self, value: Any) -> NoReturn:
         raise TypeError("__class__ cannot be set.")
 
     def __init__(
@@ -154,17 +147,17 @@ class KeyRotationWrapper(Generic[_S]):
             raise ValueError("No secret keys in the list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
-    def __getattr__(self, attr: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Read a wrapped attribute."""
-        item = getattr(self._engines[0], attr)
-        return self._make_wrapper(attr) if callable(item) else item
+        item = getattr(self._engines[0], name)
+        return self._make_wrapper(name) if callable(item) else item
 
-    def _make_wrapper(self, attr: str) -> Callable:
+    def _make_wrapper(self, name: str) -> Callable:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             saved_exc: Exception = _sentinel_keyrotation_exception
             for engine in self._engines:
                 try:
-                    return getattr(engine, attr)(*args, **kwargs)
+                    return getattr(engine, name)(*args, **kwargs)
                 except itsdangerous.BadSignature as exc:
                     saved_exc = exc
             # We've run out of engines and all of them reported BadSignature.
@@ -178,7 +171,7 @@ class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
     def get_signing_serializer(  # type: ignore[override]
-        self, app: FlaskApp
+        self, app: BaseApp
     ) -> Optional[KeyRotationWrapper]:
         """Return serializers wrapped for key rotation."""
         if not app.config.get('SECRET_KEYS'):
@@ -217,7 +210,7 @@ class JSONProvider(DefaultJSONProvider):
 
 
 def init_app(
-    app: FlaskApp,
+    app: BaseApp,
     config: Optional[list[Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
     *,
     env_prefix: Optional[Union[str, Sequence[str]]] = None,
@@ -285,7 +278,7 @@ def init_app(
     for config_option in config:
         if config_option == 'env':
             if env_prefix is None:
-                # Use Flask's default env prefix
+                # Use Flask or Quart's default env prefix
                 app.config.from_prefixed_env()
             elif isinstance(env_prefix, str):
                 # Use the app's requested env prefix
@@ -335,7 +328,7 @@ def init_app(
 
 
 def load_config_from_file(
-    app: FlaskApp,
+    app: BaseApp,
     filepath: str,
     load: Optional[Callable] = None,
     text: Optional[bool] = None,

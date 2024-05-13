@@ -177,7 +177,7 @@ class TestCoasterApp(unittest.TestCase):
         for handler in self.another_app.logger.handlers:
             try:
                 raise Exception  # pylint: disable=broad-exception-raised
-            except Exception:  # noqa: B902 # pylint: disable=W0703
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())
@@ -253,7 +253,8 @@ def test_key_rotation_wrapper() -> None:
     # The KeyRotationWrapper has a safety catch for when a string secret is provided
     with pytest.raises(ValueError, match="Secret keys must be a list"):
         KeyRotationWrapper(
-            itsdangerous.URLSafeSerializer, 'secret_key'  # type: ignore[arg-type]
+            itsdangerous.URLSafeSerializer,
+            'secret_key',  # type: ignore[arg-type]
         )
 
     # If KeyRotationWrapper somehow loses its engines, we'll get a RuntimeError instead

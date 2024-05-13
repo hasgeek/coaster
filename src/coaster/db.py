@@ -1,6 +1,5 @@
 """
-Flask-SQLAlchemy instance
--------------------------
+Flask-SQLAlchemy instance.
 
 .. deprecated:: 0.7.0
     Coaster provides a global instance of Flask-SQLAlchemy for convenience, but this is

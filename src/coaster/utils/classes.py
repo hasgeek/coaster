@@ -1,7 +1,4 @@
-"""
-Utility classes
----------------
-"""
+"""Utility classes."""
 
 from __future__ import annotations
 
@@ -312,6 +309,8 @@ class DataclassFromType:
 
 
 class NameTitle(NamedTuple):
+    """Name and title pair."""
+
     name: str
     title: str
 
@@ -328,7 +327,6 @@ class _LabeledEnumMeta(type):
         name: str,
         bases: tuple[type[Any], ...],
         attrs: dict[str, Any],
-        **kwargs: Any,
     ) -> type[LabeledEnum]:
         labels: dict[str, Any] = {}
         names: dict[str, Any] = {}
@@ -607,12 +605,12 @@ class InspectableSet(Generic[_C]):
     def __getitem__(self, key: Any) -> bool:
         return key in self._members  # Return True if present, False otherwise
 
-    def __setattr__(self, attr: str, _value: Any) -> NoReturn:
+    def __setattr__(self, name: str, _value: Any) -> NoReturn:
         """Prevent accidental attempts to set a value."""
-        raise AttributeError(attr)
+        raise AttributeError(name)
 
-    def __getattr__(self, attr: str) -> bool:
-        return attr in self._members  # Return True if present, False otherwise
+    def __getattr__(self, name: str) -> bool:
+        return name in self._members  # Return True if present, False otherwise
 
     def _op_bool(self, op: str, other: Any) -> bool:
         """Return result of a boolean operation."""
@@ -630,11 +628,11 @@ class InspectableSet(Generic[_C]):
         """Return self < other."""
         return self._op_bool('__lt__', other)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Return self == other."""
         return self._op_bool('__eq__', other)
 
-    def __ne__(self, other: Any) -> bool:
+    def __ne__(self, other: object) -> bool:
         """Return self != other."""
         return self._op_bool('__ne__', other)
 

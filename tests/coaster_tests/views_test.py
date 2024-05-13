@@ -1,3 +1,5 @@
+"""Test view helpers."""
+
 import unittest
 from typing import Any, Optional
 
@@ -148,7 +150,7 @@ class TestCoasterViews(unittest.TestCase):
             r = jsonp(**kwargs)
             # pylint: disable=consider-using-f-string
             response = (
-                'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'
+                'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'  # noqa: UP031
                 % ('lang', kwargs['lang'], 'query', kwargs['query'])
             ).encode('utf-8')
 

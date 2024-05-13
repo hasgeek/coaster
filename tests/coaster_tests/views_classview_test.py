@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import unittest
-from collections.abc import Sequence
-from typing import Any, Optional
+from collections.abc import Mapping, Sequence
+from typing import Any, ClassVar, Optional
 
 import pytest
 import sqlalchemy as sa
@@ -57,7 +57,7 @@ db.init_app(app)
 
 class ViewDocument(BaseNameMixin, Model):
     __tablename__ = 'view_document'
-    __roles__ = {'all': {'read': {'name', 'title'}}}
+    __roles__: ClassVar = {'all': {'read': {'name', 'title'}}}
 
     children: Mapped[list[ScopedViewDocument]] = relationship(
         cascade='all, delete-orphan', back_populates='view_document'
@@ -96,7 +96,7 @@ class ScopedViewDocument(BaseScopedNameMixin, Model):
     )
     parent = sa.orm.synonym('view_document')
 
-    __roles__ = {'all': {'read': {'name', 'title', 'doctype'}}}
+    __roles__: ClassVar = {'all': {'read': {'name', 'title', 'doctype'}}}
 
     @property
     def doctype(self) -> str:
@@ -106,7 +106,7 @@ class ScopedViewDocument(BaseScopedNameMixin, Model):
 # Use serial int pkeys so that we can get consistent `1-<name>` url_name in tests
 class RenameableDocument(BaseIdNameMixin[int, Any], Model):
     __tablename__ = 'renameable_document'
-    __roles__ = {'all': {'read': {'name', 'title'}}}
+    __roles__: ClassVar = {'all': {'read': {'name', 'title'}}}
 
 
 # --- Views ----------------------------------------------------------------------------
@@ -142,8 +142,7 @@ class IndexView(ClassView):
 
     @route('view_args/<one>/<two>')
     def view_args_are_received(self, **kwargs) -> str:
-        # pylint: disable=consider-using-f-string
-        return '{one}/{two}'.format(**self.view_args)
+        return '{one}/{two}'.format(**kwargs)
 
 
 IndexView.init_app(app)
@@ -155,7 +154,7 @@ class DocumentView(ClassView):
 
     @route('')
     @render_with(json=True)
-    def view(self, name: str):
+    def view(self, name: str) -> Mapping[str, Any]:
         """View the document."""
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         return document.current_access()
@@ -164,7 +163,7 @@ class DocumentView(ClassView):
     @route('/edit/<name>', methods=['POST'])  # Maps to /edit/<name>
     @route('', methods=['POST'])  # Maps to /doc/<name>
     @requestform('title')
-    def edit(self, name: str, title: str):
+    def edit(self, name: str, title: str) -> str:
         """Edit the document."""
         document = ViewDocument.query.filter_by(name=name).first_or_404()
         document.title = title
@@ -207,16 +206,16 @@ class SubView(BaseView):
 
     @viewdata(title="Still first")
     @BaseView.first.replace
-    def first(self):
+    def first(self) -> str:
         return 'replaced-first'
 
     @route('2')
     @BaseView.second.replace
     @viewdata(title="Not still second")
-    def second(self):
+    def second(self) -> str:
         return 'replaced-second'
 
-    def third(self):
+    def third(self) -> str:  # type: ignore[override]
         return 'removed-third'
 
     also_inherited = BaseView.also_inherited.with_route('/inherited').with_route(
@@ -234,7 +233,7 @@ class AnotherSubView(BaseView):
 
     @route('2-2')
     @BaseView.second.replace
-    def second(self):
+    def second(self) -> str:
         return 'also-replaced-second'
 
 
@@ -242,30 +241,30 @@ class AnotherSubView(BaseView):
 class ModelDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView."""
 
-    route_model_map = {'document': 'name'}
+    route_model_map: ClassVar = {'document': 'name'}
 
     @requestargs('access_token')
     def before_request(
         self, access_token: Optional[str] = None
     ) -> Optional[ResponseReturnValue]:
-        if access_token == 'owner-admin-secret':  # nosec
+        if access_token == 'owner-admin-secret':  # nosec B105  # noqa: S105
             add_auth_attribute('permissions', InspectableSet({'siteadmin'}))
             # See ViewDocument.permissions
             add_auth_attribute('user', 'this-is-the-owner')
-        if access_token == 'owner-secret':  # nosec
+        if access_token == 'owner-secret':  # nosec B105  # noqa: S105
             # See ViewDocument.permissions
             add_auth_attribute('user', 'this-is-the-owner')
         return super().before_request()
 
     @route('')
     @render_with(json=True)
-    def view(self):
+    def view(self) -> Mapping[str, Any]:
         return self.obj.current_access()
 
     @route('edit', methods=['GET', 'POST'])
     @route('', methods=['PUT'])
     @requires_permission('edit')
-    def edit(self):
+    def edit(self) -> str:
         return 'edit-called'
 
 
@@ -279,7 +278,7 @@ class ScopedDocumentView(ModelDocumentView):
     """Test subclass of a ModelView."""
 
     model = ScopedViewDocument  # type: ignore[assignment,misc]
-    route_model_map = {'document': 'name', 'parent': 'parent.name'}
+    route_model_map: ClassVar = {'document': 'name', 'parent': 'parent.name'}
 
 
 @RenameableDocument.views('main')
@@ -289,11 +288,11 @@ class RenameableDocumentView(
 ):
     """Test ModelView for a document that will auto-redirect if the URL changes."""
 
-    route_model_map = {'document': 'url_name'}
+    route_model_map: ClassVar = {'document': 'url_name'}
 
     @route('')
     @render_with(json=True)
-    def view(self):
+    def view(self) -> Mapping[str, Any]:
         return self.obj.current_access()
 
 
@@ -301,7 +300,7 @@ class RenameableDocumentView(
 class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
     """Test ModelView that has multiple documents."""
 
-    route_model_map = {'doc2': '**doc2.url_name'}
+    route_model_map: ClassVar = {'doc2': '**doc2.url_name'}
     obj: tuple[ViewDocument, RenameableDocument]  # type: ignore[assignment]
 
     class GetAttr:
@@ -318,7 +317,7 @@ class MultiDocumentView(UrlForView, ModelView[ViewDocument]):
 
     @route('')
     @requires_permission('view')
-    def linked_view(self):
+    def linked_view(self) -> str:
         return self.obj[0].url_for('linked_view', doc2=self.obj[1])
 
 
@@ -330,19 +329,19 @@ MultiDocumentView.init_app(app)
 class GatedDocumentView(UrlForView, InstanceLoader, ModelView[ViewDocument]):
     """Test ModelView that has an intercept in before_request."""
 
-    route_model_map = {'document': 'name'}
+    route_model_map: ClassVar = {'document': 'name'}
 
     @requestargs('access_token')
     def before_request(
         self, access_token: Optional[str] = None
     ) -> Optional[ResponseReturnValue]:
-        if access_token == 'owner-secret':  # nosec
+        if access_token == 'owner-secret':  # nosec B105  # noqa: S105
             # See ViewDocument.permissions
             add_auth_attribute('user', 'this-is-the-owner')
-        if access_token == 'editor-secret':  # nosec
+        if access_token == 'editor-secret':  # nosec B105  # noqa: S105
             # See ViewDocument.permissions
             add_auth_attribute('user', 'this-is-the-editor')
-        if access_token == 'another-owner-secret':  # nosec
+        if access_token == 'another-owner-secret':  # nosec B105  # noqa: S105
             # See ViewDocument.permissions
             add_auth_attribute('user', 'this-is-another-owner')
         return super().before_request()
@@ -404,12 +403,12 @@ class TestClassView(unittest.TestCase):
         self.ctx.pop()
 
     def test_index(self) -> None:
-        """Test index view (/)"""
+        """Test index view (/)."""
         rv = self.client.get('/')
         assert rv.data == b'index'
 
     def test_page(self) -> None:
-        """Test page view (/page)"""
+        """Test page view (/page)."""
         rv = self.client.get('/page')
         assert rv.data == b'page'
 
@@ -437,7 +436,7 @@ class TestClassView(unittest.TestCase):
         assert rv.status_code == 404  # This 404 came from DocumentView.view
 
     def test_document_view(self) -> None:
-        """Test document view (loaded from database)"""
+        """Test document view (loaded from database)."""
         doc = ViewDocument(name='test1', title="Test")
         self.session.add(doc)
         self.session.commit()
@@ -473,8 +472,8 @@ class TestClassView(unittest.TestCase):
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
-        rv = DocumentView().edit('test1', "Edited")
-        assert rv == 'edited!'
+        rv2 = DocumentView().edit('test1', "Edited")
+        assert rv2 == 'edited!'
         assert doc.title == "Edited"
 
     def test_replaced(self) -> None:
@@ -657,6 +656,8 @@ class TestClassView(unittest.TestCase):
 
     def test_multi_view(self) -> None:
         """
+        Test ModelView with two objects.
+
         A ModelView view can handle multiple objects and also construct URLs
         for objects that do not have a well defined relationship between each other.
         """

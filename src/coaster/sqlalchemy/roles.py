@@ -1,6 +1,5 @@
 """
-Role-based access control
--------------------------
+Role-based access control.
 
 Coaster provides a :class:`RoleMixin` class that can be used to define role-based access
 control to the attributes and methods of any SQLAlchemy model. :class:`RoleMixin` is a
@@ -32,12 +31,14 @@ Example use::
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
+
     @declarative_mixin
     class ColumnMixin:
         '''
         Mixin class that offers some columns to the RoleModel class below,
         demonstrating two ways to use `with_roles`.
         '''
+
         @with_roles(rw={'owner'})
         @declared_attr
         def mixed_in1(cls) -> Mapped[str]:
@@ -57,7 +58,7 @@ Example use::
         # Avoid this approach in a parent or mixin class as definitions will
         # be lost if the subclass does not copy `__roles__`.
 
-        __roles__ = {
+        __roles__: ClassVar = {
             'all': {
                 'read': {'id', 'name', 'title'},
             },
@@ -72,18 +73,16 @@ Example use::
 
         id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)
         name: Mapped[str] = with_roles(  # Specify read+write access
-            sa.orm.mapped_column(sa.Unicode(250)),
-            rw={'owner'}
+            sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'}
         )
 
         user_id: Mapped[int] = sa.orm.mapped_column(
-            sa.ForeignKey('user.id'),
-            nullable=False
+            sa.ForeignKey('user.id'), nullable=False
         )
         user: Mapped[User] = with_roles(
             relationship(User),
             grants={'owner'},  # Use `grants` here or `granted_by` in `__roles__`
-            )
+        )
 
         # `with_roles` can also be called later. This is required for
         # properties, where roles must be assigned after the property is
@@ -153,7 +152,6 @@ from typing import (
 from typing_extensions import Self, TypeAlias, TypeVar
 
 import sqlalchemy as sa
-from flask import g
 from sqlalchemy import event, select
 from sqlalchemy.exc import NoInspectionAvailable, NoResultFound
 from sqlalchemy.ext.orderinglist import OrderingList
@@ -176,6 +174,7 @@ from sqlalchemy.orm.collections import (
 from sqlalchemy.schema import SchemaItem
 
 from ..auth import current_auth
+from ..compat import flask_g, quart_g
 from ..utils import InspectableSet, is_collection, is_dunder, nary_op
 from .functions import idfilters
 from .model import AppenderQuery
@@ -578,7 +577,7 @@ class LazyRoleSet(abc.MutableSet):
             else any(self._role_is_present(role) for role in self.obj.__roles__)
         )
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, LazyRoleSet):
             return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
@@ -659,7 +658,8 @@ class DynamicAssociationProxy(Generic[_V, _R]):
 
         # Proxy to an attribute on the target of the relationship (specifying the type):
         Document.child_attributes = DynamicAssociationProxy[attr_type, rel_type](
-            'child_relationship', 'attribute')
+            'child_relationship', 'attribute'
+        )
 
     This proxy does not provide access to the query capabilities of dynamic
     relationships. It merely optimizes for containment queries. A query like this::
@@ -783,7 +783,7 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
             assert relattr.session is not None  # nosec B101
         return relattr.session.query(relattr.exists()).scalar()
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, DynamicAssociationProxyBind):
             return (
                 self.obj == other.obj
@@ -863,7 +863,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         return self._obj.__class__
 
     @__class__.setter
-    def __class__(self, value: Any) -> NoReturn:  # noqa: F811
+    def __class__(self, value: Any) -> NoReturn:
         raise TypeError("__class__ cannot be set")
 
     def __init__(
@@ -908,7 +908,10 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
     def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
 
-    def current_access(self, datasets: Optional[Sequence[str]] = None) -> Self:
+    def current_access(
+        self,
+        datasets: Optional[Sequence[str]] = None,  # noqa: ARG002
+    ) -> Self:
         """Mimic :meth:`RoleMixin.current_access`, but simply return self."""
         return self
 
@@ -1004,21 +1007,21 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         object.__setattr__(self, '_all_read_cache', available_read_attrs)
         return available_read_attrs
 
-    def __getattr__(self, attr: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         # See also __getitem__, which doesn't consult _call
-        if self.__attr_available(attr, 'read') or self.__attr_available(attr, 'call'):
-            return self.__get_processed_attr(attr)
+        if self.__attr_available(name, 'read') or self.__attr_available(name, 'call'):
+            return self.__get_processed_attr(name)
         raise AttributeError(
-            f"{self._obj.__class__.__qualname__}.{attr};"
+            f"{self._obj.__class__.__qualname__}.{name};"
             f" current roles {self.current_roles!r}"
         )
 
-    def __setattr__(self, attr: str, value: Any) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
         # See also __setitem__
-        if self.__attr_available(attr, 'write'):
-            return setattr(self._obj, attr, value)
+        if self.__attr_available(name, 'write'):
+            return setattr(self._obj, name, value)
         raise AttributeError(
-            f"{self._obj.__class__.__qualname__}.{attr};"
+            f"{self._obj.__class__.__qualname__}.{name};"
             f" current roles {self.current_roles!r}"
         )
 
@@ -1064,7 +1067,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
             )
         return dict(self)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if other == self._obj:
             return True
         if (
@@ -1150,6 +1153,7 @@ def with_roles(
 
         title: Mapped[str] = with_roles(sa.orm.mapped_column(sa.Unicode), read={'all'})
 
+
         @with_roles(read={'all'})
         @hybrid_property
         def url_id(self) -> str:
@@ -1162,9 +1166,11 @@ def with_roles(
         def title(self) -> str:
             return self._title
 
+
         @title.setter
         def title(self, value: str) -> None:
             self._title = value
+
 
         # Either of the following is fine, since with_roles annotates objects
         # instead of wrapping them. The return value can be discarded if it's
@@ -1189,10 +1195,9 @@ def with_roles(
             user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
-            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
-                'document.id'
-            ))
+            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('document.id'))
             document: Mapped[DocumentModel] = relationship(DocumentModel)
+
 
         DocumentModel.rolemodels = with_roles(
             relationship(RoleModel), grants_via={'user': {'role1', 'role2'}}
@@ -1302,6 +1307,7 @@ def role_check(
 
         class MyModel(RoleMixin, ...):
             ...
+
             @role_check('reader', 'viewer')  # Takes multiple roles as necessary
             def has_reader_role(
                 self, actor: Optional[ActorType], anchors: Sequence[Any] = ()
@@ -1335,7 +1341,7 @@ def role_check(
     """
 
     def decorator(
-        func: Callable[[_CRM, Optional[_CRA], Sequence[Any]], bool]
+        func: Callable[[_CRM, Optional[_CRA], Sequence[Any]], bool],
     ) -> ConditionalRole[_CRM, _CRA]:
         return ConditionalRole(roles, func)
 
@@ -1422,7 +1428,7 @@ class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
             return iter(())
         return iter(iter_func(self.__self__))
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, ConditionalRoleBind):
             return (
                 self._rolecheck == other._rolecheck and self.__self__ == other.__self__
@@ -1438,15 +1444,15 @@ class RoleMixin(Generic[ActorType]):
     Subclasses must define a :attr:`__roles__` dictionary with roles
     and the attributes they have call, read and write access to::
 
-        __roles__ = {
+        __roles__: ClassVar = {
             'role_name': {
                 'call': {'meth1', 'meth2'},
                 'read': {'attr1', 'attr2'},
                 'write': {'attr1', 'attr2'},
                 'granted_by': {'rel1', 'rel2'},
                 'granted_via': {'rel1': 'attr1', 'rel2': 'attr2'},
-                },
-            }
+            },
+        }
 
     The ``granted_by`` key works in reverse: if the actor is present in any of the
     attributes in the set, they are granted that role via :meth:`roles_for`.
@@ -1534,10 +1540,11 @@ class RoleMixin(Generic[ActorType]):
             :meth:`roles_for` instead, or use `current_roles` only after roles are
             changed.
         """
-        cache = getattr(g, '_coaster_role_cache', None)
+        cache = getattr(quart_g or flask_g, '_coaster_role_cache', None)
         if cache is None:
             cache = {}
-            g._coaster_role_cache = cache  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            (quart_g or flask_g)._coaster_role_cache = cache
         cache_key = (self, current_auth.actor, current_auth.anchors)
         if cache_key not in cache:
             cache[cache_key] = InspectableSet(
@@ -1735,7 +1742,7 @@ class RoleMixin(Generic[ActorType]):
 
             __datasets__ = {
                 'primary': {'uuid', 'name', 'title', 'children', 'parent'},
-                'related': {'uuid', 'name', 'title'}
+                'related': {'uuid', 'name', 'title'},
             }
 
         Objects and related objects can be safely enumerated like this::
@@ -1842,7 +1849,8 @@ def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
                     )
                 for role in data.grants:
                     granted_by = cls.__roles__.setdefault(role, {}).setdefault(
-                        'granted_by', []  # List as it needs to be ordered
+                        'granted_by',
+                        [],  # List as it needs to be ordered
                     )
                     if name not in granted_by:
                         granted_by.append(name)

@@ -1,41 +1,20 @@
-"""
-Miscellaneous view helpers
---------------------------
-
-Helper functions for view handlers.
-
-All items in this module can be imported directly from :mod:`coaster.views`.
-"""
+"""Miscellaneous view helpers."""
 
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
 
-import asyncio
 import re
 from collections.abc import Container
-from inspect import iscoroutinefunction
 from typing import Any, Optional, Union, cast
 from urllib.parse import urlsplit
 
-from flask import (
-    Response,
-    current_app,
-    json,
-    request,
-    session as request_session,
-    url_for,
-)
+from flask import Response, json, request, session as request_session, url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import MapAdapter, RequestRedirect, Rule
+from werkzeug.wrappers import Request as WerkzeugRequest
 
-try:
-    from asgiref.sync import async_to_sync
-except ModuleNotFoundError:
-    async_to_sync = None  # type: ignore[assignment, misc]
-
-
-from ..typing import WrappedFunc
+from ..compat import current_app
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -182,21 +161,24 @@ def endpoint_for(
     # hosted at root).
     environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')) :]
     # Create a new request with this environment...
-    url_request = current_app.request_class(environ)
+    url_request = WerkzeugRequest(environ)
     # ...and a URL adapter with the new request.
-    url_adapter = cast(MapAdapter, current_app.create_url_adapter(url_request))
+    url_adapter = cast(
+        MapAdapter,
+        current_app.create_url_adapter(url_request),  # type: ignore[arg-type]
+    )
 
     # Run three hostname tests, one of which must pass:
 
     # 1. Does the URL map have host matching enabled? If so, the URL adapter will
     # validate the hostname.
-    if current_app.url_map.host_matching:
+    if current_app.url_map.host_matching:  # noqa: SIM114
         pass
 
     # 2. If not, does the domain match? url_adapter.server_name will prefer
     # app.config['SERVER_NAME'], but if that is not specified, it will take it from the
     # environment.
-    elif parsed_url.netloc == url_adapter.server_name:
+    elif parsed_url.netloc == url_adapter.server_name:  # noqa: SIM114
         pass
 
     # 3. If subdomain matching is enabled, does the subdomain match?
@@ -229,20 +211,3 @@ def endpoint_for(
         pass
     # If we got here, no endpoint was found.
     return None, {}
-
-
-def ensure_sync(func: WrappedFunc) -> WrappedFunc:
-    """Help use Flask's ensure_sync outside a request context."""
-    if current_app:
-        return cast(WrappedFunc, current_app.ensure_sync(func))
-
-    if not iscoroutinefunction(func):
-        return func
-
-    if async_to_sync is not None:
-        return async_to_sync(func)  # type: ignore[return-value]
-
-    return cast(  # type: ignore[unreachable]
-        WrappedFunc,
-        lambda *args, **kwargs: (asyncio.run(func(*args, **kwargs))),
-    )

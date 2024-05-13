@@ -1,19 +1,21 @@
 """
-SQLAlchemy mixin classes
-------------------------
+SQLAlchemy mixin classes.
 
 Coaster provides a number of mixin classes for SQLAlchemy models. To use in
 your Flask app::
 
     from sqlalchemy.orm import DeclarativeBase
     from flask_sqlalchemy import SQLAlchemy
-    from coaster.sqlalchemy import BaseMixin, ModelBase
+    from coaster.sqlalchemy import BaseMixin, ModelBase, Query
+
 
     class Model(ModelBase, DeclarativeBase):
         '''Model base class.'''
 
-    db = SQLAlchemy(metadata=Model.metadata)
+
+    db = SQLAlchemy(metadata=Model.metadata, query_class=Query)
     Model.init_flask_sqlalchemy(db)
+
 
     class MyModel(BaseMixin[int], Model):  # Integer serial primary key; alt: UUID
         __tablename__ = 'my_model'
@@ -46,14 +48,8 @@ from typing import (
 from typing_extensions import Self, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
-from flask import current_app, url_for
-
-try:  # Flask >= 3.0
-    from flask.sansio.app import App as FlaskApp
-except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Flask as FlaskApp
-
 import sqlalchemy as sa
+from flask import url_for
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
@@ -61,6 +57,7 @@ from sqlalchemy.sql import func, select
 from werkzeug.routing import BuildError
 
 from ..auth import current_auth
+from ..compat import BaseApp, current_app_object
 from ..typing import ReturnDecorator, WrappedFunc
 from ..utils import (
     InspectableSet,
@@ -122,11 +119,12 @@ class IdMixin(Generic[PkeyType]):
 
         from uuid import UUID
 
+
         class MyModel(IdMixin[UUID], Model):  # or IdMixin[int]
             ...
 
-        class OtherModel(BaseMixin[UUID], Model):
-            ...
+
+        class OtherModel(BaseMixin[UUID], Model): ...
 
     The legacy method using a flag also works, but will break type discovery for the id
     column in static type analysis (mypy or pyright)::
@@ -157,6 +155,7 @@ class IdMixin(Generic[PkeyType]):
                 " to the base class (`IdMixin[int]` or `IdMixin[UUID]`) instead of"
                 " specifying `__uuid_primary_key__` directly",
                 PkeyWarning,
+                stacklevel=2,
             )
 
         for base in get_original_bases(cls):
@@ -209,7 +208,7 @@ class IdMixin(Generic[PkeyType]):
     @immutable
     @declared_attr
     @classmethod
-    def id(cls) -> Mapped[PkeyType]:  # noqa: A003
+    def id(cls) -> Mapped[PkeyType]:
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
             return sa.orm.mapped_column(
@@ -248,10 +247,7 @@ class IdMixin(Generic[PkeyType]):
 
             url_id_uuid_func.__name__ = 'url_id'
             url_id_uuid_func.__doc__ = url_id_uuid_func.__doc__
-            url_id_property = hybrid_property(url_id_uuid_func).comparator(
-                url_id_uuid_comparator
-            )
-            return url_id_property
+            return hybrid_property(url_id_uuid_func).comparator(url_id_uuid_comparator)
 
         def url_id_int_func(self: Self) -> str:
             """URL-safe representation of the integer id as a string."""
@@ -263,10 +259,7 @@ class IdMixin(Generic[PkeyType]):
 
         url_id_int_func.__name__ = 'url_id'
         url_id_int_func.__doc__ = url_id_int_func.__doc__
-        url_id_property = hybrid_property(url_id_int_func).comparator(
-            url_id_int_comparator
-        )
-        return url_id_property
+        return hybrid_property(url_id_int_func).comparator(url_id_int_comparator)
 
     url_id: declared_attr[str] = declared_attr(__url_id)
     del __url_id
@@ -406,7 +399,11 @@ class PermissionMixin:
     should use the role granting mechanism in :class:`RoleMixin`.
     """
 
-    def permissions(self, actor: Any, inherited: Optional[set[str]] = None) -> set[str]:
+    def permissions(
+        self,
+        actor: Any,  # noqa: ARG002
+        inherited: Optional[set[str]] = None,
+    ) -> set[str]:
         """Return permissions available to the given user on this object."""
         if inherited is not None:
             return set(inherited)
@@ -476,15 +473,9 @@ class UrlDict(abc.Mapping, Generic[_UR]):
             raise KeyError(key) from exc
 
     def __len__(self) -> int:
-        # pylint: disable=protected-access
+        capp = current_app_object()
         return len(self.obj.url_for_endpoints[None]) + (
-            len(
-                self.obj.url_for_endpoints.get(
-                    current_app._get_current_object(), {}  # type: ignore[attr-defined]
-                )
-            )
-            if current_app
-            else 0
+            len(self.obj.url_for_endpoints.get(capp, {})) if capp else 0
         )
 
     def __iter__(self) -> Iterator[str]:
@@ -493,13 +484,9 @@ class UrlDict(abc.Mapping, Generic[_UR]):
         # 3. Confirm the action does not require additional parameters
         # 4. Yield whatever passes the tests
         current_roles = self.obj.roles_for(current_auth.actor, current_auth.anchors)
+        capp = current_app_object()
         for app, app_actions in self.obj.url_for_endpoints.items():
-            # pylint: disable=protected-access
-            if app is None or (
-                current_app
-                and app
-                is current_app._get_current_object()  # type: ignore[attr-defined]
-            ):
+            if app is None or app is capp:
                 for action, endpoint_data in app_actions.items():
                     if not endpoint_data.requires_kwargs and (
                         endpoint_data.roles is None
@@ -515,12 +502,12 @@ class UrlForMixin:
     #: different endpoints in different apps. The app may also be None as fallback. Each
     #: subclass will get its own dictionary. This particular dictionary is only used as
     #: an inherited fallback.
-    url_for_endpoints: ClassVar[
-        dict[Optional[FlaskApp], dict[str, UrlEndpointData]]
-    ] = {None: {}}
+    url_for_endpoints: ClassVar[dict[Optional[BaseApp], dict[str, UrlEndpointData]]] = {
+        None: {}
+    }
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints: ClassVar[
-        dict[Optional[FlaskApp], dict[str, tuple[Any, str]]]
+        dict[Optional[BaseApp], dict[str, tuple[Any, str]]]
     ] = {}
 
     #: Dictionary of URLs available on this object
@@ -528,12 +515,7 @@ class UrlForMixin:
 
     def url_for(self, action: str = 'view', **kwargs) -> str:
         """Return public URL to this instance for a given action (default 'view')."""
-        # pylint: disable=protected-access
-        app = (
-            current_app._get_current_object()  # type: ignore[attr-defined]
-            if current_app
-            else None
-        )
+        app = current_app_object()
         if app is not None and action in self.url_for_endpoints.get(app, {}):
             endpoint_data = self.url_for_endpoints[app][action]
         else:
@@ -582,13 +564,13 @@ class UrlForMixin:
         cls,
         __action: str,
         __endpoint: Optional[str] = None,
-        __app: Optional[FlaskApp] = None,
+        __app: Optional[BaseApp] = None,
         /,
         _external: Optional[bool] = None,
         **paramattrs: Union[str, tuple[str, ...], Callable[[Any], str]],
     ) -> ReturnDecorator:
         """
-        Decorator that registers a view as a :meth:`url_for` target.
+        Register a view as a :meth:`url_for` target.
 
         :param __action: Action to register a URL under
         :param __endpoint: View endpoint name to pass to Flask's ``url_for``
@@ -615,7 +597,7 @@ class UrlForMixin:
         action: str,
         *,
         endpoint: str,
-        app: Optional[FlaskApp],
+        app: Optional[BaseApp],
         paramattrs: Mapping[str, Union[str, tuple[str, ...], Callable[[Any], str]]],
         roles: Optional[Collection[str]] = None,
         external: Optional[bool] = None,
@@ -626,15 +608,14 @@ class UrlForMixin:
         :param view_func: View handler to be registered
         :param str action: Action to register a URL under
         :param str endpoint: View endpoint name to pass to Flask's ``url_for``
-        :param app: Flask app (default: `None`)
+        :param app: Flask or Quart app (default: `None`)
         :param external: If `True`, URLs are assumed to be external-facing by default
         :param roles: Roles to which this URL is available, required by :class:`UrlDict`
         :param dict paramattrs: Mapping of URL parameter to attribute name on the object
         """
         if 'url_for_endpoints' not in cls.__dict__:
-            cls.url_for_endpoints = {
-                None: {}
-            }  # Stick it into the class with the first endpoint
+            # Stick it into the class with the first endpoint
+            cls.url_for_endpoints = {None: {}}
         cls.url_for_endpoints.setdefault(app, {})
 
         paramattrs = dict(paramattrs)
@@ -656,7 +637,7 @@ class UrlForMixin:
 
     @classmethod
     def register_view_for(
-        cls, app: Optional[FlaskApp], action: str, classview: Any, attr: str
+        cls, app: Optional[BaseApp], action: str, classview: Any, attr: str
     ) -> None:
         """Register a classview and view method for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:
@@ -666,14 +647,13 @@ class UrlForMixin:
     def view_for(self, action: str = 'view') -> Any:
         """Return the classview view method that handles the specified action."""
         # pylint: disable=protected-access
-        app = current_app._get_current_object()  # type: ignore[attr-defined]
+        app = current_app_object()
         view, attr = self.view_for_endpoints[app][action]
         return getattr(view(self), attr)
 
     def classview_for(self, action: str = 'view') -> Any:
         """Return the classview containing the view method for the specified action."""
-        # pylint: disable=protected-access
-        app = current_app._get_current_object()  # type: ignore[attr-defined]
+        app = current_app_object()
         return self.view_for_endpoints[app][action][0](self)
 
 
@@ -721,10 +701,7 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(
-                tablename + '_name_check',
-                tablename,
-                "name <> ''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
 
     #: Prevent use of these reserved names
@@ -855,9 +832,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
-                'organizer.id'
-            ))
+            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('organizer.id'))
             organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa.orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'name'),)
@@ -874,10 +849,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(
-                tablename + '_name_check',
-                tablename,
-                "name <> ''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
 
     #: Prevent use of these reserved names
@@ -1047,10 +1019,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(
-                tablename + '_name_check',
-                tablename,
-                "name <> ''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
 
     #: Allow blank names after all?
@@ -1150,7 +1119,8 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
     def _url_name_uuid_b58_comparator(cls) -> SqlUuidB58Comparator:
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(
-            cls.uuid, splitindex=-1  # type: ignore[attr-defined]
+            cls.uuid,  # type: ignore[attr-defined]
+            splitindex=-1,
         )
 
 
@@ -1235,9 +1205,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedIdNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
-                'organizer.id'
-            ))
+            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('organizer.id'))
             organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa.orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'url_id'),)
@@ -1254,10 +1222,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(
-                tablename + '_name_check',
-                tablename,
-                "name <> ''")
+            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
     """
 
     #: Allow blank names after all?
@@ -1363,7 +1328,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
     def _url_name_uuid_b58_comparator(cls) -> SqlUuidB58Comparator:
         """Return SQL comparator for name and UUID in Base58 format."""
         return SqlUuidB58Comparator(
-            cls.uuid, splitindex=-1  # type: ignore[attr-defined]
+            cls.uuid,  # type: ignore[attr-defined]
+            splitindex=-1,
         )
 
 

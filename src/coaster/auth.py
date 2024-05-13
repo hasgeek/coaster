@@ -1,6 +1,5 @@
 """
-Authentication management
-=========================
+Authentication management.
 
 Coaster provides a :obj:`current_auth` for handling authentication. Login managers must
 comply with its API for Coaster's view handlers to work.
@@ -24,11 +23,9 @@ from collections.abc import Sequence
 from threading import Lock
 from typing import Any, NoReturn, TypeVar, cast
 
-from flask import Flask, current_app, g
-from flask.globals import request_ctx
 from werkzeug.local import LocalProxy
-from werkzeug.wrappers import Response as BaseResponse
 
+from .compat import BaseApp, BaseResponse, current_app, flask_g, quart_g, request_ctx
 from .utils import InspectableSet
 
 __all__ = [
@@ -91,7 +88,7 @@ def add_auth_attribute(attr: str, value: Any, actor: bool = False) -> None:
 
         if attr == 'user':
             # Special-case 'user' for compatibility with Flask-Login
-            if g:
+            if g := (quart_g or flask_g):
                 g._login_user = value
             # A user is always an actor
             actor = True
@@ -168,14 +165,14 @@ class CurrentAuth:
             object.__setattr__(self, 'actor', None)
             object.__setattr__(self, 'user', None)
 
-    def __setattr__(self, attr: str, value: Any) -> NoReturn:
-        if hasattr(self, attr) and getattr(self, attr) is value:
+    def __setattr__(self, name: str, value: Any) -> NoReturn:
+        if hasattr(self, name) and getattr(self, name) is value:
             # This test is used to allow in-place mutations such as:
             # current_auth.permissions |= {extra}
             return  # type: ignore[misc]
         raise TypeError('current_auth is read-only')
 
-    def __delattr__(self, attr: str) -> NoReturn:
+    def __delattr__(self, name: str) -> NoReturn:
         raise TypeError('current_auth is read-only')
 
     def __contains__(self, attr: str) -> bool:
@@ -191,19 +188,19 @@ class CurrentAuth:
     def __repr__(self) -> str:  # pragma: no cover
         return f'CurrentAuth(is_placeholder={self.is_placeholder})'
 
-    def __getattr__(self, attr: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Init :class:`CurrentAuth` on first attribute access."""
         with _prop_lock:
             if 'actor' in self.__dict__:
                 # CurrentAuth already initialized
-                raise AttributeError(attr)
+                raise AttributeError(name)
             self.__dict__['actor'] = None
             self.__dict__.setdefault('user', None)
             self._call_login_manager()
             try:
-                return self.__dict__[attr]
+                return self.__dict__[name]
             except KeyError:
-                raise AttributeError(attr) from None
+                raise AttributeError(name) from None
 
     def _call_login_manager(self) -> None:
         """Call the app's login manager on first access of user or actor (internal)."""
@@ -221,7 +218,7 @@ class CurrentAuth:
             # In case the login manager did not call :func:`add_auth_attribute`, we'll
             # need to do it
             if self.__dict__.get('user') is None:
-                user = g.get('_login_user')
+                user = (quart_g or flask_g).get('_login_user')
                 if user is not None:
                     self.__dict__['user'] = user
                     # Set actor=user only if the login manager did not add another actor
@@ -248,7 +245,7 @@ def _set_auth_cookie_after_request(response: _Response) -> _Response:
     return response
 
 
-def init_app(app: Flask) -> None:
+def init_app(app: BaseApp) -> None:
     """Optionally initialize current_auth for auth cookie management in an app."""
     app.config.setdefault('AUTH_COOKIE_NAME', 'auth')
     for our_config, flask_config in [
@@ -285,7 +282,7 @@ class GetCurrentAuth:
                 if ca is None:
                     # 3. If not, create it
                     ca = self.cls()
-                    request_ctx.current_auth = ca  # type: ignore[attr-defined]
+                    request_ctx.current_auth = ca  # type: ignore[union-attr]
                 elif not isinstance(ca, self.cls):
                     # If ca is not an instance of self.cls but self.cls is a subclass of
                     # ca.__class__, then re-create with self.cls. This is needed because
@@ -297,7 +294,7 @@ class GetCurrentAuth:
                     if issubclass(self.cls, ca.__class__):
                         new_ca = self.cls()
                         new_ca.__dict__.update(ca.__dict__)
-                        request_ctx.current_auth = new_ca  # type: ignore[attr-defined]
+                        request_ctx.current_auth = new_ca  # type: ignore[union-attr]
                         ca = new_ca
             # 4. Return current_auth
             return ca

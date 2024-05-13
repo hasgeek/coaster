@@ -4,10 +4,11 @@ psycopg
 Pygments
 pylint
 pytest
+pytest-asyncio
 pytest-cov
 pytest-env
-pytest-ignore-flaky
 pytest-rerunfailures
 pytest-socket
 pyyaml
+quart
 toml

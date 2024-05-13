@@ -2,8 +2,8 @@
 
 from typing import Optional
 
-from coaster.gfm import markdown
 from coaster.sqlalchemy import BaseMixin, MarkdownColumn
+from coaster.utils import markdown
 
 from .conftest import AppTestCase, Model, db
 
@@ -26,7 +26,7 @@ class MarkdownHtmlData(BaseMixin, Model):
     value_html: Optional[str]
 
 
-def fake_markdown(text: str) -> str:
+def fake_markdown(_text: str) -> str:
     return 'fake-markdown'
 
 

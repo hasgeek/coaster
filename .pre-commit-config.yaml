@@ -1,7 +1,7 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 ci:
-  skip: ['yesqa', 'no-commit-to-branch']
+  skip: ['no-commit-to-branch']
 repos:
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2
@@ -13,35 +13,7 @@ repos:
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
-        # Extra args, only after removing flake8 and yesqa: '--extend-select', 'RUF100'
-  - repo: https://github.com/asottile/yesqa
-    rev: v1.5.0
-    hooks:
-      - id: yesqa
-        additional_dependencies: &flake8deps
-          - flake8-assertive
-          # - flake8-annotations
-          - flake8-blind-except
-          - flake8-builtins
-          - flake8-comprehensions
-          # - flake8-docstrings
-          - flake8-isort
-          - flake8-logging-format
-          - flake8-mutable
-          - flake8-print
-          - pep8-naming
-          - toml
-          - tomli
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        additional_dependencies:
-          - tomli
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
+      - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.10.0
     hooks:
@@ -56,6 +28,7 @@ repos:
           ]
         additional_dependencies:
           - flask
+          - quart
           - lxml-stubs
           - sqlalchemy
           - toml
@@ -66,11 +39,6 @@ repos:
           - types-requests
           - types-toml
           - typing-extensions
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
-    hooks:
-      - id: flake8
-        additional_dependencies: *flake8deps
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
     hooks:
@@ -88,6 +56,7 @@ repos:
           ]
         additional_dependencies:
           - flask
+          - quart
           - sqlalchemy
           - tomli
   - repo: https://github.com/PyCQA/bandit

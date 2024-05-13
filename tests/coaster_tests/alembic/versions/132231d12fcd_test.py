@@ -1,4 +1,6 @@
-"""Test Migration.
+# noqa: INP001
+"""
+Test Migration.
 
 Revision ID: 132231d12fcd
 Revises: None

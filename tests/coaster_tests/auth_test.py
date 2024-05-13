@@ -227,7 +227,7 @@ def test_current_auth_with_user_loaded(
     assert current_auth.is_authenticated  # type: ignore[unreachable]
     assert current_auth
     assert current_auth.user is not None
-    assert current_auth.user == user  # type: ignore[unreachable]
+    assert current_auth.user == user
     assert current_auth.actor == user
 
 
@@ -284,7 +284,7 @@ def test_other_actor_authenticated(models: SimpleNamespace) -> None:
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
 def test_auth_anchor() -> None:
-    """A request starts with zero anchors, but they can be added"""
+    """A request starts with zero anchors, but they can be added."""
     assert not current_auth.anchors
     add_auth_anchor('test-anchor')
     assert current_auth.anchors
@@ -299,7 +299,7 @@ def test_has_current_auth() -> None:
     assert not current_auth.is_placeholder
     assert not request_has_auth()
     # Invoke current_auth to check for a user
-    current_auth.is_anonymous  # pylint: disable=W0104
+    _anon = current_auth.is_anonymous
     assert request_has_auth()
 
 
