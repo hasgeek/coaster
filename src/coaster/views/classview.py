@@ -100,14 +100,10 @@ class RouteDecoratorProtocol(Protocol):
     @overload
     def __call__(self, __decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    def __call__(  # skipcq: PTC-W0049
+    def __call__(
         self,
-        __decorated: Union[
-            ClassViewType,
-            Method[_P, _R_co],
-            ViewMethod[_P, _R_co],
-        ],
-    ) -> Union[ClassViewType, ViewMethod[_P, _R_co], AsyncViewMethod[_P, _R_co]]: ...
+        __decorated: Union[ClassViewType, Method[_P, _R_co], ViewMethod[_P, _R_co]],
+    ) -> Union[ClassViewType, ViewMethod[_P, _R_co]]: ...
 
 
 class ViewDataDecoratorProtocol(Protocol):
@@ -119,9 +115,8 @@ class ViewDataDecoratorProtocol(Protocol):
     @overload
     def __call__(self, __decorated: Method[_P, _R_co]) -> ViewMethod[_P, _R_co]: ...
 
-    def __call__(  # skipcq: PTC-W0049
-        self,
-        __decorated: Union[Method[_P, _R_co], ViewMethod[_P, _R_co]],
+    def __call__(
+        self, __decorated: Union[Method[_P, _R_co], ViewMethod[_P, _R_co]]
     ) -> ViewMethod[_P, _R_co]: ...
 
 
@@ -214,13 +209,7 @@ def route(
                 "@route accepts init_app only when decorating a ClassView or ModelView"
             )
 
-        if iscoroutinefunction(decorated):
-            return AsyncViewMethod(
-                cast(Callable[Concatenate[Any, _P], Awaitable[_R_co]], decorated),
-                rule=rule,
-                rule_options=options,
-            )
-        if isinstance(decorated, AsyncViewMethod):
+        if isinstance(decorated, AsyncViewMethod) or iscoroutinefunction(decorated):
             return AsyncViewMethod(decorated, rule=rule, rule_options=options)
         return ViewMethod(decorated, rule=rule, rule_options=options)
 
@@ -244,7 +233,7 @@ def viewdata(**kwargs: Any) -> ViewDataDecoratorProtocol:
     def decorator(
         decorated: Union[ViewMethod[_P, _R_co], Method[_P, _R_co]],
     ) -> ViewMethod[_P, _R_co]:
-        if iscoroutinefunction(decorated) or isinstance(decorated, AsyncViewMethod):
+        if isinstance(decorated, AsyncViewMethod) or iscoroutinefunction(decorated):
             return AsyncViewMethod(decorated, data=kwargs)
         return ViewMethod(decorated, data=kwargs)
 
@@ -307,7 +296,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
     def __init__(
         self,
-        decorated: Union[Callable[Concatenate[Any, _P], _R_co], ViewMethod[_P, _R_co]],
+        decorated: Union[Method[_P, _R_co], ViewMethod[_P, _R_co]],
         rule: Optional[str] = None,
         rule_options: Optional[dict[str, Any]] = None,
         data: Optional[dict[str, Any]] = None,
@@ -479,30 +468,68 @@ class ViewMethod(Generic[_P, _R_co]):
 
         self.decorated_func = decorated_func
 
-        # TODO: Make async_view_func if `__func__` or `decorated_func` is async, and
-        # expect the class to provide an `async_dispatch_request`
-        def view_func(**view_args: Any) -> BaseResponse:
-            """
-            Dispatch Flask/Quart view.
+        if iscoroutinefunction(self.__func__) and not iscoroutinefunction(
+            decorated_func
+        ):
+            raise TypeError(
+                f"{self.__qualname__} is async, but one of the decorators is not"
+            )
 
-            This function creates an instance of the view class, then calls
-            :meth:`~ViewClass.dispatch_request` on it passing in :attr:`decorated_func`.
-            """
-            # Instantiate the view class. We depend on its __init__ requiring no args
-            viewinst = owner()
-            # Declare ourselves (the ViewMethod) as the current view. The bind makes
-            # equivalence tests possible, such as ``self.current_method == self.index``
-            viewinst.current_method = ViewMethodBind(self, viewinst)
-            # Place view arguments in the instance, in case they are needed outside the
-            # dispatch process
-            viewinst.view_args = view_args
-            # Place the view instance on the app context for :obj:`current_view` to
-            # discover
-            if app_ctx:
-                app_ctx.current_view = viewinst  # type: ignore[attr-defined]
-            # Call the view class's dispatch method. View classes can customise this
-            # for desired behaviour.
-            return viewinst.dispatch_request(decorated_func, view_args)
+        if iscoroutinefunction(decorated_func):
+
+            async def view_func(**view_args: Any) -> BaseResponse:
+                """
+                Dispatch Flask/Quart view.
+
+                This function creates an instance of the view class, then calls
+                :meth:`~ViewClass.async_dispatch_request` on it passing in
+                :attr:`decorated_func`.
+                """
+                # Instantiate the view class. We depend on its __init__ requiring no
+                # args
+                viewinst = owner()
+                # Declare ourselves (the AsyncViewMethod) as the current view. The bind
+                # makes equivalence tests possible, such as ``self.current_method ==
+                # self.index``
+                viewinst.current_method = AsyncViewMethodBind(self, viewinst)
+                # Place view arguments in the instance, in case they are needed outside
+                # the dispatch process
+                viewinst.view_args = view_args
+                # Place the view instance on the app context for :obj:`current_view` to
+                # discover
+                if app_ctx:
+                    app_ctx.current_view = viewinst  # type: ignore[attr-defined]
+                # Call the view class's dispatch method. View classes can customise this
+                # for desired behaviour.
+                return await viewinst.async_dispatch_request(decorated_func, view_args)
+
+        else:
+
+            def view_func(**view_args: Any) -> BaseResponse:  # type: ignore[misc]
+                """
+                Dispatch Flask/Quart view.
+
+                This function creates an instance of the view class, then calls
+                :meth:`~ViewClass.dispatch_request` on it passing in
+                :attr:`decorated_func`.
+                """
+                # Instantiate the view class. We depend on its __init__ requiring no
+                # args
+                viewinst = owner()
+                # Declare ourselves (the ViewMethod) as the current view. The bind makes
+                # equivalence tests possible, such as ``self.current_method ==
+                # self.index``
+                viewinst.current_method = ViewMethodBind(self, viewinst)
+                # Place view arguments in the instance, in case they are needed outside
+                # the dispatch process
+                viewinst.view_args = view_args
+                # Place the view instance on the app context for :obj:`current_view` to
+                # discover
+                if app_ctx:
+                    app_ctx.current_view = viewinst  # type: ignore[attr-defined]
+                # Call the view class's dispatch method. View classes can customise this
+                # for desired behaviour.
+                return viewinst.dispatch_request(decorated_func, view_args)
 
         # Make view_func resemble the decorated function...
         view_func = update_wrapper(view_func, decorated_func)
@@ -546,19 +573,6 @@ class ViewMethod(Generic[_P, _R_co]):
 
 class AsyncViewMethod(ViewMethod[_P, _R_co]):
     """Async variant of :class:`ViewMethod."""
-
-    if TYPE_CHECKING:
-
-        def __init__(  # pylint: disable=super-init-not-called
-            self,
-            decorated: Union[
-                Callable[Concatenate[Any, _P], Awaitable[_R_co]],
-                AsyncViewMethod[_P, _R_co],
-            ],
-            rule: Optional[str] = None,
-            rule_options: Optional[dict[str, Any]] = None,
-            data: Optional[dict[str, Any]] = None,
-        ) -> None: ...
 
     @overload
     def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
