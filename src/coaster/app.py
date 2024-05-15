@@ -128,10 +128,11 @@ class KeyRotationWrapper(Generic[_S]):
         """Mimic wrapped engine's class."""
         if self._engines:
             return type(self._engines[0])
-        return super().__class__
+        return KeyRotationWrapper
 
     @__class__.setter
     def __class__(self, value: Any) -> NoReturn:
+        # This setter is required for static type checkers
         raise TypeError("__class__ cannot be set.")
 
     def __init__(
@@ -141,7 +142,7 @@ class KeyRotationWrapper(Generic[_S]):
         **kwargs: Any,
     ) -> None:
         """Init key rotation wrapper."""
-        if isinstance(secret_keys, str):  # type: ignore[unreachable]
+        if isinstance(secret_keys, (str, bytes)):  # type: ignore[unreachable]
             raise ValueError("Secret keys must be a list")
         if not secret_keys:
             raise ValueError("No secret keys in the list")

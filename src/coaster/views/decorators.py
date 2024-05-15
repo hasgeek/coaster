@@ -234,7 +234,10 @@ def load_model(
     permission: Optional[Union[str, set[str]]] = None,
     addlperms: Optional[Union[Iterable[str], Callable[[], Iterable[str]]]] = None,
     urlcheck: Collection[str] = (),
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, BaseResponse]]]:
+) -> Callable[
+    [Callable[..., _VR]],
+    Callable[..., Union[_VR, BaseResponse, Awaitable[BaseResponse]]],
+]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -307,7 +310,10 @@ def load_models(
     ],
     permission: Optional[Union[str, set[str]]] = None,
     **config,
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, BaseResponse]]]:
+) -> Callable[
+    [Callable[..., _VR]],
+    Callable[..., Union[_VR, BaseResponse, Awaitable[BaseResponse]]],
+]:
     """
     Load a chain of models from the given parameters.
 
@@ -342,9 +348,10 @@ def load_models(
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def decorator(f: Callable[..., _VR]) -> Callable[..., Union[_VR, BaseResponse]]:
-        @wraps(f)
-        def wrapper(*args, **kwargs) -> Union[_VR, BaseResponse]:
+    def decorator(
+        f: Callable[..., _VR],
+    ) -> Callable[..., Union[Union[_VR, BaseResponse, Awaitable[BaseResponse]],]]:
+        def loader(kwargs: dict[str, Any]) -> Union[dict[str, Any], BaseResponse]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
             permissions: Optional[set[str]] = None
@@ -439,9 +446,29 @@ def load_models(
                 permissions is None or not permission_required & permissions
             ):
                 abort(403)
-            if config.get('kwargs'):
-                return ensure_sync(f)(*args, kwargs=kwargs, **result)
-            return ensure_sync(f)(*args, **result)
+            return result
+
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def wrapper(*args, **kwargs) -> Union[_VR, BaseResponse]:
+                result = loader(kwargs)
+                if isinstance(result, BaseResponse):
+                    return result
+                if config.get('kwargs'):
+                    return await f(*args, kwargs=kwargs, **result)
+                return await f(*args, **result)
+
+        else:
+
+            @wraps(f)
+            def wrapper(*args, **kwargs) -> Union[_VR, BaseResponse]:
+                result = loader(kwargs)
+                if isinstance(result, BaseResponse):
+                    return result
+                if config.get('kwargs'):
+                    return f(*args, kwargs=kwargs, **result)
+                return f(*args, **result)
 
         return wrapper
 
