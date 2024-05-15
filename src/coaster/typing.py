@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 from typing import Any, Callable, Protocol, TypeVar, Union
 from typing_extensions import ParamSpec, TypeAlias
 
@@ -22,4 +22,4 @@ class Method(Protocol[_P, _R_co]):
         self: Any,
         *args: _P.args,
         **kwargs: _P.kwargs,
-    ) -> Union[Awaitable[_R_co], _R_co]: ...
+    ) -> Union[Coroutine[Any, Any, _R_co], _R_co]: ...

@@ -350,7 +350,7 @@ def load_models(
 
     def decorator(
         f: Callable[..., _VR],
-    ) -> Callable[..., Union[Union[_VR, BaseResponse, Awaitable[BaseResponse]],]]:
+    ) -> Callable[..., Union[_VR, BaseResponse, Awaitable[BaseResponse]]]:
         def loader(kwargs: dict[str, Any]) -> Union[dict[str, Any], BaseResponse]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]

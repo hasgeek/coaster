@@ -10,7 +10,7 @@ Group related views into a class for easier management. See :class:`ClassView` a
 from __future__ import annotations
 
 import warnings
-from collections.abc import Awaitable, Collection
+from collections.abc import Awaitable, Collection, Coroutine
 from functools import partial, update_wrapper, wraps
 from inspect import iscoroutinefunction
 from typing import (
@@ -1197,7 +1197,7 @@ class ModelView(ClassView, Generic[ModelType]):
 
     if TYPE_CHECKING:
         # Type-checking version without arg-spec to let subclasses specify explicit args
-        async_load: Callable[..., Awaitable[Optional[ResponseReturnValue]]]
+        async_load: Callable[..., Coroutine[Any, Any, Optional[ResponseReturnValue]]]
 
     else:
         # Actual default implementation has variadic arguments
