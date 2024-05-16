@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable, iscoroutinefunction
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
-from typing_extensions import ParamSpec
+from typing import TYPE_CHECKING, Any, AnyStr, Optional, TypeVar, Union, overload
+from typing_extensions import Literal, ParamSpec
 
 from asgiref.sync import async_to_sync
 from flask import (
@@ -64,9 +64,9 @@ except ModuleNotFoundError:
 
 
 if TYPE_CHECKING:
-    from flask import Flask
+    from flask import Flask, Request as FlaskRequest
     from flask.ctx import RequestContext as FlaskRequestContext
-    from quart import Quart, Response as QuartResponse
+    from quart import Quart, Request as QuartRequest, Response as QuartResponse
     from quart.ctx import RequestContext as QuartRequestContext
 
 __all__ = [
@@ -86,6 +86,75 @@ __all__ = [
 ]
 
 
+# MARK: Cross-compatible helpers -------------------------------------------------------
+
+
+class QuartFlaskWrapper:
+    """
+    Proxy to Quart or Flask source objects.
+
+    This object does not implement any magic methods other than meth:`__bool__` and does
+    not resolve API differences.
+    """
+
+    _quart_source: Any
+    _flask_source: Any
+
+    def __init__(self, quart_source: Any, flask_source: Any) -> None:
+        object.__setattr__(self, '_quart_source', quart_source)
+        object.__setattr__(self, '_flask_source', flask_source)
+
+    def __bool__(self) -> bool:
+        return bool(self._quart_source or self._flask_source)
+
+    def __getattr__(self, name: str) -> Any:
+        if self._quart_source:
+            return getattr(self._quart_source, name)
+        return getattr(self._flask_source, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if self._quart_source:
+            setattr(self._quart_source, name, value)
+        setattr(self._flask_source, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        if self._quart_source:
+            delattr(self._quart_source, name)
+        delattr(self._flask_source, name)
+
+
+current_app: Union[Flask, Quart]
+current_app = QuartFlaskWrapper(  # type: ignore[assignment]
+    quart_current_app, flask_current_app
+)
+request_ctx: Union[FlaskRequestContext, QuartRequestContext]
+request_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
+    quart_request_ctx, flask_request_ctx
+)
+
+request: Union[FlaskRequest, QuartRequest]
+request = QuartFlaskWrapper(  # type: ignore[assignment]
+    quart_request, flask_request
+)
+
+
+def current_app_object() -> Optional[Union[Flask, Quart]]:
+    """Get current app from Quart or Flask (unwrapping the proxy)."""
+    # pylint: disable=protected-access
+    if quart_current_app:
+        return quart_current_app._get_current_object()  # type: ignore[attr-defined]
+    if flask_current_app:
+        return flask_current_app._get_current_object()  # type: ignore[attr-defined]
+    return None
+
+
+def has_request_context() -> bool:
+    """Check for request context in Quart or Flask."""
+    return (
+        quart_has_request_context is not None and quart_has_request_context()
+    ) or flask_has_request_context()
+
+
 # MARK: Async helpers ------------------------------------------------------------------
 
 
@@ -101,10 +170,29 @@ class AsyncRequestWrapper:
             return await quart_request.data
         return flask_request.data
 
-    async def get_data(self) -> bytes:
+    @overload
+    async def get_data(
+        self, cache: bool, as_text: Literal[False], parse_form_data: bool
+    ) -> bytes: ...
+
+    @overload
+    async def get_data(
+        self, cache: bool, as_text: Literal[True], parse_form_data: bool
+    ) -> str: ...
+
+    @overload
+    async def get_data(
+        self, cache: bool = True, as_text: bool = False, parse_form_data: bool = False
+    ) -> AnyStr: ...
+
+    async def get_data(
+        self, cache: bool = True, as_text: bool = False, parse_form_data: bool = False
+    ) -> AnyStr:
         if quart_request:
-            return await quart_request.get_data()
-        return flask_request.get_data()
+            return await quart_request.get_data(cache, as_text, parse_form_data)
+        return flask_request.get_data(  # type: ignore[call-overload, return-value]
+            cache, as_text, parse_form_data
+        )
 
     @property
     async def json(self) -> Optional[Any]:
@@ -135,6 +223,16 @@ class AsyncRequestWrapper:
             return await quart_request.values
         return flask_request.values
 
+    async def send_push_promise(self, path: str) -> None:
+        if quart_request:
+            await quart_request.send_push_promise(path)
+        # Do nothing if Flask
+
+    async def close(self) -> None:
+        if quart_request:
+            return await quart_request.close()
+        return flask_request.close()
+
     # Proxy all other attributes to Quart or Flask
 
     def __getattr__(self, name: str) -> Any:
@@ -154,75 +252,6 @@ class AsyncRequestWrapper:
 
 
 async_request = AsyncRequestWrapper()
-
-
-class CurrentAppWrapper:
-    """Proxy to current Quart or Flask app."""
-
-    def __bool__(self) -> bool:
-        return bool(quart_current_app or flask_current_app)
-
-    def __getattr__(self, name: str) -> Any:
-        if quart_current_app:
-            return getattr(quart_current_app, name)
-        return getattr(flask_current_app, name)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if quart_current_app:
-            setattr(quart_current_app, name, value)
-        setattr(flask_current_app, name, value)
-
-    def __delattr__(self, name: str) -> None:
-        if quart_current_app:
-            delattr(quart_current_app, name)
-        delattr(flask_current_app, name)
-
-
-current_app: Union[Flask, Quart]
-current_app = CurrentAppWrapper()  # type: ignore[assignment]
-
-
-class RequestCtxWrapper:
-    """Proxy to current Quart or Flask request_ctx."""
-
-    def __bool__(self) -> bool:
-        return bool(quart_request_ctx) or bool(flask_request_ctx)
-
-    def __getattr__(self, name: str) -> Any:
-        if quart_request_ctx:
-            return getattr(quart_request_ctx, name)
-        return getattr(flask_request_ctx, name)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if quart_request_ctx:
-            setattr(quart_request_ctx, name, value)
-        setattr(flask_request_ctx, name, value)
-
-    def __delattr__(self, name: str) -> None:
-        if quart_request_ctx:
-            delattr(quart_request_ctx, name)
-        delattr(flask_request_ctx, name)
-
-
-request_ctx: Union[FlaskRequestContext, QuartRequestContext]
-request_ctx = RequestCtxWrapper()  # type: ignore[assignment]
-
-
-def has_request_context() -> bool:
-    """Check for request context in Quart or Flask."""
-    return (
-        quart_has_request_context is not None and quart_has_request_context()
-    ) or flask_has_request_context()
-
-
-def current_app_object() -> Optional[Union[Flask, Quart]]:
-    """Get current app from Flask or Quart (unwrapping the proxy)."""
-    # pylint: disable=protected-access
-    if quart_current_app:
-        return quart_current_app._get_current_object()  # type: ignore[attr-defined]
-    if flask_current_app:
-        return flask_current_app._get_current_object()  # type: ignore[attr-defined]
-    return None
 
 
 async def async_make_response(*args: Any) -> Union[WerkzeugResponse, QuartResponse]:

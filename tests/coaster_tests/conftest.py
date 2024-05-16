@@ -2,10 +2,17 @@
 
 # pylint: disable=redefined-outer-name
 
+from __future__ import annotations
+
+import asyncio
+import contextvars
 import sys
+import traceback
 import unittest
+from collections.abc import Coroutine, Generator
 from os import environ
-from typing import cast
+from pathlib import Path
+from typing import Any, Optional, Union, cast
 
 import pytest
 import sqlalchemy as sa
@@ -76,3 +83,90 @@ class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
         self.session.rollback()
         db.drop_all()
         self.ctx.pop()
+
+
+# Patch for asyncio tests, adapted from
+# https://github.com/Donate4Fun/donate4fun/blob/273a4e/tests/fixtures.py
+
+
+class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    def __init__(self, context: Optional[contextvars.Context]) -> None:
+        super().__init__()
+        self.context = context
+
+    def task_factory(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        factory: Union[Coroutine, Generator],
+        context: Optional[contextvars.Context] = None,
+    ) -> Task311:
+        if context is None:
+            context = self.context
+        stack = traceback.extract_stack()
+        for frame in stack[-2::-1]:
+            package_name = Path(frame.filename).parts[-2]
+            if package_name != 'asyncio':
+                if package_name == 'pytest_asyncio':
+                    # This function was called from pytest_asyncio, use shared context
+                    break
+                # This function was called from somewhere else, create context copy
+                context = None
+                break
+        if sys.version_info[:2] >= (3, 11):
+            # pylint: disable=unexpected-keyword-arg
+            return asyncio.create_task(factory, loop=loop, context=context)
+        return Task311(factory, loop=loop, context=context)
+
+    def new_event_loop(self) -> asyncio.AbstractEventLoop:
+        loop = super().new_event_loop()
+        loop.set_task_factory(self.task_factory)
+        return loop
+
+
+@pytest.fixture(scope='session')
+def event_loop_policy() -> Generator[CustomEventLoopPolicy, Any, None]:
+    policy = CustomEventLoopPolicy(contextvars.copy_context())
+    yield policy
+    policy.get_event_loop().close()
+
+
+# pylint: disable=protected-access
+class Task311(asyncio.tasks._PyTask):  # type: ignore[name-defined]
+    """Backport of Task from CPython 3.11 for passing context from fixture to test."""
+
+    def __init__(
+        self,
+        coro: Union[Coroutine, Generator],
+        *,
+        loop: Optional[asyncio.AbstractEventLoop] = None,
+        name: Optional[str] = None,
+        context: Optional[contextvars.Context] = None,
+    ) -> None:
+        super(
+            asyncio.tasks._PyTask,  # type: ignore[attr-defined]
+            self,
+        ).__init__(loop=loop)
+        if self._source_traceback:
+            del self._source_traceback[-1]
+        if not asyncio.coroutines.iscoroutine(coro):
+            # raise after Future.__init__(), attrs are required for __del__
+            # prevent logging for pending task in __del__
+            self._log_destroy_pending = False
+            raise TypeError(f"a coroutine was expected, got {coro!r}")
+
+        if name is None:
+            self._name = f'Task-{asyncio.tasks._task_name_counter()}'  # type: ignore[attr-defined]
+        else:
+            self._name = str(name)
+
+        self._num_cancels_requested = 0
+        self._must_cancel = False
+        self._fut_waiter = None
+        self._coro = coro
+        if context is None:
+            self._context = contextvars.copy_context()
+        else:
+            self._context = context
+
+        self._loop.call_soon(self._Task__step, context=self._context)
+        asyncio.tasks._register_task(self)

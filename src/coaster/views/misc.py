@@ -6,15 +6,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Container
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 from urllib.parse import urlsplit
 
-from flask import Response, json, request, session as request_session, url_for
+from flask import Response, json, session as request_session, url_for
 from werkzeug.exceptions import MethodNotAllowed, NotFound
-from werkzeug.routing import MapAdapter, RequestRedirect, Rule
-from werkzeug.wrappers import Request as WerkzeugRequest
+from werkzeug.routing import RequestRedirect, Rule
 
-from ..compat import current_app
+from ..compat import async_request, current_app
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -22,8 +21,8 @@ __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 
 def _index_url() -> str:
-    if request:
-        return request.script_root or '/'
+    if async_request:
+        return async_request.script_root or '/'
     return '/'
 
 
@@ -33,7 +32,7 @@ def _clean_external_url(
     """Allow external URLs if they match current request's hostname."""
     # Do the domains and ports match?
     pnext = urlsplit(url)
-    preq = urlsplit(request.url)
+    preq = urlsplit(async_request.url)
     if pnext.scheme and pnext.scheme.lower() not in allowed_schemes:
         # Not an allowed scheme, quit
         return ''
@@ -63,17 +62,17 @@ def get_current_url() -> str:
     if current_app.config.get('SERVER_NAME') and (
         # Check current hostname against server name, ignoring port numbers, if any
         # (split on ':')
-        request.environ['HTTP_HOST'].split(':', 1)[0]
+        async_request.environ['HTTP_HOST'].split(':', 1)[0]
         != current_app.config['SERVER_NAME'].split(':', 1)[0]
     ):
-        return request.url
+        return async_request.url
 
     url = (
-        url_for(request.endpoint, **(request.view_args or {}))
-        if request.endpoint is not None  # Will be None in a 404 handler
-        else request.url
+        url_for(async_request.endpoint, **(async_request.view_args or {}))
+        if async_request.endpoint is not None  # Will be None in a 404 handler
+        else async_request.url
     )
-    query = request.query_string
+    query = async_request.query_string
     if query:
         return url + '?' + query.decode()
     return url
@@ -97,18 +96,20 @@ def get_next_url(
     or the script root (typically ``/``).
     """
     if session:
-        next_url = request_session.pop('next', None) or request.args.get('next', '')
+        next_url = request_session.pop('next', None) or async_request.args.get(
+            'next', ''
+        )
     else:
-        next_url = request.args.get('next', '')
+        next_url = async_request.args.get('next', '')
     if next_url and not external:
         next_url = _clean_external_url(next_url)
     if next_url:
         return next_url
 
-    if referrer and request.referrer:
+    if referrer and async_request.referrer:
         if external:
-            return request.referrer
-        return _clean_external_url(request.referrer) or (
+            return async_request.referrer
+        return _clean_external_url(async_request.referrer) or (
             default if default is not None else _index_url()
         )
     return default if default is not None else _index_url()
@@ -123,7 +124,7 @@ def jsonp(*args: Any, **kwargs: Any) -> Response:
         :func:`~coaster.views.decorators.cors` decorator.
     """
     data = json.dumps(dict(*args, **kwargs), indent=2)
-    callback = request.args.get('callback', request.args.get('jsonp'))
+    callback = async_request.args.get('callback', async_request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
         data = callback + '(' + data + ');'
         mimetype = 'application/javascript'
@@ -134,7 +135,7 @@ def jsonp(*args: Any, **kwargs: Any) -> Response:
 
 def endpoint_for(
     url: str,
-    method: Optional[str] = None,
+    method: str = 'GET',
     return_rule: bool = False,
     follow_redirects: bool = True,
 ) -> tuple[Optional[Union[Rule, str]], dict[str, Any]]:
@@ -153,19 +154,23 @@ def endpoint_for(
         # We require an absolute URL
         return None, {}
 
-    # Take the current runtime environment...
-    environ = dict(request.environ)
-    # ...but replace the HTTP host with the URL's host...
-    environ['HTTP_HOST'] = parsed_url.netloc
-    # ...and the path with the URL's path (after discounting the app path, if not
-    # hosted at root).
-    environ['PATH_INFO'] = parsed_url.path[len(environ.get('SCRIPT_NAME', '')) :]
-    # Create a new request with this environment...
-    url_request = WerkzeugRequest(environ)
-    # ...and a URL adapter with the new request.
-    url_adapter = cast(
-        MapAdapter,
-        current_app.create_url_adapter(url_request),  # type: ignore[arg-type]
+    use_host = current_app.config['SERVER_NAME'] or parsed_url.netloc
+    if async_request:
+        use_root_path = async_request.root_path
+        use_scheme = async_request.scheme
+    else:
+        use_root_path = '/'
+        use_scheme = 'https'
+    url_adapter = current_app.url_map.bind(
+        use_host,
+        use_root_path,
+        parsed_url.netloc[: -len(use_host) - 1]
+        if parsed_url.netloc.endswith('.' + use_host)
+        else None,
+        use_scheme,
+        method,
+        '/',
+        None,
     )
 
     # Run three hostname tests, one of which must pass:
