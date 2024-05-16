@@ -1,4 +1,4 @@
-import unittest
+"""Tests for text utilities."""
 
 from coaster.utils import text_blocks
 
@@ -42,7 +42,6 @@ sample_text_blocks = [
 ]
 
 
-class TestExtractText(unittest.TestCase):
-    def test_extract_text(self) -> None:
-        tb = text_blocks(sample_html, skip_pre=True)
-        assert tb == sample_text_blocks
+def test_extract_text() -> None:
+    tb = text_blocks(sample_html, skip_pre=True)
+    assert tb == sample_text_blocks
