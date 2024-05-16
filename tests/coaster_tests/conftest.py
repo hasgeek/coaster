@@ -112,9 +112,6 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
                 # This function was called from somewhere else, create context copy
                 context = None
                 break
-        if sys.version_info[:2] >= (3, 11):
-            # pylint: disable=unexpected-keyword-arg
-            return asyncio.create_task(factory, loop=loop, context=context)
         return Task311(factory, loop=loop, context=context)
 
     def new_event_loop(self) -> asyncio.AbstractEventLoop:
