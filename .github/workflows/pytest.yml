@@ -63,7 +63,7 @@ jobs:
           psql -h localhost -U postgres coaster_test -c "grant all privileges on schema public to $(whoami); grant all privileges on all tables in schema public to $(whoami); grant all privileges on all sequences in schema public to $(whoami);"
       - name: Test with pytest
         run: |
-          pytest --ignore-flaky --showlocals --cov=coaster
+          pytest --showlocals --cov=coaster
       - name: Prepare coverage report
         run: |
           mkdir -p coverage
