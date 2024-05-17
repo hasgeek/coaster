@@ -65,7 +65,6 @@ ReturnRenderWith = Union[
     tuple[ReturnRenderWithData, int, ReturnRenderWithHeaders],
 ]
 _VP = ParamSpec('_VP')  # View parameters as accepted by the decorated view
-_VR = TypeVar('_VR', bound=Any)  # View return value
 _VR_co = TypeVar('_VR_co', covariant=True)  # View covariant return type
 
 
@@ -269,7 +268,7 @@ def load_model(
     permission: Optional[Union[str, set[str]]] = None,
     addlperms: Optional[Union[Iterable[str], Callable[[], Iterable[str]]]] = None,
     urlcheck: Collection[str] = (),
-) -> Callable[[Callable[..., _VR]], Callable[..., _VR]]:
+) -> Callable[[Callable[..., _VR_co]], Callable[..., _VR_co]]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -342,7 +341,7 @@ def load_models(
     ],
     permission: Optional[Union[str, set[str]]] = None,
     **config,
-) -> Callable[[Callable[..., _VR]], Callable[..., _VR]]:
+) -> Callable[[Callable[..., _VR_co]], Callable[..., _VR_co]]:
     """
     Load a chain of models from the given parameters.
 
@@ -377,7 +376,7 @@ def load_models(
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def decorator(f: Callable[..., _VR]) -> Callable[..., _VR]:
+    def decorator(f: Callable[..., _VR_co]) -> Callable[..., _VR_co]:
         def loader(kwargs: dict[str, Any]) -> dict[str, Any]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
@@ -485,11 +484,11 @@ def load_models(
                 return await f(*args, **result)
 
             # Fix return type hint
-            wrapper = cast(Callable[..., _VR], async_wrapper)
+            wrapper = cast(Callable[..., _VR_co], async_wrapper)
         else:
 
             @wraps(f)
-            def wrapper(*args, **kwargs) -> _VR:
+            def wrapper(*args, **kwargs) -> _VR_co:
                 result = loader(kwargs)
                 if config.get('kwargs'):
                     return f(*args, kwargs=kwargs, **result)
