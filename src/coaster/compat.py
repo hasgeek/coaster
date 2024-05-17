@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from functools import wraps
 from inspect import isawaitable, iscoroutinefunction
 from typing import TYPE_CHECKING, Any, AnyStr, Optional, TypeVar, Union, overload
 from typing_extensions import Literal, ParamSpec
@@ -287,12 +288,16 @@ _P = ParamSpec('_P')
 _R_co = TypeVar('_R_co', covariant=True)
 
 
+async def _coroutine_wrapper(awaitable: Awaitable[_R_co]) -> _R_co:
+    return await awaitable
+
+
 def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
     """Implement await statement in a sync context."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(awaitable)  # type: ignore[arg-type]
+        return asyncio.run(_coroutine_wrapper(awaitable))
     try:
         unexpected = next(awaitable.__await__())
     except StopIteration as exc:
@@ -301,24 +306,22 @@ def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
 
 
 def ensure_sync(
-    func: Union[
-        Callable[_P, Awaitable[_R_co]],
-        Callable[_P, _R_co],
-    ],
+    func: Union[Callable[_P, Awaitable[_R_co]], Callable[_P, _R_co]],
 ) -> Callable[_P, _R_co]:
-    """Run a possibly-async function in a sync context."""
+    """Run a possibly-async callable in a sync context."""
     if not callable(func):
-        raise TypeError("Function is not callable.")
+        raise TypeError(f"{func!r} is not callable")
     if iscoroutinefunction(func) or iscoroutinefunction(
         getattr(func, '__call__', func)  # noqa: B004
     ):
         return async_to_sync(func)  # type: ignore[arg-type]
 
+    @wraps(func)
     def check_return(*args: _P.args, **kwargs: _P.kwargs) -> _R_co:
         result = func(*args, **kwargs)
         if isawaitable(result):
             return sync_await(result)
-        # The typeguard for isawaitable doesn't narrow in the negative context, so we
+        # The typeguard for `isawaitable` doesn't narrow in the negative context, so we
         # need a type-ignore here:
         return result  # type: ignore[return-value]
 
