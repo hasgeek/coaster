@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable, iscoroutinefunction
 from typing import TYPE_CHECKING, Any, AnyStr, Optional, TypeVar, Union, overload
@@ -286,10 +287,17 @@ _P = ParamSpec('_P')
 _R_co = TypeVar('_R_co', covariant=True)
 
 
-@async_to_sync
-async def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
+def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
     """Implement await statement in a sync context."""
-    return await awaitable
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(awaitable)  # type: ignore[arg-type]
+    try:
+        unexpected = next(awaitable.__await__())
+    except StopIteration as exc:
+        return exc.value
+    raise TypeError(f"Awaitable yielded unexpected value {unexpected!r}")
 
 
 def ensure_sync(

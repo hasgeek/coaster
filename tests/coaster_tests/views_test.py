@@ -1,10 +1,13 @@
 """Test view helpers."""
 
+# pylint: disable=redefined-outer-name
+
 import unittest
 from typing import Any, Optional
 
 import pytest
 from flask import Flask, json, session
+from quart import Quart
 from werkzeug.exceptions import BadRequest, Forbidden
 
 from coaster.app import load_config_from_file
@@ -15,7 +18,7 @@ from coaster.views import (
     jsonp,
     requestargs,
     requestform,
-    requestquery,
+    requestvalues,
     requires_permission,
 )
 
@@ -32,40 +35,6 @@ def somewhere() -> str:
     return "somewhere"
 
 
-@requestargs('p1', ('p2', int), ('p3[]', int))
-def requestargs_test1(
-    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
-) -> tuple[Any, ...]:
-    return p1, p2, p3
-
-
-@requestargs('p1', ('p2', int), 'p3[]')
-def requestargs_test2(
-    p1: str, p2: Optional[int] = None, p3: Optional[list[str]] = None
-) -> tuple[Any, ...]:
-    return p1, p2, p3
-
-
-@requestquery('p1', ('p2', int), ('p3[]', int))
-def requestquery_test(
-    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
-) -> tuple[Any, ...]:
-    return p1, p2, p3
-
-
-@requestform('p1', ('p2', int), ('p3[]', int))
-def requestform_test(
-    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
-) -> tuple[Any, ...]:
-    return p1, p2, p3
-
-
-@requestquery('query1')
-@requestform('form1')
-def requestcombo_test(query1: str, form1: str) -> tuple[str, str]:
-    return query1, form1
-
-
 @requires_permission('allow-this')
 def permission1() -> str:
     return 'allowed1'
@@ -76,7 +45,7 @@ def permission2() -> str:
     return 'allowed2'
 
 
-# --- Tests ----------------------------------------------------------------------------
+# --- MARK: Tests ----------------------------------------------------------------------
 
 
 class TestCoasterViews(unittest.TestCase):
@@ -171,42 +140,6 @@ class TestCoasterViews(unittest.TestCase):
             assert resp['param1'] == param1
             assert resp['param2'] == param2
 
-    def test_requestargs(self) -> None:
-        # pylint: disable=no-value-for-parameter
-        with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
-
-        with self.app.test_request_context('/?p2=2'):
-            assert requestargs_test1(p1='1') == ('1', 2, None)
-
-        with self.app.test_request_context('/?p2=2'):
-            assert requestargs_test1(p1='1', p2=3) == ('1', 3, None)
-
-        with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestargs_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
-
-        with self.app.test_request_context('/?p2=2&p4=4'):
-            with pytest.raises(TypeError):
-                requestargs_test1(p4='4')  # type: ignore[call-arg]
-            with pytest.raises(BadRequest):
-                requestargs_test1(p4='4')  # type: ignore[call-arg]
-
-        with self.app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
-            assert requestquery_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
-
-        with self.app.test_request_context(
-            '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
-        ):
-            assert requestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
-
-        with self.app.test_request_context(
-            '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
-        ):
-            assert requestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
-
-        # Calling without a request context works as well
-        assert requestargs_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])
-
     def test_requires_permission(self) -> None:
         with self.app.test_request_context():
             assert permission1.is_available() is False  # type: ignore[attr-defined]
@@ -241,3 +174,260 @@ class TestCoasterViews(unittest.TestCase):
 
             assert permission1() == 'allowed1'
             assert permission2() == 'allowed2'
+
+
+@pytest.fixture(scope='module')
+def flask_app() -> Flask:
+    return Flask(__name__)
+
+
+@pytest.fixture(scope='module')
+def quart_app() -> Quart:
+    return Quart(__name__)
+
+
+# MARK: @requestargs tests -------------------------------------------------------------
+# spell-checker:ignore requestargs
+
+
+@requestvalues('p1', ('p2', int), ('p3[]', int))
+def requestvalues_test1(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestvalues('p1', ('p2', int), 'p3[]')
+def requestvalues_test2(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[str]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestvalues('p1', ('p2', int), ('p3[]', int))
+def requestvalues_test(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestform('p1', ('p2', int), ('p3[]', int))
+def requestform_test(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestargs('query1')
+@requestform('form1')
+def requestcombo_test(query1: str, form1: str) -> tuple[str, str]:
+    return query1, form1
+
+
+@requestvalues('p1', ('p2', int), ('p3[]', int))
+async def arequestvalues_test1(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestvalues('p1', ('p2', int), 'p3[]')
+async def arequestvalues_test2(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[str]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestvalues('p1', ('p2', int), ('p3[]', int))
+async def arequestvalues_test(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestform('p1', ('p2', int), ('p3[]', int))
+async def arequestform_test(
+    p1: str, p2: Optional[int] = None, p3: Optional[list[int]] = None
+) -> tuple[Any, ...]:
+    return p1, p2, p3
+
+
+@requestargs('query1')
+@requestform('form1')
+async def arequestcombo_test(query1: str, form1: str) -> tuple[str, str]:
+    return query1, form1
+
+
+async def test_requestargs(flask_app: Flask, quart_app: Quart) -> None:
+    # pylint: disable=no-value-for-parameter
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', method='POST', data={'p3': ['1', '2'], 'p2': '3', 'p1': '1'}
+    ):
+        assert requestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p2=2'):
+        assert requestvalues_test1(p1='1') == ('1', 2, None)
+
+    with flask_app.test_request_context('/', method='POST', data={'p2': '2'}):
+        assert requestvalues_test1(p1='1') == ('1', 2, None)
+
+    with flask_app.test_request_context('/?p2=2'):
+        assert requestvalues_test1(p1='1', p2=3) == ('1', 3, None)
+
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p2=2&p4=4'):
+        with pytest.raises(TypeError):
+            requestvalues_test1(p4='4')  # type: ignore[call-arg]
+        with pytest.raises(BadRequest):
+            requestvalues_test1(p4='4')  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
+    ):
+        assert requestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
+    ):
+        assert requestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', method='POST', data={'p3': ['1', '2'], 'p2': '3', 'p1': '1'}
+    ):
+        assert await arequestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p2=2'):
+        assert await arequestvalues_test1(p1='1') == ('1', 2, None)
+
+    with flask_app.test_request_context('/', method='POST', data={'p2': '2'}):
+        assert await arequestvalues_test1(p1='1') == ('1', 2, None)
+
+    with flask_app.test_request_context('/?p2=2'):
+        assert await arequestvalues_test1(p1='1', p2=3) == ('1', 3, None)
+
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p2=2&p4=4'):
+        with pytest.raises(TypeError):
+            await arequestvalues_test1(p4='4')  # type: ignore[call-arg]
+        with pytest.raises(BadRequest):
+            await arequestvalues_test1(p4='4')  # type: ignore[call-arg]
+
+    with flask_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', data={'p3': [1, 2], 'p2': 3, 'p1': 1}, method='POST'
+    ):
+        assert await arequestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    with flask_app.test_request_context(
+        '/', query_string='query1=foo', data={'form1': 'bar'}, method='POST'
+    ):
+        assert await arequestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/',
+        method='POST',
+        data='p3=1&p3=2&p2=3&p1=1',
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ):
+        assert requestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p2=2'):
+        assert requestvalues_test1(p1='1') == ('1', 2, None)
+
+    async with quart_app.test_request_context('/', method='POST', form={'p2': '2'}):
+        assert requestvalues_test1(p1='1') == ('1', 2, None)
+
+    async with quart_app.test_request_context('/?p2=2'):
+        assert requestvalues_test1(p1='1', p2=3) == ('1', 3, None)
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p2=2&p4=4'):
+        with pytest.raises(TypeError):
+            requestvalues_test1(p4='4')  # type: ignore[call-arg]
+        with pytest.raises(BadRequest):
+            requestvalues_test1(p4='4')  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert requestvalues_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/',
+        data='p3=1&p3=2&p2=3&p1=1',
+        method='POST',
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ):
+        assert requestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/', query_string={'query1': 'foo'}, form={'form1': 'bar'}, method='POST'
+    ):
+        assert requestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/',
+        method='POST',
+        data='p3=1&p3=2&p2=3&p1=1',
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ):
+        assert await arequestvalues_test1() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p2=2'):
+        assert await arequestvalues_test1(p1='1') == ('1', 2, None)
+
+    async with quart_app.test_request_context('/', method='POST', form={'p2': '2'}):
+        assert await arequestvalues_test1(p1='1') == ('1', 2, None)
+
+    async with quart_app.test_request_context('/?p2=2'):
+        assert await arequestvalues_test1(p1='1', p2=3) == ('1', 3, None)
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test2() == ('1', 3, ['1', '2'])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p2=2&p4=4'):
+        with pytest.raises(TypeError):
+            await arequestvalues_test1(p4='4')  # type: ignore[call-arg]
+        with pytest.raises(BadRequest):
+            await arequestvalues_test1(p4='4')  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context('/?p3=1&p3=2&p2=3&p1=1'):
+        assert await arequestvalues_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/',
+        data='p3=1&p3=2&p2=3&p1=1',
+        method='POST',
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    ):
+        assert await arequestform_test() == ('1', 3, [1, 2])  # type: ignore[call-arg]
+
+    async with quart_app.test_request_context(
+        '/', query_string={'query1': 'foo'}, form={'form1': 'bar'}, method='POST'
+    ):
+        assert await arequestcombo_test() == ('foo', 'bar')  # type: ignore[call-arg]
+
+    # Calling without a request context works as well
+    assert requestvalues_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])
+    assert await arequestvalues_test1(p1='1', p2=3, p3=[1, 2]) == ('1', 3, [1, 2])

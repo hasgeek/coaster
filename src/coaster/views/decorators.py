@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Collection, Container, Iterable, Mapping
 from functools import wraps
-from inspect import iscoroutinefunction
+from inspect import isawaitable, iscoroutinefunction
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -20,15 +20,7 @@ from typing import (
 )
 from typing_extensions import ParamSpec
 
-from flask import (
-    Response,
-    abort,
-    jsonify,
-    make_response,
-    render_template,
-    request,
-    url_for,
-)
+from flask import Response, abort, jsonify, make_response, render_template, url_for
 from flask.typing import ResponseReturnValue
 from markupsafe import escape as html_escape
 from werkzeug.datastructures import Headers, MIMEAccept
@@ -36,7 +28,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from ..auth import add_auth_attribute, current_auth
-from ..compat import BaseResponse, ensure_sync, flask_g, quart_g
+from ..compat import BaseResponse, ensure_sync, flask_g, quart_g, request, sync_await
 from ..utils import InspectableSet, is_collection
 
 __all__ = [
@@ -45,7 +37,7 @@ __all__ = [
     'RequestValueError',
     'Redirect',
     'requestargs',
-    'requestquery',
+    'requestvalues',
     'requestform',
     'requestbody',
     'load_model',
@@ -112,7 +104,7 @@ class Redirect(HTTPException):
 
 def requestargs(
     *args: Union[str, tuple[str, Callable[[str], Any]]],
-    source: Literal['values', 'form', 'query', 'body'] = 'values',
+    source: Literal['args', 'values', 'form', 'body'] = 'args',
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """
     Decorate a function to load parameters from the request if not supplied directly.
@@ -174,7 +166,7 @@ def requestargs(
             ]
         ]
 
-        if source == 'query':
+        if source == 'args':
 
             def datasource() -> tuple[Any, bool]:
                 return (request.args, True) if request else ({}, False)
@@ -201,10 +193,9 @@ def requestargs(
         else:
             raise TypeError("Unknown data source")
 
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> _VR_co:
-            """Wrap a view to insert keyword arguments."""
-            values, has_gettype = datasource()
+        def process_kwargs(
+            values: Any, has_gettype: bool, kwargs: dict[str, Any]
+        ) -> dict[str, Any]:
             for name, filt, is_list in namefilt:
                 # Process name if
                 # (a) it's not in the function's parameters, and
@@ -227,23 +218,49 @@ def requestargs(
                                     kwargs[name] = filt(values[name])
                                 else:
                                     kwargs[name] = values[name]
-                    except ValueError as e:
-                        raise RequestValueError(str(e)) from e
-            try:
-                return ensure_sync(f)(*args, **kwargs)
-            except TypeError as e:
-                raise RequestTypeError(str(e)) from e
+                    except ValueError as exc:
+                        raise RequestValueError(str(exc)) from exc
+            return kwargs
+
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def async_wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> Any:
+                """Wrap a view to insert keyword arguments."""
+                values, has_gettype = datasource()
+                if isawaitable(values):
+                    values = await values
+                use_kwargs = process_kwargs(values, has_gettype, kwargs)
+                try:
+                    return await f(*args, **use_kwargs)
+                except TypeError as e:
+                    raise RequestTypeError(str(e)) from e
+
+            wrapper = cast(Callable[_VP, _VR_co], async_wrapper)
+        else:
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> _VR_co:
+                """Wrap a view to insert keyword arguments."""
+                values, has_gettype = datasource()
+                if isawaitable(values):
+                    values = sync_await(values)
+                use_kwargs = process_kwargs(values, has_gettype, kwargs)
+                try:
+                    return f(*args, **use_kwargs)
+                except TypeError as exc:
+                    raise RequestTypeError(str(exc)) from exc
 
         return wrapper
 
     return decorator
 
 
-def requestquery(
+def requestvalues(
     *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
-    """Like :func:`requestargs`, but loads from request.args (the query string)."""
-    return requestargs(*args, source='query')
+    """Like :func:`requestargs`, but loads from request.values (query or form)."""
+    return requestargs(*args, source='values')
 
 
 def requestform(
