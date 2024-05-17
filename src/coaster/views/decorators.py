@@ -3,7 +3,14 @@
 # spell-checker:ignore requestargs
 from __future__ import annotations
 
-from collections.abc import Awaitable, Collection, Container, Iterable, Mapping
+from collections.abc import (
+    Awaitable,
+    Collection,
+    Container,
+    Iterable,
+    Mapping,
+    Set as AbstractSet,
+)
 from functools import wraps
 from inspect import isawaitable, iscoroutinefunction
 from typing import (
@@ -905,7 +912,7 @@ def requires_permission(
         def is_available_here() -> bool:
             if not current_auth.permissions:
                 return False
-            if isinstance(permission, (set, frozenset)):
+            if isinstance(permission, AbstractSet):
                 return bool(current_auth.permissions & permission)
             return permission in current_auth.permissions
 

@@ -10,6 +10,7 @@ import time
 import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections import abc
+from collections.abc import Mapping
 from datetime import datetime
 from functools import wraps
 from random import SystemRandom
@@ -98,7 +99,9 @@ def is_collection(item: Any) -> bool:
     >>> is_collection(InspectableSet({1, 2}))
     True
     """
-    return not isinstance(item, (str, bytes, dict)) and isinstance(item, abc.Collection)
+    return not isinstance(item, (str, bytes, Mapping)) and isinstance(
+        item, abc.Collection
+    )
 
 
 def uuid_b64() -> str:
