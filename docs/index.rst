@@ -24,7 +24,6 @@ Coaster is available under the BSD license, the same license as Flask.
    auth
    views/index
    sqlalchemy/index
-   db
    compat
 
 Indices and tables
