@@ -49,7 +49,6 @@ from typing_extensions import Self, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
-from flask import url_for
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
@@ -57,7 +56,7 @@ from sqlalchemy.sql import func, select
 from werkzeug.routing import BuildError
 
 from ..auth import current_auth
-from ..compat import BaseApp, current_app_object
+from ..compat import BaseApp, current_app_object, url_for
 from ..typing import ReturnDecorator, WrappedFunc
 from ..utils import (
     InspectableSet,

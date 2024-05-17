@@ -27,7 +27,6 @@ from typing import (
 )
 from typing_extensions import ParamSpec
 
-from flask import Response, abort, jsonify, make_response, render_template, url_for
 from flask.typing import ResponseReturnValue
 from markupsafe import escape as html_escape
 from werkzeug.datastructures import Headers, MIMEAccept
@@ -35,7 +34,20 @@ from werkzeug.exceptions import BadRequest, HTTPException
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from ..auth import add_auth_attribute, current_auth
-from ..compat import BaseResponse, ensure_sync, flask_g, quart_g, request, sync_await
+from ..compat import (
+    BaseResponse,
+    abort,
+    async_make_response,
+    ensure_sync,
+    flask_g,
+    jsonify,
+    make_response,
+    quart_g,
+    render_template,
+    request,
+    sync_await,
+    url_for,
+)
 from ..utils import InspectableSet, is_collection
 
 __all__ = [
@@ -719,7 +731,7 @@ def render_with(
                 response.headers.extend(headers)
             if vary_accept:
                 response.vary.add('Accept')
-            return response
+            return response  # type: ignore[return-value]  # FIXME
 
         return wrapper
 
@@ -862,12 +874,12 @@ def cors(
                 origin = check_origin()
                 if origin is None:
                     # If no Origin header is supplied, CORS checks don't apply
-                    return make_response(await f(*args, **kwargs))
+                    return await async_make_response(await f(*args, **kwargs))
                 if request.method == 'OPTIONS':
                     # pre-flight request
-                    resp = Response()
+                    resp = BaseResponse()
                 else:
-                    resp = make_response(await f(*args, **kwargs))
+                    resp = await async_make_response(await f(*args, **kwargs))
                 return set_headers(origin, resp)
 
         else:
@@ -880,7 +892,7 @@ def cors(
                     return make_response(f(*args, **kwargs))
                 if request.method == 'OPTIONS':
                     # pre-flight request
-                    resp = Response()
+                    resp = BaseResponse()
                 else:
                     resp = make_response(f(*args, **kwargs))
                 return set_headers(origin, resp)

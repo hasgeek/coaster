@@ -36,9 +36,6 @@ from typing_extensions import (
     get_original_bases,
 )
 
-from flask import abort, make_response, redirect, request
-from flask.blueprints import BlueprintSetupState
-from flask.globals import _cv_app, app_ctx
 from flask.typing import ResponseReturnValue
 from furl import furl
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -48,7 +45,18 @@ from werkzeug.local import LocalProxy
 from werkzeug.routing import Map as WzMap, Rule as WzRule
 
 from ..auth import add_auth_attribute, current_auth
-from ..compat import BaseApp, BaseBlueprint, BaseResponse
+from ..compat import (
+    BaseApp,
+    BaseBlueprint,
+    BaseResponse,
+    BlueprintSetupState,
+    abort,
+    app_ctx,
+    async_make_response,
+    make_response,
+    redirect,
+    request,
+)
 from ..sqlalchemy import PermissionMixin, Query, UrlForMixin
 from ..typing import Method
 from ..utils import InspectableSet
@@ -498,7 +506,7 @@ class ViewMethod(Generic[_P, _R_co]):
                 # Place the view instance on the app context for :obj:`current_view` to
                 # discover
                 if app_ctx:
-                    app_ctx.current_view = viewinst  # type: ignore[attr-defined]
+                    app_ctx.current_view = viewinst  # type: ignore[union-attr]
                 # Call the view class's dispatch method. View classes can customise this
                 # for desired behaviour.
                 return await viewinst.async_dispatch_request(decorated_func, view_args)
@@ -526,7 +534,7 @@ class ViewMethod(Generic[_P, _R_co]):
                 # Place the view instance on the app context for :obj:`current_view` to
                 # discover
                 if app_ctx:
-                    app_ctx.current_view = viewinst  # type: ignore[attr-defined]
+                    app_ctx.current_view = viewinst  # type: ignore[union-attr]
                 # Call the view class's dispatch method. View classes can customise this
                 # for desired behaviour.
                 return viewinst.dispatch_request(decorated_func, view_args)
@@ -862,10 +870,10 @@ class ClassView:
         # Call the :meth:`async_before_request` method
         resp = await self.async_before_request()
         if resp is not None:
-            return await self.async_after_request(make_response(resp))
+            return await self.async_after_request(await async_make_response(resp))
         # Call the view method, then pass the response to :meth:`async_after_response`
         return await self.async_after_request(
-            make_response(await view(self, **view_args))
+            await async_make_response(await view(self, **view_args))
         )
 
     async def async_before_request(self) -> Optional[ResponseReturnValue]:
@@ -1142,15 +1150,17 @@ class ModelView(ClassView, Generic[ModelType]):
         resp = await self.async_before_request()
         if resp is not None:
             # If it had a response, skip the view and call after_request, then return
-            return await self.async_after_request(make_response(resp))
+            return await self.async_after_request(await async_make_response(resp))
         # Load the database model
         resp = await self.async_load(**view_args)
         if resp is not None:
-            return await self.async_after_request(make_response(resp))
+            return await self.async_after_request(await async_make_response(resp))
         # Trigger post-load processing of the object
         self.post_load()
         # Call the view method, then pass the response to :meth:`async_after_response`
-        return await self.async_after_request(make_response(await view(self)))
+        return await self.async_after_request(
+            await async_make_response(await view(self))
+        )
 
     if TYPE_CHECKING:
         # Type-checking version without arg-spec to let subclasses specify explicit args
@@ -1279,7 +1289,7 @@ def requires_roles(
                 validate(args[0])  # type: ignore[type-var]
                 return await f(*args, **kwargs)
 
-            # Fix type hint for the return type
+            # Fix return type hint
             wrapper = cast(Callable[_P, _R_co], async_wrapper)
         else:
 
@@ -1570,8 +1580,15 @@ class InstanceLoader:
 
 # --- Proxy ----------------------------------------------------------------------------
 
+
+def _get_current_view() -> Optional[ClassView]:
+    if app_ctx:
+        return getattr(app_ctx, 'current_view', None)
+    return None
+
+
 #: A proxy object that holds the currently executing :class:`ClassView` instance, for
 #: use in templates as context. Exposed to templates by :func:`coaster.app.init_app`.
 #: The current view method within the class is available as
 #: :attr:`current_view.current_method`.
-current_view: ClassView = cast(ClassView, LocalProxy(_cv_app, 'current_view'))
+current_view: ClassView = cast(ClassView, LocalProxy(_get_current_view))

@@ -9,11 +9,17 @@ from collections.abc import Container
 from typing import Any, Optional, Union
 from urllib.parse import urlsplit
 
-from flask import Response, json, session as request_session, url_for
+from flask import Response
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect, Rule
 
-from ..compat import async_request, current_app
+from ..compat import (
+    current_app,
+    json_dumps,
+    request,
+    session as request_session,
+    url_for,
+)
 
 __all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
 
@@ -21,8 +27,8 @@ __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
 
 def _index_url() -> str:
-    if async_request:
-        return async_request.script_root or '/'
+    if request:
+        return request.script_root or '/'
     return '/'
 
 
@@ -32,7 +38,7 @@ def _clean_external_url(
     """Allow external URLs if they match current request's hostname."""
     # Do the domains and ports match?
     pnext = urlsplit(url)
-    preq = urlsplit(async_request.url)
+    preq = urlsplit(request.url)
     if pnext.scheme and pnext.scheme.lower() not in allowed_schemes:
         # Not an allowed scheme, quit
         return ''
@@ -62,17 +68,17 @@ def get_current_url() -> str:
     if current_app.config.get('SERVER_NAME') and (
         # Check current hostname against server name, ignoring port numbers, if any
         # (split on ':')
-        async_request.environ['HTTP_HOST'].split(':', 1)[0]
+        request.host.split(':', 1)[0]
         != current_app.config['SERVER_NAME'].split(':', 1)[0]
     ):
-        return async_request.url
+        return request.url
 
     url = (
-        url_for(async_request.endpoint, **(async_request.view_args or {}))
-        if async_request.endpoint is not None  # Will be None in a 404 handler
-        else async_request.url
+        url_for(request.endpoint, **(request.view_args or {}))
+        if request.endpoint is not None  # Will be None in a 404 handler
+        else request.url
     )
-    query = async_request.query_string
+    query = request.query_string
     if query:
         return url + '?' + query.decode()
     return url
@@ -96,20 +102,18 @@ def get_next_url(
     or the script root (typically ``/``).
     """
     if session:
-        next_url = request_session.pop('next', None) or async_request.args.get(
-            'next', ''
-        )
+        next_url = request_session.pop('next', None) or request.args.get('next', '')
     else:
-        next_url = async_request.args.get('next', '')
+        next_url = request.args.get('next', '')
     if next_url and not external:
         next_url = _clean_external_url(next_url)
     if next_url:
         return next_url
 
-    if referrer and async_request.referrer:
+    if referrer and request.referrer:
         if external:
-            return async_request.referrer
-        return _clean_external_url(async_request.referrer) or (
+            return request.referrer
+        return _clean_external_url(request.referrer) or (
             default if default is not None else _index_url()
         )
     return default if default is not None else _index_url()
@@ -123,8 +127,8 @@ def jsonp(*args: Any, **kwargs: Any) -> Response:
         Switch to CORS as JSONP makes the client app insecure. See the
         :func:`~coaster.views.decorators.cors` decorator.
     """
-    data = json.dumps(dict(*args, **kwargs), indent=2)
-    callback = async_request.args.get('callback', async_request.args.get('jsonp'))
+    data = json_dumps(dict(*args, **kwargs), indent=2)
+    callback = request.args.get('callback', request.args.get('jsonp'))
     if callback and __jsoncallback_re.search(callback) is not None:
         data = callback + '(' + data + ');'
         mimetype = 'application/javascript'
@@ -155,9 +159,9 @@ def endpoint_for(
         return None, {}
 
     use_host = current_app.config['SERVER_NAME'] or parsed_url.netloc
-    if async_request:
-        use_root_path = async_request.root_path
-        use_scheme = async_request.scheme
+    if request:
+        use_root_path = request.root_path
+        use_scheme = request.scheme
     else:
         use_root_path = '/'
         use_scheme = 'https'

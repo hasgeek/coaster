@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import os
 import types
-from collections import abc
 from collections.abc import Sequence
 from typing import (
     Any,
@@ -24,17 +23,28 @@ from typing import (
 
 import itsdangerous
 from flask.json.provider import DefaultJSONProvider
-from flask.sessions import SecureCookieSessionInterface
+from flask.sessions import (
+    SecureCookieSessionInterface as FlaskSecureCookieSessionInterface,
+)
+
+try:
+    from quart.sessions import (
+        SecureCookieSessionInterface as QuartSecureCookieSessionInterface,
+    )
+except ModuleNotFoundError:
+    QuartSecureCookieSessionInterface = FlaskSecureCookieSessionInterface  # type: ignore[assignment,misc]
 
 from . import logger
 from .auth import current_auth
-from .compat import BaseApp
+from .compat import BaseApp, JSONProvider
 from .views import current_view
 
 __all__ = [
-    'KeyRotationWrapper',
-    'RotatingKeySecureCookieSessionInterface',
+    'FlaskRotatingKeySecureCookieSessionInterface',
     'JSONProvider',
+    'KeyRotationWrapper',
+    'QuartRotatingKeySecureCookieSessionInterface',
+    'RotatingKeySecureCookieSessionInterface',
     'init_app',
 ]
 
@@ -168,44 +178,44 @@ class KeyRotationWrapper(Generic[_S]):
         return wrapper
 
 
-class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
+def _get_signing_serializer(
+    self: Union[
+        FlaskRotatingKeySecureCookieSessionInterface,
+        QuartRotatingKeySecureCookieSessionInterface,
+    ],
+    app: BaseApp,
+) -> Optional[KeyRotationWrapper]:
+    """Return serializers wrapped for key rotation."""
+    if not app.config.get('SECRET_KEYS'):
+        return None
+    signer_kwargs = {
+        'key_derivation': self.key_derivation,
+        'digest_method': self.digest_method,
+    }
+
+    return KeyRotationWrapper(
+        itsdangerous.URLSafeTimedSerializer,
+        app.config['SECRET_KEYS'],
+        salt=self.salt,
+        serializer=self.serializer,
+        signer_kwargs=signer_kwargs,
+    )
+
+
+class FlaskRotatingKeySecureCookieSessionInterface(FlaskSecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
-    def get_signing_serializer(  # type: ignore[override]
-        self, app: BaseApp
-    ) -> Optional[KeyRotationWrapper]:
-        """Return serializers wrapped for key rotation."""
-        if not app.config.get('SECRET_KEYS'):
-            return None
-        signer_kwargs = {
-            'key_derivation': self.key_derivation,
-            'digest_method': self.digest_method,
-        }
-
-        return KeyRotationWrapper(
-            itsdangerous.URLSafeTimedSerializer,
-            app.config['SECRET_KEYS'],
-            salt=self.salt,
-            serializer=self.serializer,
-            signer_kwargs=signer_kwargs,
-        )
+    get_signing_serializer = _get_signing_serializer  # type: ignore[assignment]
 
 
-# --- JSON provider with custom type support -------------------------------------------
+class QuartRotatingKeySecureCookieSessionInterface(QuartSecureCookieSessionInterface):
+    """Replaces the serializer with key rotation support."""
+
+    get_signing_serializer = _get_signing_serializer  # type: ignore[assignment]
 
 
-class JSONProvider(DefaultJSONProvider):
-    """Expand Flask's JSON provider to support the ``__json__`` protocol."""
-
-    @staticmethod
-    def default(o: Any) -> Any:
-        """Expand default support to check for a ``__json__`` method."""
-        if hasattr(o, '__json__'):
-            return o.__json__()
-        if isinstance(o, abc.Mapping):
-            return dict(o)
-        return DefaultJSONProvider.default(o)
-
+# Flask version is also available with an unprefixed name
+RotatingKeySecureCookieSessionInterface = FlaskRotatingKeySecureCookieSessionInterface
 
 # --- App init utilities ---------------------------------------------------------------
 
@@ -262,7 +272,7 @@ def init_app(
     if not config:
         config = ['env', 'py']
     # Replace the default JSON provider if it isn't a custom one
-    if app.json_provider_class is DefaultJSONProvider:
+    if app.json_provider_class is DefaultJSONProvider:  # Quart uses Flask's default
         app.json_provider_class = JSONProvider
         app.json = JSONProvider(app)
         app.jinja_env.policies['json.dumps_function'] = app.json.dumps

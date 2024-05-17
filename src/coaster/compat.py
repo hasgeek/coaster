@@ -6,23 +6,39 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+import json
+from collections.abc import Awaitable, Callable, Mapping
 from functools import wraps
 from inspect import isawaitable, iscoroutinefunction
-from typing import TYPE_CHECKING, Any, AnyStr, Optional, TypeVar, Union, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    AnyStr,
+    NoReturn,
+    Optional,
+    TypeVar,
+    Union,
+    overload,
+)
 from typing_extensions import Literal, ParamSpec
 
 from asgiref.sync import async_to_sync
 from flask import (
+    abort as flask_abort,
     current_app as flask_current_app,
     g as flask_g,
     has_request_context as flask_has_request_context,
     make_response as flask_make_response,
+    redirect as flask_redirect,
     render_template as flask_render_template,
     render_template_string as flask_render_template_string,
     request as flask_request,
+    session as flask_session,
+    url_for as flask_url_for,
 )
-from flask.globals import request_ctx as flask_request_ctx
+from flask.globals import app_ctx as flask_app_ctx, request_ctx as flask_request_ctx
+from flask.json.provider import DefaultJSONProvider
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from werkzeug.wrappers import Response as WerkzeugResponse
 
@@ -30,9 +46,10 @@ from werkzeug.wrappers import Response as WerkzeugResponse
 
 try:  # Flask >= 3.0
     from flask.sansio.app import App as BaseApp
-    from flask.sansio.blueprints import Blueprint as BaseBlueprint
+    from flask.sansio.blueprints import Blueprint as BaseBlueprint, BlueprintSetupState
 except ModuleNotFoundError:  # Flask < 3.0
     from flask import Blueprint as BaseBlueprint, Flask as BaseApp
+    from flask.blueprints import BlueprintSetupState
 
 try:  # Werkzeug >= 3.0
     from werkzeug.sansio.request import Request as BaseRequest
@@ -46,49 +63,98 @@ except ModuleNotFoundError:  # Werkzeug < 3.0
 
 try:
     from quart import (
+        abort as quart_abort,
         current_app as quart_current_app,
         g as quart_g,
         has_request_context as quart_has_request_context,
         make_response as quart_make_response,
+        redirect as quart_redirect,
         render_template as quart_render_template,
         render_template_string as quart_render_template_string,
         request as quart_request,
+        session as quart_session,
+        url_for as quart_url_for,
     )
-    from quart.globals import request_ctx as quart_request_ctx
+    from quart.globals import app_ctx as quart_app_ctx, request_ctx as quart_request_ctx
 except ModuleNotFoundError:
+    quart_abort = None  # type: ignore[assignment]
+    quart_app_ctx = None  # type: ignore[assignment]
     quart_current_app = None  # type: ignore[assignment]
     quart_g = None  # type: ignore[assignment]
-    quart_request = None  # type: ignore[assignment]
     quart_has_request_context = None  # type: ignore[assignment]
+    quart_redirect = None  # type: ignore[assignment]
     quart_render_template = None  # type: ignore[assignment]
     quart_render_template_string = None  # type: ignore[assignment]
+    quart_request = None  # type: ignore[assignment]
     quart_request_ctx = None  # type: ignore[assignment]
+    quart_session = None  # type: ignore[assignment]
+    quart_url_for = None  # type: ignore[assignment]
 
 
 if TYPE_CHECKING:
     from flask import Flask, Request as FlaskRequest
-    from flask.ctx import RequestContext as FlaskRequestContext
+    from flask.ctx import (
+        AppContext as FlaskAppContext,
+        RequestContext as FlaskRequestContext,
+    )
+    from flask.sessions import SessionMixin
     from quart import Quart, Request as QuartRequest, Response as QuartResponse
-    from quart.ctx import RequestContext as QuartRequestContext
+    from quart.ctx import (
+        AppContext as QuartAppContext,
+        RequestContext as QuartRequestContext,
+    )
 
 __all__ = [
     'BaseApp',
     'BaseBlueprint',
     'BaseRequest',
     'BaseResponse',
+    'BlueprintSetupState',
+    'JSONProvider',
+    'abort',
+    'app_ctx',
+    'async_make_response',
     'async_render_template_string',
     'async_render_template',
     'async_request',
     'current_app_object',
     'current_app',
+    'ensure_sync',
     'flask_g',
     'has_request_context',
+    'json_dump',
+    'json_dumps',
+    'json_load',
+    'json_loads',
+    'jsonify',
+    'make_response',
     'quart_g',
+    'redirect',
+    'render_template_string',
+    'render_template',
     'request_ctx',
+    'request_ctx',
+    'request',
+    'session',
+    'sync_await',
+    'url_for',
 ]
 
 
 # MARK: Cross-compatible helpers -------------------------------------------------------
+
+
+class JSONProvider(DefaultJSONProvider):
+    """Expand Flask's JSON provider to support the ``__json__`` protocol."""
+
+    @staticmethod
+    def default(o: Any) -> Any:
+        """Expand default support to check for a ``__json__`` method."""
+        if hasattr(o, '__json__'):
+            return o.__json__()
+        if isinstance(o, Mapping):
+            return dict(o)
+        return DefaultJSONProvider.default(o)
 
 
 class QuartFlaskWrapper:
@@ -129,15 +195,16 @@ current_app: Union[Flask, Quart]
 current_app = QuartFlaskWrapper(  # type: ignore[assignment]
     quart_current_app, flask_current_app
 )
+app_ctx: Union[FlaskAppContext, QuartAppContext]
+app_ctx = QuartFlaskWrapper(quart_app_ctx, flask_app_ctx)  # type: ignore[assignment]
 request_ctx: Union[FlaskRequestContext, QuartRequestContext]
 request_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
     quart_request_ctx, flask_request_ctx
 )
-
 request: Union[FlaskRequest, QuartRequest]
-request = QuartFlaskWrapper(  # type: ignore[assignment]
-    quart_request, flask_request
-)
+request = QuartFlaskWrapper(quart_request, flask_request)  # type: ignore[assignment]
+session: SessionMixin
+session = QuartFlaskWrapper(quart_session, flask_session)  # type: ignore[assignment]
 
 
 def current_app_object() -> Optional[Union[Flask, Quart]]:
@@ -155,6 +222,84 @@ def has_request_context() -> bool:
     return (
         quart_has_request_context is not None and quart_has_request_context()
     ) or flask_has_request_context()
+
+
+def url_for(*args, **kwargs) -> str:
+    """Wrap Quart and Flask's `url_for` methods."""
+    if quart_current_app:
+        return quart_url_for(*args, **kwargs)
+    return flask_url_for(*args, **kwargs)
+
+
+def abort(*args, **kwargs) -> NoReturn:
+    """Wrap Quart and Flask's `abort` methods."""
+    if quart_current_app:
+        quart_abort(*args, **kwargs)
+    flask_abort(*args, **kwargs)
+
+
+def redirect(*args, **kwargs) -> Union[WerkzeugResponse, QuartResponse]:
+    """Wrap Quart and Flask's `redirect` methods."""
+    if quart_current_app:
+        return quart_redirect(*args, **kwargs)
+    return flask_redirect(*args, **kwargs)
+
+
+def make_response(*args: Any) -> Union[WerkzeugResponse, QuartResponse]:
+    """Make a response, auto-selecting between Quart and Flask."""
+    if quart_current_app:
+        return sync_await(quart_make_response(*args))
+    return flask_make_response(*args)
+
+
+def render_template(
+    template_name_or_list: Union[str, list[str]], **context: Any
+) -> str:
+    """Render a template, auto-selecting between Quart and Flask."""
+    if quart_current_app:
+        return sync_await(quart_render_template(template_name_or_list, **context))
+    return flask_render_template(
+        template_name_or_list,  # type: ignore[arg-type]
+        **context,
+    )
+
+
+def render_template_string(source: str, **context: Any) -> str:
+    """Render a template string, auto-selecting between Quart and Flask."""
+    if quart_current_app:
+        return sync_await(quart_render_template_string(source, **context))
+    return flask_render_template_string(source, **context)
+
+
+def json_dumps(object_: Any, **kwargs: Any) -> str:
+    if current_app:
+        return current_app.json.dumps(object_, **kwargs)
+    kwargs.setdefault('default', JSONProvider.default)
+    return json.dumps(object_, **kwargs)
+
+
+def json_dump(object_: Any, fp: IO[str], **kwargs: Any) -> None:
+    if current_app:
+        current_app.json.dump(object_, fp, **kwargs)
+    else:
+        kwargs.setdefault("default", JSONProvider.default)
+        json.dump(object_, fp, **kwargs)
+
+
+def json_loads(object_: str | bytes, **kwargs: Any) -> Any:
+    if current_app:
+        return current_app.json.loads(object_, **kwargs)
+    return json.loads(object_, **kwargs)
+
+
+def json_load(fp: IO[str], **kwargs: Any) -> Any:
+    if current_app:
+        return current_app.json.load(fp, **kwargs)
+    return json.load(fp, **kwargs)
+
+
+def jsonify(*args: Any, **kwargs: Any) -> Union[WerkzeugResponse, QuartResponse]:
+    return current_app.json.response(*args, **kwargs)  # type: ignore[return-value]
 
 
 # MARK: Async helpers ------------------------------------------------------------------
@@ -224,11 +369,6 @@ class AsyncRequestWrapper:
         if quart_request:
             return await quart_request.values
         return flask_request.values
-
-    async def send_push_promise(self, path: str) -> None:
-        if quart_request:
-            await quart_request.send_push_promise(path)
-        # Do nothing if Flask
 
     async def close(self) -> None:
         if quart_request:

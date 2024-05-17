@@ -22,21 +22,23 @@ from collections.abc import MutableSet
 from datetime import datetime, timedelta
 from email.utils import formataddr
 from html import escape
+from inspect import isawaitable
 from io import StringIO
 from pprint import pprint
 from threading import Lock, Thread
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+
+from werkzeug.datastructures import MultiDict
 
 if TYPE_CHECKING:
     # This type definition is only available in the typeshed stub
     from logging import _SysExcInfoType
 
 import requests
-from flask import request, session
-from flask.config import Config
+from flask.config import Config  # Quart's config subclasses Flask's
 
 from .auth import current_auth
-from .compat import BaseApp, flask_g, quart_g
+from .compat import BaseApp, flask_g, quart_g, request, session, sync_await
 
 # Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
@@ -205,17 +207,21 @@ class LocalVarFormatter(logging.Formatter):
         if request:
             print('\n----------\n', file=sio)
             print("Request context:", file=sio)
+            request_form: MultiDict
+            request_form = request.form  # type: ignore[assignment]
+            if isawaitable(request_form):
+                request_form = sync_await(request_form)
             request_data = {
                 'form': {
                     k: filtered_value(k, v)
-                    for k, v in request.form.to_dict(flat=False).items()
+                    for k, v in request_form.to_dict(flat=False).items()
                 },
                 'args': {
                     k: filtered_value(k, v)
                     for k, v in request.args.to_dict(flat=False).items()
                 },
                 'headers': request.headers,
-                'environ': request.environ,
+                'environ': getattr(request, 'environ', None),
                 'method': request.method,
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,

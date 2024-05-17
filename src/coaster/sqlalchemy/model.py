@@ -94,7 +94,6 @@ from typing import (
 from typing_extensions import ParamSpec, TypeAlias
 
 import sqlalchemy as sa
-from flask import abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination, QueryPagination
 from sqlalchemy import ColumnExpressionArgument
@@ -111,6 +110,8 @@ from sqlalchemy.orm import (
     relationship as relationship_base,
 )
 from sqlalchemy.orm.dynamic import AppenderMixin
+
+from ..compat import abort
 
 _T = TypeVar('_T', bound=Any)
 _T_co = TypeVar("_T_co", bound=Any, covariant=True)
