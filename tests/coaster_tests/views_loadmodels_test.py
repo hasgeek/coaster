@@ -2,6 +2,8 @@
 
 # pylint: disable=redefined-outer-name,no-value-for-parameter
 
+from __future__ import annotations
+
 from typing import Optional
 
 import pytest
@@ -10,9 +12,8 @@ from flask import g
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden, NotFound
 
-from coaster.compat import BaseResponse
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin, relationship
-from coaster.views import load_model, load_models
+from coaster.views import Redirect, load_model, load_models
 
 from .auth_test import LoginManager
 from .conftest import AppTestCase, Model
@@ -31,13 +32,12 @@ from .sqlalchemy_models_test import (
 
 class MiddleContainer(BaseMixin, Model):
     __tablename__ = 'middle_container'
+    children: Mapped[list[ChildDocument]] = relationship(back_populates='parent')
 
 
 class ParentDocument(BaseNameMixin, Model):
     __tablename__ = 'parent_document'
-    middle_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('middle_container.id'), nullable=False
-    )
+    middle_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('middle_container.id'))
     middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
 
     def __init__(self, **kwargs) -> None:
@@ -57,10 +57,8 @@ class ParentDocument(BaseNameMixin, Model):
 
 class ChildDocument(BaseScopedIdMixin, Model):
     __tablename__ = 'child_document'
-    parent_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('middle_container.id'), nullable=False
-    )
-    parent: Mapped[MiddleContainer] = relationship(MiddleContainer, backref='children')
+    parent_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('middle_container.id'))
+    parent: Mapped[MiddleContainer] = relationship(back_populates='children')
 
     def permissions(
         self, actor: User, inherited: Optional[set[str]] = None
@@ -73,15 +71,10 @@ class ChildDocument(BaseScopedIdMixin, Model):
 
 class RedirectDocument(BaseNameMixin, Model):
     __tablename__ = 'redirect_document'
-    container_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('container.id'), nullable=False
-    )
-    container: Mapped[Container] = relationship(Container)
-
-    target_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('named_document.id'), nullable=False
-    )
-    target: Mapped[NamedDocument] = relationship(NamedDocument)
+    container_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('container.id'))
+    container: Mapped[Container] = relationship()
+    target_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('named_document.id'))
+    target: Mapped[NamedDocument] = relationship()
 
     def redirect_view_args(self) -> dict[str, str]:
         return {'document': self.target.name}
@@ -358,15 +351,15 @@ class TestLoadModels(AppTestCase):
                 == self.nd2
             )
         with self.app.test_request_context('/c/redirect-document'):
-            response = t_redirect_document(container='c', document='redirect-document')
-            assert isinstance(response, BaseResponse)
-            assert response.status_code == 307
-            assert response.headers['Location'] == '/c/named-document'
+            with pytest.raises(Redirect) as exc_info:
+                t_redirect_document(container='c', document='redirect-document')
+            assert exc_info.value.code == 307
+            assert exc_info.value.location == '/c/named-document'
         with self.app.test_request_context('/c/redirect-document?preserve=this'):
-            response = t_redirect_document(container='c', document='redirect-document')
-            assert isinstance(response, BaseResponse)
-            assert response.status_code == 307
-            assert response.headers['Location'] == '/c/named-document?preserve=this'
+            with pytest.raises(Redirect) as exc_info:
+                t_redirect_document(container='c', document='redirect-document')
+            assert exc_info.value.code == 307
+            assert exc_info.value.location == '/c/named-document?preserve=this'
 
     def test_scoped_named_document(self) -> None:
         assert (
@@ -391,15 +384,15 @@ class TestLoadModels(AppTestCase):
             == self.ind2
         )
         with self.app.test_request_context('/c/1-wrong-name'):
-            r = t_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, BaseResponse)
-            assert r.status_code == 302
-            assert r.location == '/c/1-id-named-document'
+            with pytest.raises(Redirect) as exc_info:
+                t_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-id-named-document'
         with self.app.test_request_context('/c/1-wrong-name?preserve=this'):
-            r = t_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, BaseResponse)
-            assert r.status_code == 302
-            assert r.location == '/c/1-id-named-document?preserve=this'
+            with pytest.raises(Redirect) as exc_info:
+                t_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-id-named-document?preserve=this'
         with pytest.raises(NotFound):
             t_id_named_document(container='c', document='random-non-integer')
 
@@ -424,11 +417,11 @@ class TestLoadModels(AppTestCase):
             == self.sind2
         )
         with self.app.test_request_context('/c/1-wrong-name'):
-            r = t_scoped_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, BaseResponse)
-            assert r.status_code == 302
-            assert r.location == '/c/1-scoped-id-named-document'
-        with pytest.raises(NotFound):
+            with pytest.raises(Redirect) as exc_info:
+                t_scoped_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-scoped-id-named-document'
+        with pytest.raises(NotFound):  # type: ignore[unreachable]
             t_scoped_id_named_document(container='c', document='random-non-integer')
 
     def test_callable_document(self) -> None:

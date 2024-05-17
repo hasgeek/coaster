@@ -25,14 +25,14 @@ from flask import (
     abort,
     jsonify,
     make_response,
-    redirect,
     render_template,
     request,
     url_for,
 )
 from flask.typing import ResponseReturnValue
+from markupsafe import escape as html_escape
 from werkzeug.datastructures import Headers, MIMEAccept
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, HTTPException
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 from ..auth import add_auth_attribute, current_auth
@@ -43,6 +43,7 @@ __all__ = [
     'ReturnRenderWith',
     'RequestTypeError',
     'RequestValueError',
+    'Redirect',
     'requestargs',
     'requestquery',
     'requestform',
@@ -74,6 +75,40 @@ class RequestTypeError(BadRequest, TypeError):
 
 class RequestValueError(BadRequest, ValueError):
     """Exception that combines ValueError with BadRequest."""
+
+
+class Redirect(HTTPException):
+    """HTTP redirect as an exception, to bypass return type constraints."""
+
+    code: int = 302
+
+    def __init__(
+        self, location: str, code: Literal[301, 302, 303, 307, 308] = 302
+    ) -> None:
+        super().__init__()
+        self.location = location
+        self.code = code
+
+    def get_headers(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> list[tuple[str, str]]:
+        """Add location header to response."""
+        headers = super().get_headers(*args, **kwargs)
+        headers.append(('Location', self.location))
+        return headers
+
+    def get_description(self, *_args: Any, **_kwargs: Any) -> str:
+        """Add a HTML description."""
+        html_location = html_escape(self.location)
+        return (
+            "<p>You should be redirected automatically to the target URL: "
+            f'<a href="{html_location}">{html_location}</a>. If not, click the link.\n'
+        )
+
+    def __str__(self) -> str:
+        return f"{self.code} {self.name}: {self.location}"
 
 
 def requestargs(
@@ -343,7 +378,7 @@ def load_models(
     """
 
     def decorator(f: Callable[..., _VR]) -> Callable[..., _VR]:
-        def loader(kwargs: dict[str, Any]) -> Union[dict[str, Any], BaseResponse]:
+        def loader(kwargs: dict[str, Any]) -> dict[str, Any]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
             permissions: Optional[set[str]] = None
@@ -394,7 +429,7 @@ def load_models(
                     location = url_for(request_endpoint, **view_args)
                     if request.query_string:
                         location = location + '?' + request.query_string.decode()
-                    return redirect(location, code=307)
+                    raise Redirect(location, code=307)
 
                 if permission_required:
                     permissions = item.permissions(
@@ -429,7 +464,7 @@ def load_models(
                             location = url_for(request_endpoint, **view_args)
                         if request.query_string:
                             location = location + '?' + request.query_string.decode()
-                        return redirect(location, code=302)
+                        raise Redirect(location, code=302)
                 if parameter.startswith('g.') and g:
                     parameter = parameter[2:]
                     setattr(g, parameter, item)
@@ -445,8 +480,6 @@ def load_models(
             @wraps(f)
             async def async_wrapper(*args, **kwargs) -> Any:
                 result = loader(kwargs)
-                if isinstance(result, BaseResponse):
-                    return result
                 if config.get('kwargs'):
                     return await f(*args, kwargs=kwargs, **result)
                 return await f(*args, **result)
@@ -458,8 +491,6 @@ def load_models(
             @wraps(f)
             def wrapper(*args, **kwargs) -> _VR:
                 result = loader(kwargs)
-                if isinstance(result, BaseResponse):
-                    return result  # type: ignore[return-value]
                 if config.get('kwargs'):
                     return f(*args, kwargs=kwargs, **result)
                 return f(*args, **result)
