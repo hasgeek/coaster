@@ -438,11 +438,19 @@ def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(_coroutine_wrapper(awaitable))
+
+    a = awaitable.__await__()
     try:
-        unexpected = next(awaitable.__await__())
+        # The `for` statement swallows StopIteration, so loop using `while`
+        while (v := next(a)) is None:
+            # TODO: This pauses async and may break async code that depends on other
+            # running tasks. This loop will need to be rewritten when we have a better
+            # understanding of possible breakage
+            pass
+        raise RuntimeError(f"Awaitable yielded unexpected value: {v!r}")
     except StopIteration as exc:
         return exc.value
-    raise TypeError(f"Awaitable yielded unexpected value {unexpected!r}")
+    raise RuntimeError("Iterator did not raise StopIteration")  # pragma: no cover
 
 
 def ensure_sync(
