@@ -20,25 +20,23 @@ from typing import (
     Literal,
     Optional,
     Protocol,
-    TypeVar,
     Union,
     cast,
     overload,
 )
-from typing_extensions import ParamSpec
+from typing_extensions import ParamSpec, TypeAlias, TypeVar
 
 from flask.typing import ResponseReturnValue
 from markupsafe import escape as html_escape
 from werkzeug.datastructures import Headers, MIMEAccept
 from werkzeug.exceptions import BadRequest, HTTPException
-from werkzeug.wrappers import Response as WerkzeugResponse
 
 from ..auth import add_auth_attribute, current_auth
 from ..compat import (
     BaseResponse,
     abort,
     async_make_response,
-    ensure_sync,
+    async_render_template,
     flask_g,
     jsonify,
     make_response,
@@ -66,10 +64,12 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithData = Mapping[str, object]
-ReturnRenderWithResponse = Union[WerkzeugResponse, ReturnRenderWithData]
-ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
-ReturnRenderWith = Union[
+ReturnRenderWithData: TypeAlias = Mapping[str, object]
+ReturnRenderWithResponse: TypeAlias = Union[BaseResponse, ReturnRenderWithData]
+ReturnRenderWithHeaders: TypeAlias = Union[
+    list[tuple[str, str]], dict[str, str], Headers
+]
+ReturnRenderWith: TypeAlias = Union[
     ReturnRenderWithResponse,
     tuple[ReturnRenderWithData, ReturnRenderWithHeaders],
     tuple[ReturnRenderWithData, int],
@@ -546,18 +546,39 @@ def _best_mimetype_match(
     return default
 
 
+class RenderWithProtocol(Protocol):
+    @overload
+    def __call__(  # type: ignore[overload-overlap]
+        self, __view: Callable[_VP, Awaitable[ReturnRenderWith]]
+    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+
+    @overload
+    def __call__(
+        self, __view: Callable[_VP, ReturnRenderWith]
+    ) -> Callable[_VP, BaseResponse]: ...
+
+
 def render_with(
     template: Union[
-        dict[str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]],
+        dict[
+            str,
+            Union[
+                str,
+                Callable[
+                    [ReturnRenderWithData],
+                    Union[ResponseReturnValue, Awaitable[ResponseReturnValue]],
+                ],
+            ],
+        ],
         str,
         None,
     ] = None,
     json: bool = False,
-) -> Callable[[Callable[_VP, ReturnRenderWith]], Callable[_VP, WerkzeugResponse]]:
+) -> RenderWithProtocol:
     """
     Render the view's dict output with a MIMEtype-specific renderer.
 
-    Accepts a single Jinja2 template, or a dictionary of mimetypes and their templates
+    Accepts a single Jinja2 template or a dictionary of mimetypes and their templates
     or callables. If a template filename is provided, the view's return type must be a
     dictionary and is passed to ``render_template`` as context. If a callable is
     provided, the view's result is passed in as a single parameter. The view may return
@@ -619,7 +640,14 @@ def render_with(
         template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
     templates: dict[
-        str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]
+        str,
+        Union[
+            str,
+            Callable[
+                [ReturnRenderWithData],
+                Union[ResponseReturnValue, Awaitable[ResponseReturnValue]],
+            ],
+        ],
     ]
     default_mimetype: Optional[str] = None
     templates = {'application/json': jsonify} if json else {}
@@ -646,25 +674,36 @@ def render_with(
     # */* messes up matching, so supply it only as last resort
     template_mimetypes.remove('*/*')
 
+    # Set Vary: Accept if there is more than one way to render the result
+    vary_accept = len(templates) > 1
+
+    @overload
+    def decorator(
+        f: Callable[_VP, Awaitable[ReturnRenderWith]],
+    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+
+    @overload
     def decorator(
         f: Callable[_VP, ReturnRenderWith],
-    ) -> Callable[_VP, WerkzeugResponse]:
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
-            # Check if we need to bypass rendering
-            render = kwargs.pop('_render', True)
+    ) -> Callable[_VP, BaseResponse]: ...
 
-            # Get the result
-            result = ensure_sync(f)(*args, **kwargs)
-
-            if not render or not request:
-                # Return value is not a BaseResponse here
-                return result  # type: ignore[return-value]
-
-            # Is the result a Response object? Don't attempt rendering
-            if isinstance(result, WerkzeugResponse):
-                return result
-
+    def decorator(
+        f: Callable[_VP, Union[ReturnRenderWith, Awaitable[ReturnRenderWith]]],
+    ) -> Callable[
+        _VP,
+        Union[BaseResponse, Awaitable[BaseResponse]],
+    ]:
+        def unpack_return_value(
+            result: ReturnRenderWith,
+        ) -> tuple[
+            ReturnRenderWithData, Optional[int], Optional[ReturnRenderWithHeaders], str
+        ]:
+            """Extract status code and headers from the view's return value."""
+            if TYPE_CHECKING:
+                # This function does not expect to get a Response object, but we're
+                # not bothering to redefine the complex ReturnRenderWith type minus
+                # the embedded Response type
+                assert not isinstance(result, BaseResponse)  # nosec B101
             headers: Optional[ReturnRenderWithHeaders]
             status_code: Optional[int]
 
@@ -696,13 +735,10 @@ def render_with(
                 status_code = None
                 headers = None
 
-            # Set Vary: Accept if there is more than one way to render the result
-            vary_accept = len(templates) > 1
-
             # Find a matching mimetype between Accept headers and available templates
             # We do not use request.accept_mimetypes.best_match because it turns out
             # to be buggy: it returns the least match instead of the best match.
-            # This does not appear to be fixed as of Werkzeug 2.3
+            # This does not appear to be fixed as of Werkzeug 3.0.3
             accept_mimetype = _best_mimetype_match(
                 template_mimetypes, request.accept_mimetypes, '*/*'
             )
@@ -711,27 +747,99 @@ def render_with(
             #     template_mimetypes, '*/*'
             # )
 
-            # Now render the result with the template for the mimetype
-            use_template = templates[accept_mimetype]
-            if callable(use_template):
-                response = make_response(use_template(result))
-            else:
-                if TYPE_CHECKING:
-                    assert isinstance(use_template, str)  # nosec B101
-                    assert isinstance(result, dict)  # nosec B101
-                response = make_response(render_template(use_template, **result))
-                if accept_mimetype == '*/*':
-                    if default_mimetype is not None:
-                        response.mimetype = default_mimetype
+            return result, status_code, headers, accept_mimetype
+
+        if iscoroutinefunction(f):
+            # Mypy 1.9 gets confused unless we cast to a different name
+            async_f = cast(Callable[_VP, Awaitable[ReturnRenderWith]], f)
+
+            @wraps(async_f)
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+                # Check if we need to bypass rendering
+                render = kwargs.pop('_render', True)
+
+                # Get the result
+                result = await async_f(*args, **kwargs)
+
+                if not render or not request:
+                    # Return value is not a Response here
+                    return result  # type: ignore[return-value]
+
+                # Is the result a Response object? Don't attempt rendering
+                if isinstance(result, BaseResponse):
+                    return result
+
+                result, status_code, headers, accept_mimetype = unpack_return_value(
+                    result
+                )
+
+                # Now render the result with the template for the mimetype
+                use_template = templates[accept_mimetype]
+                if callable(use_template):
+                    callable_result = use_template(result)
+                    if isawaitable(callable_result):
+                        callable_result = await callable_result
+                    response = await async_make_response(callable_result)
                 else:
-                    response.mimetype = accept_mimetype
-            if status_code is not None:
-                response.status_code = status_code
-            if headers is not None:
-                response.headers.extend(headers)
-            if vary_accept:
-                response.vary.add('Accept')
-            return response  # type: ignore[return-value]  # FIXME
+                    if TYPE_CHECKING:
+                        assert isinstance(use_template, str)  # nosec B101
+                        assert isinstance(result, dict)  # nosec B101
+                    response = await async_make_response(
+                        await async_render_template(use_template, **result)
+                    )
+                    if accept_mimetype == '*/*':
+                        if default_mimetype is not None:
+                            response.mimetype = default_mimetype
+                    else:
+                        response.mimetype = accept_mimetype
+                if status_code is not None:
+                    response.status_code = status_code
+                if headers is not None:
+                    response.headers.extend(headers)
+                if vary_accept:
+                    response.vary.add('Accept')
+                return response
+        else:
+            f = cast(Callable[_VP, ReturnRenderWith], f)
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+                # Check if we need to bypass rendering
+                render = kwargs.pop('_render', True)
+
+                # Get the result
+                result = f(*args, **kwargs)
+
+                if not render or not request:
+                    # Return value is not a BaseResponse here
+                    return result  # type: ignore[return-value]
+
+                # Is the result a Response object? Don't attempt rendering
+                if isinstance(result, BaseResponse):
+                    return result
+
+                result, status_code, headers, accept_mimetype = unpack_return_value(
+                    result
+                )
+
+                # Now render the result with the template for the mimetype
+                use_template = templates[accept_mimetype]
+                if callable(use_template):
+                    response = make_response(use_template(result))
+                else:
+                    response = make_response(render_template(use_template, **result))
+                    if accept_mimetype == '*/*':
+                        if default_mimetype is not None:
+                            response.mimetype = default_mimetype
+                    else:
+                        response.mimetype = accept_mimetype
+                if status_code is not None:
+                    response.status_code = status_code
+                if headers is not None:
+                    response.headers.extend(headers)
+                if vary_accept:
+                    response.vary.add('Accept')
+                return response
 
         return wrapper
 

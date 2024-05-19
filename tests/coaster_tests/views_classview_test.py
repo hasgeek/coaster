@@ -468,7 +468,7 @@ class TestClassView(unittest.TestCase):
 
         rv = DocumentView().view('test1')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json.loads(rv.data)  # type: ignore[attr-defined]
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
