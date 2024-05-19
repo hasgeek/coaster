@@ -64,7 +64,7 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithData: TypeAlias = Mapping[str, object]
+ReturnRenderWithData: TypeAlias = Mapping[str, Any]
 ReturnRenderWithResponse: TypeAlias = Union[BaseResponse, ReturnRenderWithData]
 ReturnRenderWithHeaders: TypeAlias = Union[
     list[tuple[str, str]], dict[str, str], Headers
@@ -560,18 +560,7 @@ class RenderWithProtocol(Protocol):
 
 def render_with(
     template: Union[
-        dict[
-            str,
-            Union[
-                str,
-                Callable[
-                    [ReturnRenderWithData],
-                    Union[ResponseReturnValue, Awaitable[ResponseReturnValue]],
-                ],
-            ],
-        ],
-        str,
-        None,
+        Mapping[str, Union[str, Callable[[ReturnRenderWithData], Any]]], str, None
     ] = None,
     json: bool = False,
 ) -> RenderWithProtocol:
@@ -639,16 +628,7 @@ def render_with(
         render_with no longer has a shorthand for JSONP. If still required, specify a
         template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
-    templates: dict[
-        str,
-        Union[
-            str,
-            Callable[
-                [ReturnRenderWithData],
-                Union[ResponseReturnValue, Awaitable[ResponseReturnValue]],
-            ],
-        ],
-    ]
+    templates: dict[str, Union[str, Callable[[ReturnRenderWithData], Any]]]
     default_mimetype: Optional[str] = None
     templates = {'application/json': jsonify} if json else {}
     if isinstance(template, str):
@@ -781,9 +761,6 @@ def render_with(
                         callable_result = await callable_result
                     response = await async_make_response(callable_result)
                 else:
-                    if TYPE_CHECKING:
-                        assert isinstance(use_template, str)  # nosec B101
-                        assert isinstance(result, dict)  # nosec B101
                     response = await async_make_response(
                         await async_render_template(use_template, **result)
                     )
