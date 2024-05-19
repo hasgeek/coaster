@@ -548,7 +548,7 @@ def _best_mimetype_match(
 
 class RenderWithProtocol(Protocol):
     @overload
-    def __call__(  # type: ignore[overload-overlap]
+    def __call__(
         self, __view: Callable[_VP, Awaitable[ReturnRenderWith]]
     ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
 

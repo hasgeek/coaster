@@ -337,7 +337,7 @@ class AsyncRequestWrapper:
     ) -> AnyStr:
         if quart_request:
             return await quart_request.get_data(cache, as_text, parse_form_data)
-        return flask_request.get_data(  # type: ignore[call-overload, return-value]
+        return flask_request.get_data(  # type: ignore[call-overload]
             cache, as_text, parse_form_data
         )
 

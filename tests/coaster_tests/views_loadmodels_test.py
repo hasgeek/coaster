@@ -421,7 +421,7 @@ class TestLoadModels(AppTestCase):
                 t_scoped_id_named_document(container='c', document='1-wrong-name')
             assert exc_info.value.code == 302
             assert exc_info.value.location == '/c/1-scoped-id-named-document'
-        with pytest.raises(NotFound):  # type: ignore[unreachable]
+        with pytest.raises(NotFound):
             t_scoped_id_named_document(container='c', document='random-non-integer')
 
     def test_callable_document(self) -> None:
