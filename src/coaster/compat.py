@@ -52,7 +52,6 @@ from flask.sansio.blueprints import Blueprint as SansIoBlueprint, BlueprintSetup
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
 from werkzeug.sansio.request import Request as SansIoRequest
 from werkzeug.sansio.response import Response as SansIoResponse
-from werkzeug.wrappers import Response as WerkzeugResponse
 
 # MARK: Gated imports ------------------------------------------------------------------
 
@@ -87,7 +86,7 @@ except ModuleNotFoundError:
 
 
 if TYPE_CHECKING:
-    from flask import Flask, Request as FlaskRequest
+    from flask import Flask, Request as FlaskRequest, Response as FlaskResponse
     from flask.ctx import (
         AppContext as FlaskAppContext,
         RequestContext as FlaskRequestContext,
@@ -100,6 +99,7 @@ if TYPE_CHECKING:
         RequestContext as QuartRequestContext,
         _AppCtxGlobals as QuartAppCtxGlobals,
     )
+    from werkzeug.wrappers import Response as WerkzeugResponse
 
 __all__ = [
     'BlueprintSetupState',
@@ -352,7 +352,7 @@ def json_dump(object_: Any, fp: IO[str], **kwargs: Any) -> None:
     if current_app:
         current_app.json.dump(object_, fp, **kwargs)
     else:
-        kwargs.setdefault("default", JSONProvider.default)
+        kwargs.setdefault('default', JSONProvider.default)
         _json.dump(object_, fp, **kwargs)
 
 
@@ -368,7 +368,7 @@ def json_load(fp: IO[str], **kwargs: Any) -> Any:
     return _json.load(fp, **kwargs)
 
 
-def jsonify(*args: Any, **kwargs: Any) -> Union[WerkzeugResponse, QuartResponse]:
+def jsonify(*args: Any, **kwargs: Any) -> Union[FlaskResponse, QuartResponse]:
     return current_app.json.response(*args, **kwargs)  # type: ignore[return-value]
 
 
