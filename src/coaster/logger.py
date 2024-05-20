@@ -38,7 +38,7 @@ import requests
 from flask.config import Config  # Quart's config subclasses Flask's
 
 from .auth import current_auth
-from .compat import BaseApp, g, request, session, sync_await
+from .compat import SansIoApp, g, request, session, sync_await
 
 # Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
@@ -443,7 +443,7 @@ log_legacy_confignames = {
 }
 
 
-def init_app(app: BaseApp, _warning_stacklevel: int = 2) -> None:
+def init_app(app: SansIoApp, _warning_stacklevel: int = 2) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 

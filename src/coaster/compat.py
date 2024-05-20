@@ -47,27 +47,14 @@ from flask import (
 )
 from flask.globals import app_ctx as flask_app_ctx, request_ctx as flask_request_ctx
 from flask.json.provider import DefaultJSONProvider
+from flask.sansio.app import App as SansIoApp
+from flask.sansio.blueprints import Blueprint as SansIoBlueprint, BlueprintSetupState
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
+from werkzeug.sansio.request import Request as SansIoRequest
+from werkzeug.sansio.response import Response as SansIoResponse
 from werkzeug.wrappers import Response as WerkzeugResponse
 
 # MARK: Gated imports ------------------------------------------------------------------
-
-try:  # Flask >= 3.0
-    from flask.sansio.app import App as BaseApp
-    from flask.sansio.blueprints import Blueprint as BaseBlueprint, BlueprintSetupState
-except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Blueprint as BaseBlueprint, Flask as BaseApp
-    from flask.blueprints import BlueprintSetupState
-
-try:  # Werkzeug >= 3.0
-    from werkzeug.sansio.request import Request as BaseRequest
-    from werkzeug.sansio.response import Response as BaseResponse
-except ModuleNotFoundError:  # Werkzeug < 3.0
-    # pylint: disable=reimported
-    from werkzeug.wrappers import (  # type: ignore[assignment]
-        Request as BaseRequest,
-        Response as BaseResponse,
-    )
 
 try:
     from quart import (
@@ -115,12 +102,12 @@ if TYPE_CHECKING:
     )
 
 __all__ = [
-    'BaseApp',
-    'BaseBlueprint',
-    'BaseRequest',
-    'BaseResponse',
     'BlueprintSetupState',
     'JSONProvider',
+    'SansIoApp',
+    'SansIoBlueprint',
+    'SansIoRequest',
+    'SansIoResponse',
     'abort',
     'app_ctx',
     'async_make_response',

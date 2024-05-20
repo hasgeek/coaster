@@ -56,7 +56,7 @@ from sqlalchemy.sql import func, select
 from werkzeug.routing import BuildError
 
 from ..auth import current_auth
-from ..compat import BaseApp, current_app_object, url_for
+from ..compat import SansIoApp, current_app_object, url_for
 from ..typing import ReturnDecorator, WrappedFunc
 from ..utils import (
     InspectableSet,
@@ -501,12 +501,12 @@ class UrlForMixin:
     #: different endpoints in different apps. The app may also be None as fallback. Each
     #: subclass will get its own dictionary. This particular dictionary is only used as
     #: an inherited fallback.
-    url_for_endpoints: ClassVar[dict[Optional[BaseApp], dict[str, UrlEndpointData]]] = {
-        None: {}
-    }
+    url_for_endpoints: ClassVar[
+        dict[Optional[SansIoApp], dict[str, UrlEndpointData]]
+    ] = {None: {}}
     #: Mapping of {app: {action: (classview, attr)}}
     view_for_endpoints: ClassVar[
-        dict[Optional[BaseApp], dict[str, tuple[Any, str]]]
+        dict[Optional[SansIoApp], dict[str, tuple[Any, str]]]
     ] = {}
 
     #: Dictionary of URLs available on this object
@@ -563,7 +563,7 @@ class UrlForMixin:
         cls,
         __action: str,
         __endpoint: Optional[str] = None,
-        __app: Optional[BaseApp] = None,
+        __app: Optional[SansIoApp] = None,
         /,
         _external: Optional[bool] = None,
         **paramattrs: Union[str, tuple[str, ...], Callable[[Any], str]],
@@ -596,7 +596,7 @@ class UrlForMixin:
         action: str,
         *,
         endpoint: str,
-        app: Optional[BaseApp],
+        app: Optional[SansIoApp],
         paramattrs: Mapping[str, Union[str, tuple[str, ...], Callable[[Any], str]]],
         roles: Optional[Collection[str]] = None,
         external: Optional[bool] = None,
@@ -636,7 +636,7 @@ class UrlForMixin:
 
     @classmethod
     def register_view_for(
-        cls, app: Optional[BaseApp], action: str, classview: Any, attr: str
+        cls, app: Optional[SansIoApp], action: str, classview: Any, attr: str
     ) -> None:
         """Register a classview and view method for a given app and action."""
         if 'view_for_endpoints' not in cls.__dict__:

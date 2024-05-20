@@ -33,7 +33,7 @@ from werkzeug.exceptions import BadRequest, HTTPException
 
 from ..auth import add_auth_attribute, current_auth
 from ..compat import (
-    BaseResponse,
+    SansIoResponse,
     abort,
     async_make_response,
     async_render_template,
@@ -64,7 +64,7 @@ __all__ = [
 ]
 
 ReturnRenderWithData: TypeAlias = Mapping[str, Any]
-ReturnRenderWithResponse: TypeAlias = Union[BaseResponse, ReturnRenderWithData]
+ReturnRenderWithResponse: TypeAlias = Union[SansIoResponse, ReturnRenderWithData]
 ReturnRenderWithHeaders: TypeAlias = Union[
     list[tuple[str, str]], dict[str, str], Headers
 ]
@@ -550,12 +550,12 @@ class RenderWithProtocol(Protocol):
     @overload
     def __call__(
         self, __view: Callable[_VP, Awaitable[ReturnRenderWith]]
-    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
 
     @overload
     def __call__(
         self, __view: Callable[_VP, ReturnRenderWith]
-    ) -> Callable[_VP, BaseResponse]: ...
+    ) -> Callable[_VP, SansIoResponse]: ...
 
 
 def render_with(
@@ -660,18 +660,18 @@ def render_with(
     @overload
     def decorator(
         f: Callable[_VP, Awaitable[ReturnRenderWith]],
-    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
 
     @overload
     def decorator(
         f: Callable[_VP, ReturnRenderWith],
-    ) -> Callable[_VP, BaseResponse]: ...
+    ) -> Callable[_VP, SansIoResponse]: ...
 
     def decorator(
         f: Callable[_VP, Union[ReturnRenderWith, Awaitable[ReturnRenderWith]]],
     ) -> Callable[
         _VP,
-        Union[BaseResponse, Awaitable[BaseResponse]],
+        Union[SansIoResponse, Awaitable[SansIoResponse]],
     ]:
         def unpack_return_value(
             result: ReturnRenderWith,
@@ -683,7 +683,7 @@ def render_with(
                 # This function does not expect to get a Response object, but we're
                 # not bothering to redefine the complex ReturnRenderWith type minus
                 # the embedded Response type
-                assert not isinstance(result, BaseResponse)  # nosec B101
+                assert not isinstance(result, SansIoResponse)  # nosec B101
             headers: Optional[ReturnRenderWithHeaders]
             status_code: Optional[int]
 
@@ -734,7 +734,7 @@ def render_with(
             async_f = cast(Callable[_VP, Awaitable[ReturnRenderWith]], f)
 
             @wraps(async_f)
-            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
                 # Check if we need to bypass rendering
                 render = kwargs.pop('_render', True)
 
@@ -746,7 +746,7 @@ def render_with(
                     return result  # type: ignore[return-value]
 
                 # Is the result a Response object? Don't attempt rendering
-                if isinstance(result, BaseResponse):
+                if isinstance(result, SansIoResponse):
                     return result
 
                 result, status_code, headers, accept_mimetype = unpack_return_value(
@@ -780,7 +780,7 @@ def render_with(
             f = cast(Callable[_VP, ReturnRenderWith], f)
 
             @wraps(f)
-            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
                 # Check if we need to bypass rendering
                 render = kwargs.pop('_render', True)
 
@@ -788,11 +788,11 @@ def render_with(
                 result = f(*args, **kwargs)
 
                 if not render or not request:
-                    # Return value is not a BaseResponse here
+                    # Return value is not a SansIoResponse here
                     return result  # type: ignore[return-value]
 
                 # Is the result a Response object? Don't attempt rendering
-                if isinstance(result, BaseResponse):
+                if isinstance(result, SansIoResponse):
                     return result
 
                 result, status_code, headers, accept_mimetype = unpack_return_value(
@@ -827,12 +827,12 @@ class CorsDecoratorProtocol(Protocol):
     @overload
     def __call__(
         self, __decorated: Callable[_VP, Awaitable[ResponseReturnValue]]
-    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
 
     @overload
     def __call__(
         self, __decorated: Callable[_VP, ResponseReturnValue]
-    ) -> Callable[_VP, BaseResponse]: ...
+    ) -> Callable[_VP, SansIoResponse]: ...
 
 
 def cors(
@@ -908,19 +908,19 @@ def cors(
     @overload
     def decorator(
         f: Callable[_VP, Awaitable[ResponseReturnValue]],
-    ) -> Callable[_VP, Awaitable[BaseResponse]]: ...
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
 
     @overload
     def decorator(
         f: Callable[_VP, ResponseReturnValue],
-    ) -> Callable[_VP, BaseResponse]: ...
+    ) -> Callable[_VP, SansIoResponse]: ...
 
     def decorator(
         f: Union[
             Callable[_VP, ResponseReturnValue],
             Callable[_VP, Awaitable[ResponseReturnValue]],
         ],
-    ) -> Union[Callable[_VP, BaseResponse], Callable[_VP, Awaitable[BaseResponse]]]:
+    ) -> Union[Callable[_VP, SansIoResponse], Callable[_VP, Awaitable[SansIoResponse]]]:
         def check_origin() -> Optional[str]:
             origin = request.headers.get('Origin')
             if not origin or origin == 'null':
@@ -941,7 +941,7 @@ def cors(
                 abort(403)
             return origin
 
-        def set_headers(origin: str, resp: BaseResponse) -> BaseResponse:
+        def set_headers(origin: str, resp: SansIoResponse) -> SansIoResponse:
             resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
@@ -955,14 +955,14 @@ def cors(
         if iscoroutinefunction(f):
 
             @wraps(f)
-            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
                 origin = check_origin()
                 if origin is None:
                     # If no Origin header is supplied, CORS checks don't apply
                     return await async_make_response(await f(*args, **kwargs))
                 if request.method == 'OPTIONS':
                     # pre-flight request
-                    resp = BaseResponse()
+                    resp = SansIoResponse()
                 else:
                     resp = await async_make_response(await f(*args, **kwargs))
                 return set_headers(origin, resp)
@@ -970,14 +970,14 @@ def cors(
         else:
 
             @wraps(f)
-            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> BaseResponse:
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
                 origin = check_origin()
                 if origin is None:
                     # If no Origin header is supplied, CORS checks don't apply
                     return make_response(f(*args, **kwargs))
                 if request.method == 'OPTIONS':
                     # pre-flight request
-                    resp = BaseResponse()
+                    resp = SansIoResponse()
                 else:
                     resp = make_response(f(*args, **kwargs))
                 return set_headers(origin, resp)

@@ -13,7 +13,7 @@ from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect, Rule
 
 from ..compat import (
-    BaseResponse,
+    SansIoResponse,
     current_app,
     json_dumps,
     request,
@@ -119,7 +119,7 @@ def get_next_url(
     return default if default is not None else _index_url()
 
 
-def jsonp(*args: Any, **kwargs: Any) -> BaseResponse:
+def jsonp(*args: Any, **kwargs: Any) -> SansIoResponse:
     """
     Return a JSON response with a callback wrapper, if asked for.
 

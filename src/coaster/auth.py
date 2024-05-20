@@ -25,7 +25,7 @@ from typing import Any, NoReturn, TypeVar, cast
 
 from werkzeug.local import LocalProxy
 
-from .compat import BaseApp, BaseResponse, current_app, g, request_ctx
+from .compat import SansIoApp, SansIoResponse, current_app, g, request_ctx
 from .utils import InspectableSet
 
 __all__ = [
@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 
-_Response = TypeVar('_Response', bound=BaseResponse)
+_Response = TypeVar('_Response', bound=SansIoResponse)
 
 # For async/greenlet usage, these are presumed to be monkey-patched by greenlet. The
 # locks are not necessary for thread-safety since there is no cross-thread context here.
@@ -245,7 +245,7 @@ def _set_auth_cookie_after_request(response: _Response) -> _Response:
     return response
 
 
-def init_app(app: BaseApp) -> None:
+def init_app(app: SansIoApp) -> None:
     """Optionally initialize current_auth for auth cookie management in an app."""
     app.config.setdefault('AUTH_COOKIE_NAME', 'auth')
     for our_config, flask_config in [

@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from jinja2 import TemplateNotFound
 
-from coaster.compat import BaseResponse, current_app, jsonify
+from coaster.compat import SansIoResponse, current_app, jsonify
 from coaster.views import render_with
 
 # --- Test setup -----------------------------------------------------------------------
@@ -16,11 +16,11 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: Mapping[str, Any]) -> BaseResponse:
+def viewcallable(data: Mapping[str, Any]) -> SansIoResponse:
     return current_app.response_class(repr(data), mimetype='text/plain')
 
 
-def anycallable(data) -> BaseResponse:
+def anycallable(data) -> SansIoResponse:
     return current_app.response_class(repr(data), mimetype='*/*')
 
 
@@ -104,16 +104,16 @@ class TestLoadModels(unittest.TestCase):
         response = self.client.get(
             '/renderedview2', headers=[('Accept', 'application/json')]
         )
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         assert response.mimetype == 'application/json'
         with app.test_request_context():
             # jsonify needs a request context
             assert response.data == jsonify({"data": "value"}).data
         response = self.client.get('/renderedview2', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         assert response.data.decode('utf-8') == "{'data': 'value'}"
         response = self.client.get('/renderedview3', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         resp = self.client.get('/renderedview4', headers=[('Accept', 'text/plain')])
         assert resp.headers['Referrer'] == "http://example.com"
         # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])

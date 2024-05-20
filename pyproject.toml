@@ -40,7 +40,7 @@ dependencies = [
   'Flask-Assets',
   'Flask-Migrate',
   'Flask-SQLAlchemy',
-  'Flask>=2.3',
+  'Flask>=3.0',
   'furl',
   'html5lib>=0.999999999',
   'isoweek',
@@ -54,7 +54,7 @@ dependencies = [
   'tldextract',
   'typing_extensions>=4.8.0',
   'Unidecode',
-  'werkzeug',
+  'Werkzeug>=3.0',
 ]
 
 [tool.setuptools.dynamic]

@@ -46,10 +46,10 @@ from werkzeug.routing import Map as WzMap, Rule as WzRule
 
 from ..auth import add_auth_attribute, current_auth
 from ..compat import (
-    BaseApp,
-    BaseBlueprint,
-    BaseResponse,
     BlueprintSetupState,
+    SansIoApp,
+    SansIoBlueprint,
+    SansIoResponse,
     abort,
     app_ctx,
     async_make_response,
@@ -133,7 +133,7 @@ class InitAppCallback(Protocol):
 
     def __call__(
         self,
-        app: Union[BaseApp, BaseBlueprint],
+        app: Union[SansIoApp, SansIoBlueprint],
         rule: str,
         endpoint: str,
         view_func: Callable,
@@ -156,7 +156,7 @@ def _get_arguments_from_rule(
 def route(
     rule: str,
     init_app: Optional[
-        Union[BaseApp, BaseBlueprint, tuple[Union[BaseApp, BaseBlueprint], ...]]
+        Union[SansIoApp, SansIoBlueprint, tuple[Union[SansIoApp, SansIoBlueprint], ...]]
     ] = None,
     **options: Any,
 ) -> RouteDecoratorProtocol:
@@ -485,7 +485,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
         if iscoroutinefunction(decorated_func):
 
-            async def view_func(**view_args: Any) -> BaseResponse:
+            async def view_func(**view_args: Any) -> SansIoResponse:
                 """
                 Dispatch Flask/Quart view.
 
@@ -513,7 +513,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
         else:
 
-            def view_func(**view_args: Any) -> BaseResponse:  # type: ignore[misc]
+            def view_func(**view_args: Any) -> SansIoResponse:  # type: ignore[misc]
                 """
                 Dispatch Flask/Quart view.
 
@@ -558,7 +558,7 @@ class ViewMethod(Generic[_P, _R_co]):
 
     def init_app(
         self,
-        app: Union[BaseApp, BaseBlueprint],
+        app: Union[SansIoApp, SansIoBlueprint],
         cls: type[ClassView],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
@@ -794,7 +794,7 @@ class ClassView:
 
     def dispatch_request(
         self, view: Callable[..., ResponseReturnValue], view_args: dict[str, Any]
-    ) -> BaseResponse:
+    ) -> SansIoResponse:
         """
         View dispatcher that invokes before and after-view hooks.
 
@@ -827,7 +827,7 @@ class ClassView:
         """
         return None
 
-    def after_request(self, response: BaseResponse) -> BaseResponse:
+    def after_request(self, response: SansIoResponse) -> SansIoResponse:
         """
         Process response returned by view.
 
@@ -852,7 +852,7 @@ class ClassView:
         self,
         view: Callable[..., Awaitable[ResponseReturnValue]],
         view_args: dict[str, Any],
-    ) -> BaseResponse:
+    ) -> SansIoResponse:
         """
         Async view dispatcher that invokes before and after-view hooks.
 
@@ -888,7 +888,7 @@ class ClassView:
         """
         return self.before_request()
 
-    async def async_after_request(self, response: BaseResponse) -> BaseResponse:
+    async def async_after_request(self, response: SansIoResponse) -> SansIoResponse:
         """
         Process response returned by async view.
 
@@ -949,7 +949,7 @@ class ClassView:
     @classmethod
     def init_app(
         cls,
-        app: Union[BaseApp, BaseBlueprint],
+        app: Union[SansIoApp, SansIoBlueprint],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
         """
@@ -1099,7 +1099,7 @@ class ModelView(ClassView, Generic[ModelType]):
 
     def dispatch_request(
         self, view: Callable[..., ResponseReturnValue], view_args: dict[str, Any]
-    ) -> BaseResponse:
+    ) -> SansIoResponse:
         """
         Dispatch a view.
 
@@ -1131,7 +1131,7 @@ class ModelView(ClassView, Generic[ModelType]):
         self,
         view: Callable[..., Awaitable[ResponseReturnValue]],
         view_args: dict[str, Any],
-    ) -> BaseResponse:
+    ) -> SansIoResponse:
         """
         Dispatch an async view.
 
@@ -1318,7 +1318,7 @@ class UrlForView:
     @classmethod
     def init_app(
         cls,
-        app: Union[BaseApp, BaseBlueprint],
+        app: Union[SansIoApp, SansIoBlueprint],
         callback: Optional[InitAppCallback] = None,
     ) -> None:
         """Register view on an app."""
@@ -1326,14 +1326,14 @@ class UrlForView:
         def register_view_on_model(
             cls: type[ModelView],
             callback: Optional[InitAppCallback],
-            app: Union[BaseApp, BaseBlueprint],
+            app: Union[SansIoApp, SansIoBlueprint],
             rule: str,
             endpoint: str,
             view_func: Callable,
             **options: Any,
         ) -> None:
             def register_paths_from_app(
-                reg_app: BaseApp,
+                reg_app: SansIoApp,
                 reg_rule: str,
                 reg_endpoint: str,
                 reg_options: dict[str, Any],
@@ -1396,9 +1396,9 @@ class UrlForView:
                 )
                 register_paths_from_app(state.app, reg_rule, reg_endpoint, reg_options)
 
-            if isinstance(app, BaseApp):
+            if isinstance(app, SansIoApp):
                 register_paths_from_app(app, rule, endpoint, options)
-            elif isinstance(app, BaseBlueprint):
+            elif isinstance(app, SansIoBlueprint):
                 app.record(blueprint_postprocess)
             else:
                 raise TypeError(f"App must be Flask or Blueprint: {app!r}")
@@ -1413,7 +1413,7 @@ class UrlForView:
 
 def url_change_check(
     f: Callable[_P, _R_co],
-) -> Callable[_P, Union[_R_co, BaseResponse]]:
+) -> Callable[_P, Union[_R_co, SansIoResponse]]:
     """
     Decorate view method in a :class:`ModelView` to check for a change in URL.
 
@@ -1445,7 +1445,7 @@ def url_change_check(
     (``#target_id``) is not available to the server and will be lost.
     """
 
-    def validate(context: ModelView) -> Optional[BaseResponse]:
+    def validate(context: ModelView) -> Optional[SansIoResponse]:
         if request.method == 'GET' and getattr(context, 'obj', None) is not None:
             correct_url = furl(context.obj.url_for(f.__name__, _external=True))
             stripped_url = correct_url.copy().remove(
@@ -1473,12 +1473,14 @@ def url_change_check(
             return await f(*args, **kwargs)
 
         # Fix return type hint
-        wrapper = cast(Callable[_P, Union[_R_co, BaseResponse]], async_wrapper)
+        wrapper = cast(Callable[_P, Union[_R_co, SansIoResponse]], async_wrapper)
 
     else:
 
         @wraps(f)
-        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> Union[_R_co, BaseResponse]:
+        def wrapper(
+            *args: _P.args, **kwargs: _P.kwargs
+        ) -> Union[_R_co, SansIoResponse]:
             retval = validate(args[0])  # type: ignore[arg-type]
             if retval is not None:
                 return retval

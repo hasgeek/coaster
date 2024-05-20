@@ -36,7 +36,7 @@ except ModuleNotFoundError:
 
 from . import logger
 from .auth import current_auth
-from .compat import BaseApp, JSONProvider
+from .compat import JSONProvider, SansIoApp
 from .views import current_view
 
 __all__ = [
@@ -56,10 +56,10 @@ mod_tomli: Optional[types.ModuleType] = None
 mod_yaml: Optional[types.ModuleType] = None
 
 try:
-    import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
+    import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
 except ModuleNotFoundError:
     try:
-        import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
+        import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
     except ModuleNotFoundError:
         try:  # noqa: SIM105
             import tomli as mod_tomli  # type: ignore[no-redef,unused-ignore]
@@ -97,11 +97,13 @@ _config_loaders: dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
 }
-if mod_toml is not None:
-    _config_loaders['toml'] = ConfigLoader(extn='.toml', loader=mod_toml.load)
-elif mod_tomllib is not None:
+if mod_tomllib is not None:
     _config_loaders['toml'] = ConfigLoader(
         extn='.toml', loader=mod_tomllib.load, text=False
+    )
+elif mod_toml is not None:
+    _config_loaders['toml'] = ConfigLoader(
+        extn='.toml', loader=mod_toml.load, text=True
     )
 elif mod_tomli is not None:
     _config_loaders['toml'] = ConfigLoader(
@@ -183,7 +185,7 @@ def _get_signing_serializer(
         FlaskRotatingKeySecureCookieSessionInterface,
         QuartRotatingKeySecureCookieSessionInterface,
     ],
-    app: BaseApp,
+    app: SansIoApp,
 ) -> Optional[KeyRotationWrapper]:
     """Return serializers wrapped for key rotation."""
     if not app.config.get('SECRET_KEYS'):
@@ -221,7 +223,7 @@ RotatingKeySecureCookieSessionInterface = FlaskRotatingKeySecureCookieSessionInt
 
 
 def init_app(
-    app: BaseApp,
+    app: SansIoApp,
     config: Optional[list[Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
     *,
     env_prefix: Optional[Union[str, Sequence[str]]] = None,
@@ -339,7 +341,7 @@ def init_app(
 
 
 def load_config_from_file(
-    app: BaseApp,
+    app: SansIoApp,
     filepath: str,
     load: Optional[Callable] = None,
     text: Optional[bool] = None,
