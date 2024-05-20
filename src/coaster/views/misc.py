@@ -9,11 +9,11 @@ from collections.abc import Container
 from typing import Any, Optional, Union
 from urllib.parse import urlsplit
 
-from flask import Response
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import RequestRedirect, Rule
 
 from ..compat import (
+    BaseResponse,
     current_app,
     json_dumps,
     request,
@@ -119,7 +119,7 @@ def get_next_url(
     return default if default is not None else _index_url()
 
 
-def jsonp(*args: Any, **kwargs: Any) -> Response:
+def jsonp(*args: Any, **kwargs: Any) -> BaseResponse:
     """
     Return a JSON response with a callback wrapper, if asked for.
 
@@ -134,7 +134,7 @@ def jsonp(*args: Any, **kwargs: Any) -> Response:
         mimetype = 'application/javascript'
     else:
         mimetype = 'application/json'
-    return Response(data, mimetype=mimetype)
+    return current_app.response_class(data, mimetype=mimetype)
 
 
 def endpoint_for(
