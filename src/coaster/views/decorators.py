@@ -460,7 +460,7 @@ def _best_mimetype_match(
 
 def render_with(
     template: Union[
-        dict[str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]],
+        Mapping[str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]],
         str,
         None,
     ] = None,
