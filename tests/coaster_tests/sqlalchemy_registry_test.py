@@ -476,13 +476,13 @@ def test_cached_properties_are_cached(
     cached_property_param_host = CachedPropertyParamRegistry()
 
     # The properties and cached properties work
-    assert property_host.registry.member == [property_host, None]
-    assert cached_property_host.registry.member == [cached_property_host, None]
-    assert property_param_host.registry.member == [None, property_param_host]
-    assert cached_property_param_host.registry.member == [
+    assert property_host.registry.member == (property_host, None)
+    assert cached_property_host.registry.member == (cached_property_host, None)
+    assert property_param_host.registry.member == (None, property_param_host)
+    assert cached_property_param_host.registry.member == (
         None,
         cached_property_param_host,
-    ]
+    )
 
     # The properties and cached properties return equal values on each access
     assert property_host.registry.member == property_host.registry.member
