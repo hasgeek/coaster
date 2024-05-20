@@ -29,7 +29,7 @@ T = TypeVar('T')
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
 class UtcNow(sa.sql.functions.GenericFunction):
-    """Provide func.utcnow() that guarantees UTC timestamp."""
+    """Provide ``sqlalchemy.func.utcnow()`` that guarantees UTC timestamp."""
 
     type = sa.TIMESTAMP()
     identifier = 'utcnow'
@@ -212,7 +212,7 @@ def add_primary_relationship(
             list[sa.Column],
             list(
                 make_timestamp_columns(
-                    timezone=getattr(parent, '__with_timezone__', False)
+                    timezone=getattr(parent, '__with_timezone__', True)
                 )
             ),
         )
