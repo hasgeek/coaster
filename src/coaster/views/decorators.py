@@ -278,7 +278,7 @@ def requestargs(
 def requestvalues(
     *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
-    """Like :func:`requestargs`, but loads from request.values (query or form)."""
+    """Like :func:`requestargs`, but loads from request.values (args+form)."""
     return requestargs(*args, source='values')
 
 
