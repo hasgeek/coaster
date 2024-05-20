@@ -117,6 +117,7 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/?callback=callback'):
             kwargs = {'lang': 'en-us', 'query': 'python'}
             r = jsonp(**kwargs)
+            assert isinstance(r, self.app.response_class)
             # pylint: disable=consider-using-f-string
             response = (
                 'callback({\n  "%s": "%s",\n  "%s": "%s"\n});'  # noqa: UP031
@@ -128,14 +129,17 @@ class TestCoasterViews(unittest.TestCase):
         with self.app.test_request_context('/'):
             param1, param2 = 1, 2
             r = jsonp(param1=param1, param2=param2)
+            assert isinstance(r, self.app.response_class)
             resp = json.loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
             r = jsonp({'param1': param1, 'param2': param2})
+            assert isinstance(r, self.app.response_class)
             resp = json.loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
             r = jsonp([('param1', param1), ('param2', param2)])
+            assert isinstance(r, self.app.response_class)
             resp = json.loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
