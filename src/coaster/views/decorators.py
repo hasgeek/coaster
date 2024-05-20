@@ -40,6 +40,7 @@ __all__ = [
     'RequestTypeError',
     'RequestValueError',
     'requestargs',
+    'requestvalues',
     'requestquery',
     'requestform',
     'requestbody',
@@ -212,6 +213,13 @@ def requestquery(
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from request.args (the query string)."""
     return requestargs(*args, source='query')
+
+
+def requestvalues(
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
+) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
+    """Like :func:`requestargs`, but loads from request.values (args+form)."""
+    return requestargs(*args, source='values')
 
 
 def requestform(
