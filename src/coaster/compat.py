@@ -521,7 +521,14 @@ async def _coroutine_wrapper(awaitable: Awaitable[_R_co]) -> _R_co:
 
 
 def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
-    """Implement await statement in a sync context."""
+    """
+    Implement await statement in a sync context.
+
+    .. warning::
+        This pauses the event loop and may break async code that depends on other
+        running tasks (eg, any use of ``asyncio.*``). Only use this to extract a scalar
+        return value from an awaitable.
+    """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -531,9 +538,6 @@ def sync_await(awaitable: Awaitable[_R_co]) -> _R_co:
     try:
         # The `for` statement swallows StopIteration, so loop using `while`
         while (v := next(a)) is None:
-            # TODO: This pauses async and may break async code that depends on other
-            # running tasks. This loop will need to be rewritten when we have a better
-            # understanding of possible breakage
             pass
         raise RuntimeError(f"Awaitable yielded unexpected value: {v!r}")
     except StopIteration as exc:
