@@ -6,12 +6,13 @@ import unittest
 from typing import Any, Optional
 
 import pytest
-from flask import Flask, json, session
+from flask import Flask
 from quart import Quart
 from werkzeug.exceptions import BadRequest, Forbidden
 
 from coaster.app import load_config_from_file
 from coaster.auth import current_auth
+from coaster.compat import json_loads, session
 from coaster.views import (
     get_current_url,
     get_next_url,
@@ -130,17 +131,17 @@ class TestCoasterViews(unittest.TestCase):
             param1, param2 = 1, 2
             r = jsonp(param1=param1, param2=param2)
             assert isinstance(r, self.app.response_class)
-            resp = json.loads(r.get_data())
+            resp = json_loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
             r = jsonp({'param1': param1, 'param2': param2})
             assert isinstance(r, self.app.response_class)
-            resp = json.loads(r.get_data())
+            resp = json_loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
             r = jsonp([('param1', param1), ('param2', param2)])
             assert isinstance(r, self.app.response_class)
-            resp = json.loads(r.get_data())
+            resp = json_loads(r.get_data())
             assert resp['param1'] == param1
             assert resp['param2'] == param2
 

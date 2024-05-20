@@ -10,10 +10,11 @@ from typing import Optional
 from unittest.mock import patch
 
 import pytest
-from flask import Flask, render_template_string
+from flask import Flask
 from jinja2.exceptions import UndefinedError
 
 from coaster.assets import AssetNotFound, Version, VersionedAssets, WebpackManifest
+from coaster.compat import render_template_string
 
 # --- VersionedAssets tests ------------------------------------------------------------
 

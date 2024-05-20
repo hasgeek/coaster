@@ -8,10 +8,10 @@ from typing import Optional
 
 import pytest
 import sqlalchemy as sa
-from flask import g
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden, NotFound
 
+from coaster.compat import g
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin, relationship
 from coaster.views import Redirect, load_model, load_models
 

@@ -8,7 +8,7 @@ from typing import Optional
 
 import pytest
 import sqlalchemy as sa
-from flask import Flask, g, has_request_context, render_template_string
+from flask import Flask
 from sqlalchemy.orm import Mapped
 
 from coaster.auth import (
@@ -17,6 +17,7 @@ from coaster.auth import (
     current_auth,
     request_has_auth,
 )
+from coaster.compat import g, has_request_context, render_template_string
 from coaster.sqlalchemy import BaseMixin
 
 from .conftest import Model, db

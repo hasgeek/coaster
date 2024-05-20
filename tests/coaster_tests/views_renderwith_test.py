@@ -5,10 +5,10 @@ from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from flask import Flask, Response, jsonify
+from flask import Flask
 from jinja2 import TemplateNotFound
 
-from coaster.compat import BaseResponse
+from coaster.compat import BaseResponse, current_app, jsonify
 from coaster.views import render_with
 
 # --- Test setup -----------------------------------------------------------------------
@@ -17,11 +17,11 @@ app = Flask(__name__)
 
 
 def viewcallable(data: Mapping[str, Any]) -> BaseResponse:
-    return Response(repr(data), mimetype='text/plain')
+    return current_app.response_class(repr(data), mimetype='text/plain')
 
 
 def anycallable(data) -> BaseResponse:
-    return Response(repr(data), mimetype='*/*')
+    return current_app.response_class(repr(data), mimetype='*/*')
 
 
 def returns_string(data) -> str:

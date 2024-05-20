@@ -6,10 +6,18 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from collections.abc import Awaitable, Callable, Mapping
+import json as _json
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Collection,
+    Iterator,
+    Mapping,
+    MutableMapping,
+)
 from functools import wraps
 from inspect import isawaitable, iscoroutinefunction
+from types import SimpleNamespace
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -96,12 +104,14 @@ if TYPE_CHECKING:
     from flask.ctx import (
         AppContext as FlaskAppContext,
         RequestContext as FlaskRequestContext,
+        _AppCtxGlobals as FlaskAppCtxGlobals,
     )
     from flask.sessions import SessionMixin
     from quart import Quart, Request as QuartRequest, Response as QuartResponse
     from quart.ctx import (
         AppContext as QuartAppContext,
         RequestContext as QuartRequestContext,
+        _AppCtxGlobals as QuartAppCtxGlobals,
     )
 
 __all__ = [
@@ -121,11 +131,13 @@ __all__ = [
     'current_app',
     'ensure_sync',
     'flask_g',
+    'g',
     'has_request_context',
     'json_dump',
     'json_dumps',
     'json_load',
     'json_loads',
+    'json',
     'jsonify',
     'make_response',
     'quart_g',
@@ -165,46 +177,121 @@ class QuartFlaskWrapper:
     not resolve API differences.
     """
 
+    __name__: str
     _quart_source: Any
     _flask_source: Any
 
-    def __init__(self, quart_source: Any, flask_source: Any) -> None:
+    def __init__(self, name: str, quart_source: Any, flask_source: Any) -> None:
+        object.__setattr__(self, '__name__', name)
         object.__setattr__(self, '_quart_source', quart_source)
         object.__setattr__(self, '_flask_source', flask_source)
 
     def __bool__(self) -> bool:
         return bool(self._quart_source or self._flask_source)
 
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__qualname__}'
+            f'({self.__name__!r}, {self._quart_source!r}, {self._flask_source!r})'
+        )
+
     def __getattr__(self, name: str) -> Any:
-        if self._quart_source:
-            return getattr(self._quart_source, name)
+        if qs := self._quart_source:
+            return getattr(qs, name)
         return getattr(self._flask_source, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if self._quart_source:
-            setattr(self._quart_source, name, value)
+        if qs := self._quart_source:
+            setattr(qs, name, value)
         setattr(self._flask_source, name, value)
 
     def __delattr__(self, name: str) -> None:
-        if self._quart_source:
-            delattr(self._quart_source, name)
+        if qs := self._quart_source:
+            delattr(qs, name)
         delattr(self._flask_source, name)
 
 
+class QuartFlaskCollectionWrapper(QuartFlaskWrapper):
+    """Proxy to Quart or Flask source object with iterable API."""
+
+    def __contains__(self, item: str) -> bool:
+        if qs := self._quart_source:
+            return item in qs
+        return item in self._flask_source
+
+    def __iter__(self) -> Iterator[str]:
+        if qs := self._quart_source:
+            return iter(qs)
+        return iter(self._flask_source)
+
+    def __len__(self) -> int:
+        if qs := self._quart_source:
+            return len(qs)
+        return len(self._flask_source)
+
+
+Collection.register(QuartFlaskCollectionWrapper)
+
+
+class QuartFlaskDictWrapper(QuartFlaskCollectionWrapper):
+    """Proxy to Quart or Flask source objects with a dict API."""
+
+    def __getitem__(self, key: Any) -> Any:
+        if qs := self._quart_source:
+            return qs[key]
+        return self._flask_source[key]
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        if qs := self._quart_source:
+            qs[key] = value
+        else:
+            self._flask_source[key] = value
+
+    def __delitem__(self, key: Any) -> None:
+        if qs := self._quart_source:
+            del qs[key]
+        else:
+            del self._flask_source[key]
+
+    def __eq__(self, other: object) -> bool:
+        # Don't return NotImplemented as we should not exist for any reverse operator
+        if qs := self._quart_source:
+            return qs == other
+        return self._flask_source == other
+
+    def __ne__(self, other: object) -> bool:
+        # Don't return NotImplemented as we should not exist for any reverse operator
+        if qs := self._quart_source:
+            return qs != other
+        return self._flask_source != other
+
+
+MutableMapping.register(QuartFlaskDictWrapper)
+
 current_app: Union[Flask, Quart]
 current_app = QuartFlaskWrapper(  # type: ignore[assignment]
-    quart_current_app, flask_current_app
+    'current_app', quart_current_app, flask_current_app
 )
 app_ctx: Union[FlaskAppContext, QuartAppContext]
-app_ctx = QuartFlaskWrapper(quart_app_ctx, flask_app_ctx)  # type: ignore[assignment]
+app_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
+    'app_ctx', quart_app_ctx, flask_app_ctx
+)
+g: Union[FlaskAppCtxGlobals, QuartAppCtxGlobals]
+g = QuartFlaskCollectionWrapper(  # type: ignore[assignment]
+    'g', quart_g, flask_g
+)
 request_ctx: Union[FlaskRequestContext, QuartRequestContext]
 request_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
-    quart_request_ctx, flask_request_ctx
+    'request_ctx', quart_request_ctx, flask_request_ctx
 )
 request: Union[FlaskRequest, QuartRequest]
-request = QuartFlaskWrapper(quart_request, flask_request)  # type: ignore[assignment]
+request = QuartFlaskWrapper(  # type: ignore[assignment]
+    'request', quart_request, flask_request
+)
 session: SessionMixin
-session = QuartFlaskWrapper(quart_session, flask_session)  # type: ignore[assignment]
+session = QuartFlaskDictWrapper(  # type: ignore[assignment]
+    'session', quart_session, flask_session
+)
 
 
 def current_app_object() -> Optional[Union[Flask, Quart]]:
@@ -275,7 +362,7 @@ def json_dumps(object_: Any, **kwargs: Any) -> str:
     if current_app:
         return current_app.json.dumps(object_, **kwargs)
     kwargs.setdefault('default', JSONProvider.default)
-    return json.dumps(object_, **kwargs)
+    return _json.dumps(object_, **kwargs)
 
 
 def json_dump(object_: Any, fp: IO[str], **kwargs: Any) -> None:
@@ -283,24 +370,29 @@ def json_dump(object_: Any, fp: IO[str], **kwargs: Any) -> None:
         current_app.json.dump(object_, fp, **kwargs)
     else:
         kwargs.setdefault("default", JSONProvider.default)
-        json.dump(object_, fp, **kwargs)
+        _json.dump(object_, fp, **kwargs)
 
 
 def json_loads(object_: str | bytes, **kwargs: Any) -> Any:
     if current_app:
         return current_app.json.loads(object_, **kwargs)
-    return json.loads(object_, **kwargs)
+    return _json.loads(object_, **kwargs)
 
 
 def json_load(fp: IO[str], **kwargs: Any) -> Any:
     if current_app:
         return current_app.json.load(fp, **kwargs)
-    return json.load(fp, **kwargs)
+    return _json.load(fp, **kwargs)
 
 
 def jsonify(*args: Any, **kwargs: Any) -> Union[WerkzeugResponse, QuartResponse]:
     return current_app.json.response(*args, **kwargs)  # type: ignore[return-value]
 
+
+#: Export a consolidated `json` namespace mimicking `flask.json` and `quart.json`
+json = SimpleNamespace(
+    dumps=json_dumps, dump=json_dump, loads=json_loads, load=json_load, jsonify=jsonify
+)
 
 # MARK: Async helpers ------------------------------------------------------------------
 

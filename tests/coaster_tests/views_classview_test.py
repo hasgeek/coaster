@@ -10,7 +10,7 @@ from typing import Any, ClassVar, Optional
 
 import pytest
 import sqlalchemy as sa
-from flask import Flask, json
+from flask import Flask
 from flask.ctx import RequestContext
 from flask.typing import ResponseReturnValue
 from sqlalchemy.orm import Mapped
@@ -18,6 +18,7 @@ from werkzeug.exceptions import Forbidden
 
 from coaster.app import JSONProvider
 from coaster.auth import add_auth_attribute
+from coaster.compat import json_loads
 from coaster.sqlalchemy import (
     BaseIdNameMixin,
     BaseNameMixin,
@@ -443,7 +444,7 @@ class TestClassView(unittest.TestCase):
 
         rv = self.client.get('/doc/test1')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json_loads(rv.data)
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
@@ -468,7 +469,7 @@ class TestClassView(unittest.TestCase):
 
         rv = DocumentView().view('test1')
         assert rv.status_code == 200
-        data = json.loads(rv.data)  # type: ignore[attr-defined]
+        data = json_loads(rv.data)  # type: ignore[attr-defined]
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
@@ -578,7 +579,7 @@ class TestClassView(unittest.TestCase):
 
         rv = self.client.get('/model/test1')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json_loads(rv.data)
         assert data['name'] == 'test1'
         assert data['title'] == "Test"
 
@@ -614,7 +615,7 @@ class TestClassView(unittest.TestCase):
 
         rv = self.client.get('/model/test1/test2')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json_loads(rv.data)
         assert data['name'] == 'test2'
         assert data['doctype'] == 'scoped-doc'
 
@@ -629,7 +630,7 @@ class TestClassView(unittest.TestCase):
 
         rv = self.client.get('/rename/1-test1')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json_loads(rv.data)
         assert data['name'] == 'test1'
 
         doc.name = 'renamed'  # pylint: disable=attribute-defined-outside-init
@@ -651,7 +652,7 @@ class TestClassView(unittest.TestCase):
 
         rv = self.client.get('/rename/1-renamed')
         assert rv.status_code == 200
-        data = json.loads(rv.data)
+        data = json_loads(rv.data)
         assert data['name'] == 'renamed'
 
     def test_multi_view(self) -> None:

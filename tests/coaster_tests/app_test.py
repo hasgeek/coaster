@@ -6,7 +6,7 @@ from os import environ
 
 import itsdangerous
 import pytest
-from flask import Flask, render_template_string, session
+from flask import Flask
 
 from coaster.app import (
     KeyRotationWrapper,
@@ -16,6 +16,7 @@ from coaster.app import (
     init_app,
     load_config_from_file,
 )
+from coaster.compat import render_template_string, session
 from coaster.logger import LocalVarFormatter, init_app as logger_init_app
 
 
@@ -87,16 +88,16 @@ class TestCoasterApp(unittest.TestCase):
         environ['FLASK_SETTINGS_DICT__str'] = "string-in-dict"
         environ['FLASK_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
         init_app(self.app, ['env'])
-        assert self.app.config['SETTINGS_STR'] == "env-var"
-        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_STR'] == 'env-var'
+        assert self.app.config['SETTINGS_QSTR'] == 'qenv-var'
         assert self.app.config['SETTINGS_INT'] == 2
         assert self.app.config['SETTINGS_FLOAT'] == 3.1
         assert self.app.config['SETTINGS_BOOL'] is False
         assert self.app.config['SETTINGS_NONE'] is None
         assert self.app.config['SETTINGS_DICT'] == {
-            "json": "dict",
-            "str": "string-in-dict",
-            "list": ["list", "in", "dict"],
+            'json': 'dict',
+            'str': 'string-in-dict',
+            'list': ['list', 'in', 'dict'],
         }
 
     def test_init_app_config_env_custom_prefix(self) -> None:
@@ -111,16 +112,16 @@ class TestCoasterApp(unittest.TestCase):
         environ['APP_SETTINGS_DICT__str'] = "string-in-dict"
         environ['APP_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
         init_app(self.app, ['env'], env_prefix='APP')
-        assert self.app.config['SETTINGS_STR'] == "env-var"
-        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_STR'] == 'env-var'
+        assert self.app.config['SETTINGS_QSTR'] == 'qenv-var'
         assert self.app.config['SETTINGS_INT'] == 2
         assert self.app.config['SETTINGS_FLOAT'] == 3.1
         assert self.app.config['SETTINGS_BOOL'] is False
         assert self.app.config['SETTINGS_NONE'] is None
         assert self.app.config['SETTINGS_DICT'] == {
-            "json": "dict",
-            "str": "string-in-dict",
-            "list": ["list", "in", "dict"],
+            'json': 'dict',
+            'str': 'string-in-dict',
+            'list': ['list', 'in', 'dict'],
         }
 
     def test_init_app_config_env_overlapping_prefix(self) -> None:
@@ -150,17 +151,17 @@ class TestCoasterApp(unittest.TestCase):
         environ['FLASK_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
         environ['APP_SETTINGS_DICT__int'] = "3"
         init_app(self.app, ['env'], env_prefix=['FLASK', 'APP'])
-        assert self.app.config['SETTINGS_STR'] == "env-var"
-        assert self.app.config['SETTINGS_QSTR'] == "qenv-var"
+        assert self.app.config['SETTINGS_STR'] == 'env-var'
+        assert self.app.config['SETTINGS_QSTR'] == 'qenv-var'
         assert self.app.config['SETTINGS_INT'] == 3
         assert self.app.config['SETTINGS_FLOAT'] == 3.1
         assert self.app.config['SETTINGS_BOOL'] is False
         assert self.app.config['SETTINGS_NONE'] is None
         assert self.app.config['SETTINGS_DICT'] == {
-            "json": "dict",
-            "str": "string-in-dict",
-            "list": ["list", "in", "dict"],
-            "int": 3,
+            'json': 'dict',
+            'str': 'string-in-dict',
+            'list': ['list', 'in', 'dict'],
+            'int': 3,
         }
 
     def test_init_app_config_unknown_type(self) -> None:
