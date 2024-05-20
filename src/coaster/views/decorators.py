@@ -255,6 +255,7 @@ def requestargs(
                 except TypeError as e:
                     raise RequestTypeError(str(e)) from e
 
+            # Fix return type hint
             wrapper = cast(Callable[_VP, _VR_co], async_wrapper)
         else:
 

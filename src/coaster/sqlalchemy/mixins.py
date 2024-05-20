@@ -647,8 +647,8 @@ class UrlForMixin:
         """Return the classview view method that handles the specified action."""
         # pylint: disable=protected-access
         app = current_app_object()
-        view, attr = self.view_for_endpoints[app][action]
-        return getattr(view(self), attr)
+        classview, attr = self.view_for_endpoints[app][action]
+        return getattr(classview(self), attr)
 
     def classview_for(self, action: str = 'view') -> Any:
         """Return the classview containing the view method for the specified action."""

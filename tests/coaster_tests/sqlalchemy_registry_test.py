@@ -4,7 +4,7 @@
 
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 
@@ -100,7 +100,7 @@ def all_registry_hosts(
 def registry_member() -> Callable:
     """Test registry member function."""
 
-    def member(pos=None, kwparam=None) -> Any:  # noqa: ARG001
+    def member(pos=None, kwparam=None) -> None:  # noqa: ARG001
         pass
 
     return member
@@ -258,7 +258,7 @@ def test_add_to_registry(
     @CallableParamRegistry.registry()
     @PropertyParamRegistry.registry()
     @CachedPropertyParamRegistry.registry()
-    def member(pos=None, kwparam=None) -> Any:
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -287,18 +287,18 @@ def test_property_cache_mismatch(
     with pytest.raises(TypeError):
 
         @PropertyRegistry.registry(cached_property=True)
-        def member1(pos=None, kwparam=None) -> Any:
+        def member1(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
             return (pos, kwparam)
 
     with pytest.raises(TypeError):
 
         @CachedPropertyRegistry.registry(property=True)
-        def member2(pos=None, kwparam=None) -> Any:
+        def member2(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
             return (pos, kwparam)
 
     @PropertyRegistry.registry(cached_property=True, property=False)
     @CachedPropertyRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None) -> Any:
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
 
@@ -318,7 +318,7 @@ def test_add_to_registry_host(
     @CallableParamRegistry.registry()
     @PropertyParamRegistry.registry(property=False)
     @CachedPropertyParamRegistry.registry(cached_property=False)
-    def member(pos=None, kwparam=None) -> Any:
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -355,7 +355,7 @@ def test_add_to_registry_property(
     @CallableParamRegistry.registry(property=True)
     @PropertyParamRegistry.registry(property=True)
     @CachedPropertyParamRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None) -> Any:
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -392,7 +392,7 @@ def test_add_to_registry_cached_property(
     @CallableParamRegistry.registry(property=True)
     @PropertyParamRegistry.registry(property=True)
     @CachedPropertyParamRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None) -> Any:
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -467,8 +467,8 @@ def test_cached_properties_are_cached(
     @CachedPropertyRegistry.registry()
     @PropertyParamRegistry.registry()
     @CachedPropertyParamRegistry.registry()
-    def member(pos=None, kwparam=None) -> Any:
-        return [pos, kwparam]  # Lists are different each call
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
+        return (pos, kwparam)  # Lists are different each call
 
     property_host = PropertyRegistry()
     cached_property_host = CachedPropertyRegistry()
