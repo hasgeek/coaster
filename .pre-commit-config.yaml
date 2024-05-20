@@ -78,7 +78,7 @@ repos:
       - id: python-check-blanket-type-ignore
       - id: python-no-log-warn
   - repo: https://github.com/PyCQA/pylint
-    rev: v3.1.0
+    rev: v3.2.2
     hooks:
       - id: pylint
         args: [
