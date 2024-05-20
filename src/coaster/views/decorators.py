@@ -37,10 +37,9 @@ from ..compat import (
     abort,
     async_make_response,
     async_render_template,
-    flask_g,
+    g,
     jsonify,
     make_response,
-    quart_g,
     render_template,
     request,
     sync_await,
@@ -113,8 +112,9 @@ class Redirect(HTTPException):
         """Add a HTML description."""
         html_location = html_escape(self.location)
         return (
-            "<p>You should be redirected automatically to the target URL: "
-            f'<a href="{html_location}">{html_location}</a>. If not, click the link.\n'
+            '<p>You should be redirected automatically to the target URL: '
+            f'<a href="{html_location}">{html_location}</a>. If not, click the link.'
+            '</p>'
         )
 
     def __str__(self) -> str:
@@ -476,7 +476,7 @@ def load_models(
                     if callable(addlperms):
                         addlperms = addlperms() or []
                     permissions.update(addlperms)
-                if g := (quart_g or flask_g):  # XXX: Deprecated
+                if g:  # XXX: Deprecated
                     g.permissions = permissions
                 if request:
                     add_auth_attribute('permissions', InspectableSet(permissions))

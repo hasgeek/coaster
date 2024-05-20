@@ -174,7 +174,7 @@ from sqlalchemy.orm.collections import (
 from sqlalchemy.schema import SchemaItem
 
 from ..auth import current_auth
-from ..compat import flask_g, quart_g
+from ..compat import g
 from ..utils import InspectableSet, is_collection, is_dunder, nary_op
 from .functions import idfilters
 from .model import AppenderQuery
@@ -1540,11 +1540,11 @@ class RoleMixin(Generic[ActorType]):
             :meth:`roles_for` instead, or use `current_roles` only after roles are
             changed.
         """
-        cache = getattr(quart_g or flask_g, '_coaster_role_cache', None)
+        cache = getattr(g, '_coaster_role_cache', None)
         if cache is None:
             cache = {}
             # pylint: disable=protected-access
-            (quart_g or flask_g)._coaster_role_cache = cache
+            g._coaster_role_cache = cache
         cache_key = (self, current_auth.actor, current_auth.anchors)
         if cache_key not in cache:
             cache[cache_key] = InspectableSet(

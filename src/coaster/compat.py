@@ -130,7 +130,6 @@ __all__ = [
     'current_app_object',
     'current_app',
     'ensure_sync',
-    'flask_g',
     'g',
     'has_request_context',
     'json_dump',
@@ -140,7 +139,6 @@ __all__ = [
     'json',
     'jsonify',
     'make_response',
-    'quart_g',
     'redirect',
     'render_template_string',
     'render_template',
@@ -277,9 +275,7 @@ app_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
     'app_ctx', quart_app_ctx, flask_app_ctx
 )
 g: Union[FlaskAppCtxGlobals, QuartAppCtxGlobals]
-g = QuartFlaskCollectionWrapper(  # type: ignore[assignment]
-    'g', quart_g, flask_g
-)
+g = QuartFlaskCollectionWrapper('g', quart_g, flask_g)  # type: ignore[assignment]
 request_ctx: Union[FlaskRequestContext, QuartRequestContext]
 request_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
     'request_ctx', quart_request_ctx, flask_request_ctx

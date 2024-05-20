@@ -25,7 +25,7 @@ from typing import Any, NoReturn, TypeVar, cast
 
 from werkzeug.local import LocalProxy
 
-from .compat import BaseApp, BaseResponse, current_app, flask_g, quart_g, request_ctx
+from .compat import BaseApp, BaseResponse, current_app, g, request_ctx
 from .utils import InspectableSet
 
 __all__ = [
@@ -88,7 +88,7 @@ def add_auth_attribute(attr: str, value: Any, actor: bool = False) -> None:
 
         if attr == 'user':
             # Special-case 'user' for compatibility with Flask-Login
-            if g := (quart_g or flask_g):
+            if g:
                 g._login_user = value
             # A user is always an actor
             actor = True
@@ -218,7 +218,7 @@ class CurrentAuth:
             # In case the login manager did not call :func:`add_auth_attribute`, we'll
             # need to do it
             if self.__dict__.get('user') is None:
-                user = (quart_g or flask_g).get('_login_user')
+                user = g.get('_login_user')
                 if user is not None:
                     self.__dict__['user'] = user
                     # Set actor=user only if the login manager did not add another actor

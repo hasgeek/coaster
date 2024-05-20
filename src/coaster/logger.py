@@ -38,7 +38,7 @@ import requests
 from flask.config import Config  # Quart's config subclasses Flask's
 
 from .auth import current_auth
-from .compat import BaseApp, flask_g, quart_g, request, session, sync_await
+from .compat import BaseApp, g, request, session, sync_await
 
 # Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
@@ -240,11 +240,11 @@ class LocalVarFormatter(logging.Formatter):
             except Exception:  # noqa: BLE001  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
-        if quart_g or flask_g:
+        if g:
             print('\n----------\n', file=sio)
             print("App context:", file=sio)
             try:
-                pprint_with_indent(vars(quart_g or flask_g), sio)
+                pprint_with_indent(vars(g), sio)
             except Exception:  # noqa: BLE001  # pylint: disable=broad-except
                 print("<ERROR WHILE PRINTING VALUE>", file=sio)
 

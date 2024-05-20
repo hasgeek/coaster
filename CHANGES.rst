@@ -2,7 +2,7 @@
 ------------------
 
 * Added async support and cross-compatibility between Flask and Quart
-* Dropped obsolete modules
+* Dropped obsolete modules ``db`` and ``nlp``
 
 0.7.0 - Unreleased
 ------------------
