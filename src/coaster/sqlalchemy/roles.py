@@ -955,6 +955,8 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
             present, absent = self._call, self._no_call
         elif action == 'write':
             present, absent = self._write, self._no_write
+        else:
+            raise ValueError(f"Unknown action {action}")
 
         if attr in present:
             return True
