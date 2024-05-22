@@ -530,7 +530,7 @@ class UrlForMixin:
                 # 2. ('**entity', 'name') --> kwargs['entity'].name
                 if attr[0].startswith('**'):
                     item = kwargs.pop(attr[0][2:])
-                    attr = attr[1:]
+                    attr = attr[1:]  # noqa: PLW2901
                 else:
                     item = self
                 for subattr in attr:

@@ -183,7 +183,7 @@ class TestCoasterApp(unittest.TestCase):
         for handler in self.another_app.logger.handlers:
             try:
                 raise Exception  # pylint: disable=broad-exception-raised
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+            except Exception:  # noqa: BLE001,PERF203  # pylint: disable=broad-except
                 formatter = handler.formatter
                 if isinstance(formatter, LocalVarFormatter):
                     formatter.formatException(sys.exc_info())

@@ -190,7 +190,7 @@ class LocalVarFormatter(logging.Formatter):
                 for attr, value in list(frame.f_locals.items()):
                     idvalue = id(value)
                     if idvalue in value_cache:
-                        value = RepeatValueIndicator(value_cache[idvalue])
+                        value = RepeatValueIndicator(value_cache[idvalue])  # noqa: PLW2901
                     else:
                         value_cache[idvalue] = f"{frame.f_code.co_name}.{attr}"
                     print(f"\t{attr:>20} = ", end=' ', file=sio)
@@ -529,17 +529,16 @@ def init_app(app: SansIoApp, _warning_stacklevel: int = 2) -> None:
                 backupCount=app.config.get('LOG_FILE_ROTATE_COUNT', 7),
                 utc=app.config.get('LOG_FILE_ROTATE_UTC', False),
             )
+        elif sys.platform in ('linux', 'darwin'):
+            # WatchedFileHandler cannot be used on Windows. Also skip on unknown
+            # platforms, falling back to a regular FileHandler
+            file_handler = logging.handlers.WatchedFileHandler(
+                error_log_file, delay=error_log_file_delay
+            )
         else:
-            if sys.platform in ('linux', 'darwin'):
-                # WatchedFileHandler cannot be used on Windows. Also skip on unknown
-                # platforms, falling back to a regular FileHandler
-                file_handler = logging.handlers.WatchedFileHandler(
-                    error_log_file, delay=error_log_file_delay
-                )
-            else:
-                file_handler = logging.FileHandler(
-                    error_log_file, delay=error_log_file_delay
-                )
+            file_handler = logging.FileHandler(
+                error_log_file, delay=error_log_file_delay
+            )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(app.config.get('LOG_FILE_LEVEL', logging.WARNING))
         logger.addHandler(file_handler)

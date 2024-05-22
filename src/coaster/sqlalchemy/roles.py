@@ -1811,7 +1811,7 @@ def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
             ):
                 # If we have a synonym, replace the attr with the referred attr, but
                 # process it under the synonym name
-                attr = getattr(cls, attr.original_property.name)
+                attr = getattr(cls, attr.original_property.name)  # noqa: PLW2901
 
             if isinstance(attr, abc.Hashable) and attr in __cache__:
                 data = __cache__[attr]
@@ -1868,7 +1868,7 @@ def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
                         for lhs, rhs in offer_map.items():
                             for role in rhs:
                                 reverse_offer_map.setdefault(role, set()).add(lhs)
-                        roles = set(reverse_offer_map.keys())
+                        roles = set(reverse_offer_map.keys())  # noqa: PLW2901
                     elif isinstance(roles, set):
                         offer_map = None
                         reverse_offer_map = None
@@ -1892,7 +1892,7 @@ def _configure_roles(_mapper: Any, cls: type[RoleMixin]) -> None:
                         and isinstance(actor_attr, str)
                         and '.' in actor_attr
                     ):
-                        dotted_name, actor_attr = actor_attr.rsplit('.', 1)
+                        dotted_name, actor_attr = actor_attr.rsplit('.', 1)  # noqa: PLW2901
                         dotted_name = name + '.' + dotted_name
                     else:
                         dotted_name = name

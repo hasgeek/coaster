@@ -677,7 +677,7 @@ class TestStateManager(AppTestCase):
         with pytest.raises(TypeError):
 
             @state.transition(None, state.DRAFT, name='invalid_data_field')
-            def name_test(self) -> None:  # noqa: ARG001
+            def name_test(self) -> None:
                 pass
 
     def test_duplicate_transition(self) -> None:
@@ -687,7 +687,7 @@ class TestStateManager(AppTestCase):
 
             @state.transition(state.DRAFT, state.PENDING)
             @state.transition(state.PENDING, state.PUBLISHED)
-            def dupe_decorator(self) -> None:  # noqa: ARG001
+            def dupe_decorator(self) -> None:
                 pass
 
         state.transitions.remove('dupe_decorator')

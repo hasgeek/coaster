@@ -171,7 +171,7 @@ class KeyRotationWrapper(Generic[_S]):
             for engine in self._engines:
                 try:
                     return getattr(engine, name)(*args, **kwargs)
-                except itsdangerous.BadSignature as exc:
+                except itsdangerous.BadSignature as exc:  # noqa: PERF203
                     saved_exc = exc
             # We've run out of engines and all of them reported BadSignature.
             # If there were no engines, the sentinel RuntimeError exception is used

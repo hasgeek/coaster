@@ -97,7 +97,7 @@ def return_siteadmin_perms() -> set[str]:
 )
 def t_container(
     container: Container,
-    kwargs: dict[str, str],  # noqa: ARG001
+    kwargs: dict[str, str],
 ) -> Container:
     return container
 
@@ -117,7 +117,7 @@ def t_single_model_in_loadmodels(user: User) -> User:
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
 def t_named_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: NamedDocument,
 ) -> NamedDocument:
     return document
@@ -132,7 +132,7 @@ def t_named_document(
     ),
 )
 def t_redirect_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: NamedDocument,
 ) -> NamedDocument:
     return document
@@ -143,7 +143,7 @@ def t_redirect_document(
     (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
 def t_scoped_named_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: ScopedNamedDocument,
 ) -> ScopedNamedDocument:
     return document
@@ -155,7 +155,7 @@ def t_scoped_named_document(
     urlcheck=['url_name'],
 )
 def t_id_named_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: IdNamedDocument,
 ) -> IdNamedDocument:
     return document
@@ -170,7 +170,7 @@ def t_id_named_document(
     ),
 )
 def t_scoped_id_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: ScopedIdDocument,
 ) -> ScopedIdDocument:
     return document
@@ -186,7 +186,7 @@ def t_scoped_id_document(
     urlcheck=['url_name'],
 )
 def t_scoped_id_named_document(
-    container: Container,  # noqa: ARG001
+    container: Container,
     document: ScopedIdNamedDocument,
 ) -> ScopedIdNamedDocument:
     return document
@@ -201,7 +201,7 @@ def t_scoped_id_named_document(
     ),
 )
 def t_callable_document(
-    document: ParentDocument,  # noqa: ARG001
+    document: ParentDocument,
     child: ChildDocument,
 ) -> ChildDocument:
     return child
@@ -212,7 +212,7 @@ def t_callable_document(
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
 )
 def t_dotted_document(
-    document: ParentDocument,  # noqa: ARG001
+    document: ParentDocument,
     child: ChildDocument,
 ) -> ChildDocument:
     return child
@@ -224,7 +224,7 @@ def t_dotted_document(
     permission='view',
 )
 def t_dotted_document_view(
-    document: ParentDocument,  # noqa: ARG001
+    document: ParentDocument,
     child: ChildDocument,
 ) -> ChildDocument:
     return child
@@ -236,7 +236,7 @@ def t_dotted_document_view(
     permission='edit',
 )
 def t_dotted_document_edit(
-    document: ParentDocument,  # noqa: ARG001
+    document: ParentDocument,
     child: ChildDocument,
 ) -> ChildDocument:
     return child
@@ -248,7 +248,7 @@ def t_dotted_document_edit(
     permission='delete',
 )
 def t_dotted_document_delete(
-    document: ParentDocument,  # noqa: ARG001
+    document: ParentDocument,
     child: ChildDocument,
 ) -> ChildDocument:
     return child

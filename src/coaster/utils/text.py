@@ -251,12 +251,11 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> list[str]:
                 and not (skip_pre and tag == 'pre')
             ):
                 blocks.append('')
+        elif not blocks:
+            if text:
+                blocks.append(text)
         else:
-            if not blocks:
-                if text:
-                    blocks.append(text)
-            else:
-                blocks[-1] += text
+            blocks[-1] += text
 
         if len(element) > 0 and not (skip_pre and tag == 'pre'):
             for child in element[:-1]:
@@ -275,11 +274,10 @@ def text_blocks(html_text: str, skip_pre: bool = True) -> list[str]:
             if not blocks:
                 if tail:
                     blocks.append(tail)
+            elif tag == 'br' and tail:
+                blocks[-1] += '\n' + tail
             else:
-                if tag == 'br' and tail:
-                    blocks[-1] += '\n' + tail
-                else:
-                    blocks[-1] += tail
+                blocks[-1] += tail
 
     subloop(None, doc)
     # Replace &nbsp; with ' '

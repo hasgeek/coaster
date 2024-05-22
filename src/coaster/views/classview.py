@@ -935,7 +935,7 @@ class ClassView:
                         # Copy ViewMethod instances into subclasses. We know an attr
                         # with the same name doesn't exist in the subclass because it
                         # was processed first in the MRO and added to the processed set.
-                        attr = attr.copy()
+                        attr = attr.copy()  # noqa: PLW2901
                         setattr(cls, name, attr)
                         attr.__set_name__(cls, name)
                     view_names.add(name)

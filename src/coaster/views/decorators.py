@@ -224,19 +224,16 @@ def requestargs(
                         if is_list:
                             if has_gettype:
                                 kwargs[name] = values.getlist(name, type=filt)
+                            elif filt:
+                                kwargs[name] = [filt(_v) for _v in values[name]]
                             else:
-                                if filt:
-                                    kwargs[name] = [filt(_v) for _v in values[name]]
-                                else:
-                                    kwargs[name] = values[name]
+                                kwargs[name] = values[name]
+                        elif has_gettype:
+                            kwargs[name] = values.get(name, type=filt)
+                        elif filt:
+                            kwargs[name] = filt(values[name])
                         else:
-                            if has_gettype:
-                                kwargs[name] = values.get(name, type=filt)
-                            else:
-                                if filt:
-                                    kwargs[name] = filt(values[name])
-                                else:
-                                    kwargs[name] = values[name]
+                            kwargs[name] = values[name]
                     except ValueError as exc:
                         raise RequestValueError(str(exc)) from exc
             return kwargs
@@ -429,7 +426,7 @@ def load_models(
             result: dict[str, Any] = {}
             for models, attributes, parameter in chain:
                 if not isinstance(models, (list, tuple)):
-                    models = (models,)
+                    models = (models,)  # noqa: PLW2901
                 item = None
                 url_check = False
                 url_check_paramvalues: dict[str, tuple[Union[str, Callable], Any]] = {}
@@ -502,7 +499,7 @@ def load_models(
                             location = location + '?' + request.query_string.decode()
                         raise Redirect(location, code=302)
                 if parameter.startswith('g.') and g:
-                    parameter = parameter[2:]
+                    parameter = parameter[2:]  # noqa: PLW2901
                     setattr(g, parameter, item)
                 result[parameter] = item
             if permission_required and (
@@ -540,7 +537,7 @@ def _best_mimetype_match(
     available_list: list[str], accept_mimetypes: MIMEAccept, default: str
 ) -> str:
     for acceptable_mimetype, _quality in accept_mimetypes:
-        acceptable_mimetype = acceptable_mimetype.lower()
+        acceptable_mimetype = acceptable_mimetype.lower()  # noqa: PLW2901
         for available_mimetype in available_list:
             if acceptable_mimetype == available_mimetype.lower():
                 return available_mimetype

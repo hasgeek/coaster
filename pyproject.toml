@@ -233,13 +233,17 @@ select = [
   "EXE",   # flake8-executable
   "F",     # pyflakes
   "FA",    # flake8-future-annotations
+  "FLY",   # flynt
   "G",     # flake8-logging-format
   "I",     # isort
   "INP",   # flake8-no-pep420
   "INT",   # flake8-gettext
   "ISC",   # flake8-implicit-str-concat
   "N",     # pep8-naming
+  "PERF",  # Perflint
+  "PGH",   # pygrep-hooks
   "PIE",   # flake8-pie
+  "PL",    # pylint
   "PT",    # flake8-pytest-style
   "PYI",   # flake8-pyi
   "RET",   # flake8-return
@@ -274,6 +278,10 @@ ignore = [
   "EM101",   # Allow Exception("string")
   "EM102",   # Allow Exception(f"string")
   "ISC001",  # Allow implicitly concatenated string literals (required for formatter)
+  "PLR2004", # Too many false positives
+  "PLR0912", # Some functions are complex
+  "PLR0913", # Some functions need many arguments
+  "PLR0915", # Some functions are complex
   "RUF012",  # Allow mutable ClassVar without annotation (conflicts with SQLAlchemy)
   "SLOT000", # Don't require `__slots__` for subclasses of str
 ]
@@ -288,10 +296,11 @@ allowed-confusables = ["‘", "’", "–"]
 [tool.ruff.lint.extend-per-file-ignores]
 "__init__.py" = ["E402"] # Allow non-top-level imports
 "tests/**.py" = [
-  "S101",   # Allow assert
+  "ARG001", # Context manager fixtures may not be used within a test
   "ANN001", # Args don't need types (usually fixtures)
   "N802",   # Fixture returning a class may be named per class name convention
   "N803",   # Args don't require naming convention (fixture could be a class)
+  "S101",   # Allow assert
 ]
 
 [tool.ruff.lint.isort]

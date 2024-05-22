@@ -100,7 +100,7 @@ def all_registry_hosts(
 def registry_member() -> Callable:
     """Test registry member function."""
 
-    def member(pos=None, kwparam=None) -> None:  # noqa: ARG001
+    def member(pos=None, kwparam=None) -> None:
         pass
 
     return member
