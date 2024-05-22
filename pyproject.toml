@@ -39,7 +39,6 @@ dependencies = [
   'blinker',
   'Flask-Assets',
   'Flask-Migrate',
-  'Flask-SQLAlchemy',
   'Flask>=3.0',
   'furl',
   'html5lib>=0.999999999',

@@ -1,5 +1,6 @@
 coverage
 coveralls
+Flask-SQLAlchemy
 psycopg
 Pygments
 pylint
