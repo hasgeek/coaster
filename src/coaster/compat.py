@@ -23,6 +23,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AnyStr,
+    Generic,
     NoReturn,
     Optional,
     TypeVar,
@@ -36,6 +37,7 @@ from flask import (
     abort as flask_abort,
     current_app as flask_current_app,
     g as flask_g,
+    has_app_context as flask_has_app_context,
     has_request_context as flask_has_request_context,
     make_response as flask_make_response,
     redirect as flask_redirect,
@@ -60,6 +62,7 @@ try:
         abort as quart_abort,
         current_app as quart_current_app,
         g as quart_g,
+        has_app_context as quart_has_app_context,
         has_request_context as quart_has_request_context,
         make_response as quart_make_response,
         redirect as quart_redirect,
@@ -75,6 +78,7 @@ except ModuleNotFoundError:
     quart_app_ctx = None  # type: ignore[assignment]
     quart_current_app = None  # type: ignore[assignment]
     quart_g = None  # type: ignore[assignment]
+    quart_has_app_context = None  # type: ignore[assignment]
     quart_has_request_context = None  # type: ignore[assignment]
     quart_redirect = None  # type: ignore[assignment]
     quart_render_template = None  # type: ignore[assignment]
@@ -109,6 +113,7 @@ __all__ = [
     'SansIoRequest',
     'SansIoResponse',
     'abort',
+    'app_ctx_object',
     'app_ctx',
     'async_make_response',
     'async_render_template_string',
@@ -118,6 +123,7 @@ __all__ = [
     'current_app',
     'ensure_sync',
     'g',
+    'has_app_context',
     'has_request_context',
     'json_dump',
     'json_dumps',
@@ -154,7 +160,11 @@ class JSONProvider(DefaultJSONProvider):
         return DefaultJSONProvider.default(o)
 
 
-class QuartFlaskWrapper:
+_QS = TypeVar('_QS', bound=Any)
+_FS = TypeVar('_FS', bound=Any)
+
+
+class QuartFlaskWrapper(Generic[_QS, _FS]):
     """
     Proxy to Quart or Flask source objects.
 
@@ -163,10 +173,12 @@ class QuartFlaskWrapper:
     """
 
     __name__: str
-    _quart_source: Any
-    _flask_source: Any
+    _quart_source: _QS
+    _flask_source: _FS
 
-    def __init__(self, name: str, quart_source: Any, flask_source: Any) -> None:
+    def __init__(
+        self, name: str, quart_source: Optional[_QS], flask_source: Optional[_FS]
+    ) -> None:
         object.__setattr__(self, '__name__', name)
         object.__setattr__(self, '_quart_source', quart_source)
         object.__setattr__(self, '_flask_source', flask_source)
@@ -196,8 +208,8 @@ class QuartFlaskWrapper:
         delattr(self._flask_source, name)
 
 
-class QuartFlaskCollectionWrapper(QuartFlaskWrapper):
-    """Proxy to Quart or Flask source object with iterable API."""
+class QuartFlaskCollectionWrapper(QuartFlaskWrapper[_QS, _FS]):
+    """Proxy to Quart or Flask source object with Iterable API."""
 
     def __contains__(self, item: str) -> bool:
         if qs := self._quart_source:
@@ -218,8 +230,8 @@ class QuartFlaskCollectionWrapper(QuartFlaskWrapper):
 Collection.register(QuartFlaskCollectionWrapper)
 
 
-class QuartFlaskDictWrapper(QuartFlaskCollectionWrapper):
-    """Proxy to Quart or Flask source objects with a dict API."""
+class QuartFlaskDictWrapper(QuartFlaskCollectionWrapper[_QS, _FS]):
+    """Proxy to Quart or Flask source objects with a MutableMapping API."""
 
     def __getitem__(self, key: Any) -> Any:
         if qs := self._quart_source:
@@ -280,11 +292,44 @@ session = QuartFlaskDictWrapper(  # type: ignore[assignment]
 def current_app_object() -> Optional[Union[Flask, Quart]]:
     """Get current app from Quart or Flask (unwrapping the proxy)."""
     # pylint: disable=protected-access
-    if quart_current_app:
-        return quart_current_app._get_current_object()  # type: ignore[attr-defined]
-    if flask_current_app:
+
+    # This implementation avoids calling ``bool(quart_current_app)`` as that will
+    # effectively retrieve the context var twice. We optimize for faster turnaround
+    # when an app context is present
+    if quart_current_app is not None:
+        try:
+            return quart_current_app._get_current_object()  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+    try:
         return flask_current_app._get_current_object()  # type: ignore[attr-defined]
-    return None
+    except RuntimeError:
+        return None
+
+
+def app_ctx_object() -> Optional[Union[FlaskAppContext, QuartAppContext]]:
+    """Get the current app context object from Quart or Flask (unwrapping the proxy)."""
+    # pylint: disable=protected-access
+
+    # This implementation avoids calling ``bool(quart_app_ctx)`` as that will
+    # effectively retrieve the context var twice. We optimize for faster turnaround
+    # when an app context is present
+    if quart_app_ctx is not None:
+        try:
+            return quart_app_ctx._get_current_object()  # type: ignore[attr-defined]
+        except RuntimeError:
+            pass
+    try:
+        return flask_app_ctx._get_current_object()  # type: ignore[attr-defined]
+    except RuntimeError:
+        return None
+
+
+def has_app_context() -> bool:
+    """Check for app context in Quart or Flask."""
+    return (
+        quart_has_app_context is not None and quart_has_app_context()
+    ) or flask_has_app_context()
 
 
 def has_request_context() -> bool:
