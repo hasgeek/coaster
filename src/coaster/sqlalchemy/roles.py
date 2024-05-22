@@ -177,7 +177,7 @@ from ..auth import current_auth
 from ..compat import g
 from ..utils import InspectableSet, is_collection, is_dunder, nary_op
 from .functions import idfilters
-from .model import AppenderQuery
+from .query import AppenderQuery
 
 __all__ = [
     'ActorType',

@@ -10,7 +10,7 @@ from sqlalchemy import inspect
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
 
-from .model import relationship
+from .query import relationship
 
 __all__ = [
     'make_timestamp_columns',

@@ -75,7 +75,7 @@ from .comparators import (
 )
 from .functions import auto_init_default, failsafe_add
 from .immutable_annotation import immutable
-from .model import Query, QueryProperty
+from .query import Query, QueryProperty
 from .registry import RegistryMixin
 from .roles import ActorType, RoleMixin, with_roles
 
@@ -460,7 +460,7 @@ class UrlDictStub:
 
 
 class UrlDict(abc.Mapping, Generic[_UR]):
-    """Provides dictionary access to an object's URLs."""
+    """Provides dictionary access to an object's URLs when an app context is present."""
 
     def __init__(self, obj: _UR) -> None:
         self.obj = obj

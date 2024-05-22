@@ -5,6 +5,8 @@
 
    model
    mixins
+   query
+   pagination
    columns
    functions
    roles
