@@ -31,22 +31,27 @@ class TestCoasterApp(unittest.TestCase):
     def test_load_config_from_file(self) -> None:
         """Test for config loaded from Python file."""
         load_config_from_file(self.app, 'settings.py')
-        assert self.app.config['SETTINGS_KEY'] == "settings"
+        assert self.app.config['SETTINGS_KEY'] == 'settings'
 
     def test_load_config_from_file_json(self) -> None:
         """Test for config loaded from JSON file."""
         load_config_from_file(self.app, 'settings.json', _config_loaders['json'].loader)
-        assert self.app.config['SETTINGS_KEY'] == "settings_json"
+        assert self.app.config['SETTINGS_KEY'] == 'settings_json'
 
     def test_load_config_from_file_toml(self) -> None:
         """Test for config loaded from TOML file."""
-        load_config_from_file(self.app, 'settings.toml', _config_loaders['toml'].loader)
-        assert self.app.config['SETTINGS_KEY'] == "settings_toml"
+        load_config_from_file(
+            self.app,
+            'settings.toml',
+            _config_loaders['toml'].loader,
+            text=_config_loaders['toml'].text,
+        )
+        assert self.app.config['SETTINGS_KEY'] == 'settings_toml'
 
     def test_load_config_from_file_yaml(self) -> None:
         """Test for config loaded from YAML file."""
         load_config_from_file(self.app, 'settings.yaml', _config_loaders['yaml'].loader)
-        assert self.app.config['SETTINGS_KEY'] == "settings_yaml"
+        assert self.app.config['SETTINGS_KEY'] == 'settings_yaml'
 
     def test_additional_settings_from_file(self) -> None:
         """Test for config loaded against ENV var."""
@@ -78,14 +83,14 @@ class TestCoasterApp(unittest.TestCase):
 
     def test_init_app_config_env(self) -> None:
         """Test for config loaded from environment vars."""
-        environ['FLASK_SETTINGS_STR'] = "env-var"
+        environ['FLASK_SETTINGS_STR'] = 'env-var'
         environ['FLASK_SETTINGS_QSTR'] = '"qenv-var"'
-        environ['FLASK_SETTINGS_INT'] = "2"
-        environ['FLASK_SETTINGS_FLOAT'] = "3.1"
-        environ['FLASK_SETTINGS_BOOL'] = "false"
-        environ['FLASK_SETTINGS_NONE'] = "null"
+        environ['FLASK_SETTINGS_INT'] = '2'
+        environ['FLASK_SETTINGS_FLOAT'] = '3.1'
+        environ['FLASK_SETTINGS_BOOL'] = 'false'
+        environ['FLASK_SETTINGS_NONE'] = 'null'
         environ['FLASK_SETTINGS_DICT'] = '{"json": "dict"}'
-        environ['FLASK_SETTINGS_DICT__str'] = "string-in-dict"
+        environ['FLASK_SETTINGS_DICT__str'] = 'string-in-dict'
         environ['FLASK_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
         init_app(self.app, ['env'])
         assert self.app.config['SETTINGS_STR'] == 'env-var'
@@ -102,14 +107,14 @@ class TestCoasterApp(unittest.TestCase):
 
     def test_init_app_config_env_custom_prefix(self) -> None:
         """Test for config loaded from environment vars with a custom prefix."""
-        environ['APP_SETTINGS_STR'] = "env-var"
+        environ['APP_SETTINGS_STR'] = 'env-var'
         environ['APP_SETTINGS_QSTR'] = '"qenv-var"'
-        environ['APP_SETTINGS_INT'] = "2"
-        environ['APP_SETTINGS_FLOAT'] = "3.1"
-        environ['APP_SETTINGS_BOOL'] = "false"
-        environ['APP_SETTINGS_NONE'] = "null"
+        environ['APP_SETTINGS_INT'] = '2'
+        environ['APP_SETTINGS_FLOAT'] = '3.1'
+        environ['APP_SETTINGS_BOOL'] = 'false'
+        environ['APP_SETTINGS_NONE'] = 'null'
         environ['APP_SETTINGS_DICT'] = '{"json": "dict"}'
-        environ['APP_SETTINGS_DICT__str'] = "string-in-dict"
+        environ['APP_SETTINGS_DICT__str'] = 'string-in-dict'
         environ['APP_SETTINGS_DICT__list'] = '["list", "in", "dict"]'
         init_app(self.app, ['env'], env_prefix='APP')
         assert self.app.config['SETTINGS_STR'] == 'env-var'
