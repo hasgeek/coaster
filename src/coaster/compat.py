@@ -316,7 +316,7 @@ def app_ctx_object() -> Optional[Union[FlaskAppContext, QuartAppContext]]:
     # when an app context is present
     if quart_app_ctx is not None:
         try:
-            return quart_app_ctx._get_current_object()  # type: ignore[attr-defined]
+            return quart_app_ctx._get_current_object()
         except RuntimeError:
             pass
     try:

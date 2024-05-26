@@ -88,9 +88,11 @@ class MarkdownComposite(MutableComposite):
     # Compare text value
     def __eq__(self, other: object) -> bool:
         """Compare for equality."""
-        return isinstance(other, MarkdownComposite) and (
-            self.__composite_values__() == other.__composite_values__()
-        )
+        if self is other:
+            return True
+        if isinstance(other, MarkdownComposite):
+            return self.__composite_values__() == other.__composite_values__()
+        return NotImplemented
 
     # Pickle support methods implemented as per SQLAlchemy documentation, but not
     # tested here as we don't use them.
@@ -154,7 +156,6 @@ def markdown_column(
         if markdown is not None
         else markdown_processor
     )
-
     return composite(
         (
             CustomMarkdownComposite

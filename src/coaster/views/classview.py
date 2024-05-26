@@ -657,6 +657,8 @@ class ViewMethodBind(Generic[_P, _R_co]):
             return getattr(self._view_method, name)
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if isinstance(other, ViewMethodBind):
             return (
                 self._view_method == other._view_method
@@ -1095,6 +1097,8 @@ class ModelView(ClassView, Generic[ModelType]):
         super().__init_subclass__()
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         return isinstance(other, self.__class__) and other.obj == self.obj
 
     def dispatch_request(

@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Optional
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from flask import Flask
 from flask.ctx import RequestContext
 from flask.typing import ResponseReturnValue
@@ -88,14 +89,14 @@ class ViewDocument(BaseNameMixin, Model):
 
 class ScopedViewDocument(BaseScopedNameMixin, Model):
     __tablename__ = 'scoped_view_document'
-    parent_id: Mapped[int] = sa.orm.mapped_column(
+    parent_id: Mapped[int] = sa_orm.mapped_column(
         sa.ForeignKey('view_document.id'), nullable=False
     )
     view_document: Mapped[ViewDocument] = relationship(
         ViewDocument,  # InstanceLoader needs explicit type, can't guess from Mapped[]
         back_populates='children',
     )
-    parent = sa.orm.synonym('view_document')
+    parent: Mapped[ViewDocument] = sa_orm.synonym('view_document')
 
     __roles__: ClassVar = {'all': {'read': {'name', 'title', 'doctype'}}}
 
@@ -609,7 +610,7 @@ class TestClassView(unittest.TestCase):
     def test_scopedmodelview_view(self) -> None:
         """Test that InstanceLoader in a scoped model correctly loads parent."""
         doc = ViewDocument(name='test1', title="Test 1")
-        sdoc = ScopedViewDocument(name='test2', title="Test 2", parent=doc)
+        sdoc = ScopedViewDocument(name='test2', title="Test 2", view_document=doc)
         self.session.add_all([doc, sdoc])
         self.session.commit()
 
@@ -673,7 +674,7 @@ class TestClassView(unittest.TestCase):
 
     def test_registered_views(self) -> None:
         doc1 = ViewDocument(name='test1', title="Test 1")
-        doc2 = ScopedViewDocument(name='test2', title="Test 2", parent=doc1)
+        doc2 = ScopedViewDocument(name='test2', title="Test 2", view_document=doc1)
         doc3 = RenameableDocument(name='test3', title="Test 3")
         self.session.add_all([doc1, doc2, doc3])
         self.session.commit()

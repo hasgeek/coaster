@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional, Union, cast
 
 import pytest
-import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from flask import Flask
 from flask.ctx import RequestContext
 from flask_sqlalchemy import SQLAlchemy
@@ -66,20 +66,22 @@ class AppTestCase(unittest.TestCase):  # skipcq: PTC-W0046
 
     app: Flask
     ctx: RequestContext
-    session: sa.orm.Session
+    session: sa_orm.Session
 
     def setUp(self) -> None:
         """Prepare test context."""
         self.ctx = self.app.test_request_context()
         self.ctx.push()
-        db.create_all()
-        self.session = cast(sa.orm.Session, db.session)
         # SQLAlchemy doesn't fire mapper_configured events until the first time a
         # mapping is used
         db.configure_mappers()
+        db.create_all()
+        self.session = cast(sa_orm.Session, db.session)
+        db.engine.echo = False
 
     def tearDown(self) -> None:
         """Teardown test context."""
+        db.engine.echo = False
         self.session.rollback()
         db.drop_all()
         self.ctx.pop()

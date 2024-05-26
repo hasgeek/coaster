@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Any, Optional, TypeVar, Union, cast, overload
 
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
+import sqlalchemy.orm as sa_orm
 from sqlalchemy import inspect
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
@@ -83,7 +85,7 @@ def make_timestamp_columns(
     )
 
 
-session_type = Union[sa.orm.Session, sa.orm.scoped_session]
+session_type = Union[sa_orm.Session, sa_orm.scoped_session]
 
 
 @overload
@@ -139,12 +141,12 @@ def failsafe_add(
         savepoint.commit()
         if filters:
             return __instance
-    except sa.exc.IntegrityError as e:
+    except sa_exc.IntegrityError as e:
         savepoint.rollback()
         if filters:
             try:
                 return __session.query(__instance.__class__).filter_by(**filters).one()
-            except sa.exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
+            except sa_exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
                 raise e from e
     return None
 
@@ -289,7 +291,7 @@ def add_primary_relationship(
 
 
 def auto_init_default(
-    column: Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute],
+    column: Union[sa_orm.ColumnProperty, sa_orm.InstrumentedAttribute],
 ) -> None:
     """
     Set the default value of a column on first access.
@@ -298,13 +300,9 @@ def auto_init_default(
     read the value before commit will get None instead of the default value. This
     helper fixes that. Usage::
 
-        class MyModel(Model):
-            column: Mapped[PyType] = sa.orm.mapped_column(SqlType, default="value")
-
-
         auto_init_default(MyModel.column)
     """
-    if isinstance(column, sa.orm.ColumnProperty):
+    if isinstance(column, sa_orm.ColumnProperty):
         default = column.columns[0].default
     else:
         default = column.default

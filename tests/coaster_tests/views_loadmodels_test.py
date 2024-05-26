@@ -8,6 +8,7 @@ from typing import Optional
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden, NotFound
 
@@ -37,11 +38,11 @@ class MiddleContainer(BaseMixin, Model):
 
 class ParentDocument(BaseNameMixin, Model):
     __tablename__ = 'parent_document'
-    middle_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('middle_container.id'))
-    middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
+    middle_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('middle_container.id'))
+    middle: Mapped[MiddleContainer] = relationship()
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.middle = MiddleContainer()
 
     def permissions(
@@ -57,7 +58,7 @@ class ParentDocument(BaseNameMixin, Model):
 
 class ChildDocument(BaseScopedIdMixin, Model):
     __tablename__ = 'child_document'
-    parent_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('middle_container.id'))
+    parent_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('middle_container.id'))
     parent: Mapped[MiddleContainer] = relationship(back_populates='children')
 
     def permissions(
@@ -71,9 +72,9 @@ class ChildDocument(BaseScopedIdMixin, Model):
 
 class RedirectDocument(BaseNameMixin, Model):
     __tablename__ = 'redirect_document'
-    container_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('container.id'))
+    container_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('container.id'))
     container: Mapped[Container] = relationship()
-    target_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('named_document.id'))
+    target_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('named_document.id'))
     target: Mapped[NamedDocument] = relationship()
 
     def redirect_view_args(self) -> dict[str, str]:

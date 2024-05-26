@@ -177,6 +177,10 @@ class RelationshipChild(BaseNameMixin, Model):
         'related': {'name', 'title'},
     }
 
+    def __hash__(self) -> int:
+        # Required when mapped as a dataclass
+        return hash(id(self))
+
 
 class RelationshipParent(BaseNameMixin, Model):
     """Test model for a relationship parent."""
@@ -184,10 +188,12 @@ class RelationshipParent(BaseNameMixin, Model):
     __tablename__ = 'relationship_parent'
 
     children_list: Mapped[list[RelationshipChild]] = relationship(
-        RelationshipChild, back_populates='parent'
+        back_populates='parent'
     )
     children_list_lazy: DynamicMapped[RelationshipChild] = relationship(
-        RelationshipChild, lazy='dynamic', overlaps='children_list,parent'
+        RelationshipChild,
+        lazy='dynamic',
+        overlaps='children_list,parent',
     )
     children_set: Mapped[MutableSet[RelationshipChild]] = relationship(
         RelationshipChild,
@@ -212,10 +218,8 @@ class RelationshipParent(BaseNameMixin, Model):
         'children_list_lazy', 'name'
     )
     # Another instance of DynamicAssociationProxy, this time using a QueryableAttribute
-    children_namesq: DynamicAssociationProxy[str, RelationshipChild] = (
-        DynamicAssociationProxy(
-            'children_list_lazy', 'name', lambda: RelationshipChild.name
-        )
+    children_namesq = DynamicAssociationProxy[str, RelationshipChild](
+        'children_list_lazy', 'name', lambda: RelationshipChild.name
     )
 
     __roles__: ClassVar = {
@@ -274,6 +278,10 @@ class RoleUser(BaseMixin, Model):
 
     __tablename__ = 'role_user'
 
+    # Required when mapped as a dataclass
+    def __hash__(self) -> int:
+        return hash(id(self))
+
     doc_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_grant_many.id')
     )
@@ -281,7 +289,7 @@ class RoleUser(BaseMixin, Model):
         foreign_keys=[doc_id], back_populates='primary_users'
     )
     secondary_docs: Mapped[list[RoleGrantMany]] = relationship(
-        RoleGrantMany, secondary=granted_users, back_populates='secondary_users'
+        secondary=granted_users, back_populates='secondary_users'
     )
 
 
@@ -291,9 +299,7 @@ class RoleGrantOne(BaseMixin, Model):
     __tablename__ = 'role_grant_one'
 
     user_id: Mapped[Optional[int]] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
-    user: Mapped[Optional[RoleUser]] = with_roles(
-        relationship(RoleUser), grants={'creator'}
-    )
+    user: Mapped[Optional[RoleUser]] = with_roles(relationship(), grants={'creator'})
 
 
 class RoleGrantSynonym(BaseMixin, Model):
@@ -315,12 +321,12 @@ class RoleMembership(BaseMixin, Model):
     __tablename__ = 'role_membership'
 
     user_id: Mapped[Optional[int]] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
-    user: Mapped[Optional[RoleUser]] = relationship(RoleUser)
+    user: Mapped[Optional[RoleUser]] = relationship()
 
     doc_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('multirole_document.id')
     )
-    doc: Mapped[Optional[MultiroleDocument]] = relationship('MultiroleDocument')
+    doc: Mapped[Optional[MultiroleDocument]] = relationship()
 
     role1: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
     role2: Mapped[bool] = sa_orm.mapped_column(sa.Boolean, default=False)
@@ -344,9 +350,7 @@ class MultiroleParent(BaseMixin, Model):
 
     __tablename__ = 'multirole_parent'
     user_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('role_user.id'))
-    user: Mapped[RoleUser] = with_roles(
-        relationship(RoleUser), grants={'prole1', 'prole2'}
-    )
+    user: Mapped[RoleUser] = with_roles(relationship(), grants={'prole1', 'prole2'})
 
 
 class MultiroleDocument(BaseMixin, Model):
@@ -354,9 +358,11 @@ class MultiroleDocument(BaseMixin, Model):
 
     __tablename__ = 'multirole_document'
 
-    parent_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('multirole_parent.id'))
-    parent: Mapped[MultiroleParent] = with_roles(
-        relationship(MultiroleParent),
+    parent_id: Mapped[Optional[int]] = sa_orm.mapped_column(
+        sa.ForeignKey('multirole_parent.id')
+    )
+    parent: Mapped[Optional[MultiroleParent]] = with_roles(
+        relationship(),
         # grants_via[None] implies that these roles are granted by parent.roles_for(),
         # and not via parent.`actor_attr`. While other roles may also be granted by
         # parent.roles_for(), we only want one, and we want to give it a different name
@@ -381,12 +387,12 @@ class MultiroleDocument(BaseMixin, Model):
 
     # Grant via a query relationship
     rel_lazy: DynamicMapped[RoleMembership] = relationship(
-        RoleMembership, lazy='dynamic', overlaps='doc'
+        lazy='dynamic', overlaps='doc'
     )
     with_roles(rel_lazy, grants_via={RoleMembership.user: {'role2'}})
     # Grant via a list-like relationship
     rel_list: Mapped[list[RoleMembership]] = with_roles(
-        relationship(RoleMembership, overlaps='doc,rel_lazy'),
+        relationship(overlaps='doc,rel_lazy'),
         grants_via={'user': {'role3'}},
     )
 
@@ -405,7 +411,7 @@ class MultiroleChild(BaseMixin, Model):
         sa.ForeignKey('multirole_document.id')
     )
     parent: Mapped[MultiroleDocument] = with_roles(
-        relationship(MultiroleDocument),
+        relationship(),
         grants_via={
             'parent.user': {'super_parent_role'},  # Maps to parent.parent.user
             'rel_lazy.user': {  # Maps to parent.rel_lazy[item].user
@@ -1004,7 +1010,6 @@ class TestCoasterRoles(AppTestCase):
         self.session.commit()
 
         assert isinstance(RelationshipParent.children_namesq, DynamicAssociationProxy)
-
         assert child1.name in parent1.children_namesq
         assert child2.name in parent1.children_namesq
         assert child3.name not in parent1.children_namesq

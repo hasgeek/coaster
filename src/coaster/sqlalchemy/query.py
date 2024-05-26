@@ -218,7 +218,7 @@ class QueryProperty:
     """A class property that creates a query object for a model."""
 
     def __get__(self, _obj: Optional[_T_co], cls: type[_T_co]) -> Query[_T_co]:
-        return cls.query_class(cls, session=cls.__sqla__.session())
+        return cls.query_class(cls, session=cls.__fsa__.session())
 
 
 # --- `relationship` and `backref` wrappers for `lazy='dynamic'` -----------------------

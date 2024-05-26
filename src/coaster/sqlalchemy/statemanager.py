@@ -24,14 +24,14 @@ inspection, and to control state change via transitions. Sample usage::
 
         # The underlying state value columns
         # (more than one state variable can exist)
-        _state: Mapped[int] = sa.orm.mapped_column(
+        _state: Mapped[int] = sa_orm.mapped_column(
             'state',
             sa.Integer,
             StateManager.check_constraint('state', MY_STATE, sa.Integer),
             default=MY_STATE.DRAFT,
             nullable=False,
         )
-        _reviewstate: Mapped[int] = sa.orm.mapped_column(
+        _reviewstate: Mapped[int] = sa_orm.mapped_column(
             'reviewstate',
             sa.Integer,
             StateManager.check_constraint('reviewstate', REVIEW_STATE, sa.Integer),
@@ -46,7 +46,7 @@ inspection, and to control state change via transitions. Sample usage::
         reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
 
         # Datetime for the additional states and transitions
-        timestamp: Mapped[datetime] = sa.orm.mapped_column(
+        timestamp: Mapped[datetime] = sa_orm.mapped_column(
             sa.DateTime, default=datetime.utcnow, nullable=False
         )
 
@@ -521,6 +521,8 @@ class ManagedStateInstance(Generic[_T]):
         return getattr(self._mstate, name)
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         return (
             isinstance(other, ManagedStateInstance)
             and self._mstate == other._mstate
@@ -1032,7 +1034,7 @@ class StateManager(Generic[_SG]):
         :class:`~coaster.utils.classes.LabeledEnum` containing valid values. Usage::
 
             class MyModel(Model):
-                _state: Mapped[int] = sa.orm.mapped_column(
+                _state: Mapped[int] = sa_orm.mapped_column(
                     'state',
                     sa.Integer,
                     StateManager.check_constraint('state', MY_ENUM, sa.Integer),

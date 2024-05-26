@@ -247,12 +247,12 @@ def test_init_sqlalchemy() -> None:
 
     # The call on the base model works
     Model.init_flask_sqlalchemy(db)
-    assert Model.__sqla__ is db
+    assert Model.__fsa__ is db
 
     with pytest.warns(RuntimeWarning):
         # Second call raises a warning but otherwise works
         Model.init_flask_sqlalchemy(db)
-    assert Model.__sqla__ is db
+    assert Model.__fsa__ is db
 
 
 def test_init_sqlalchemy_without_metadata() -> None:

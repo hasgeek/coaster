@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
+from sqlalchemy.orm import Mapped
 
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (
@@ -59,14 +61,14 @@ class MyPost(BaseMixin, Model):
 
     __tablename__ = 'my_post'
     # Database state columns
-    _state = sa.orm.mapped_column(
+    _state: Mapped[int] = sa_orm.mapped_column(
         'state',
         sa.Integer,
         StateManager.check_constraint('state', MY_STATE),
         default=MY_STATE.DRAFT,
         nullable=False,
     )
-    _reviewstate = sa.orm.mapped_column(
+    _reviewstate: Mapped[int] = sa_orm.mapped_column(
         'reviewstate',
         sa.Integer,
         StateManager.check_constraint('state', REVIEW_STATE),
@@ -81,8 +83,8 @@ class MyPost(BaseMixin, Model):
     # state manager instead.
 
     # Model's data columns (used for tests)
-    published_at = sa.orm.mapped_column(
-        sa.DateTime, default=datetime.utcnow, nullable=False
+    published_at: Mapped[Optional[datetime]] = sa_orm.mapped_column(
+        insert_default=sa.func.now()  # pylint: disable=not-callable
     )
 
     # Conditional states (adds ManagedState instances)
@@ -375,7 +377,7 @@ class TestStateManager(AppTestCase):
             self.post.state = MY_STATE.PENDING
         assert isinstance(self.post.state, StateManagerInstance)
         assert self.post.state.DRAFT
-        self.post._state = MY_STATE.PENDING
+        self.post._state = MY_STATE.PENDING  # type: ignore[assignment]
         assert not self.post.state.DRAFT
         assert self.post.state.PENDING
 
@@ -391,7 +393,7 @@ class TestStateManager(AppTestCase):
         """Conditional states include custom validators which are called to confirm the state."""
         assert self.post.state.DRAFT
         assert not self.post.state.RECENT
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         assert self.post.state.RECENT
         self.post.rewind()
         assert not self.post.state.RECENT
@@ -402,7 +404,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.bestmatch() == self.post.state.DRAFT
         assert not self.post.state.RECENT
 
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
 
         assert self.post.state.RECENT
         assert self.post.state.PUBLISHED
@@ -463,7 +465,7 @@ class TestStateManager(AppTestCase):
         post1 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         assert post1 is not None
         assert post1.id == self.post.id
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         assert post2 is None
@@ -472,7 +474,7 @@ class TestStateManager(AppTestCase):
         """Querying for an added state works as expected (with two filter conditions combined with and_)."""
         post1 = MyPost.query.filter(MyPost.state.RECENT).first()
         assert post1 is None
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.RECENT).first()
         assert post2 is not None
@@ -483,7 +485,7 @@ class TestStateManager(AppTestCase):
         post1 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         assert post1 is not None
         assert post1.id == self.post.id
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         assert post2 is not None
@@ -531,10 +533,12 @@ class TestStateManager(AppTestCase):
         self.post.submit()
         self.post.publish()
         assert self.post.state.PUBLISHED
+        assert self.post.published_at is not None
         d = self.post.published_at
         # Now we can call it
         self.post.rewind()
         assert self.post.state.PUBLISHED
+        assert self.post.published_at is not None
         assert self.post.published_at < d
 
     def test_state_labels(self) -> None:
@@ -620,7 +624,7 @@ class TestStateManager(AppTestCase):
     def test_transition_from_none(self) -> None:
         """Transition from None ignores initial state."""
         assert self.post.state.DRAFT
-        self.post._reviewstate = REVIEW_STATE.LOCKED
+        self.post._reviewstate = REVIEW_STATE.LOCKED  # type: ignore[assignment]
         assert self.post.state.DRAFT
         assert self.post.reviewstate.LOCKED
         self.post.submit()  # submit overrides LOCKED status

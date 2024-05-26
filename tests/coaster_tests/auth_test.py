@@ -8,6 +8,7 @@ from typing import Optional
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from flask import Flask
 from sqlalchemy.orm import Mapped
 
@@ -69,8 +70,8 @@ def models() -> SimpleNamespace:
         """Test user model."""
 
         __tablename__ = 'authenticated_user'
-        username: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
-        fullname: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
+        username: Mapped[str] = sa_orm.mapped_column(sa.Unicode(80))
+        fullname: Mapped[str] = sa_orm.mapped_column(sa.Unicode(80))
 
         def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'

@@ -25,14 +25,15 @@ Example use::
 
     from flask import Flask
     from flask_sqlalchemy import SQLAlchemy
+    import sqlalchemy as sa
+    import sqlalchemy.orm as sa_orm
+
     from coaster.sqlalchemy import BaseMixin, with_roles
-    from sqlalchemy.orm import declarative_mixin
 
     app = Flask(__name__)
     db = SQLAlchemy(app)
 
 
-    @declarative_mixin
     class ColumnMixin:
         '''
         Mixin class that offers some columns to the RoleModel class below,
@@ -42,12 +43,12 @@ Example use::
         @with_roles(rw={'owner'})
         @declared_attr
         def mixed_in1(cls) -> Mapped[str]:
-            return sa.orm.mapped_column(sa.Unicode(250))
+            return sa_orm.mapped_column(sa.Unicode(250))
 
         @declared_attr
         @classmethod
         def mixed_in2(cls) -> Mapped[str]:
-            return with_roles(sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'})
+            return with_roles(sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'})
 
 
     class RoleModel(ColumnMixin, RoleMixin, Model):
@@ -71,12 +72,12 @@ Example use::
         # using `with_roles`. These annotations are added to `__roles__` when
         # SQLAlchemy configures mappers.
 
-        id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)
+        id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)
         name: Mapped[str] = with_roles(  # Specify read+write access
-            sa.orm.mapped_column(sa.Unicode(250)), rw={'owner'}
+            sa_orm.mapped_column(sa.Unicode(250)), rw={'owner'}
         )
 
-        user_id: Mapped[int] = sa.orm.mapped_column(
+        user_id: Mapped[int] = sa_orm.mapped_column(
             sa.ForeignKey('user.id'), nullable=False
         )
         user: Mapped[User] = with_roles(
@@ -88,7 +89,7 @@ Example use::
         # properties, where roles must be assigned after the property is
         # fully described:
 
-        _title: Mapped[str] = sa.orm.mapped_column('title', sa.Unicode(250))
+        _title: Mapped[str] = sa_orm.mapped_column('title', sa.Unicode(250))
 
         @property
         def title(self) -> str:
@@ -578,6 +579,8 @@ class LazyRoleSet(abc.MutableSet):
         )
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if isinstance(other, LazyRoleSet):
             return self.obj == other.obj and self.actor == other.actor
         return self._contents() == other
@@ -784,6 +787,8 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
         return relattr.session.query(relattr.exists()).scalar()
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if isinstance(other, DynamicAssociationProxyBind):
             return (
                 self.obj == other.obj
@@ -1070,6 +1075,8 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         return dict(self)
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if other == self._obj:
             return True
         if (
@@ -1150,10 +1157,10 @@ def with_roles(
 
     Examples::
 
-        id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)
+        id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)
         with_roles(id, read={'all'})
 
-        title: Mapped[str] = with_roles(sa.orm.mapped_column(sa.Unicode), read={'all'})
+        title: Mapped[str] = with_roles(sa_orm.mapped_column(sa.Unicode), read={'all'})
 
 
         @with_roles(read={'all'})
@@ -1194,10 +1201,10 @@ def with_roles(
     ``grants_via`` is typically used like this::
 
         class RoleModel(Model):
-            user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
+            user_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
-            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('document.id'))
+            document_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('document.id'))
             document: Mapped[DocumentModel] = relationship(DocumentModel)
 
 
@@ -1213,13 +1220,13 @@ def with_roles(
     model has variable roles and offers them via a property named ``offered_roles``::
 
         class RoleModel(Model):
-            user_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('user.id'))
+            user_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
-            has_role1: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
-            has_role2: Mapped[bool] = sa.orm.mapped_column(sa.Boolean)
+            has_role1: Mapped[bool] = sa_orm.mapped_column(sa.Boolean)
+            has_role2: Mapped[bool] = sa_orm.mapped_column(sa.Boolean)
 
-            document_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey(
+            document_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey(
                 'document.id'
             ))
             document: Mapped[DocumentModel] = relationship(DocumentModel)
@@ -1431,6 +1438,8 @@ class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
         return iter(iter_func(self.__self__))
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if isinstance(other, ConditionalRoleBind):
             return (
                 self._rolecheck == other._rolecheck and self.__self__ == other.__self__

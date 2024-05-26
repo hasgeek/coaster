@@ -130,7 +130,7 @@ jsonb: TypeAlias = Annotated[  # noqa: PYI042
 class ModelBase:
     """Flask-SQLAlchemy compatible base class that supports PEP 484 type hinting."""
 
-    __sqla__: ClassVar[FlaskSQLAlchemy]
+    __fsa__: ClassVar[FlaskSQLAlchemy]
     __bind_key__: ClassVar[Optional[str]]
     metadata: ClassVar[sa.MetaData]
     query_class: ClassVar[type[Query]] = Query
@@ -189,13 +189,13 @@ class ModelBase:
                 "init_flask_sqlalchemy must be called on your base class only, not on"
                 " ModelBase or a model"
             )
-        if getattr(cls, '__sqla__', None) is not None:
+        if getattr(cls, '__fsa__', None) is not None:
             warnings.warn(
                 f"{cls.__name__}.init_flask_sqlalchemy has already been called",
                 RuntimeWarning,
                 stacklevel=2,
             )
-        cls.__sqla__ = fsa
+        cls.__fsa__ = fsa
         if (
             cls.__bind_key__ in fsa.metadatas
             and fsa.metadatas[cls.__bind_key__] is not cls.metadata
@@ -216,9 +216,8 @@ class ModelBase:
     def __repr__(self) -> str:
         """Provide a default repr string."""
         state = sa.inspect(self)
-        if TYPE_CHECKING:
-            assert state is not None  # nosec B101
-
+        if state is None:
+            return super().__repr__()
         if state.transient:
             pk = f"(transient {id(self)})"
         elif state.pending:

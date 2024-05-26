@@ -49,6 +49,7 @@ from typing_extensions import Self, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, declarative_mixin, declared_attr, synonym
@@ -210,16 +211,12 @@ class IdMixin(Generic[PkeyType]):
     def id(cls) -> Mapped[PkeyType]:
         """Database identity for this model."""
         if cls.__uuid_primary_key__:
-            return sa.orm.mapped_column(
-                sa.Uuid,
-                default=None,
-                insert_default=uuid4,
-                primary_key=True,
-                nullable=False,
+            return sa_orm.mapped_column(
+                sa.Uuid, primary_key=True, nullable=False, insert_default=uuid4
             )
 
-        return sa.orm.mapped_column(
-            sa.Integer, primary_key=True, nullable=False, default=None
+        return sa_orm.mapped_column(
+            sa.Integer, sa.Identity(), primary_key=True, nullable=False
         )
 
     # Compatibility alias for use in Protocols, as a workaround for Mypy incorrectly
@@ -231,37 +228,22 @@ class IdMixin(Generic[PkeyType]):
     id_: declared_attr[Any] = declared_attr(__id_)
     del __id_
 
+    @hybrid_property
+    def url_id(self) -> str:
+        """URL-safe representation of the integer or UUID (as hex) id."""
+        if self.__uuid_primary_key__:
+            return self.id.hex  # type: ignore[attr-defined]
+        return str(self.id)
+
+    @url_id.inplace.comparator
     @classmethod
-    def __url_id(cls) -> hybrid_property[str]:
-        """URL-safe representation of the id value, using hex for a UUID id."""
+    def _url_id_comparator(cls) -> Union[SqlSplitIdComparator, SqlUuidHexComparator]:
+        """Compare two id values."""
         if cls.__uuid_primary_key__:
+            return SqlUuidHexComparator(cls.id)
+        return SqlSplitIdComparator(cls.id)
 
-            def url_id_uuid_func(self: Self) -> str:
-                """URL-safe representation of the UUID id as a hex value."""
-                return self.id.hex  # type: ignore[attr-defined]
-
-            def url_id_uuid_comparator(cls: type[Self]) -> SqlUuidHexComparator:
-                """Compare two hex UUID values."""
-                return SqlUuidHexComparator(cls.id)
-
-            url_id_uuid_func.__name__ = 'url_id'
-            url_id_uuid_func.__doc__ = url_id_uuid_func.__doc__
-            return hybrid_property(url_id_uuid_func).comparator(url_id_uuid_comparator)
-
-        def url_id_int_func(self: Self) -> str:
-            """URL-safe representation of the integer id as a string."""
-            return str(self.id)
-
-        def url_id_int_comparator(cls: type[Self]) -> SqlSplitIdComparator:
-            """Compare two integer id values."""
-            return SqlSplitIdComparator(cls.id)
-
-        url_id_int_func.__name__ = 'url_id'
-        url_id_int_func.__doc__ = url_id_int_func.__doc__
-        return hybrid_property(url_id_int_func).comparator(url_id_int_comparator)
-
-    url_id: declared_attr[str] = declared_attr(__url_id)
-    del __url_id
+    del _url_id_comparator
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} {self.id}>'
@@ -293,7 +275,9 @@ class UuidMixin:
         """UUID column, or synonym to existing :attr:`id` column if that is a UUID."""
         if hasattr(cls, '__uuid_primary_key__') and cls.__uuid_primary_key__:
             return synonym('id')
-        return sa.orm.mapped_column(sa.Uuid, default=uuid4, unique=True, nullable=False)
+        return sa_orm.mapped_column(
+            sa.Uuid, unique=True, nullable=False, insert_default=uuid4
+        )
 
     uuid: declared_attr[UUID] = immutable(
         with_roles(declared_attr(__uuid), read={'all'})
@@ -364,10 +348,9 @@ class TimestampMixin:
     @classmethod
     def __created_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was created, in UTC."""
-        return sa.orm.mapped_column(
+        return sa_orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
             insert_default=func.utcnow(),
-            default=None,
             nullable=False,
         )
 
@@ -377,10 +360,9 @@ class TimestampMixin:
     @classmethod
     def __updated_at(cls) -> Mapped[datetime]:
         """Timestamp for when this instance was last updated (via the app), in UTC."""
-        return sa.orm.mapped_column(
+        return sa_orm.mapped_column(
             sa.TIMESTAMP(timezone=cls.__with_timezone__),
             insert_default=func.utcnow(),
-            default=None,
             onupdate=func.utcnow(),
             nullable=False,
         )
@@ -719,8 +701,8 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.orm.mapped_column(column_type, nullable=False, unique=True)
-        return sa.orm.mapped_column(
+            return sa_orm.mapped_column(column_type, nullable=False, unique=True)
+        return sa_orm.mapped_column(
             column_type, sa.CheckConstraint("name <> ''"), nullable=False, unique=True
         )
 
@@ -734,7 +716,7 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(column_type, nullable=False)
 
     title: declared_attr[str] = declared_attr(__title)
     del __title
@@ -831,9 +813,9 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('organizer.id'))
+            organizer_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('organizer.id'))
             organizer: Mapped[Organizer] = relationship(Organizer)
-            parent = sa.orm.synonym('organizer')
+            parent = sa_orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'name'),)
 
     .. versionchanged:: 0.5.0
@@ -870,8 +852,8 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.orm.mapped_column(column_type, nullable=False)
-        return sa.orm.mapped_column(
+            return sa_orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
@@ -885,7 +867,7 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(column_type, nullable=False)
 
     title: declared_attr[str] = declared_attr(__title)
     del __title
@@ -919,7 +901,8 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
         if instance is not None:
             instance._set_fields(fields)  # pylint: disable=protected-access
         else:
-            instance = cls(parent=parent, name=name, **fields)
+            instance = cls(name=name, **fields)
+            instance.parent = parent  # This may be have init=False in a dataclass
             instance = failsafe_add(
                 cls.query.session, instance, parent=parent, name=name
             )
@@ -1035,8 +1018,8 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.orm.mapped_column(column_type, nullable=False)
-        return sa.orm.mapped_column(
+            return sa_orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
@@ -1050,7 +1033,7 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(column_type, nullable=False)
 
     title: declared_attr[str] = declared_attr(__title)
     del __title
@@ -1135,9 +1118,9 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
 
         class Issue(BaseScopedIdMixin, Model):
             __tablename__ = 'issue'
-            event_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('event.id'))
+            event_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('event.id'))
             event: Mapped[Event] = relationship(Event)
-            parent = sa.orm.synonym('event')
+            parent = sa_orm.synonym('event')
             __table_args__ = (sa.UniqueConstraint('event_id', 'url_id'),)
     """
 
@@ -1148,7 +1131,7 @@ class BaseScopedIdMixin(BaseMixin[PkeyType, ActorType]):
     @classmethod
     def __url_id(cls) -> Mapped[int]:
         """Id number that is unique within the parent container."""
-        return sa.orm.mapped_column(sa.Integer, nullable=False)
+        return sa_orm.mapped_column(sa.Integer, nullable=False)
 
     # IdMixin defined `url_id` as `str`, so we need a type-ignore to change to `int`
     url_id: declared_attr[int] = with_roles(  # type: ignore[assignment]
@@ -1204,9 +1187,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedIdNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('organizer.id'))
+            organizer_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('organizer.id'))
             organizer: Mapped[Organizer] = relationship(Organizer)
-            parent = sa.orm.synonym('organizer')
+            parent = sa_orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'url_id'),)
 
     .. versionchanged:: 0.5.0
@@ -1238,8 +1221,8 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
         else:
             column_type = sa.Unicode(cls.__name_length__)
         if cls.__name_blank_allowed__:
-            return sa.orm.mapped_column(column_type, nullable=False)
-        return sa.orm.mapped_column(
+            return sa_orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(
             column_type, sa.CheckConstraint("name <> ''"), nullable=False
         )
 
@@ -1253,7 +1236,7 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
             column_type = sa.Unicode()
         else:
             column_type = sa.Unicode(cls.__title_length__)
-        return sa.orm.mapped_column(column_type, nullable=False)
+        return sa_orm.mapped_column(column_type, nullable=False)
 
     title: declared_attr[str] = declared_attr(__title)
     del __title
@@ -1341,10 +1324,10 @@ class CoordinatesMixin:
     property.
     """
 
-    latitude: Mapped[Optional[Decimal]] = sa.orm.mapped_column(
+    latitude: Mapped[Optional[Decimal]] = sa_orm.mapped_column(
         sa.Numeric, nullable=True
     )
-    longitude: Mapped[Optional[Decimal]] = sa.orm.mapped_column(
+    longitude: Mapped[Optional[Decimal]] = sa_orm.mapped_column(
         sa.Numeric, nullable=True
     )
 

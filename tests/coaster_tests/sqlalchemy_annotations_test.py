@@ -6,6 +6,7 @@ from typing import Any, Optional
 import pytest
 import sqlalchemy as sa
 import sqlalchemy.exc
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.orm import NO_VALUE, Mapped, configure_mappers
 
 from coaster.sqlalchemy import (
@@ -30,13 +31,13 @@ class ReferralTarget(BaseMixin, Model):
 class IdOnly(BaseMixin[int, Any], Model):
     __tablename__ = 'id_only'
 
-    is_regular: Mapped[Optional[int]] = sa.orm.mapped_column(sa.Integer)
-    is_immutable: Mapped[Optional[int]] = immutable(sa.orm.mapped_column(sa.Integer))
-    is_cached: Mapped[Optional[int]] = cached(sa.orm.mapped_column(sa.Integer))
+    is_regular: Mapped[Optional[int]] = sa_orm.mapped_column(sa.Integer)
+    is_immutable: Mapped[Optional[int]] = immutable(sa_orm.mapped_column(sa.Integer))
+    is_cached: Mapped[Optional[int]] = cached(sa_orm.mapped_column(sa.Integer))
 
     # Make the raw column immutable, but allow changes via the relationship
     referral_target_id: Mapped[Optional[int]] = immutable(
-        sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
+        sa_orm.mapped_column(sa.ForeignKey('referral_target.id'))
     )
     referral_target: Mapped[Optional[ReferralTarget]] = relationship(ReferralTarget)
 
@@ -44,14 +45,14 @@ class IdOnly(BaseMixin[int, Any], Model):
 class IdUuid(UuidMixin, BaseMixin[int, Any], Model):
     __tablename__ = 'id_uuid'
 
-    is_regular: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    is_regular: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     is_immutable: Mapped[Optional[str]] = immutable(
-        sa.orm.mapped_column(sa.Unicode(250))
+        sa_orm.mapped_column(sa.Unicode(250))
     )
-    is_cached: Mapped[Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
+    is_cached: Mapped[Optional[str]] = cached(sa_orm.mapped_column(sa.Unicode(250)))
 
     # Only block changes via the relationship; raw column remains mutable
-    referral_target_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    referral_target_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('referral_target.id'), nullable=True
     )
     referral_target: Mapped[Optional[ReferralTarget]] = immutable(
@@ -62,15 +63,15 @@ class IdUuid(UuidMixin, BaseMixin[int, Any], Model):
 class UuidOnly(UuidMixin, BaseMixin[int, Any], Model):
     __tablename__ = 'uuid_only'
 
-    is_regular: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    is_regular: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     is_immutable: Mapped[Optional[str]] = immutable(
-        sa.orm.mapped_column(sa.Unicode(250), deferred=True)
+        sa_orm.mapped_column(sa.Unicode(250), deferred=True)
     )
-    is_cached: Mapped[Optional[str]] = cached(sa.orm.mapped_column(sa.Unicode(250)))
+    is_cached: Mapped[Optional[str]] = cached(sa_orm.mapped_column(sa.Unicode(250)))
 
     # Make both raw column and relationship immutable
     referral_target_id: Mapped[Optional[int]] = immutable(
-        sa.orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
+        sa_orm.mapped_column(sa.ForeignKey('referral_target.id'), nullable=True)
     )
     referral_target: Mapped[Optional[ReferralTarget]] = immutable(
         relationship(ReferralTarget)
@@ -79,11 +80,13 @@ class UuidOnly(UuidMixin, BaseMixin[int, Any], Model):
 
 class PolymorphicParent(BaseMixin, Model):
     __tablename__ = 'polymorphic_parent'
-    ptype = immutable(sa.orm.mapped_column('type', sa.Unicode(30), index=True))
-    is_immutable = immutable(
-        sa.orm.mapped_column(sa.Unicode(250), default='my_default')
+    ptype: Mapped[str] = immutable(
+        sa_orm.mapped_column('type', sa.Unicode(30), index=True)
     )
-    also_immutable = immutable(sa.orm.mapped_column(sa.Unicode(250)))
+    is_immutable: Mapped[str] = immutable(
+        sa_orm.mapped_column(sa.Unicode(250), default='my_default')
+    )
+    also_immutable: Mapped[str] = immutable(sa_orm.mapped_column(sa.Unicode(250)))
 
     __mapper_args__ = {'polymorphic_on': ptype, 'polymorphic_identity': 'parent'}
 
@@ -94,14 +97,14 @@ warnings.simplefilter('ignore', category=sqlalchemy.exc.SAWarning)
 
 class PolymorphicChild(PolymorphicParent):
     __tablename__ = 'polymorphic_child'
-    id = sa.orm.mapped_column(  # type: ignore[assignment]
+    id: Mapped[int] = sa_orm.mapped_column(  # type: ignore[assignment]
         None,
         sa.ForeignKey('polymorphic_parent.id', ondelete='CASCADE'),
         primary_key=True,
         nullable=False,
     )
     # Redefining a column will keep existing annotations, even if not specified here
-    also_immutable = sa.orm.mapped_column(sa.Unicode(250))
+    also_immutable: Mapped[str] = sa_orm.mapped_column(sa.Unicode(250))
 
     __mapper_args__ = {'polymorphic_identity': 'child'}
 
@@ -111,11 +114,11 @@ warnings.resetwarnings()
 
 class SynonymAnnotation(BaseMixin, Model):
     __tablename__ = 'synonym_annotation'
-    col_regular = sa.orm.mapped_column(sa.Unicode())
-    col_immutable = immutable(sa.orm.mapped_column(sa.Unicode()))
+    col_regular: Mapped[str] = sa_orm.mapped_column(sa.Unicode())
+    col_immutable: Mapped[str] = immutable(sa_orm.mapped_column(sa.Unicode()))
 
     # Synonyms cannot have annotations. They mirror the underlying attribute
-    syn_to_immutable = sa.orm.synonym('col_immutable')
+    syn_to_immutable: Mapped[str] = sa_orm.synonym('col_immutable')
 
 
 configure_mappers()
@@ -173,6 +176,8 @@ class TestCoasterAnnotations(AppTestCase):
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
         i3 = UuidOnly(is_regular='x', is_immutable='y', is_cached='z')
+        self.session.add_all([i1, i2, i3])
+        self.session.commit()
 
         # Regular columns work as usual
         assert i1.is_regular == 1
@@ -222,15 +227,18 @@ class TestCoasterAnnotations(AppTestCase):
         i2 = IdUuid()
         i3 = UuidOnly()
 
+        # Immutable columns can be set before commit
+        i1.is_immutable = 2
+        i2.is_immutable = 'b'
+        i3.is_immutable = 'y'
+
+        self.session.add_all([i1, i2, i3])
+        self.session.commit()
+
         # Regular columns can be set
         i1.is_regular = 1
         i2.is_regular = 'a'
         i3.is_regular = 'x'
-
-        # Immutable columns can be set the first time
-        i1.is_immutable = 2
-        i2.is_immutable = 'b'
-        i3.is_immutable = 'y'
 
         # Cached columns behave like regular columns
         i1.is_cached = 3
@@ -290,10 +298,10 @@ class TestCoasterAnnotations(AppTestCase):
 
         # Using `query.get` appears to ignore the `load_only` option,
         # so we use `query.filter_by`
-        pi1 = IdOnly.query.options(sa.orm.load_only(IdOnly.id)).filter_by(id=id1).one()
-        pi2 = IdUuid.query.options(sa.orm.load_only(IdUuid.id)).filter_by(id=id2).one()
+        pi1 = IdOnly.query.options(sa_orm.load_only(IdOnly.id)).filter_by(id=id1).one()
+        pi2 = IdUuid.query.options(sa_orm.load_only(IdUuid.id)).filter_by(id=id2).one()
         pi3 = (
-            UuidOnly.query.options(sa.orm.load_only(UuidOnly.id))
+            UuidOnly.query.options(sa_orm.load_only(UuidOnly.id))
             .filter_by(id=id3)
             .one()
         )
@@ -316,6 +324,8 @@ class TestCoasterAnnotations(AppTestCase):
         rt2 = ReferralTarget()
         self.session.add_all([rt1, rt2])
         self.session.commit()  # This gets us rt1.id and rt2.id
+        assert rt1.id is not None
+        assert rt2.id is not None
 
         i1 = IdOnly(is_regular=1, is_immutable=2, is_cached=3)
         i2 = IdUuid(is_regular='a', is_immutable='b', is_cached='c')
