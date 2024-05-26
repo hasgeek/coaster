@@ -178,7 +178,6 @@ from ..auth import current_auth
 from ..compat import g
 from ..utils import InspectableSet, is_collection, is_dunder, nary_op
 from .functions import idfilters
-from .query import AppenderQuery
 
 __all__ = [
     'ActorType',
@@ -738,7 +737,7 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
     """:class:`DynamicAssociationProxy` bound to an instance."""
 
     __slots__ = ('obj', 'rel', 'relattr', 'attr', 'qattr')
-    relattr: AppenderQuery
+    relattr: QueryBase
     qattr: Optional[QueryableAttribute]
 
     def __init__(
@@ -746,7 +745,7 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
     ) -> None:
         self.obj = obj
         self.rel = rel
-        self.relattr: AppenderQuery[_R] = getattr(obj, rel)
+        self.relattr: QueryBase[_R] = getattr(obj, rel)
         self.attr = attr
         self.qattr = qattr
 
