@@ -65,11 +65,10 @@ def get_current_url() -> str:
 
     If the app uses subdomains, return an absolute path.
     """
-    if current_app.config.get('SERVER_NAME') and (
+    if (server_name := current_app.config.get('SERVER_NAME')) and (
         # Check current hostname against server name, ignoring port numbers, if any
         # (split on ':')
-        request.host.split(':', 1)[0]
-        != current_app.config['SERVER_NAME'].split(':', 1)[0]
+        request.host.split(':', 1)[0] != server_name.split(':', 1)[0]
     ):
         return request.url
 

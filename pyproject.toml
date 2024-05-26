@@ -104,13 +104,14 @@ sections = ['FUTURE', 'STDLIB', 'THIRDPARTY', 'FIRSTPARTY', 'LOCALFOLDER']
 pythonpath = 'src'
 required_plugins = [
   'pytest-asyncio',
+  'pytest-cov',
   'pytest-env',
   'pytest-rerunfailures',
   'pytest-socket',
 ]
 asyncio_mode = 'auto'
 minversion = '6.0'
-addopts = '--doctest-modules --ignore setup.py --cov-report=term-missing --strict-markers'
+addopts = '--doctest-modules --ignore setup.py --cov coaster --cov-report xml:coverage.xml --strict-markers'
 doctest_optionflags = ['ALLOW_UNICODE', 'ALLOW_BYTES']
 env = ['FLASK_ENV=testing']
 markers = ["has_server_name: App fixture has a server name in config"]
