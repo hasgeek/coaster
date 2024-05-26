@@ -1,9 +1,11 @@
 """Test Markdown composite column."""
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from coaster.gfm import markdown
-from coaster.sqlalchemy import BaseMixin, MarkdownColumn
+from sqlalchemy.orm import Mapped, mapped_column
+
+from coaster.sqlalchemy import BaseMixin, MarkdownColumn, MarkdownComposite
+from coaster.utils import markdown
 
 from .conftest import AppTestCase, Model, db
 
@@ -12,21 +14,25 @@ class MarkdownData(BaseMixin, Model):
     __tablename__ = 'md_data'
     __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
 
-    value = MarkdownColumn('value', nullable=False)
-    value_text: Optional[str]
-    value_html: Optional[str]
+    if TYPE_CHECKING:
+        value_text: Mapped[Optional[str]] = mapped_column()
+        value_html: Mapped[Optional[str]] = mapped_column()
+    value: Mapped[MarkdownComposite] = MarkdownColumn('value', nullable=False)
 
 
 class MarkdownHtmlData(BaseMixin, Model):
     __tablename__ = 'md_html_data'
     __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
 
-    value = MarkdownColumn('value', nullable=False, options={'html': True})
-    value_text: Optional[str]
-    value_html: Optional[str]
+    if TYPE_CHECKING:
+        value_text: Mapped[Optional[str]] = mapped_column()
+        value_html: Mapped[Optional[str]] = mapped_column()
+    value: Mapped[MarkdownComposite] = MarkdownColumn(
+        'value', nullable=False, options={'html': True}
+    )
 
 
-def fake_markdown(text: str) -> str:
+def fake_markdown(_text: str) -> str:
     return 'fake-markdown'
 
 
@@ -34,9 +40,12 @@ class FakeMarkdownData(BaseMixin, Model):
     __tablename__ = 'fake_md_data'
     __allow_unmapped__ = True  # Required for value_text and value_html without Mapped[]
 
-    value = MarkdownColumn('value', nullable=False, markdown=fake_markdown)
-    value_text: Optional[str]
-    value_html: Optional[str]
+    if TYPE_CHECKING:
+        value_text: Mapped[Optional[str]] = mapped_column()
+        value_html: Mapped[Optional[str]] = mapped_column()
+    value: Mapped[MarkdownComposite] = MarkdownColumn(
+        'value', nullable=False, markdown=fake_markdown
+    )
 
 
 # -- Tests --------------------------------------------------------------------

@@ -1,6 +1,5 @@
 """
-SQLAlchemy attribute annotations
---------------------------------
+SQLAlchemy attribute annotations.
 
 Annotations are strings attached to attributes that serve as a programmer
 reference on how those attributes are meant to be used. They can be used to
@@ -13,18 +12,17 @@ This module's exports may be imported via :mod:`coaster.sqlalchemy`.
 Sample usage::
 
     import sqlalchemy as sa
-    from sqlalchemy.orm import Mapped
+    from sqlalchemy.orm import Mapped, mapped_column
     from coaster.sqlalchemy import annotation_wrapper, immutable
     from . import Model
 
     natural_key = annotation_wrapper('natural_key', "Natural key for this model")
 
+
     class MyModel(Model):
         __tablename__ = 'my_model'
-        id: Mapped[int] = immutable(sa.orm.mapped_column(sa.Integer, primary_key=True))
-        name: Mapped[str] = natural_key(sa.orm.mapped_column(
-            sa.Unicode(250), unique=True
-        ))
+        id: Mapped[int] = immutable(mapped_column(sa.Integer, primary_key=True))
+        name: Mapped[str] = natural_key(mapped_column(sa.Unicode(250), unique=True))
 
         @classmethod
         def get(cls, **kwargs):

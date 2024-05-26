@@ -1,6 +1,5 @@
 """
-Markdown processor
-==================
+Markdown processor.
 
 Markdown parser with a number of sane defaults that resembles
 GitHub-Flavoured Markdown (GFM).
@@ -124,7 +123,8 @@ default_markdown_extensions_html: list[Union[str, Extension]] = [
     JavascriptProtocolExtension(),
 ]
 
-default_markdown_extensions = default_markdown_extensions_html + [
+default_markdown_extensions = [
+    *default_markdown_extensions_html,
     'pymdownx.highlight',
     'pymdownx.inlinehilite',
     'pymdownx.tasklist',

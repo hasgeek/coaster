@@ -1,8 +1,6 @@
-"""
-Miscellaneous utilities
------------------------
-"""
+"""Miscellaneous utilities."""
 
+# spell-checker:ignore newsecret newpin checkused nullint nullstr getbool dunder
 from __future__ import annotations
 
 import email.utils
@@ -11,11 +9,10 @@ import re
 import time
 import uuid
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-from collections import abc
+from collections.abc import Collection, Mapping
 from datetime import datetime
 from functools import wraps
-from random import SystemRandom
-from secrets import token_bytes
+from secrets import randbelow, token_bytes
 from typing import Any, Callable, Literal, Optional, TypeVar, Union, overload
 from urllib.parse import urlparse
 
@@ -55,9 +52,9 @@ __all__ = [
 
 # --- Common delimiters and punctuation ------------------------------------------------
 
-_strip_re = re.compile('[\'"`‘’“”′″‴]+')
+_strip_re = re.compile('[\'"`‘’“”′″‴]+')  # noqa: RUF001
 _punctuation_re = re.compile(
-    '[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'
+    '[\x00-\x1f +!#$%&()*\\-/<=>?@\\[\\\\\\]^_{|}:;,.…‒–—―«»]+'  # noqa: RUF001
 )
 _ipv4_re = re.compile(
     r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
@@ -100,7 +97,7 @@ def is_collection(item: Any) -> bool:
     >>> is_collection(InspectableSet({1, 2}))
     True
     """
-    return not isinstance(item, (str, bytes, dict)) and isinstance(item, abc.Collection)
+    return not isinstance(item, (str, bytes, Mapping)) and isinstance(item, Collection)
 
 
 def uuid_b64() -> str:
@@ -162,7 +159,7 @@ def uuid1mc_from_datetime(dt: Union[datetime, float]) -> uuid.UUID:
     True
     >>> u1.time - u2.time < 5000
     True
-    >>> d2 = datetime.fromtimestamp((u2.time - 0x01b21dd213814000) * 100 / 1e9)
+    >>> d2 = datetime.fromtimestamp((u2.time - 0x01B21DD213814000) * 100 / 1e9)
     >>> d2 == dt
     True
     """
@@ -275,10 +272,9 @@ def newpin(digits: int = 4) -> str:
     >>> newpin(6) != newpin(6)
     True
     """
-    random = SystemRandom()
     pin = '00' * digits
     while len(pin) > digits:
-        randnum = random.randint(0, 10**digits)  # nosec
+        randnum = randbelow(10**digits)
         pin = str(randnum).zfill(digits)
     return pin
 
@@ -334,15 +330,21 @@ def make_name(
     'candidate2'
     >>> make_name('Candidate', checkused=lambda c: c in ['candidate'], counter=1)
     'candidate1'
-    >>> make_name('Candidate',
-    ...   checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'], counter=1)
+    >>> make_name(
+    ...     'Candidate',
+    ...     checkused=lambda c: c in ['candidate', 'candidate1', 'candidate2'],
+    ...     counter=1,
+    ... )
     'candidate3'
     >>> make_name('Long title, but snipped', maxlength=20)
     'long-title-but-snipp'
     >>> len(make_name('Long title, but snipped', maxlength=20))
     20
-    >>> make_name('Long candidate', maxlength=10,
-    ...   checkused=lambda c: c in ['long-candi', 'long-cand1'])
+    >>> make_name(
+    ...     'Long candidate',
+    ...     maxlength=10,
+    ...     checkused=lambda c: c in ['long-candi', 'long-cand1'],
+    ... )
     'long-cand2'
     >>> make_name('Lǝnkǝran')
     'lankaran'
@@ -361,7 +363,7 @@ def make_name(
     'testing-more-slashes'
     >>> make_name('What if a HTML <tag/>')
     'what-if-a-html-tag'
-    >>> make_name('These are equivalent to \x01 through \x1A')
+    >>> make_name('These are equivalent to \x01 through \x1a')
     'these-are-equivalent-to-through'
     >>> make_name("feedback;\x00")
     'feedback'
@@ -391,7 +393,7 @@ def make_name(
     return candidate
 
 
-def format_currency(value: Union[int, float], decimals: int = 2) -> str:
+def format_currency(value: float, decimals: int = 2) -> str:
     """
     Return a number suitably formatted for display as currency.
 
@@ -445,7 +447,7 @@ def md5sum(data: str) -> str:
     >>> len(md5sum('random text'))
     32
     """
-    return hashlib.md5(data.encode('utf-8')).hexdigest()  # nosec  # skipcq: PTC-W1003
+    return hashlib.md5(data.encode('utf-8'), usedforsecurity=False).hexdigest()
 
 
 def getbool(value: Union[str, int, bool, None]) -> Optional[bool]:
@@ -554,7 +556,7 @@ def require_one_of(
     # 2. len(kwargs) - kwargs.values().count(None)
     #
     #    This is 2x faster than the first method under Python 2.7. Unfortunately,
-    #    it doesn't work in Python 3 because `kwargs.values()` is a view that doesn't
+    #    it does not work in Python 3 because `kwargs.values()` is a view that does not
     #    have a `count` method. It needs to be cast into a tuple/list first, but
     #    remains faster despite the cast's slowdown. Tuples are faster than lists.
 

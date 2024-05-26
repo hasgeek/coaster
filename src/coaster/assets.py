@@ -1,6 +1,5 @@
 """
-Assets
-======
+Assets.
 
 Coaster provides a simple asset management system for semantically versioned assets
 using the semantic_version_ and webassets_ libraries. Many popular libraries such as
@@ -15,6 +14,7 @@ be found in your app's static folder, alongside the built assets.
 .. _webassets: http://elsdoerfer.name/docs/webassets/
 .. _Webpack: https://webpack.js.org/
 """
+# spell-checker:ignore webassets sourcecode endassets
 
 from __future__ import annotations
 
@@ -22,12 +22,17 @@ import re
 import warnings
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Final, Optional, Union
+from typing import TYPE_CHECKING, Any, Final, Optional, Union
 from urllib.parse import urljoin
 
-from flask import Flask, current_app
+from flask import Flask
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version
+
+from .compat import current_app, sync_await
+
+if TYPE_CHECKING:
+    from quart import Quart
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
@@ -67,6 +72,7 @@ class VersionedAssets(defaultdict):
     To use, initialize a container for your assets::
 
         from coaster.assets import VersionedAssets, Version
+
         assets = VersionedAssets()
 
     And then populate it with your assets. The simplest way is by specifying
@@ -79,14 +85,16 @@ class VersionedAssets(defaultdict):
     a list or tuple of requirements followed by the actual asset::
 
         assets['jquery.form.js'][Version('2.96.0')] = (
-            'jquery.js', 'js/jquery.form-2.96.js')
+            'jquery.js',
+            'js/jquery.form-2.96.js',
+        )
 
     You may have an asset that provides replacement functionality for another asset::
 
         assets['zepto.js'][Version('1.0.0-rc1')] = {
             'provides': 'jquery.js',
             'bundle': 'js/zepto-1.0rc1.js',
-            }
+        }
 
     Assets specified as a dictionary can have three keys:
 
@@ -113,6 +121,7 @@ class VersionedAssets(defaultdict):
     To use these assets in a Flask app, register the assets with an environment::
 
         from flask_assets import Environment
+
         appassets = Environment(app)
         appassets.register('js_all', assets.require('jquery.js', ...))
 
@@ -277,7 +286,7 @@ class WebpackManifest(Mapping):
 
     def __init__(
         self,
-        app: Optional[Flask] = None,
+        app: Optional[Union[Flask, Quart]] = None,
         *,
         filepath: str = 'static/manifest.json',
         urlpath: Optional[str] = None,
@@ -294,13 +303,24 @@ class WebpackManifest(Mapping):
         if app is not None:
             self.init_app(app, _warning_stack_level=3)
 
-    def init_app(self, app: Flask, _warning_stack_level: int = 2) -> None:
+    def _read_resource(self, app: Flask) -> Union[str, bytes]:
+        with app.open_resource(self.filepath) as resource:
+            return resource.read()
+
+    async def _async_read_resource(self, app: Quart) -> Union[str, bytes]:
+        async with await app.open_resource(self.filepath) as resource:
+            return await resource.read()
+
+    def init_app(self, app: Union[Flask, Quart], _warning_stack_level: int = 2) -> None:
         """Configure WebpackManifest on a Flask app."""
         # Step 1: Open manifest.json and validate basic structure (incl. legacy check)
-        with app.open_resource(self.filepath) as resource:
-            # Use ``json.loads`` because a substitute JSON implementation may not
-            # support the ``load`` method (eg: orjson has ``loads`` but not ``load``)
-            assets = app.json.loads(resource.read())
+        if isinstance(app, Flask):
+            resource_content = self._read_resource(app)
+        else:
+            resource_content = sync_await(self._async_read_resource(app))
+        # Use ``json.loads`` because a substitute JSON implementation may not
+        # support the ``load`` method (eg: orjson has ``loads`` but not ``load``)
+        assets = app.json.loads(resource_content)
         if not isinstance(assets, dict):
             raise ValueError(
                 f"File `{self.filepath}` must contain a JSON object at the root level"

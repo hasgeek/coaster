@@ -1,7 +1,4 @@
-"""
-App configuration
-=================
-"""
+"""App configuration."""
 
 # pyright: reportMissingImports=false
 
@@ -10,7 +7,6 @@ from __future__ import annotations
 import json
 import os
 import types
-from collections import abc
 from collections.abc import Sequence
 from typing import (
     Any,
@@ -27,21 +23,28 @@ from typing import (
 
 import itsdangerous
 from flask.json.provider import DefaultJSONProvider
-from flask.sessions import SecureCookieSessionInterface
+from flask.sessions import (
+    SecureCookieSessionInterface as FlaskSecureCookieSessionInterface,
+)
 
-try:  # Flask >= 3.0  # pragma: no cover
-    from flask.sansio.app import App as FlaskApp
-except ModuleNotFoundError:  # Flask < 3.0
-    from flask import Flask as FlaskApp
+try:
+    from quart.sessions import (
+        SecureCookieSessionInterface as QuartSecureCookieSessionInterface,
+    )
+except ModuleNotFoundError:
+    QuartSecureCookieSessionInterface = FlaskSecureCookieSessionInterface  # type: ignore[assignment,misc]
 
 from . import logger
 from .auth import current_auth
+from .compat import JSONProvider, SansIoApp
 from .views import current_view
 
 __all__ = [
-    'KeyRotationWrapper',
-    'RotatingKeySecureCookieSessionInterface',
+    'FlaskRotatingKeySecureCookieSessionInterface',
     'JSONProvider',
+    'KeyRotationWrapper',
+    'QuartRotatingKeySecureCookieSessionInterface',
+    'RotatingKeySecureCookieSessionInterface',
     'init_app',
 ]
 
@@ -53,18 +56,18 @@ mod_tomli: Optional[types.ModuleType] = None
 mod_yaml: Optional[types.ModuleType] = None
 
 try:
-    import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
+    import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
 except ModuleNotFoundError:
     try:
-        import tomllib as mod_tomllib  # type: ignore[no-redef]  # Python >= 3.11
+        import toml as mod_toml  # type: ignore[no-redef,unused-ignore]
     except ModuleNotFoundError:
-        try:
+        try:  # noqa: SIM105
             import tomli as mod_tomli  # type: ignore[no-redef,unused-ignore]
         except ModuleNotFoundError:
             pass
 
 
-try:
+try:  # noqa: SIM105
     import yaml as mod_yaml
 except ModuleNotFoundError:
     pass
@@ -94,11 +97,13 @@ _config_loaders: dict[str, ConfigLoader] = {
     'py': ConfigLoader(extn='.py', loader=None),
     'json': ConfigLoader(extn='.json', loader=json.load),
 }
-if mod_toml is not None:
-    _config_loaders['toml'] = ConfigLoader(extn='.toml', loader=mod_toml.load)
-elif mod_tomllib is not None:
+if mod_tomllib is not None:
     _config_loaders['toml'] = ConfigLoader(
         extn='.toml', loader=mod_tomllib.load, text=False
+    )
+elif mod_toml is not None:
+    _config_loaders['toml'] = ConfigLoader(
+        extn='.toml', loader=mod_toml.load, text=True
     )
 elif mod_tomli is not None:
     _config_loaders['toml'] = ConfigLoader(
@@ -135,10 +140,11 @@ class KeyRotationWrapper(Generic[_S]):
         """Mimic wrapped engine's class."""
         if self._engines:
             return type(self._engines[0])
-        return super().__class__
+        return KeyRotationWrapper
 
     @__class__.setter
-    def __class__(self, value: Any) -> NoReturn:  # noqa: F811
+    def __class__(self, value: Any) -> NoReturn:
+        # This setter is required for static type checkers
         raise TypeError("__class__ cannot be set.")
 
     def __init__(
@@ -148,24 +154,24 @@ class KeyRotationWrapper(Generic[_S]):
         **kwargs: Any,
     ) -> None:
         """Init key rotation wrapper."""
-        if isinstance(secret_keys, str):  # type: ignore[unreachable]
+        if isinstance(secret_keys, (str, bytes)):  # type: ignore[unreachable]
             raise ValueError("Secret keys must be a list")
         if not secret_keys:
             raise ValueError("No secret keys in the list")
         self._engines = [cls(key, **kwargs) for key in secret_keys]
 
-    def __getattr__(self, attr: str) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """Read a wrapped attribute."""
-        item = getattr(self._engines[0], attr)
-        return self._make_wrapper(attr) if callable(item) else item
+        item = getattr(self._engines[0], name)
+        return self._make_wrapper(name) if callable(item) else item
 
-    def _make_wrapper(self, attr: str) -> Callable:
+    def _make_wrapper(self, name: str) -> Callable:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             saved_exc: Exception = _sentinel_keyrotation_exception
             for engine in self._engines:
                 try:
-                    return getattr(engine, attr)(*args, **kwargs)
-                except itsdangerous.BadSignature as exc:
+                    return getattr(engine, name)(*args, **kwargs)
+                except itsdangerous.BadSignature as exc:  # noqa: PERF203
                     saved_exc = exc
             # We've run out of engines and all of them reported BadSignature.
             # If there were no engines, the sentinel RuntimeError exception is used
@@ -174,50 +180,50 @@ class KeyRotationWrapper(Generic[_S]):
         return wrapper
 
 
-class RotatingKeySecureCookieSessionInterface(SecureCookieSessionInterface):
+def _get_signing_serializer(
+    self: Union[
+        FlaskRotatingKeySecureCookieSessionInterface,
+        QuartRotatingKeySecureCookieSessionInterface,
+    ],
+    app: SansIoApp,
+) -> Optional[KeyRotationWrapper]:
+    """Return serializers wrapped for key rotation."""
+    if not app.config.get('SECRET_KEYS'):
+        return None
+    signer_kwargs = {
+        'key_derivation': self.key_derivation,
+        'digest_method': self.digest_method,
+    }
+
+    return KeyRotationWrapper(
+        itsdangerous.URLSafeTimedSerializer,
+        app.config['SECRET_KEYS'],
+        salt=self.salt,
+        serializer=self.serializer,
+        signer_kwargs=signer_kwargs,
+    )
+
+
+class FlaskRotatingKeySecureCookieSessionInterface(FlaskSecureCookieSessionInterface):
     """Replaces the serializer with key rotation support."""
 
-    def get_signing_serializer(  # type: ignore[override]
-        self, app: FlaskApp
-    ) -> Optional[KeyRotationWrapper]:
-        """Return serializers wrapped for key rotation."""
-        if not app.config.get('SECRET_KEYS'):
-            return None
-        signer_kwargs = {
-            'key_derivation': self.key_derivation,
-            'digest_method': self.digest_method,
-        }
-
-        return KeyRotationWrapper(
-            itsdangerous.URLSafeTimedSerializer,
-            app.config['SECRET_KEYS'],
-            salt=self.salt,
-            serializer=self.serializer,
-            signer_kwargs=signer_kwargs,
-        )
+    get_signing_serializer = _get_signing_serializer  # type: ignore[assignment]
 
 
-# --- JSON provider with custom type support -------------------------------------------
+class QuartRotatingKeySecureCookieSessionInterface(QuartSecureCookieSessionInterface):
+    """Replaces the serializer with key rotation support."""
+
+    get_signing_serializer = _get_signing_serializer  # type: ignore[assignment]
 
 
-class JSONProvider(DefaultJSONProvider):
-    """Expand Flask's JSON provider to support the ``__json__`` protocol."""
-
-    @staticmethod
-    def default(o: Any) -> Any:
-        """Expand default support to check for a ``__json__`` method."""
-        if hasattr(o, '__json__'):
-            return o.__json__()
-        if isinstance(o, abc.Mapping):
-            return dict(o)
-        return DefaultJSONProvider.default(o)
-
+# Flask version is also available with an unprefixed name
+RotatingKeySecureCookieSessionInterface = FlaskRotatingKeySecureCookieSessionInterface
 
 # --- App init utilities ---------------------------------------------------------------
 
 
 def init_app(
-    app: FlaskApp,
+    app: SansIoApp,
     config: Optional[list[Literal['env', 'py', 'json', 'toml', 'yaml']]] = None,
     *,
     env_prefix: Optional[Union[str, Sequence[str]]] = None,
@@ -268,7 +274,7 @@ def init_app(
     if not config:
         config = ['env', 'py']
     # Replace the default JSON provider if it isn't a custom one
-    if app.json_provider_class is DefaultJSONProvider:
+    if app.json_provider_class is DefaultJSONProvider:  # Quart uses Flask's default
         app.json_provider_class = JSONProvider
         app.json = JSONProvider(app)
         app.jinja_env.policies['json.dumps_function'] = app.json.dumps
@@ -285,7 +291,7 @@ def init_app(
     for config_option in config:
         if config_option == 'env':
             if env_prefix is None:
-                # Use Flask's default env prefix
+                # Use Flask or Quart's default env prefix
                 app.config.from_prefixed_env()
             elif isinstance(env_prefix, str):
                 # Use the app's requested env prefix
@@ -335,7 +341,7 @@ def init_app(
 
 
 def load_config_from_file(
-    app: FlaskApp,
+    app: SansIoApp,
     filepath: str,
     load: Optional[Callable] = None,
     text: Optional[bool] = None,

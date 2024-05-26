@@ -2,17 +2,19 @@
 
 # pylint: disable=redefined-outer-name,no-value-for-parameter
 
+from __future__ import annotations
+
 from typing import Optional
 
 import pytest
 import sqlalchemy as sa
-from flask import g
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.orm import Mapped
 from werkzeug.exceptions import Forbidden, NotFound
-from werkzeug.wrappers import Response
 
+from coaster.compat import g
 from coaster.sqlalchemy import BaseMixin, BaseNameMixin, BaseScopedIdMixin, relationship
-from coaster.views import load_model, load_models
+from coaster.views import Redirect, load_model, load_models
 
 from .auth_test import LoginManager
 from .conftest import AppTestCase, Model
@@ -31,17 +33,16 @@ from .sqlalchemy_models_test import (
 
 class MiddleContainer(BaseMixin, Model):
     __tablename__ = 'middle_container'
+    children: Mapped[list[ChildDocument]] = relationship(back_populates='parent')
 
 
 class ParentDocument(BaseNameMixin, Model):
     __tablename__ = 'parent_document'
-    middle_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('middle_container.id'), nullable=False
-    )
-    middle: Mapped[MiddleContainer] = relationship(MiddleContainer)
+    middle_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('middle_container.id'))
+    middle: Mapped[MiddleContainer] = relationship()
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.middle = MiddleContainer()
 
     def permissions(
@@ -57,18 +58,13 @@ class ParentDocument(BaseNameMixin, Model):
 
 class ChildDocument(BaseScopedIdMixin, Model):
     __tablename__ = 'child_document'
-    parent_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('middle_container.id'), nullable=False
-    )
-    parent: Mapped[MiddleContainer] = relationship(MiddleContainer, backref='children')
+    parent_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('middle_container.id'))
+    parent: Mapped[MiddleContainer] = relationship(back_populates='children')
 
     def permissions(
         self, actor: User, inherited: Optional[set[str]] = None
     ) -> set[str]:
-        if inherited is None:
-            perms = set()
-        else:
-            perms = inherited
+        perms = set() if inherited is None else inherited
         if actor.username == 'foo' and 'delete' in perms:
             perms.remove('delete')
         return perms
@@ -76,15 +72,10 @@ class ChildDocument(BaseScopedIdMixin, Model):
 
 class RedirectDocument(BaseNameMixin, Model):
     __tablename__ = 'redirect_document'
-    container_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('container.id'), nullable=False
-    )
-    container: Mapped[Container] = relationship(Container)
-
-    target_id: Mapped[int] = sa.orm.mapped_column(
-        sa.ForeignKey('named_document.id'), nullable=False
-    )
-    target: Mapped[NamedDocument] = relationship(NamedDocument)
+    container_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('container.id'))
+    container: Mapped[Container] = relationship()
+    target_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('named_document.id'))
+    target: Mapped[NamedDocument] = relationship()
 
     def redirect_view_args(self) -> dict[str, str]:
         return {'document': self.target.name}
@@ -105,7 +96,10 @@ def return_siteadmin_perms() -> set[str]:
     kwargs=True,
     addlperms=return_siteadmin_perms,
 )
-def t_container(container: Container, kwargs: dict[str, str]) -> Container:
+def t_container(
+    container: Container,
+    kwargs: dict[str, str],
+) -> Container:
     return container
 
 
@@ -123,7 +117,10 @@ def t_single_model_in_loadmodels(user: User) -> User:
     (Container, {'name': 'container'}, 'container'),
     (NamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
-def t_named_document(container: Container, document: NamedDocument) -> NamedDocument:
+def t_named_document(
+    container: Container,
+    document: NamedDocument,
+) -> NamedDocument:
     return document
 
 
@@ -135,7 +132,10 @@ def t_named_document(container: Container, document: NamedDocument) -> NamedDocu
         'document',
     ),
 )
-def t_redirect_document(container: Container, document: NamedDocument) -> NamedDocument:
+def t_redirect_document(
+    container: Container,
+    document: NamedDocument,
+) -> NamedDocument:
     return document
 
 
@@ -144,7 +144,8 @@ def t_redirect_document(container: Container, document: NamedDocument) -> NamedD
     (ScopedNamedDocument, {'name': 'document', 'container': 'container'}, 'document'),
 )
 def t_scoped_named_document(
-    container: Container, document: ScopedNamedDocument
+    container: Container,
+    document: ScopedNamedDocument,
 ) -> ScopedNamedDocument:
     return document
 
@@ -155,7 +156,8 @@ def t_scoped_named_document(
     urlcheck=['url_name'],
 )
 def t_id_named_document(
-    container: Container, document: IdNamedDocument
+    container: Container,
+    document: IdNamedDocument,
 ) -> IdNamedDocument:
     return document
 
@@ -164,12 +166,13 @@ def t_id_named_document(
     (Container, {'name': 'container'}, 'container'),
     (
         ScopedIdDocument,
-        {'url_id': lambda r, p: int(p['document']), 'container': 'container'},
+        {'url_id': lambda _r, p: int(p['document']), 'container': 'container'},
         'document',
     ),
 )
 def t_scoped_id_document(
-    container: Container, document: ScopedIdDocument
+    container: Container,
+    document: ScopedIdDocument,
 ) -> ScopedIdDocument:
     return document
 
@@ -184,7 +187,8 @@ def t_scoped_id_document(
     urlcheck=['url_name'],
 )
 def t_scoped_id_named_document(
-    container: Container, document: ScopedIdNamedDocument
+    container: Container,
+    document: ScopedIdNamedDocument,
 ) -> ScopedIdNamedDocument:
     return document
 
@@ -193,12 +197,13 @@ def t_scoped_id_named_document(
     (ParentDocument, {'name': 'document'}, 'document'),
     (
         ChildDocument,
-        {'id': 'child', 'parent': lambda r, p: r['document'].middle},
+        {'id': 'child', 'parent': lambda r, _p: r['document'].middle},
         'child',
     ),
 )
 def t_callable_document(
-    document: ParentDocument, child: ChildDocument
+    document: ParentDocument,
+    child: ChildDocument,
 ) -> ChildDocument:
     return child
 
@@ -207,7 +212,10 @@ def t_callable_document(
     (ParentDocument, {'name': 'document'}, 'document'),
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
 )
-def t_dotted_document(document: ParentDocument, child: ChildDocument) -> ChildDocument:
+def t_dotted_document(
+    document: ParentDocument,
+    child: ChildDocument,
+) -> ChildDocument:
     return child
 
 
@@ -217,7 +225,8 @@ def t_dotted_document(document: ParentDocument, child: ChildDocument) -> ChildDo
     permission='view',
 )
 def t_dotted_document_view(
-    document: ParentDocument, child: ChildDocument
+    document: ParentDocument,
+    child: ChildDocument,
 ) -> ChildDocument:
     return child
 
@@ -228,7 +237,8 @@ def t_dotted_document_view(
     permission='edit',
 )
 def t_dotted_document_edit(
-    document: ParentDocument, child: ChildDocument
+    document: ParentDocument,
+    child: ChildDocument,
 ) -> ChildDocument:
     return child
 
@@ -238,7 +248,10 @@ def t_dotted_document_edit(
     (ChildDocument, {'id': 'child', 'parent': 'document.middle'}, 'child'),
     permission='delete',
 )
-def t_dotted_document_delete(document, child):
+def t_dotted_document_delete(
+    document: ParentDocument,
+    child: ChildDocument,
+) -> ChildDocument:
     return child
 
 
@@ -246,7 +259,7 @@ def t_dotted_document_delete(document, child):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def _app_extra(app):
+def _app_extra(app) -> None:
     LoginManager(app)
     app.add_url_rule(
         '/<container>/<document>', 'redirect_document', t_redirect_document
@@ -339,15 +352,15 @@ class TestLoadModels(AppTestCase):
                 == self.nd2
             )
         with self.app.test_request_context('/c/redirect-document'):
-            response = t_redirect_document(container='c', document='redirect-document')
-            assert isinstance(response, Response)
-            assert response.status_code == 307
-            assert response.headers['Location'] == '/c/named-document'
+            with pytest.raises(Redirect) as exc_info:
+                t_redirect_document(container='c', document='redirect-document')
+            assert exc_info.value.code == 307
+            assert exc_info.value.location == '/c/named-document'
         with self.app.test_request_context('/c/redirect-document?preserve=this'):
-            response = t_redirect_document(container='c', document='redirect-document')
-            assert isinstance(response, Response)
-            assert response.status_code == 307
-            assert response.headers['Location'] == '/c/named-document?preserve=this'
+            with pytest.raises(Redirect) as exc_info:
+                t_redirect_document(container='c', document='redirect-document')
+            assert exc_info.value.code == 307
+            assert exc_info.value.location == '/c/named-document?preserve=this'
 
     def test_scoped_named_document(self) -> None:
         assert (
@@ -372,15 +385,15 @@ class TestLoadModels(AppTestCase):
             == self.ind2
         )
         with self.app.test_request_context('/c/1-wrong-name'):
-            r = t_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, Response)
-            assert r.status_code == 302
-            assert r.location == '/c/1-id-named-document'
+            with pytest.raises(Redirect) as exc_info:
+                t_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-id-named-document'
         with self.app.test_request_context('/c/1-wrong-name?preserve=this'):
-            r = t_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, Response)
-            assert r.status_code == 302
-            assert r.location == '/c/1-id-named-document?preserve=this'
+            with pytest.raises(Redirect) as exc_info:
+                t_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-id-named-document?preserve=this'
         with pytest.raises(NotFound):
             t_id_named_document(container='c', document='random-non-integer')
 
@@ -405,10 +418,10 @@ class TestLoadModels(AppTestCase):
             == self.sind2
         )
         with self.app.test_request_context('/c/1-wrong-name'):
-            r = t_scoped_id_named_document(container='c', document='1-wrong-name')
-            assert isinstance(r, Response)
-            assert r.status_code == 302
-            assert r.location == '/c/1-scoped-id-named-document'
+            with pytest.raises(Redirect) as exc_info:
+                t_scoped_id_named_document(container='c', document='1-wrong-name')
+            assert exc_info.value.code == 302
+            assert exc_info.value.location == '/c/1-scoped-id-named-document'
         with pytest.raises(NotFound):
             t_scoped_id_named_document(container='c', document='random-non-integer')
 
@@ -441,7 +454,7 @@ class TestLoadModels(AppTestCase):
         }
 
     def test_unmutated_inherited_permissions(self) -> None:
-        """The inherited permission set should not be mutated by a permission check"""
+        """The inherited permission set should not be mutated by a permission check."""
         user = User(username='admin')
         inherited = {'add-video'}
         assert self.pc.permissions(user, inherited=inherited) == {'add-video', 'view'}

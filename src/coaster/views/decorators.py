@@ -1,47 +1,59 @@
-"""
-View decorators
----------------
+"""View decorators."""
 
-Decorators for view handlers.
-
-All items in this module can be imported directly from :mod:`coaster.views`.
-"""
-
+# spell-checker:ignore requestargs
 from __future__ import annotations
 
-from collections.abc import Collection, Container, Iterable, Mapping
+from collections.abc import (
+    Awaitable,
+    Collection,
+    Container,
+    Iterable,
+    Mapping,
+    Set as AbstractSet,
+)
 from functools import wraps
-from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, TypeVar, Union, cast
-from typing_extensions import ParamSpec
+from inspect import isawaitable, iscoroutinefunction
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Protocol,
+    Union,
+    cast,
+    overload,
+)
+from typing_extensions import ParamSpec, TypeAlias, TypeVar
 
-from flask import (
-    Response,
+from flask.typing import ResponseReturnValue
+from markupsafe import escape as html_escape
+from werkzeug.datastructures import Headers, MIMEAccept
+from werkzeug.exceptions import BadRequest, HTTPException
+
+from ..auth import add_auth_attribute, current_auth
+from ..compat import (
+    SansIoResponse,
     abort,
+    async_make_response,
+    async_render_template,
     g,
     jsonify,
     make_response,
-    redirect,
     render_template,
     request,
+    sync_await,
     url_for,
 )
-from flask.typing import ResponseReturnValue
-from werkzeug.datastructures import Headers, MIMEAccept
-from werkzeug.exceptions import BadRequest
-from werkzeug.wrappers import Response as WerkzeugResponse
-
-from ..auth import add_auth_attribute, current_auth
 from ..utils import InspectableSet, is_collection
-from .misc import ensure_sync
 
 __all__ = [
     'ReturnRenderWith',
     'RequestTypeError',
     'RequestValueError',
+    'Redirect',
     'requestargs',
     'requestvalues',
-    'requestquery',
     'requestform',
     'requestbody',
     'load_model',
@@ -51,17 +63,18 @@ __all__ = [
     'requires_permission',
 ]
 
-ReturnRenderWithData = Mapping[str, Any]
-ReturnRenderWithResponse = Union[WerkzeugResponse, ReturnRenderWithData]
-ReturnRenderWithHeaders = Union[list[tuple[str, str]], dict[str, str], Headers]
-ReturnRenderWith = Union[
+ReturnRenderWithData: TypeAlias = Mapping[str, Any]
+ReturnRenderWithResponse: TypeAlias = Union[SansIoResponse, ReturnRenderWithData]
+ReturnRenderWithHeaders: TypeAlias = Union[
+    list[tuple[str, str]], dict[str, str], Headers
+]
+ReturnRenderWith: TypeAlias = Union[
     ReturnRenderWithResponse,
     tuple[ReturnRenderWithData, ReturnRenderWithHeaders],
     tuple[ReturnRenderWithData, int],
     tuple[ReturnRenderWithData, int, ReturnRenderWithHeaders],
 ]
 _VP = ParamSpec('_VP')  # View parameters as accepted by the decorated view
-_VR = TypeVar('_VR', bound=Any)  # View return value
 _VR_co = TypeVar('_VR_co', covariant=True)  # View covariant return type
 
 
@@ -73,14 +86,44 @@ class RequestValueError(BadRequest, ValueError):
     """Exception that combines ValueError with BadRequest."""
 
 
+class Redirect(HTTPException):
+    """HTTP redirect as an exception, to bypass return type constraints."""
+
+    code: int = 302
+
+    def __init__(
+        self, location: str, code: Literal[301, 302, 303, 307, 308] = 302
+    ) -> None:
+        super().__init__()
+        self.location = location
+        self.code = code
+
+    def get_headers(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> list[tuple[str, str]]:
+        """Add location header to response."""
+        headers = super().get_headers(*args, **kwargs)
+        headers.append(('Location', self.location))
+        return headers
+
+    def get_description(self, *_args: Any, **_kwargs: Any) -> str:
+        """Add a HTML description."""
+        html_location = html_escape(self.location)
+        return (
+            '<p>You should be redirected automatically to the target URL: '
+            f'<a href="{html_location}">{html_location}</a>. If not, click the link.'
+            '</p>'
+        )
+
+    def __str__(self) -> str:
+        return f"{self.code} {self.name}: {self.location}"
+
+
 def requestargs(
     *args: Union[str, tuple[str, Callable[[str], Any]]],
-    source: Union[
-        Literal['values'],
-        Literal['form'],
-        Literal['query'],
-        Literal['body'],
-    ] = 'values',
+    source: Literal['args', 'values', 'form', 'body'] = 'args',
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """
     Decorate a function to load parameters from the request if not supplied directly.
@@ -88,8 +131,7 @@ def requestargs(
     Usage::
 
         @requestargs('param1', ('param2', int), 'param3[]', ...)
-        def function(param1, param2=0, param3=None):
-            ...
+        def function(param1, param2=0, param3=None): ...
 
     :func:`requestargs` takes a list of parameters to pass to the wrapped function, with
     an optional filter (useful to convert incoming string request data into integers
@@ -143,7 +185,7 @@ def requestargs(
             ]
         ]
 
-        if source == 'query':
+        if source == 'args':
 
             def datasource() -> tuple[Any, bool]:
                 return (request.args, True) if request else ({}, False)
@@ -170,10 +212,9 @@ def requestargs(
         else:
             raise TypeError("Unknown data source")
 
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> _VR_co:
-            """Wrap a view to insert keyword arguments."""
-            values, has_gettype = datasource()
+        def process_kwargs(
+            values: Any, has_gettype: bool, kwargs: dict[str, Any]
+        ) -> dict[str, Any]:
             for name, filt, is_list in namefilt:
                 # Process name if
                 # (a) it's not in the function's parameters, and
@@ -183,36 +224,53 @@ def requestargs(
                         if is_list:
                             if has_gettype:
                                 kwargs[name] = values.getlist(name, type=filt)
+                            elif filt:
+                                kwargs[name] = [filt(_v) for _v in values[name]]
                             else:
-                                if filt:
-                                    kwargs[name] = [filt(_v) for _v in values[name]]
-                                else:
-                                    kwargs[name] = values[name]
+                                kwargs[name] = values[name]
+                        elif has_gettype:
+                            kwargs[name] = values.get(name, type=filt)
+                        elif filt:
+                            kwargs[name] = filt(values[name])
                         else:
-                            if has_gettype:
-                                kwargs[name] = values.get(name, type=filt)
-                            else:
-                                if filt:
-                                    kwargs[name] = filt(values[name])
-                                else:
-                                    kwargs[name] = values[name]
-                    except ValueError as e:
-                        raise RequestValueError(str(e)) from e
-            try:
-                return ensure_sync(f)(*args, **kwargs)
-            except TypeError as e:
-                raise RequestTypeError(str(e)) from e
+                            kwargs[name] = values[name]
+                    except ValueError as exc:
+                        raise RequestValueError(str(exc)) from exc
+            return kwargs
+
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def async_wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> Any:
+                """Wrap a view to insert keyword arguments."""
+                values, has_gettype = datasource()
+                if isawaitable(values):
+                    values = await values
+                use_kwargs = process_kwargs(values, has_gettype, kwargs)
+                try:
+                    return await f(*args, **use_kwargs)
+                except TypeError as e:
+                    raise RequestTypeError(str(e)) from e
+
+            # Fix return type hint
+            wrapper = cast(Callable[_VP, _VR_co], async_wrapper)
+        else:
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> _VR_co:
+                """Wrap a view to insert keyword arguments."""
+                values, has_gettype = datasource()
+                if isawaitable(values):
+                    values = sync_await(values)
+                use_kwargs = process_kwargs(values, has_gettype, kwargs)
+                try:
+                    return f(*args, **use_kwargs)
+                except TypeError as exc:
+                    raise RequestTypeError(str(exc)) from exc
 
         return wrapper
 
     return decorator
-
-
-def requestquery(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
-) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
-    """Like :func:`requestargs`, but loads from request.args (the query string)."""
-    return requestargs(*args, source='query')
 
 
 def requestvalues(
@@ -223,28 +281,28 @@ def requestvalues(
 
 
 def requestform(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from request.form (the form submission)."""
     return requestargs(*args, source='form')
 
 
 def requestbody(
-    *args: Union[str, tuple[str, Callable[[str], Any]]]
+    *args: Union[str, tuple[str, Callable[[str], Any]]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """Like :func:`requestargs`, but loads from form or JSON basis content type."""
     return requestargs(*args, source='body')
 
 
 def load_model(
-    model: type[Any],
-    attributes: dict[str, str],
+    model: Union[type[Any], list[type[Any]], tuple[type[Any], ...]],
+    attributes: dict[str, Union[str, Callable[[dict, dict], Any]]],
     parameter: str,
     kwargs: bool = False,
     permission: Optional[Union[str, set[str]]] = None,
     addlperms: Optional[Union[Iterable[str], Callable[[], Iterable[str]]]] = None,
     urlcheck: Collection[str] = (),
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
+) -> Callable[[Callable[..., _VR_co]], Callable[..., _VR_co]]:
     """
     Decorate a view to load a model given a query parameter.
 
@@ -252,7 +310,7 @@ def load_model(
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profileob')
-        def profile_view(profileob):
+        def profile_view(profileob: Profile) -> ResponseReturnValue:
             # 'profileob' is now a Profile model instance.
             # The load_model decorator replaced this:
             # profileob = Profile.query.filter_by(name=profile).first_or_404()
@@ -262,7 +320,7 @@ def load_model(
 
         @app.route('/<profile>')
         @load_model(Profile, {'name': 'profile'}, 'profile')
-        def profile_view(profile: Profile):
+        def profile_view(profile: Profile) -> ResponseReturnValue:
             return f"Hello, {profile.name}"
 
     ``load_model`` aborts with a 404 if no instance is found.
@@ -310,11 +368,19 @@ def load_model(
 
 
 def load_models(
-    *chain, permission: Optional[Union[str, set[str]]] = None, **config
-) -> Callable[[Callable[..., _VR]], Callable[..., Union[_VR, WerkzeugResponse]]]:
+    *chain: tuple[
+        Union[type[Any], list[type[Any]], tuple[type[Any], ...]],
+        dict[str, Union[str, Callable[[dict, dict], Any]]],
+        str,
+    ],
+    permission: Optional[Union[str, set[str]]] = None,
+    **config,
+) -> Callable[[Callable[..., _VR_co]], Callable[..., _VR_co]]:
     """
-    Decorator to load a chain of models from the given parameters. This works just like
-    :func:`load_model` and accepts the same parameters, with some small differences.
+    Load a chain of models from the given parameters.
+
+    This works just like :func:`load_model` and accepts the same parameters, with some
+    small differences.
 
     :param chain: The chain is a list of tuples of (``model``, ``attributes``,
         ``parameter``). Lists and tuples can be used interchangeably. All retrieved
@@ -338,30 +404,32 @@ def load_models(
         @load_models(
             (Folder, {'name': 'folder_name'}, 'folder'),
             (Page, {'name': 'page_name', 'parent': 'folder'}, 'page'),
-            permission='view')
-        def show_page(folder, page):
+            permission='view',
+        )
+        def show_page(folder: Folder, page: Page) -> ResponseReturnValue:
             return render_template('page.html', folder=folder, page=page)
     """
 
-    def decorator(f: Callable[..., _VR]) -> Callable[..., Union[_VR, WerkzeugResponse]]:
-        @wraps(f)
-        def wrapper(*args, **kwargs) -> Union[_VR, WerkzeugResponse]:
+    def decorator(f: Callable[..., _VR_co]) -> Callable[..., _VR_co]:
+        def loader(kwargs: dict[str, Any]) -> dict[str, Any]:
             view_args: Optional[dict[str, Any]]
             request_endpoint: str = request.endpoint  # type: ignore[assignment]
             permissions: Optional[set[str]] = None
             permission_required = (
                 {permission}
                 if isinstance(permission, str)
-                else set(permission) if permission is not None else None
+                else set(permission)
+                if permission is not None
+                else None
             )
             url_check_attributes = config.get('urlcheck', [])
             result: dict[str, Any] = {}
             for models, attributes, parameter in chain:
                 if not isinstance(models, (list, tuple)):
-                    models = (models,)
+                    models = (models,)  # noqa: PLW2901
                 item = None
                 url_check = False
-                url_check_paramvalues = {}
+                url_check_paramvalues: dict[str, tuple[Union[str, Callable], Any]] = {}
                 for model in models:
                     query = model.query
                     for k, v in attributes.items():
@@ -394,7 +462,7 @@ def load_models(
                     location = url_for(request_endpoint, **view_args)
                     if request.query_string:
                         location = location + '?' + request.query_string.decode()
-                    return redirect(location, code=307)
+                    raise Redirect(location, code=307)
 
                 if permission_required:
                     permissions = item.permissions(
@@ -410,18 +478,18 @@ def load_models(
                     g.permissions = permissions
                 if request:
                     add_auth_attribute('permissions', InspectableSet(permissions))
-                if (
-                    url_check and request.method == 'GET'
-                ):  # Only do urlcheck redirects on GET requests
+                if url_check and request.method == 'GET':
+                    # Only do url_check redirects on GET requests
                     url_redirect = False
                     view_args = None
-                    for k, v in url_check_paramvalues.items():
-                        uparam, uvalue = v
-                        if getattr(item, k) != uvalue:
+                    for k2, v2 in url_check_paramvalues.items():
+                        uparam, uvalue = v2
+                        if (vvalue := getattr(item, k2)) != uvalue:
                             url_redirect = True
                             if view_args is None:
                                 view_args = dict(request.view_args or {})
-                            view_args[uparam] = getattr(item, k)
+                            if isinstance(uparam, str):
+                                view_args[uparam] = vvalue
                     if url_redirect:
                         if view_args is None:
                             location = url_for(request_endpoint)
@@ -429,18 +497,36 @@ def load_models(
                             location = url_for(request_endpoint, **view_args)
                         if request.query_string:
                             location = location + '?' + request.query_string.decode()
-                        return redirect(location, code=302)
-                if parameter.startswith('g.'):
-                    parameter = parameter[2:]
+                        raise Redirect(location, code=302)
+                if parameter.startswith('g.') and g:
+                    parameter = parameter[2:]  # noqa: PLW2901
                     setattr(g, parameter, item)
                 result[parameter] = item
             if permission_required and (
                 permissions is None or not permission_required & permissions
             ):
                 abort(403)
-            if config.get('kwargs'):
-                return ensure_sync(f)(*args, kwargs=kwargs, **result)
-            return ensure_sync(f)(*args, **result)
+            return result
+
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def async_wrapper(*args, **kwargs) -> Any:
+                result = loader(kwargs)
+                if config.get('kwargs'):
+                    return await f(*args, kwargs=kwargs, **result)
+                return await f(*args, **result)
+
+            # Fix return type hint
+            wrapper = cast(Callable[..., _VR_co], async_wrapper)
+        else:
+
+            @wraps(f)
+            def wrapper(*args, **kwargs) -> _VR_co:
+                result = loader(kwargs)
+                if config.get('kwargs'):
+                    return f(*args, kwargs=kwargs, **result)
+                return f(*args, **result)
 
         return wrapper
 
@@ -451,25 +537,35 @@ def _best_mimetype_match(
     available_list: list[str], accept_mimetypes: MIMEAccept, default: str
 ) -> str:
     for acceptable_mimetype, _quality in accept_mimetypes:
-        acceptable_mimetype = acceptable_mimetype.lower()
+        acceptable_mimetype = acceptable_mimetype.lower()  # noqa: PLW2901
         for available_mimetype in available_list:
             if acceptable_mimetype == available_mimetype.lower():
                 return available_mimetype
     return default
 
 
+class RenderWithProtocol(Protocol):
+    @overload
+    def __call__(
+        self, __view: Callable[_VP, Awaitable[ReturnRenderWith]]
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
+
+    @overload
+    def __call__(
+        self, __view: Callable[_VP, ReturnRenderWith]
+    ) -> Callable[_VP, SansIoResponse]: ...
+
+
 def render_with(
     template: Union[
-        Mapping[str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]],
-        str,
-        None,
+        Mapping[str, Union[str, Callable[[ReturnRenderWithData], Any]]], str, None
     ] = None,
     json: bool = False,
-) -> Callable[[Callable[_VP, ReturnRenderWith]], Callable[_VP, WerkzeugResponse]]:
+) -> RenderWithProtocol:
     """
     Render the view's dict output with a MIMEtype-specific renderer.
 
-    Accepts a single Jinja2 template, or a dictionary of mimetypes and their templates
+    Accepts a single Jinja2 template or a dictionary of mimetypes and their templates
     or callables. If a template filename is provided, the view's return type must be a
     dictionary and is passed to ``render_template`` as context. If a callable is
     provided, the view's result is passed in as a single parameter. The view may return
@@ -481,22 +577,29 @@ def render_with(
         def myview():
             return {'data': 'value'}
 
+
         @app.route('/myview_with_json')
         @render_with('myview.html', json=True)
         def myview_no_json():
             return {'data': 'value'}
 
+
         @app.route('/otherview')
-        @render_with({
-            'text/html': 'otherview.html',
-            'text/xml': 'otherview.xml'})
+        @render_with(
+            {
+                'text/html': 'otherview.html',
+                'text/xml': 'otherview.xml',
+            }
+        )
         def otherview():
             return {'data': 'value'}
+
 
         @app.route('/404view')
         @render_with('myview.html')
         def myview():
             return {'error': '404 Not Found'}, 404
+
 
         @app.route('/headerview')
         @render_with('myview.html')
@@ -523,14 +626,9 @@ def render_with(
         render_with no longer has a shorthand for JSONP. If still required, specify a
         template handler as ``{'text/javascript': coaster.views.jsonp}``
     """
-    templates: dict[
-        str, Union[str, Callable[[ReturnRenderWithData], ResponseReturnValue]]
-    ]
+    templates: dict[str, Union[str, Callable[[ReturnRenderWithData], Any]]]
     default_mimetype: Optional[str] = None
-    if json:
-        templates = {'application/json': jsonify}
-    else:
-        templates = {}
+    templates = {'application/json': jsonify} if json else {}
     if isinstance(template, str):
         templates['*/*'] = template
     elif isinstance(template, dict):
@@ -554,25 +652,37 @@ def render_with(
     # */* messes up matching, so supply it only as last resort
     template_mimetypes.remove('*/*')
 
+    # Set Vary: Accept if there is more than one way to render the result
+    vary_accept = len(templates) > 1
+
+    @overload
     def decorator(
-        f: Callable[_VP, ReturnRenderWith]
-    ) -> Callable[_VP, WerkzeugResponse]:
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
-            # Check if we need to bypass rendering
-            render = kwargs.pop('_render', True)
+        f: Callable[_VP, Awaitable[ReturnRenderWith]],
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
 
-            # Get the result
-            result = ensure_sync(f)(*args, **kwargs)
+    @overload
+    def decorator(
+        f: Callable[_VP, ReturnRenderWith],
+    ) -> Callable[_VP, SansIoResponse]: ...
 
-            if not render or not request:
-                # Return value is not a WerkzeugResponse here
-                return result  # type: ignore[return-value]
-
-            # Is the result a Response object? Don't attempt rendering
-            if isinstance(result, WerkzeugResponse):
-                return result
-
+    def decorator(
+        f: Callable[_VP, Union[ReturnRenderWith, Awaitable[ReturnRenderWith]]],
+    ) -> Callable[
+        _VP,
+        Union[SansIoResponse, Awaitable[SansIoResponse]],
+    ]:
+        def unpack_return_value(
+            result: ReturnRenderWith,
+        ) -> tuple[
+            ReturnRenderWithData, Optional[int], Optional[ReturnRenderWithHeaders], str
+        ]:
+            """Extract status code and headers from the view's return value."""
+            if TYPE_CHECKING:
+                # This function does not expect to get a `Response` object, but we're
+                # not bothering to redefine the complex `ReturnRenderWith` type minus
+                # the embedded `Response` type. Instead, we narrow the type to exclude
+                # `Response` using a type-checking assert
+                assert not isinstance(result, SansIoResponse)  # nosec B101
             headers: Optional[ReturnRenderWithHeaders]
             status_code: Optional[int]
 
@@ -604,13 +714,10 @@ def render_with(
                 status_code = None
                 headers = None
 
-            # Set Vary: Accept if there is more than one way to render the result
-            vary_accept = len(templates) > 1
-
             # Find a matching mimetype between Accept headers and available templates
             # We do not use request.accept_mimetypes.best_match because it turns out
             # to be buggy: it returns the least match instead of the best match.
-            # This does not appear to be fixed as of Werkzeug 2.3
+            # This does not appear to be fixed as of Werkzeug 3.0.3
             accept_mimetype = _best_mimetype_match(
                 template_mimetypes, request.accept_mimetypes, '*/*'
             )
@@ -619,31 +726,112 @@ def render_with(
             #     template_mimetypes, '*/*'
             # )
 
-            # Now render the result with the template for the mimetype
-            use_template = templates[accept_mimetype]
-            if callable(use_template):
-                response = make_response(use_template(result))
-            else:
-                if TYPE_CHECKING:
-                    assert isinstance(use_template, str)  # nosec B101
-                    assert isinstance(result, dict)  # nosec B101
-                response = make_response(render_template(use_template, **result))
-                if accept_mimetype == '*/*':
-                    if default_mimetype is not None:
-                        response.mimetype = default_mimetype
+            return result, status_code, headers, accept_mimetype
+
+        if iscoroutinefunction(f):
+            # Mypy 1.9 gets confused unless we cast to a different name
+            async_f = cast(Callable[_VP, Awaitable[ReturnRenderWith]], f)
+
+            @wraps(async_f)
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
+                # Check if we need to bypass rendering
+                render = kwargs.pop('_render', True)
+
+                # Get the result
+                result = await async_f(*args, **kwargs)
+
+                if not render or not request:
+                    # Return value is not a Response here
+                    return result  # type: ignore[return-value]
+
+                # Is the result a Response object? Don't attempt rendering
+                if isinstance(result, SansIoResponse):
+                    return result
+
+                result, status_code, headers, accept_mimetype = unpack_return_value(
+                    result
+                )
+
+                # Now render the result with the template for the mimetype
+                use_template = templates[accept_mimetype]
+                if callable(use_template):
+                    callable_result = use_template(result)
+                    if isawaitable(callable_result):
+                        callable_result = await callable_result
+                    response = await async_make_response(callable_result)
                 else:
-                    response.mimetype = accept_mimetype
-            if status_code is not None:
-                response.status_code = status_code
-            if headers is not None:
-                response.headers.extend(headers)
-            if vary_accept:
-                response.vary.add('Accept')
-            return response
+                    response = await async_make_response(
+                        await async_render_template(use_template, **result)
+                    )
+                    if accept_mimetype == '*/*':
+                        if default_mimetype is not None:
+                            response.mimetype = default_mimetype
+                    else:
+                        response.mimetype = accept_mimetype
+                if status_code is not None:
+                    response.status_code = status_code
+                if headers is not None:
+                    response.headers.extend(headers)
+                if vary_accept:
+                    response.vary.add('Accept')
+                return response
+        else:
+            f = cast(Callable[_VP, ReturnRenderWith], f)
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
+                # Check if we need to bypass rendering
+                render = kwargs.pop('_render', True)
+
+                # Get the result
+                result = f(*args, **kwargs)
+
+                if not render or not request:
+                    # Return value is not a SansIoResponse here
+                    return result  # type: ignore[return-value]
+
+                # Is the result a Response object? Don't attempt rendering
+                if isinstance(result, SansIoResponse):
+                    return result
+
+                result, status_code, headers, accept_mimetype = unpack_return_value(
+                    result
+                )
+
+                # Now render the result with the template for the mimetype
+                use_template = templates[accept_mimetype]
+                if callable(use_template):
+                    response = make_response(use_template(result))
+                else:
+                    response = make_response(render_template(use_template, **result))
+                    if accept_mimetype == '*/*':
+                        if default_mimetype is not None:
+                            response.mimetype = default_mimetype
+                    else:
+                        response.mimetype = accept_mimetype
+                if status_code is not None:
+                    response.status_code = status_code
+                if headers is not None:
+                    response.headers.extend(headers)
+                if vary_accept:
+                    response.vary.add('Accept')
+                return response
 
         return wrapper
 
     return decorator
+
+
+class CorsDecoratorProtocol(Protocol):
+    @overload
+    def __call__(
+        self, __decorated: Callable[_VP, Awaitable[ResponseReturnValue]]
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
+
+    @overload
+    def __call__(
+        self, __decorated: Callable[_VP, ResponseReturnValue]
+    ) -> Callable[_VP, SansIoResponse]: ...
 
 
 def cors(
@@ -665,7 +853,7 @@ def cors(
         'X-Requested-With',
     ),
     max_age: Optional[int] = None,
-) -> Callable[[Callable[_VP, ResponseReturnValue]], Callable[_VP, WerkzeugResponse]]:
+) -> CorsDecoratorProtocol:
     """
     Add CORS headers to the decorated view function.
 
@@ -676,9 +864,9 @@ def cors(
 
     The :obj:`origins` parameter may be one of:
 
-    1. A callable that receives the origin as a parameter.
+    1. A callable that receives the origin as a parameter and returns True/False.
     2. A list of origins.
-    3. ``*``, indicating that this resource is accessible by any origin.
+    3. Literal['*'], indicating that this resource is accessible by any origin.
 
     Example use::
 
@@ -687,23 +875,28 @@ def cors(
 
         app = Flask(__name__)
 
+
         @app.route('/any')
         @cors('*')
         def any_origin():
             return Response()
+
 
         @app.route('/static', methods=['GET', 'POST'])
         @cors(
             ['https://hasgeek.com'],
             methods=['GET', 'POST'],
             headers=['Content-Type', 'X-Requested-With'],
-            max_age=3600)
+            max_age=3600,
+        )
         def static_list():
             return Response()
+
 
         def check_origin(origin):
             # check if origin should be allowed
             return True
+
 
         @app.route('/callable', methods=['GET'])
         @cors(check_origin)
@@ -711,36 +904,43 @@ def cors(
             return Response()
     """
 
+    @overload
     def decorator(
-        f: Callable[_VP, ResponseReturnValue]
-    ) -> Callable[_VP, WerkzeugResponse]:
-        @wraps(f)
-        def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> WerkzeugResponse:
+        f: Callable[_VP, Awaitable[ResponseReturnValue]],
+    ) -> Callable[_VP, Awaitable[SansIoResponse]]: ...
+
+    @overload
+    def decorator(
+        f: Callable[_VP, ResponseReturnValue],
+    ) -> Callable[_VP, SansIoResponse]: ...
+
+    def decorator(
+        f: Union[
+            Callable[_VP, ResponseReturnValue],
+            Callable[_VP, Awaitable[ResponseReturnValue]],
+        ],
+    ) -> Union[Callable[_VP, SansIoResponse], Callable[_VP, Awaitable[SansIoResponse]]]:
+        def check_origin() -> Optional[str]:
             origin = request.headers.get('Origin')
             if not origin or origin == 'null':
                 if request.method == 'OPTIONS':
                     abort(400)
-                # If no Origin header is supplied, CORS checks don't apply
-                return make_response(ensure_sync(f)(*args, **kwargs))
+                return None
 
             if request.method not in methods:
                 abort(405)
 
-            if origins == '*':
-                pass
-            elif is_collection(origins) and origin in origins:  # type: ignore[operator]
-                pass
-            elif callable(origins) and origins(origin):
-                pass
-            else:
+            if not (
+                origins == '*'
+                or (
+                    is_collection(origins) and origin in origins  # type: ignore[operator]
+                )
+                or (callable(origins) and origins(origin))
+            ):
                 abort(403)
+            return origin
 
-            if request.method == 'OPTIONS':
-                # pre-flight request
-                resp = Response()
-            else:
-                resp = make_response(ensure_sync(f)(*args, **kwargs))
-
+        def set_headers(origin: str, resp: SansIoResponse) -> SansIoResponse:
             resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Access-Control-Allow-Methods'] = ', '.join(methods)
             resp.headers['Access-Control-Allow-Headers'] = ', '.join(headers)
@@ -751,6 +951,36 @@ def cors(
 
             return resp
 
+        if iscoroutinefunction(f):
+
+            @wraps(f)
+            async def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
+                origin = check_origin()
+                if origin is None:
+                    # If no Origin header is supplied, CORS checks don't apply
+                    return await async_make_response(await f(*args, **kwargs))
+                if request.method == 'OPTIONS':
+                    # pre-flight request
+                    resp = SansIoResponse()
+                else:
+                    resp = await async_make_response(await f(*args, **kwargs))
+                return set_headers(origin, resp)
+
+        else:
+
+            @wraps(f)
+            def wrapper(*args: _VP.args, **kwargs: _VP.kwargs) -> SansIoResponse:
+                origin = check_origin()
+                if origin is None:
+                    # If no Origin header is supplied, CORS checks don't apply
+                    return make_response(f(*args, **kwargs))
+                if request.method == 'OPTIONS':
+                    # pre-flight request
+                    resp = SansIoResponse()
+                else:
+                    resp = make_response(f(*args, **kwargs))
+                return set_headers(origin, resp)
+
         wrapper.provide_automatic_options = False  # type: ignore[attr-defined]
         wrapper.required_methods = ['OPTIONS']  # type: ignore[attr-defined]
 
@@ -760,7 +990,7 @@ def cors(
 
 
 def requires_permission(
-    permission: Union[str, set[str]]
+    permission: Union[str, set[str]],
 ) -> Callable[[Callable[_VP, _VR_co]], Callable[_VP, _VR_co]]:
     """
     Decorate to require a permission to be present in ``current_auth.permissions``.
@@ -778,7 +1008,7 @@ def requires_permission(
         def is_available_here() -> bool:
             if not current_auth.permissions:
                 return False
-            if isinstance(permission, (set, frozenset)):
+            if isinstance(permission, AbstractSet):
                 return bool(current_auth.permissions & permission)
             return permission in current_auth.permissions
 

@@ -1,4 +1,6 @@
-from coaster.gfm import markdown
+"""Test Markdown."""
+
+from coaster.utils import markdown
 
 sample_markdown = '''
 This is a sample piece of text and represents a paragraph.

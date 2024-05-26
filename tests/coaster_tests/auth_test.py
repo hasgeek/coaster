@@ -8,7 +8,8 @@ from typing import Optional
 
 import pytest
 import sqlalchemy as sa
-from flask import Flask, g, has_request_context, render_template_string
+import sqlalchemy.orm as sa_orm
+from flask import Flask
 from sqlalchemy.orm import Mapped
 
 from coaster.auth import (
@@ -17,6 +18,7 @@ from coaster.auth import (
     current_auth,
     request_has_auth,
 )
+from coaster.compat import g, has_request_context, render_template_string
 from coaster.sqlalchemy import BaseMixin
 
 from .conftest import Model, db
@@ -68,8 +70,8 @@ def models() -> SimpleNamespace:
         """Test user model."""
 
         __tablename__ = 'authenticated_user'
-        username: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
-        fullname: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80))
+        username: Mapped[str] = sa_orm.mapped_column(sa.Unicode(80))
+        fullname: Mapped[str] = sa_orm.mapped_column(sa.Unicode(80))
 
         def __repr__(self) -> str:
             return f'User(username={self.username!r}, fullname={self.fullname!r})'
@@ -227,7 +229,7 @@ def test_current_auth_with_user_loaded(
     assert current_auth.is_authenticated  # type: ignore[unreachable]
     assert current_auth
     assert current_auth.user is not None
-    assert current_auth.user == user  # type: ignore[unreachable]
+    assert current_auth.user == user
     assert current_auth.actor == user
 
 
@@ -284,7 +286,7 @@ def test_other_actor_authenticated(models: SimpleNamespace) -> None:
 
 @pytest.mark.usefixtures('request_ctx', 'login_manager')
 def test_auth_anchor() -> None:
-    """A request starts with zero anchors, but they can be added"""
+    """A request starts with zero anchors, but they can be added."""
     assert not current_auth.anchors
     add_auth_anchor('test-anchor')
     assert current_auth.anchors
@@ -299,7 +301,7 @@ def test_has_current_auth() -> None:
     assert not current_auth.is_placeholder
     assert not request_has_auth()
     # Invoke current_auth to check for a user
-    current_auth.is_anonymous  # pylint: disable=W0104
+    _anon = current_auth.is_anonymous
     assert request_has_auth()
 
 

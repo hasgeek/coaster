@@ -2,8 +2,9 @@
 
 # pylint: disable=redefined-outer-name,protected-access
 
+from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 
@@ -16,7 +17,7 @@ from .conftest import Model
 
 
 @pytest.fixture
-def CallableRegistry():  # noqa: N802
+def CallableRegistry() -> type:
     """Callable registry with a positional parameter."""
 
     class CallableRegistry:
@@ -26,7 +27,7 @@ def CallableRegistry():  # noqa: N802
 
 
 @pytest.fixture
-def PropertyRegistry():  # noqa: N802
+def PropertyRegistry() -> type:
     """Registry with property and a positional parameter."""
 
     class PropertyRegistry:
@@ -36,7 +37,7 @@ def PropertyRegistry():  # noqa: N802
 
 
 @pytest.fixture
-def CachedPropertyRegistry():  # noqa: N802
+def CachedPropertyRegistry() -> type:
     """Registry with cached property and a positional parameter."""
 
     class CachedPropertyRegistry:
@@ -46,7 +47,7 @@ def CachedPropertyRegistry():  # noqa: N802
 
 
 @pytest.fixture
-def CallableParamRegistry():  # noqa: N802
+def CallableParamRegistry() -> type:
     """Callable registry with a keyword parameter."""
 
     class CallableParamRegistry:
@@ -56,7 +57,7 @@ def CallableParamRegistry():  # noqa: N802
 
 
 @pytest.fixture
-def PropertyParamRegistry():  # noqa: N802
+def PropertyParamRegistry() -> type:
     """Registry with property and a keyword parameter."""
 
     class PropertyParamRegistry:
@@ -66,7 +67,7 @@ def PropertyParamRegistry():  # noqa: N802
 
 
 @pytest.fixture
-def CachedPropertyParamRegistry():  # noqa: N802
+def CachedPropertyParamRegistry() -> type:
     """Registry with cached property and a keyword parameter."""
 
     class CachedPropertyParamRegistry:
@@ -77,13 +78,13 @@ def CachedPropertyParamRegistry():  # noqa: N802
 
 @pytest.fixture
 def all_registry_hosts(
-    CallableRegistry,  # noqa: N803
+    CallableRegistry,
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> list[type]:
     """All test registries as a list."""
     return [
         CallableRegistry,
@@ -96,17 +97,17 @@ def all_registry_hosts(
 
 
 @pytest.fixture(scope='module')
-def registry_member():
+def registry_member() -> Callable:
     """Test registry member function."""
 
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> None:
         pass
 
     return member
 
 
 @pytest.fixture(scope='session')
-def registrymixin_models():
+def registrymixin_models() -> SimpleNamespace:
     """Fixtures for RegistryMixin tests."""
     # pylint: disable=possibly-unused-variable
 
@@ -146,7 +147,7 @@ def registrymixin_models():
     # Sample registered item 3
     @RegistryTest1.features('is1')
     @RegistryTest2.features()
-    def is1(obj):
+    def is1(obj) -> bool:
         """Assert object is instance of RegistryTest1."""
         return isinstance(obj, RegistryTest1)
 
@@ -242,13 +243,13 @@ def test_registry_property_cached_property() -> None:
 
 
 def test_add_to_registry(
-    CallableRegistry,  # noqa: N803
+    CallableRegistry,
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> None:
     """A member can be added to registries and accessed as per registry settings."""
 
     @CallableRegistry.registry()
@@ -257,7 +258,7 @@ def test_add_to_registry(
     @CallableParamRegistry.registry()
     @PropertyParamRegistry.registry()
     @CachedPropertyParamRegistry.registry()
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -279,35 +280,36 @@ def test_add_to_registry(
 
 
 def test_property_cache_mismatch(
-    PropertyRegistry, CachedPropertyRegistry  # noqa: N803
-):
+    PropertyRegistry,
+    CachedPropertyRegistry,
+) -> None:
     """A registry's default setting must be explicitly turned off if conflicting."""
     with pytest.raises(TypeError):
 
         @PropertyRegistry.registry(cached_property=True)
-        def member1(pos=None, kwparam=None):
+        def member1(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
             return (pos, kwparam)
 
     with pytest.raises(TypeError):
 
         @CachedPropertyRegistry.registry(property=True)
-        def member2(pos=None, kwparam=None):
+        def member2(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
             return (pos, kwparam)
 
     @PropertyRegistry.registry(cached_property=True, property=False)
     @CachedPropertyRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
 
 def test_add_to_registry_host(
-    CallableRegistry,  # noqa: N803
+    CallableRegistry,
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> None:
     """A member can be added as a function, overriding default settings."""
 
     @CallableRegistry.registry()
@@ -316,7 +318,7 @@ def test_add_to_registry_host(
     @CallableParamRegistry.registry()
     @PropertyParamRegistry.registry(property=False)
     @CachedPropertyParamRegistry.registry(cached_property=False)
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -338,13 +340,13 @@ def test_add_to_registry_host(
 
 
 def test_add_to_registry_property(
-    CallableRegistry,  # noqa: N803
+    CallableRegistry,
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> None:
     """A member can be added as a property, overriding default settings."""
 
     @CallableRegistry.registry(property=True)
@@ -353,7 +355,7 @@ def test_add_to_registry_property(
     @CallableParamRegistry.registry(property=True)
     @PropertyParamRegistry.registry(property=True)
     @CachedPropertyParamRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -375,13 +377,13 @@ def test_add_to_registry_property(
 
 
 def test_add_to_registry_cached_property(
-    CallableRegistry,  # noqa: N803
+    CallableRegistry,
     PropertyRegistry,
     CachedPropertyRegistry,
     CallableParamRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> None:
     """A member can be added as a property, overriding default settings."""
 
     @CallableRegistry.registry(property=True)
@@ -390,7 +392,7 @@ def test_add_to_registry_cached_property(
     @CallableParamRegistry.registry(property=True)
     @PropertyParamRegistry.registry(property=True)
     @CachedPropertyParamRegistry.registry(property=True, cached_property=False)
-    def member(pos=None, kwparam=None):
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
         return (pos, kwparam)
 
     callable_host = CallableRegistry()
@@ -411,7 +413,7 @@ def test_add_to_registry_cached_property(
     )
 
 
-def test_add_to_registry_custom_name(all_registry_hosts, registry_member):
+def test_add_to_registry_custom_name(all_registry_hosts, registry_member) -> None:
     """Members can be added to a registry with a custom name."""
     assert registry_member.__name__ == 'member'
     for host in all_registry_hosts:
@@ -427,7 +429,7 @@ def test_add_to_registry_custom_name(all_registry_hosts, registry_member):
         assert host.registry.member is registry_member
 
 
-def test_add_to_registry_underscore(all_registry_hosts, registry_member):
+def test_add_to_registry_underscore(all_registry_hosts, registry_member) -> None:
     """Registry member names cannot start with an underscore."""
     for host in all_registry_hosts:
         with pytest.raises(AttributeError):
@@ -436,7 +438,7 @@ def test_add_to_registry_underscore(all_registry_hosts, registry_member):
             host.registry._new_member = registry_member
 
 
-def test_add_to_registry_dupe(all_registry_hosts, registry_member):
+def test_add_to_registry_dupe(all_registry_hosts, registry_member) -> None:
     """Registry member names cannot be duplicates of an existing name."""
     for host in all_registry_hosts:
         host.registry()(registry_member)
@@ -453,11 +455,11 @@ def test_add_to_registry_dupe(all_registry_hosts, registry_member):
 
 
 def test_cached_properties_are_cached(
-    PropertyRegistry,  # noqa: N803
+    PropertyRegistry,
     CachedPropertyRegistry,
     PropertyParamRegistry,
     CachedPropertyParamRegistry,
-):
+) -> None:
     """Cached properties are truly cached."""
 
     # Register registry member
@@ -465,8 +467,8 @@ def test_cached_properties_are_cached(
     @CachedPropertyRegistry.registry()
     @PropertyParamRegistry.registry()
     @CachedPropertyParamRegistry.registry()
-    def member(pos=None, kwparam=None):
-        return [pos, kwparam]  # Lists are different each call
+    def member(pos=None, kwparam=None) -> tuple[Any, Optional[str]]:
+        return (pos, kwparam)  # Lists are different each call
 
     property_host = PropertyRegistry()
     cached_property_host = CachedPropertyRegistry()
@@ -474,13 +476,13 @@ def test_cached_properties_are_cached(
     cached_property_param_host = CachedPropertyParamRegistry()
 
     # The properties and cached properties work
-    assert property_host.registry.member == [property_host, None]
-    assert cached_property_host.registry.member == [cached_property_host, None]
-    assert property_param_host.registry.member == [None, property_param_host]
-    assert cached_property_param_host.registry.member == [
+    assert property_host.registry.member == (property_host, None)
+    assert cached_property_host.registry.member == (cached_property_host, None)
+    assert property_param_host.registry.member == (None, property_param_host)
+    assert cached_property_param_host.registry.member == (
         None,
         cached_property_param_host,
-    ]
+    )
 
     # The properties and cached properties return equal values on each access
     assert property_host.registry.member == property_host.registry.member

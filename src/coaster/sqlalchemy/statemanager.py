@@ -1,6 +1,5 @@
 """
-States and transitions
-----------------------
+States and transitions.
 
 :class:`StateManager` wraps a SQLAlchemy column with an enum to facilitate state
 inspection, and to control state change via transitions. Sample usage::
@@ -25,31 +24,29 @@ inspection, and to control state change via transitions. Sample usage::
 
         # The underlying state value columns
         # (more than one state variable can exist)
-        _state: Mapped[int] = sa.orm.mapped_column(
+        _state: Mapped[int] = sa_orm.mapped_column(
             'state',
             sa.Integer,
             StateManager.check_constraint('state', MY_STATE, sa.Integer),
             default=MY_STATE.DRAFT,
-            nullable=False
+            nullable=False,
         )
-        _reviewstate: Mapped[int] = sa.orm.mapped_column(
+        _reviewstate: Mapped[int] = sa_orm.mapped_column(
             'reviewstate',
             sa.Integer,
             StateManager.check_constraint('reviewstate', REVIEW_STATE, sa.Integer),
             default=REVIEW_STATE.UNSUBMITTED,
-            nullable=False
+            nullable=False,
         )
 
         # The state managers controlling the columns. If the host type is optionally
         # provided as a generic type argument, it will be applied to the lambda
         # functions in add_conditional_state for static type checking
         state = StateManager['MyPost']('_state', MY_STATE, doc="The post's state")
-        reviewstate = StateManager(
-            '_reviewstate', REVIEW_STATE, doc="Reviewer's state"
-        )
+        reviewstate = StateManager('_reviewstate', REVIEW_STATE, doc="Reviewer's state")
 
         # Datetime for the additional states and transitions
-        timestamp: Mapped[datetime] = sa.orm.mapped_column(
+        timestamp: Mapped[datetime] = sa_orm.mapped_column(
             sa.DateTime, default=datetime.utcnow, nullable=False
         )
 
@@ -59,13 +56,11 @@ inspection, and to control state change via transitions. Sample usage::
         state.add_conditional_state(
             'RECENT',
             state.PUBLISHED,
-            lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1)
+            lambda post: post.datetime > datetime.utcnow() - timedelta(hours=1),
         )
 
         # REDRAFTABLE = DRAFT or PENDING or RECENT
-        state.add_state_group(
-            'REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT
-        )
+        state.add_state_group('REDRAFTABLE', state.DRAFT, state.PENDING, state.RECENT)
 
         # Transitions change FROM one state TO another, and can require another state
         # manager to be in a specific state
@@ -522,10 +517,12 @@ class ManagedStateInstance(Generic[_T]):
     def __repr__(self) -> str:
         return repr(self._mstate)
 
-    def __getattr__(self, attr: str) -> Any:
-        return getattr(self._mstate, attr)
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._mstate, name)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         return (
             isinstance(other, ManagedStateInstance)
             and self._mstate == other._mstate
@@ -606,10 +603,7 @@ class StateTransition(Generic[_P, _R]):
             # transition
             state_values = {}  # Value: ManagedState
             # Step 1: Convert ManagedStateGroup into a list of ManagedState items
-            if isinstance(from_, ManagedStateGroup):
-                from_all = from_.states
-            else:  # ManagedState
-                from_all = [from_]
+            from_all = from_.states if isinstance(from_, ManagedStateGroup) else [from_]
             # Step 2: Unroll grouped values from the original LabeledEnum
             for mstate in from_all:
                 if is_collection(mstate.value):
@@ -722,7 +716,7 @@ class StateTransitionWrapper(Generic[_P, _R, _T]):
                 self.obj, transition=self.statetransition, exception=e
             )
             return e.result
-        except Exception as e:  # noqa: B902
+        except Exception as e:
             transition_exception.send(
                 self.obj, transition=self.statetransition, exception=e
             )
@@ -753,7 +747,7 @@ class StateManager(Generic[_SG]):
     """
 
     #: Host class for the state manager
-    cls: type
+    cls: type[_SG]
     #: All possible states by name
     states: dict[str, Union[ManagedState, ManagedStateGroup]]
     #: All static states, back-referenced by value (group and conditional excluded)
@@ -766,7 +760,8 @@ class StateManager(Generic[_SG]):
     def __init__(
         self, propname: str, lenum: type[LabeledEnum], doc: Optional[str] = None
     ) -> None:
-        self.cls = object  # Depend on __set_name__ to update
+        # Depend on __set_name__ to update
+        self.cls = object  # type: ignore[assignment]
         self.propname = propname
         self.name = ''  # Currently unknown name, will only be known in __set_name__
         self.lenum = lenum
@@ -965,7 +960,7 @@ class StateManager(Generic[_SG]):
         """
 
         def decorator(
-            f: Union[StateTransition, Callable[Concatenate[Any, _P], _R]]
+            f: Union[StateTransition, Callable[Concatenate[Any, _P], _R]],
         ) -> StateTransition[_P, _R]:
             if isinstance(f, StateTransition):
                 f.add_transition(self, from_, to, data)
@@ -1028,7 +1023,7 @@ class StateManager(Generic[_SG]):
     @staticmethod
     def check_constraint(
         column: str,
-        enum: Union[type[Enum], type[LabeledEnum]],
+        enum: type[Union[Enum, LabeledEnum]],
         type_: Optional[Union[type[sa.types.TypeEngine], sa.types.TypeEngine]] = None,
         **kwargs: Any,
     ) -> sa.CheckConstraint:
@@ -1039,11 +1034,11 @@ class StateManager(Generic[_SG]):
         :class:`~coaster.utils.classes.LabeledEnum` containing valid values. Usage::
 
             class MyModel(Model):
-                _state: Mapped[int] = sa.orm.mapped_column(
+                _state: Mapped[int] = sa_orm.mapped_column(
                     'state',
                     sa.Integer,
                     StateManager.check_constraint('state', MY_ENUM, sa.Integer),
-                    default=MY_ENUM.DEFAULT
+                    default=MY_ENUM.DEFAULT,
                 )
                 state = StateManager(_state, MY_ENUM)
 
@@ -1056,7 +1051,9 @@ class StateManager(Generic[_SG]):
             print(
                 str(
                     StateManager.check_constraint(
-                        'your_column', YOUR_ENUM, sa.Integer  # Or specific column type
+                        'your_column',
+                        YOUR_ENUM,
+                        sa.Integer,  # Or specific column type
                     ).sqltext.compile(compile_kwargs={'literal_binds': True})
                 )
             )
@@ -1072,7 +1069,7 @@ class StateManager(Generic[_SG]):
             values = enum.keys()
         else:
             values = [_member.value for _member in enum]
-        return sa.CheckConstraint(sa.Column(column, type_).in_(values))
+        return sa.CheckConstraint(sa.Column(column, type_).in_(values), **kwargs)
 
     if TYPE_CHECKING:
         # Stub for mypy to recognise names added by _add_state_internal. There is a

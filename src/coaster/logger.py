@@ -1,12 +1,11 @@
 """
-Logger
-=======
+Exception logger.
 
 Coaster can help your application log errors at run-time. Initialize with
 :func:`coaster.logger.init_app`. If you use :func:`coaster.app.init_app`,
 this is done automatically for you.
 """
-
+# spell-checker:ignore typeshed apikey stripetoken cardnumber levelname
 # pyright: reportMissingImports=false
 
 from __future__ import annotations
@@ -23,25 +22,23 @@ from collections.abc import MutableSet
 from datetime import datetime, timedelta
 from email.utils import formataddr
 from html import escape
+from inspect import isawaitable
 from io import StringIO
 from pprint import pprint
 from threading import Lock, Thread
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+
+from werkzeug.datastructures import MultiDict
 
 if TYPE_CHECKING:
     # This type definition is only available in the typeshed stub
     from logging import _SysExcInfoType
 
 import requests
-from flask import g, request, session
-from flask.config import Config
-
-try:  # Flask >= 3.0
-    from flask.sansio.app import App as FlaskApp
-except ModuleNotFoundError:
-    from flask import Flask as FlaskApp
+from flask.config import Config  # Quart's config subclasses Flask's
 
 from .auth import current_auth
+from .compat import SansIoApp, g, request, session, sync_await
 
 # Regex for credit card numbers
 _card_re = re.compile(r'\b(?:\d[ -]*?){13,16}\b')
@@ -125,6 +122,9 @@ def pprint_with_indent(dictlike: dict, outfile: IO, indent: int = 4) -> None:
     out.close()
 
 
+STACK_FRAMES_NOTICE = "Stack frames (most recent call first):"
+
+
 class LocalVarFormatter(logging.Formatter):
     """Log the contents of local variables in the stack frame."""
 
@@ -133,7 +133,7 @@ class LocalVarFormatter(logging.Formatter):
         super().__init__(*args, **kwargs)
         self.lock = Lock()
 
-    def format(self, record: logging.LogRecord) -> str:  # noqa: A003
+    def format(self, record: logging.LogRecord) -> str:
         """
         Format the specified record as text.
 
@@ -143,7 +143,7 @@ class LocalVarFormatter(logging.Formatter):
         if (
             record.exc_info
             and record.exc_text
-            and "Stack frames (most recent call first)" not in record.exc_text
+            and STACK_FRAMES_NOTICE not in record.exc_text
         ):
             record.exc_text = None
         return super().format(record)
@@ -174,16 +174,15 @@ class LocalVarFormatter(logging.Formatter):
             # original __repr__ while this is still dumping.
             original_config_repr = Config.__repr__
             Config.__repr__ = (  # type: ignore[method-assign]
-                lambda self: '<Config [FILTERED]>'
+                lambda self: '<Config [FILTERED]>'  # noqa: ARG005
             )
             value_cache: dict[Any, str] = {}
 
-            print('\n----------\n', file=sio)  # noqa: T201
-            # XXX: The following text is used as a signature in :meth:`format` above
-            print("Stack frames (most recent call first):", file=sio)  # noqa: T201
+            print('\n----------\n', file=sio)
+            print(STACK_FRAMES_NOTICE, file=sio)
             for frame in stack:
-                print('\n----\n', file=sio)  # noqa: T201
-                print(  # noqa: T201
+                print('\n----\n', file=sio)
+                print(
                     f"Frame {frame.f_code.co_name} in {frame.f_code.co_filename} at"
                     f" line {frame.f_lineno}",
                     file=sio,
@@ -191,34 +190,38 @@ class LocalVarFormatter(logging.Formatter):
                 for attr, value in list(frame.f_locals.items()):
                     idvalue = id(value)
                     if idvalue in value_cache:
-                        value = RepeatValueIndicator(value_cache[idvalue])
+                        value = RepeatValueIndicator(value_cache[idvalue])  # noqa: PLW2901
                     else:
                         value_cache[idvalue] = f"{frame.f_code.co_name}.{attr}"
-                    print(f"\t{attr:>20} = ", end=' ', file=sio)  # noqa: T201
+                    print(f"\t{attr:>20} = ", end=' ', file=sio)
                     try:
-                        print(repr(filtered_value(attr, value)), file=sio)  # noqa: T201
-                    except Exception:  # noqa: B902  # pylint: disable=broad-except
+                        print(repr(filtered_value(attr, value)), file=sio)
+                    except Exception:  # noqa: BLE001  # pylint: disable=broad-except
                         # We need a bare except clause because this is the exception
                         # handler. It can't have exceptions of its own.
-                        print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
+                        print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
             del value_cache
             Config.__repr__ = original_config_repr  # type: ignore[method-assign]
 
         if request:
-            print('\n----------\n', file=sio)  # noqa: T201
-            print("Request context:", file=sio)  # noqa: T201
+            print('\n----------\n', file=sio)
+            print("Request context:", file=sio)
+            request_form: MultiDict
+            request_form = request.form  # type: ignore[assignment]
+            if isawaitable(request_form):
+                request_form = sync_await(request_form)
             request_data = {
                 'form': {
                     k: filtered_value(k, v)
-                    for k, v in request.form.to_dict(flat=False).items()
+                    for k, v in request_form.to_dict(flat=False).items()
                 },
                 'args': {
                     k: filtered_value(k, v)
                     for k, v in request.args.to_dict(flat=False).items()
                 },
                 'headers': request.headers,
-                'environ': request.environ,
+                'environ': getattr(request, 'environ', None),
                 'method': request.method,
                 'blueprint': request.blueprint,
                 'endpoint': request.endpoint,
@@ -226,32 +229,32 @@ class LocalVarFormatter(logging.Formatter):
             }
             try:
                 pprint_with_indent(request_data, sio)
-            except Exception:  # noqa: B902  # pylint: disable=broad-except
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if session:
-            print('\n----------\n', file=sio)  # noqa: T201
-            print("Session cookie contents:", file=sio)  # noqa: T201
+            print('\n----------\n', file=sio)
+            print("Session cookie contents:", file=sio)
             try:
                 pprint_with_indent(dict(session), sio)
-            except Exception:  # noqa: B902  # pylint: disable=broad-except
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if g:
-            print('\n----------\n', file=sio)  # noqa: T201
-            print("App context:", file=sio)  # noqa: T201
+            print('\n----------\n', file=sio)
+            print("App context:", file=sio)
             try:
                 pprint_with_indent(vars(g), sio)
-            except Exception:  # noqa: B902  # pylint: disable=broad-except
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         if current_auth:
-            print('\n----------\n', file=sio)  # noqa: T201
-            print("Current auth:", file=sio)  # noqa: T201
+            print('\n----------\n', file=sio)
+            print("Current auth:", file=sio)
             try:
                 pprint_with_indent(vars(current_auth), sio)
-            except Exception:  # noqa: B902  # pylint: disable=broad-except
-                print("<ERROR WHILE PRINTING VALUE>", file=sio)  # noqa: T201
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-except
+                print("<ERROR WHILE PRINTING VALUE>", file=sio)
 
         s = sio.getvalue()
         sio.close()
@@ -350,7 +353,7 @@ class SlackHandler(logging.Handler):
                 ).start()
             with self.throttle_lock:
                 self.throttle_cache[throttle_key] = datetime.now()
-        except Exception:  # nosec  # noqa: B902  # pylint: disable=broad-except
+        except Exception:  # noqa: BLE001  # pylint: disable=broad-except
             self.handleError(record)
 
 
@@ -379,11 +382,10 @@ class TelegramHandler(logging.Handler):
                     < timedelta(minutes=5)
                 ):
                     return
-            # pylint: disable=consider-using-f-string
-            text = '<b>{levelname}</b> in <b>{name}</b>: {message}'.format(
-                levelname=escape(record.levelname, False),
-                name=escape(self.app_name, False),
-                message=escape(record.message, False),
+            text = (
+                f'<b>{escape(record.levelname, False)}</b>'
+                f' in <b>{escape(self.app_name, False)}</b>:'
+                f' {escape(record.message, False)}'
             )
             if record.exc_info:
                 # Reverse the traceback, after dropping the first line with
@@ -425,7 +427,7 @@ class TelegramHandler(logging.Handler):
             ).start()
             with self.throttle_lock:
                 self.throttle_cache[throttle_key] = datetime.now()
-        except Exception:  # noqa: B902  # pylint: disable=broad-except
+        except Exception:  # noqa: BLE001  # pylint: disable=broad-except
             self.handleError(record)
 
 
@@ -441,7 +443,7 @@ log_legacy_confignames = {
 }
 
 
-def init_app(app: FlaskApp, _warning_stacklevel: int = 2) -> None:
+def init_app(app: SansIoApp, _warning_stacklevel: int = 2) -> None:
     """
     Enable logging for an app using :class:`LocalVarFormatter`.
 
@@ -470,10 +472,13 @@ def init_app(app: FlaskApp, _warning_stacklevel: int = 2) -> None:
 
     Format for ``LOG_SLACK_WEBHOOKS``::
 
-        LOG_SLACK_WEBHOOKS = [{
-            'levelnames': ['WARNING', 'ERROR', 'CRITICAL'],
-            'url': 'https://hooks.slack.com/...'
-            }, ...]
+        LOG_SLACK_WEBHOOKS = [
+            {
+                'levelnames': ['WARNING', 'ERROR', 'CRITICAL'],
+                'url': 'https://hooks.slack.com/...',
+            },
+            ...,
+        ]
 
     """
     # --- Prevent dupe init
@@ -524,17 +529,16 @@ def init_app(app: FlaskApp, _warning_stacklevel: int = 2) -> None:
                 backupCount=app.config.get('LOG_FILE_ROTATE_COUNT', 7),
                 utc=app.config.get('LOG_FILE_ROTATE_UTC', False),
             )
+        elif sys.platform in ('linux', 'darwin'):
+            # WatchedFileHandler cannot be used on Windows. Also skip on unknown
+            # platforms, falling back to a regular FileHandler
+            file_handler = logging.handlers.WatchedFileHandler(
+                error_log_file, delay=error_log_file_delay
+            )
         else:
-            if sys.platform in ('linux', 'darwin'):
-                # WatchedFileHandler cannot be used on Windows. Also skip on unknown
-                # platforms, falling back to a regular FileHandler
-                file_handler = logging.handlers.WatchedFileHandler(
-                    error_log_file, delay=error_log_file_delay
-                )
-            else:
-                file_handler = logging.FileHandler(
-                    error_log_file, delay=error_log_file_delay
-                )
+            file_handler = logging.FileHandler(
+                error_log_file, delay=error_log_file_delay
+            )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(app.config.get('LOG_FILE_LEVEL', logging.WARNING))
         logger.addHandler(file_handler)

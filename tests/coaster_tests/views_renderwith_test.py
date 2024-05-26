@@ -1,12 +1,14 @@
+"""Test `renderwith` view decorator."""
+
 import unittest
 from collections.abc import Mapping
 from typing import Any
 
 import pytest
-from flask import Flask, Response, jsonify
+from flask import Flask
 from jinja2 import TemplateNotFound
-from werkzeug.wrappers import Response as BaseResponse
 
+from coaster.compat import SansIoResponse, current_app, jsonify
 from coaster.views import render_with
 
 # --- Test setup -----------------------------------------------------------------------
@@ -14,12 +16,12 @@ from coaster.views import render_with
 app = Flask(__name__)
 
 
-def viewcallable(data: Mapping[str, Any]) -> BaseResponse:
-    return Response(repr(data), mimetype='text/plain')
+def viewcallable(data: Mapping[str, Any]) -> SansIoResponse:
+    return current_app.response_class(repr(data), mimetype='text/plain')
 
 
-def anycallable(data) -> BaseResponse:
-    return Response(repr(data), mimetype='*/*')
+def anycallable(data) -> SansIoResponse:
+    return current_app.response_class(repr(data), mimetype='*/*')
 
 
 def returns_string(data) -> str:
@@ -83,47 +85,35 @@ class TestLoadModels(unittest.TestCase):
         # with the correct template name. Since the templates don't actually exist,
         # we'll get a TemplateNotFound exception, so our "test" is to confirm that the
         # missing template is the one that was supposed to be rendered.
-        try:
-            rv = self.client.get('/renderedview1')
-        except TemplateNotFound as e:
-            assert str(e) == 'renderedview1.html'
-        else:
-            pytest.fail(f"Unexpected response: {rv.headers!r} {rv.data!r}")
+        with pytest.raises(TemplateNotFound, match='renderedview1.html'):
+            self.client.get('/renderedview1')
 
         for acceptheader, template in [
             ('text/html;q=0.9,text/xml;q=0.8,*/*', 'renderedview2.html'),
             ('text/xml;q=0.9,text/html;q=0.8,*/*', 'renderedview2.xml'),
             (
-                'Text/Html,Application/Xhtml Xml,Application/Xml;Q=0.9,*/*;Q=0.8',
+                'Text/Html,Application/Xhtml+Xml,Application/Xml;Q=0.9,*/*;Q=0.8',
                 'renderedview2.html',
             ),
         ]:
-            try:
-                rv = self.client.get(
-                    '/renderedview2', headers=[('Accept', acceptheader)]
-                )
-            except TemplateNotFound as e:
-                assert str(e) == template
-            else:
-                pytest.fail(
-                    f"Accept: {acceptheader} Response: {rv.headers!r} {rv.data!r}"
-                )
+            with pytest.raises(TemplateNotFound, match=template):
+                self.client.get('/renderedview2', headers=[('Accept', acceptheader)])
 
         # The application/json and text/plain renderers do exist, so we should get
         # a valid return value from them.
         response = self.client.get(
             '/renderedview2', headers=[('Accept', 'application/json')]
         )
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         assert response.mimetype == 'application/json'
         with app.test_request_context():
             # jsonify needs a request context
             assert response.data == jsonify({"data": "value"}).data
         response = self.client.get('/renderedview2', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         assert response.data.decode('utf-8') == "{'data': 'value'}"
         response = self.client.get('/renderedview3', headers=[('Accept', 'text/plain')])
-        assert isinstance(response, BaseResponse)
+        assert isinstance(response, SansIoResponse)
         resp = self.client.get('/renderedview4', headers=[('Accept', 'text/plain')])
         assert resp.headers['Referrer'] == "http://example.com"
         # resp = self.app.get('/renderedview5', headers=[('Accept', 'text/plain')])

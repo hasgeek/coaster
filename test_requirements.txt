@@ -1,13 +1,15 @@
 coverage
 coveralls
+Flask-SQLAlchemy
 psycopg
 Pygments
 pylint
 pytest
+pytest-asyncio>=0.23
 pytest-cov
 pytest-env
-pytest-ignore-flaky
 pytest-rerunfailures
 pytest-socket
 pyyaml
+quart
 toml

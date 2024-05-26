@@ -1,3 +1,9 @@
+0.8.0 - Unreleased
+------------------
+
+* Added async support and cross-compatibility between Flask and Quart
+* Dropped obsolete modules ``db``, ``gfm`` and ``nlp``
+
 0.7.0 - Unreleased
 ------------------
 
@@ -20,7 +26,7 @@
   repeat already logged values
 * Dropped deprecated declared_attr_roles and set_roles
 * Added ``__json__`` protocol in ``RoleMixin``
-* Remove unicode_http_header
+* Removed unicode_http_header
 * ``loader`` and ``after_loader`` are deprecated in ``coaster.views.ModelView``
   in favour of a unified ``load`` method
 * ``coaster.db`` is deprecated as Flask-SQLAlchemy 3.0 has changed architecture

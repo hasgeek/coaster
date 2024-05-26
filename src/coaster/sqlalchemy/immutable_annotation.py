@@ -1,13 +1,11 @@
-"""
-Immutable annotation
---------------------
-"""
+"""Immutable annotation."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 from .annotations import annotation_wrapper, annotations_configured
@@ -54,23 +52,25 @@ def _make_immutable(cls: type[Any]) -> None:
     def add_immutable_event(attr: str, col: Any) -> None:
         @sa.event.listens_for(col, 'set', raw=True)
         def immutable_column_set_listener(  # skipcq: PTC-W0065
-            target: sa.orm.InstanceState,
+            target: sa_orm.InstanceState,
             value: Any,
             old_value: Any,
             _initiator: Any,
         ) -> None:
-            # Note:
-            # NEVER_SET is for columns getting a default value during a commit, but in
-            # SQLAlchemy >= 1.4 it appears to also be used in place of NO_VALUE.
-            # NO_VALUE is for columns that have no value (either never set, or not
-            # loaded). Because of this ambiguity, we pair it with a test for persistence
-            if old_value == value:
-                pass
-            elif (
-                old_value is NEVER_SET or old_value is NO_VALUE
-            ) and target.persistent is False:
-                pass
-            else:
+            # About old_value:
+            # * Symbol NO_VALUE is for columns that have no value (either never set, or
+            #   not loaded).
+            # * Symbol NEVER_SET became an alias for NO_VALUE in SQLAlchemy >= 1.4 but
+            #   previously indicated an unset value.
+            # * When mapped as a dataclass, columns may have a default value of None.
+            # Because of this ambiguity, we pair them with a test for persistence.
+            if not (
+                old_value == value
+                or (
+                    old_value in (NEVER_SET, NO_VALUE, None)
+                    and target.persistent is False
+                )
+            ):
                 raise ImmutableColumnError(cls.__name__, attr, old_value, value)
 
     if (

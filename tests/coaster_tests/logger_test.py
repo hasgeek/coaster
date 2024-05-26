@@ -1,3 +1,5 @@
+"""Tests for Coaster's log formatter."""
+
 from io import StringIO
 
 from coaster.logger import RepeatValueIndicator, filtered_value, pprint_with_indent

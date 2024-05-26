@@ -1,9 +1,9 @@
-Coaster: common patterns for Flask apps
-=======================================
+Coaster: common patterns for Flask and Quart apps
+=================================================
 
 |docs| |travis| |coveralls| |deepsource|
 
-Coaster contains functions and db models for recurring patterns in Flask
+Coaster contains functions and db models for recurring patterns in Flask and Quart
 apps. Documentation is at https://coaster.readthedocs.org/. Coaster requires
 Python 3.9 or later.
 

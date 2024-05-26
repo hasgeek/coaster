@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
 from furl import furl
 from pytz import utc
 from sqlalchemy.dialects import postgresql
@@ -53,89 +54,89 @@ class TimestampAware(BaseMixin, Model):
 
 class Container(BaseMixin, Model):
     __tablename__ = 'container'
-    name: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
-    title: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(80), nullable=True)
+    name: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(80), nullable=True)
+    title: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(80), nullable=True)
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
 
 
 class UnnamedDocument(BaseMixin, Model):
     __tablename__ = 'unnamed_document'
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship()
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
 
 
 class NamedDocument(BaseNameMixin, Model):
     __tablename__ = 'named_document'
-    reserved_names = ['new']
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    reserved_names = ('new',)
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship()
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
 
 
 class NamedDocumentBlank(BaseNameMixin, Model):
     __tablename__ = 'named_document_blank'
     __name_blank_allowed__ = True
-    reserved_names = ['new']
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    reserved_names = ('new',)
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship()
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
 
 
 class ScopedNamedDocument(BaseScopedNameMixin, Model):
     __tablename__ = 'scoped_named_document'
-    reserved_names = ['new']
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    reserved_names = ('new',)
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
-    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship()
+    parent: Mapped[Optional[Container]] = sa_orm.synonym('container')
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
 
 class IdNamedDocument(BaseIdNameMixin, Model):
     __tablename__ = 'id_named_document'
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
+    container: Mapped[Optional[Container]] = relationship()
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
 
 
 class ScopedIdDocument(BaseScopedIdMixin, Model):
     __tablename__ = 'scoped_id_document'
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
-    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship()
+    parent: Mapped[Optional[Container]] = sa_orm.synonym('container')
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
 class ScopedIdNamedDocument(BaseScopedIdNameMixin, Model):
     __tablename__ = 'scoped_id_named_document'
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
-    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship()
+    parent: Mapped[Optional[Container]] = sa_orm.synonym('container')
 
-    content: Mapped[Optional[str]] = sa.orm.mapped_column(sa.Unicode(250))
+    content: Mapped[Optional[str]] = sa_orm.mapped_column(sa.Unicode(250))
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
 
@@ -152,11 +153,11 @@ class UnlimitedName(BaseNameMixin, Model):
 class UnlimitedScopedName(BaseScopedNameMixin, Model):
     __tablename__ = 'unlimited_scoped_name'
     __name_length__ = __title_length__ = None
-    container_id: Mapped[Optional[int]] = sa.orm.mapped_column(
+    container_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('container.id')
     )
-    container: Mapped[Optional[Container]] = relationship(Container)
-    parent: Mapped[Optional[Container]] = sa.orm.synonym('container')
+    container: Mapped[Optional[Container]] = relationship()
+    parent: Mapped[Optional[Container]] = sa_orm.synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'name'),)
 
     @property
@@ -178,9 +179,9 @@ class UnlimitedIdName(BaseIdNameMixin, Model):
 class UnlimitedScopedIdName(BaseScopedIdNameMixin, Model):
     __tablename__ = 'unlimited_scoped_id_name'
     __name_length__ = __title_length__ = None
-    container_id: Mapped[int] = sa.orm.mapped_column(sa.ForeignKey('container.id'))
-    container: Mapped[Container] = relationship(Container)
-    parent: Mapped[Container] = sa.orm.synonym('container')
+    container_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('container.id'))
+    container: Mapped[Container] = relationship()
+    parent: Mapped[Container] = sa_orm.synonym('container')
     __table_args__ = (sa.UniqueConstraint('container_id', 'url_id'),)
 
     @property
@@ -191,30 +192,30 @@ class UnlimitedScopedIdName(BaseScopedIdNameMixin, Model):
 
 class User(BaseMixin, Model):
     __tablename__ = 'user'
-    username: Mapped[str] = sa.orm.mapped_column(sa.Unicode(80), nullable=False)
+    username: Mapped[str] = sa_orm.mapped_column(sa.Unicode(80), nullable=False)
 
 
 class MyData(Model):
     __tablename__ = 'my_data'
-    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    data: Mapped[Optional[dict]] = sa.orm.mapped_column(JsonDict)
+    id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)
+    data: Mapped[Optional[dict]] = sa_orm.mapped_column(JsonDict)
 
 
 class MyUrlModel(Model):
     __tablename__ = 'my_url'
-    id: Mapped[int] = sa.orm.mapped_column(sa.Integer, primary_key=True)  # noqa: A003
-    url: Mapped[Optional[furl]] = sa.orm.mapped_column(UrlType)
-    url_all_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(UrlType(schemes=None))
-    url_custom_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(
+    id: Mapped[int] = sa_orm.mapped_column(sa.Integer, primary_key=True)
+    url: Mapped[Optional[furl]] = sa_orm.mapped_column(UrlType)
+    url_all_scheme: Mapped[Optional[furl]] = sa_orm.mapped_column(UrlType(schemes=None))
+    url_custom_scheme: Mapped[Optional[furl]] = sa_orm.mapped_column(
         UrlType(schemes=['ftp'])
     )
-    url_optional_scheme: Mapped[Optional[furl]] = sa.orm.mapped_column(
+    url_optional_scheme: Mapped[Optional[furl]] = sa_orm.mapped_column(
         UrlType(optional_scheme=True)
     )
-    url_optional_host: Mapped[Optional[furl]] = sa.orm.mapped_column(
+    url_optional_host: Mapped[Optional[furl]] = sa_orm.mapped_column(
         UrlType(schemes=('mailto', 'file'), optional_host=True)
     )
-    url_optional_scheme_host: Mapped[Optional[furl]] = sa.orm.mapped_column(
+    url_optional_scheme_host: Mapped[Optional[furl]] = sa_orm.mapped_column(
         UrlType(optional_scheme=True, optional_host=True)
     )
 
@@ -229,21 +230,21 @@ class UuidKey(BaseMixin[UUID, Any], Model):
 
 class UuidKeyNoDefault(BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_key_no_default'
-    id: Mapped[UUID] = sa.orm.mapped_column(  # type: ignore[assignment]  # noqa: A003
-        sa.Uuid, primary_key=True
+    id: Mapped[UUID] = sa_orm.mapped_column(  # type: ignore[assignment]
+        primary_key=True
     )
 
 
 class UuidForeignKey1(BaseMixin[int, Any], Model):
     __tablename__ = 'uuid_foreign_key1'
-    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
-    uuidkey: Mapped[UuidKey] = relationship(UuidKey)
+    uuidkey_id: Mapped[UUID] = sa_orm.mapped_column(sa.ForeignKey('uuid_key.id'))
+    uuidkey: Mapped[UuidKey] = relationship()
 
 
 class UuidForeignKey2(BaseMixin[UUID, Any], Model):
     __tablename__ = 'uuid_foreign_key2'
-    uuidkey_id: Mapped[UUID] = sa.orm.mapped_column(sa.ForeignKey('uuid_key.id'))
-    uuidkey: Mapped[UuidKey] = relationship(UuidKey)
+    uuidkey_id: Mapped[UUID] = sa_orm.mapped_column(sa.ForeignKey('uuid_key.id'))
+    uuidkey: Mapped[UuidKey] = relationship()
 
 
 class UuidIdName(BaseIdNameMixin[UUID, Any], Model):
@@ -269,19 +270,20 @@ class UuidMixinKey(UuidMixin, BaseMixin[UUID, Any], Model):
 class ParentForPrimary(BaseMixin, Model):
     __tablename__ = 'parent_for_primary'
 
-    # The relationship must be explicitly defined for type hinting to work.
-    # add_primary_relationship will replace this with a fleshed-out relationship
-    # for SQLAlchemy configuration
-    primary_child: Mapped[Optional[ChildForPrimary]] = relationship()
+    if TYPE_CHECKING:
+        # The relationship must be explicitly defined for type hinting to work.
+        # add_primary_relationship will replace this with a fleshed-out relationship
+        # for SQLAlchemy configuration
+        primary_child: Mapped[Optional[ChildForPrimary]] = relationship()
 
 
 class ChildForPrimary(BaseMixin, Model):
     __tablename__ = 'child_for_primary'
-    parent_for_primary_id: Mapped[int] = sa.orm.mapped_column(
-        sa.Integer, sa.ForeignKey('parent_for_primary.id'), nullable=False
+    parent_for_primary_id: Mapped[int] = sa_orm.mapped_column(
+        sa.Integer, sa.ForeignKey('parent_for_primary.id')
     )
     parent_for_primary: Mapped[ParentForPrimary] = relationship(ParentForPrimary)
-    parent = sa.orm.synonym('parent_for_primary')
+    parent: Mapped[ParentForPrimary] = sa_orm.synonym('parent_for_primary')
 
 
 add_primary_relationship(
@@ -301,7 +303,7 @@ parent_child_primary = Model.metadata.tables[
 
 class DefaultValue(BaseMixin, Model):
     __tablename__ = 'default_value'
-    value = sa.orm.mapped_column(sa.Unicode(100), default='default')
+    value: Mapped[str] = sa_orm.mapped_column(sa.Unicode(100), default='default')
 
 
 auto_init_default(DefaultValue.value)
@@ -393,13 +395,12 @@ class TestCoasterModels(AppTestCase):
                 'invalid1', title='Invalid1', non_existent_field="I don't belong here."
             )
 
+        NamedDocument.upsert('valid1', title='Valid1')
+        self.session.commit()
         with pytest.raises(TypeError):
-            NamedDocument.upsert('valid1', title='Valid1')
-            self.session.commit()
             NamedDocument.upsert(
                 'valid1', title='Invalid1', non_existent_field="I don't belong here."
             )
-            self.session.commit()
 
     # TODO: Versions of this test are required for BaseNameMixin,
     # BaseScopedNameMixin, BaseIdNameMixin and BaseScopedIdNameMixin
@@ -483,7 +484,6 @@ class TestCoasterModels(AppTestCase):
                 title='Invalid1',
                 non_existent_field="I don't belong here.",
             )
-            self.session.commit()
 
     def test_scoped_named_short_title(self) -> None:
         """Test the short_title method of BaseScopedNameMixin."""
@@ -503,7 +503,7 @@ class TestCoasterModels(AppTestCase):
         assert d1.short_title == "Contained"
 
     def test_id_named(self) -> None:
-        """Documents with a global id in the URL"""
+        """Documents with a global id in the URL."""
         c1 = self.make_container()
         d1 = IdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
@@ -522,7 +522,7 @@ class TestCoasterModels(AppTestCase):
         assert d3.url_name == '3-hello'
 
     def test_scoped_id(self) -> None:
-        """Documents with a container-specific id in the URL"""
+        """Documents with a container-specific id in the URL."""
         c1 = self.make_container()
         d1 = ScopedIdDocument(content="Hello", container=c1)
         u = User(username="foo")
@@ -550,7 +550,7 @@ class TestCoasterModels(AppTestCase):
         assert d4.url_id == 3
 
     def test_scoped_id_named(self) -> None:
-        """Documents with a container-specific id and name in the URL"""
+        """Documents with a container-specific id and name in the URL."""
         c1 = self.make_container()
         d1 = ScopedIdNamedDocument(title="Hello", content="World", container=c1)
         self.session.add(d1)
@@ -691,9 +691,9 @@ class TestCoasterModels(AppTestCase):
         c1 = self.make_container()
         self.session.flush()  # Container needs an id for scoped names to be validated
         d1 = UnlimitedName(title="Document 1")
-        d2 = UnlimitedScopedName(title="Document 2", parent=c1)
+        d2 = UnlimitedScopedName(title="Document 2", container=c1)
         d3 = UnlimitedIdName(title="Document 3")
-        d4 = UnlimitedScopedIdName(title="Document 4", parent=c1)
+        d4 = UnlimitedScopedIdName(title="Document 4", container=c1)
         self.session.add_all([d1, d2, d3, d4])
         self.session.commit()
 
@@ -777,21 +777,21 @@ class TestCoasterModels(AppTestCase):
         assert str(m1.url_custom_scheme) == "ftp://example.com"
 
     def test_urltype_invalid(self) -> None:
+        m1 = MyUrlModel(url="example.com")
+        self.session.add(m1)
         with pytest.raises(StatementError):
-            m1 = MyUrlModel(url="example.com")
-            self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_without_scheme(self) -> None:
+        m2 = MyUrlModel(url="//example.com")
+        self.session.add(m2)
         with pytest.raises(StatementError):
-            m2 = MyUrlModel(url="//example.com")
-            self.session.add(m2)
             self.session.commit()
 
     def test_urltype_invalid_without_host(self) -> None:
+        m2 = MyUrlModel(url="https:///test")
+        self.session.add(m2)
         with pytest.raises(StatementError):
-            m2 = MyUrlModel(url="https:///test")
-            self.session.add(m2)
             self.session.commit()
 
     def test_urltype_empty(self) -> None:
@@ -803,15 +803,15 @@ class TestCoasterModels(AppTestCase):
         assert str(m1.url_custom_scheme) == ""
 
     def test_urltype_invalid_scheme_default(self) -> None:
+        m1 = MyUrlModel(url="magnet://example.com")
+        self.session.add(m1)
         with pytest.raises(StatementError):
-            m1 = MyUrlModel(url="magnet://example.com")
-            self.session.add(m1)
             self.session.commit()
 
     def test_urltype_invalid_scheme_custom(self) -> None:
+        m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
+        self.session.add(m1)
         with pytest.raises(StatementError):
-            m1 = MyUrlModel(url_custom_scheme="magnet://example.com")
-            self.session.add(m1)
             self.session.commit()
 
     def test_urltype_optional_scheme(self) -> None:
@@ -819,9 +819,9 @@ class TestCoasterModels(AppTestCase):
         self.session.add(m1)
         self.session.commit()
 
+        m2 = MyUrlModel(url_optional_scheme="example.com/test")
+        self.session.add(m2)
         with pytest.raises(StatementError):
-            m2 = MyUrlModel(url_optional_scheme="example.com/test")
-            self.session.add(m2)
             self.session.commit()
 
     def test_urltype_optional_host(self) -> None:
@@ -829,9 +829,9 @@ class TestCoasterModels(AppTestCase):
         self.session.add(m1)
         self.session.commit()
 
+        m2 = MyUrlModel(url_optional_host="https:///test")
+        self.session.add(m2)
         with pytest.raises(StatementError):
-            m2 = MyUrlModel(url_optional_host="https:///test")
-            self.session.add(m2)
             self.session.commit()
 
     def test_urltype_optional_scheme_host(self) -> None:
@@ -852,9 +852,7 @@ class TestCoasterModels(AppTestCase):
             Container.query.one_or_none()
 
     def test_failsafe_add(self) -> None:
-        """
-        failsafe_add gracefully handles IntegrityError from dupe entries
-        """
+        """`failsafe_add` gracefully handles IntegrityError from dupe entries."""
         d1 = NamedDocument(name='add_and_commit_test', title="Test")
         d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
         assert d1a is d1  # We got back what we created, so the commit succeeded
@@ -865,9 +863,7 @@ class TestCoasterModels(AppTestCase):
         assert d2a is d1
 
     def test_failsafe_add_existing(self) -> None:
-        """
-        failsafe_add doesn't fail if the item is already in the session
-        """
+        """`failsafe_add` doesn't fail if the item is already in the session."""
         d1 = NamedDocument(name='add_and_commit_test', title="Test")
         d1a = failsafe_add(self.session, d1, name='add_and_commit_test')
         assert d1a is d1  # We got back what we created, so the commit succeeded
@@ -879,25 +875,18 @@ class TestCoasterModels(AppTestCase):
         assert d2a is d1
 
     def test_failsafe_add_fail(self) -> None:
-        """
-        failsafe_add passes through errors occuring from bad data
-        """
+        """`failsafe_add` passes through errors occurring from bad data."""
         d1 = NamedDocument(name='missing_title')
         with pytest.raises(IntegrityError):
             failsafe_add(self.session, d1, name='missing_title')
 
     def test_failsafe_add_silent_fail(self) -> None:
-        """
-        failsafe_add does not raise IntegrityError with bad data
-        when no filters are provided
-        """
+        """`failsafe_add` without filters does not raise IntegrityError."""
         d1 = NamedDocument(name='missing_title')
         assert failsafe_add(self.session, d1) is None
 
     def test_uuid_key(self) -> None:
-        """
-        Models with a UUID primary key work as expected
-        """
+        """Models with a UUID primary key work as expected."""
         u1 = UuidKey()
         u2 = UuidKey()
         self.session.add(u1)
@@ -922,10 +911,10 @@ class TestCoasterModels(AppTestCase):
 
     def test_uuid_url_id(self) -> None:
         """
-        IdMixin provides a url_id that renders as a string of either the
-        integer primary key or the UUID primary key. In addition, UuidMixin
-        provides a uuid_hex that always renders a UUID against either the
-        id or uuid columns.
+        IdMixin provides a url_id that renders as a string of int or UUID pkey.
+
+        In addition, UuidMixin provides a uuid_hex that always renders a UUID against
+        either the id or uuid columns.
         """
         # TODO: This test is a little muddled because UuidMixin renamed
         # its url_id property (which overrode IdMixin's url_id) to uuid_hex.
@@ -1115,9 +1104,7 @@ class TestCoasterModels(AppTestCase):
         assert u4 == qu4
 
     def test_uuid_buid_uuid_b58(self) -> None:
-        """
-        UuidMixin provides uuid_b64 (also as buid) and uuid_b58
-        """
+        """UuidMixin provides uuid_b64 (also as buid) and uuid_b58."""
         u1 = NonUuidMixinKey()
         u2 = UuidMixinKey()
         db.session.add_all([u1, u2])
@@ -1127,13 +1114,13 @@ class TestCoasterModels(AppTestCase):
         assert isinstance(u1.uuid, UUID)
         assert isinstance(u2.uuid, UUID)
 
-        # Test readbility of `buid` attribute
+        # Test readability of `buid` attribute
         assert u1.buid == uuid_to_base64(u1.uuid)
         assert len(u1.buid) == 22  # This is a 22-char B64 representation
         assert u2.buid == uuid_to_base64(u2.uuid)
         assert len(u2.buid) == 22  # This is a 22-char B64 representation
 
-        # Test readbility of `uuid_b58` attribute
+        # Test readability of `uuid_b58` attribute
         assert u1.uuid_b58 == uuid_to_base58(u1.uuid)
         assert len(u1.uuid_b58) in (21, 22)  # 21 or 22-char B58 representation
         assert u2.uuid_b58 == uuid_to_base58(u2.uuid)
@@ -1231,6 +1218,8 @@ class TestCoasterModels(AppTestCase):
 
     def test_uuid_url_id_name(self) -> None:
         """
+        Check fields provided by BaseIdNameMixin.
+
         BaseIdNameMixin models with UUID primary or secondary keys should
         generate properly formatted url_id, url_id_name and url_name_uuid_b58.
         The url_id_name and url_name_uuid_b58 fields should be queryable as well.
@@ -1288,10 +1277,7 @@ class TestCoasterModels(AppTestCase):
         assert q58u3 == u3
 
     def test_uuid_default(self) -> None:
-        """
-        Models with a UUID primary or secondary key have a default value before
-        adding to session
-        """
+        """UUID columns have a default value before database commit."""
         uuid_no = NonUuidKey()
         uuid_yes = UuidKey()
         uuid_no_default = UuidKeyNoDefault()
@@ -1312,22 +1298,20 @@ class TestCoasterModels(AppTestCase):
         assert u4 is None
 
         # UuidMixin works likewise
-        um1 = uuidm_no.uuid  # type: ignore[unreachable]
+        um1 = uuidm_no.uuid
         assert isinstance(um1, UUID)
-        um2 = uuidm_yes.uuid  # This should generate uuidm_yes.id
+        um2 = uuidm_yes.uuid  # This should generate `uuidm_yes.id`
         assert isinstance(um2, UUID)
         assert uuidm_yes.id == uuidm_yes.uuid
 
     def test_parent_child_primary(self) -> None:
-        """
-        Test parents with multiple children and a primary child
-        """
+        """Test parents with multiple children and a primary child."""
         parent1 = ParentForPrimary()
         parent2 = ParentForPrimary()
-        child1a = ChildForPrimary(parent=parent1)
-        child1b = ChildForPrimary(parent=parent1)
-        child2a = ChildForPrimary(parent=parent2)
-        child2b = ChildForPrimary(parent=parent2)
+        child1a = ChildForPrimary(parent_for_primary=parent1)
+        child1b = ChildForPrimary(parent_for_primary=parent1)
+        child2a = ChildForPrimary(parent_for_primary=parent2)
+        child2b = ChildForPrimary(parent_for_primary=parent2)
 
         self.session.add_all([parent1, parent2, child1a, child1b, child2a, child2b])
         self.session.commit()
@@ -1364,14 +1348,14 @@ class TestCoasterModels(AppTestCase):
         assert qparent2.primary_child == child2a
 
         # # A parent can't have a default that is another's child
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not affiliated with"):
             parent1.primary_child = child2b
 
         # The default hasn't changed despite the validation error
         assert parent1.primary_child == child1a
 
-        # Unsetting the default removes the relationship row,
-        # but does not remove the child instance from the db
+        # Clearing the default removes the relationship row, but does not remove the
+        # child instance from the db
         parent1.primary_child = None
         self.session.commit()
         assert (
@@ -1395,9 +1379,7 @@ class TestCoasterModels(AppTestCase):
         assert ParentForPrimary.query.count() == 2
 
     def test_auto_init_default(self) -> None:
-        """
-        Calling ``auto_init_default`` on a column makes it load defaults automatically
-        """
+        """Calling ``auto_init_default`` sets the default on first access."""
         d1 = DefaultValue()
         d2 = DefaultValue(value='not-default')
         d3 = DefaultValue()
@@ -1429,10 +1411,10 @@ class TestCoasterModels(AppTestCase):
     def test_parent_child_primary_sql_validator(self) -> None:
         parent1 = ParentForPrimary()
         parent2 = ParentForPrimary()
-        child1a = ChildForPrimary(parent=parent1)
-        child1b = ChildForPrimary(parent=parent1)
-        child2a = ChildForPrimary(parent=parent2)
-        child2b = ChildForPrimary(parent=parent2)
+        child1a = ChildForPrimary(parent_for_primary=parent1)
+        child1b = ChildForPrimary(parent_for_primary=parent1)
+        child2a = ChildForPrimary(parent_for_primary=parent2)
+        child2b = ChildForPrimary(parent_for_primary=parent2)
 
         parent1.primary_child = child1a
 

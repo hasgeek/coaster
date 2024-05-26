@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 import pytest
 import sqlalchemy as sa
+import sqlalchemy.orm as sa_orm
+from sqlalchemy.orm import Mapped
 
 from coaster.auth import add_auth_attribute
 from coaster.sqlalchemy import (
@@ -59,14 +61,14 @@ class MyPost(BaseMixin, Model):
 
     __tablename__ = 'my_post'
     # Database state columns
-    _state = sa.orm.mapped_column(
+    _state: Mapped[int] = sa_orm.mapped_column(
         'state',
         sa.Integer,
         StateManager.check_constraint('state', MY_STATE),
         default=MY_STATE.DRAFT,
         nullable=False,
     )
-    _reviewstate = sa.orm.mapped_column(
+    _reviewstate: Mapped[int] = sa_orm.mapped_column(
         'reviewstate',
         sa.Integer,
         StateManager.check_constraint('state', REVIEW_STATE),
@@ -81,8 +83,8 @@ class MyPost(BaseMixin, Model):
     # state manager instead.
 
     # Model's data columns (used for tests)
-    published_at = sa.orm.mapped_column(
-        sa.DateTime, default=datetime.utcnow, nullable=False
+    published_at: Mapped[Optional[datetime]] = sa_orm.mapped_column(
+        insert_default=sa.func.now()  # pylint: disable=not-callable
     )
 
     # Conditional states (adds ManagedState instances)
@@ -184,7 +186,7 @@ class MyPost(BaseMixin, Model):
 
 
 @pytest.mark.filterwarnings("ignore::coaster.utils.classes.LabeledEnumWarning")
-def test_check_constraint_labeledenum():
+def test_check_constraint_labeledenum() -> None:
     """Test check_constraint with a LabeledEnum."""
 
     class TestEnum1(LabeledEnum):
@@ -228,7 +230,7 @@ def test_check_constraint_labeledenum():
     )
 
 
-def test_check_constraint_enum():
+def test_check_constraint_enum() -> None:
     """Test check_constraint with an Enum."""
 
     class TestEnumInt(enum.Enum):
@@ -309,19 +311,17 @@ class TestStateManager(AppTestCase):
         """Conditional state with the name of an existing state will raise an error."""
         state = MyPost.__dict__['state']
         with pytest.raises(AttributeError):
-            state.add_conditional_state('PENDING', state.DRAFT, lambda post: True)
+            state.add_conditional_state('PENDING', state.DRAFT, lambda _: True)
 
     def test_conditional_state_unmanaged_state(self) -> None:
         """Conditional states require a managed state as base."""
         state = MyPost.__dict__['state']
         reviewstate = MyPost.__dict__['reviewstate']
         with pytest.raises(TypeError):
-            state.add_conditional_state(
-                'TEST_STATE1', MY_STATE.DRAFT, lambda post: True
-            )
+            state.add_conditional_state('TEST_STATE1', MY_STATE.DRAFT, lambda _: True)
         with pytest.raises(ValueError, match="not associated with this state manager"):
             state.add_conditional_state(
-                'TEST_STATE2', reviewstate.UNSUBMITTED, lambda post: True
+                'TEST_STATE2', reviewstate.UNSUBMITTED, lambda _: True
             )
 
     def test_conditional_state_label(self) -> None:
@@ -367,7 +367,7 @@ class TestStateManager(AppTestCase):
     def test_has_nonstate(self) -> None:
         """Test that StateManagerWrapper is only a proxy to StateManager's attrs."""
         with pytest.raises(AttributeError):
-            self.post.state.does_not_exist  # pylint: disable=pointless-statement
+            _ = self.post.state.does_not_exist
         assert isinstance(self.post.state.transition, types.MethodType)
 
     def test_readonly(self) -> None:
@@ -377,7 +377,7 @@ class TestStateManager(AppTestCase):
             self.post.state = MY_STATE.PENDING
         assert isinstance(self.post.state, StateManagerInstance)
         assert self.post.state.DRAFT
-        self.post._state = MY_STATE.PENDING
+        self.post._state = MY_STATE.PENDING  # type: ignore[assignment]
         assert not self.post.state.DRAFT
         assert self.post.state.PENDING
 
@@ -390,25 +390,21 @@ class TestStateManager(AppTestCase):
             state._set_state_value(self.post, 100)
 
     def test_conditional_state(self) -> None:
-        """
-        Conditional states include custom validators which are called to confirm the state
-        """
+        """Conditional states include custom validators which are called to confirm the state."""
         assert self.post.state.DRAFT
         assert not self.post.state.RECENT
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         assert self.post.state.RECENT
         self.post.rewind()
         assert not self.post.state.RECENT
 
     def test_bestmatch_state(self) -> None:
-        """
-        The best matching state prioritises conditional over direct
-        """
+        """The best matching state prioritises conditional over direct."""
         assert self.post.state.DRAFT
         assert self.post.state.bestmatch() == self.post.state.DRAFT
         assert not self.post.state.RECENT
 
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
 
         assert self.post.state.RECENT
         assert self.post.state.PUBLISHED
@@ -423,7 +419,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.label.name == 'published'
 
     def test_added_state_group(self) -> None:
-        """Added state groups can be tested"""
+        """Added state groups can be tested."""
         assert self.post.state.DRAFT
         # True because DRAFT state matches
         assert self.post.state.REDRAFTABLE
@@ -435,26 +431,24 @@ class TestStateManager(AppTestCase):
         assert not self.post.state.REDRAFTABLE
 
     def test_state_group_invalid(self) -> None:
-        """add_state_group validates the states being added"""
+        """add_state_group validates the states being added."""
         state = MyPost.__dict__['state']
         reviewstate = MyPost.__dict__['reviewstate']
         # Can't add an existing state name
         with pytest.raises(AttributeError):
             state.add_state_group('DRAFT', state.PENDING)
         # Can't add a state from another state manager
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid state .* for state group"):
             state.add_state_group('OTHER', reviewstate.UNSUBMITTED)
         # Can't group a conditional state with the main state
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="The value for state .* is already in"):
             state.add_state_group('MIXED1', state.PUBLISHED, state.RECENT)
         # Can't group a conditional state with group containing main state
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="The value for state .* is already in"):
             state.add_state_group('MIXED2', state.PUBLISHED_AND_AFTER, state.RECENT)
 
     def test_sql_query_single_value(self) -> None:
-        """
-        Different queries with the same state value work as expected
-        """
+        """Different queries with the same state value work as expected."""
         post1 = MyPost.query.filter(MyPost.state.DRAFT).first()
         assert post1 is not None
         assert post1.id == self.post.id
@@ -467,37 +461,31 @@ class TestStateManager(AppTestCase):
         assert post4.id == self.post.id
 
     def test_sql_query_multi_value(self) -> None:
-        """
-        Same queries with different state values work as expected
-        """
+        """Same queries with different state values work as expected."""
         post1 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         assert post1 is not None
         assert post1.id == self.post.id
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.UNPUBLISHED).first()
         assert post2 is None
 
     def test_sql_query_added_state(self) -> None:
-        """
-        Querying for an added state works as expected (with two filter conditions combined with and_)
-        """
+        """Querying for an added state works as expected (with two filter conditions combined with and_)."""
         post1 = MyPost.query.filter(MyPost.state.RECENT).first()
         assert post1 is None
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.RECENT).first()
         assert post2 is not None
         assert post2.id == self.post.id
 
     def test_sql_query_state_group(self) -> None:
-        """
-        Querying for a state group works as expected (with multiple filter conditions combined with or_)
-        """
+        """Querying for a state group works as expected (with multiple filter conditions combined with or_)."""
         post1 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         assert post1 is not None
         assert post1.id == self.post.id
-        self.post._state = MY_STATE.PUBLISHED
+        self.post._state = MY_STATE.PUBLISHED  # type: ignore[assignment]
         self.session.commit()
         post2 = MyPost.query.filter(MyPost.state.REDRAFTABLE).first()
         assert post2 is not None
@@ -508,9 +496,7 @@ class TestStateManager(AppTestCase):
         assert post3 is None
 
     def test_transition_submit(self) -> None:
-        """
-        `submit` transition works
-        """
+        """`submit` transition works."""
         assert self.post.state.value == MY_STATE.DRAFT
         self.post.submit()
         assert self.post.state.value == MY_STATE.PENDING
@@ -521,9 +507,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.value == MY_STATE.PENDING
 
     def test_transition_publish_invalid(self) -> None:
-        """
-        An exception in the transition aborts it
-        """
+        """An exception in the transition aborts it."""
         assert self.post.state.DRAFT
         with pytest.raises(AssertionError):
             # publish() should raise AssertionError if we're a draft (custom exception, not decorator's)
@@ -532,9 +516,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.DRAFT
 
     def test_transition_publish_datetime(self) -> None:
-        """
-        `publish` transition amends `datetime`
-        """
+        """`publish` transition amends `datetime`."""
         assert self.post.state.DRAFT
         self.post.submit()
         assert self.post.state.PENDING
@@ -543,9 +525,7 @@ class TestStateManager(AppTestCase):
         assert self.post.published_at is not None
 
     def test_requires(self) -> None:
-        """
-        The `requires` decorator behaves similarly to a transition, but doesn't state change
-        """
+        """The `requires` decorator behaves similarly to a transition, but doesn't state change."""
         assert self.post.state.DRAFT
         with pytest.raises(StateTransitionError):
             # Can only be called in published state
@@ -553,16 +533,16 @@ class TestStateManager(AppTestCase):
         self.post.submit()
         self.post.publish()
         assert self.post.state.PUBLISHED
+        assert self.post.published_at is not None
         d = self.post.published_at
         # Now we can call it
         self.post.rewind()
         assert self.post.state.PUBLISHED
+        assert self.post.published_at is not None
         assert self.post.published_at < d
 
     def test_state_labels(self) -> None:
-        """
-        The current state's label can be accessed from the `.label` attribute
-        """
+        """The current state's label can be accessed from the `.label` attribute."""
         assert self.post.state.DRAFT
         assert self.post.state.label == "Draft"
         self.post.submit()
@@ -570,9 +550,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.label.title == "Pending"
 
     def test_added_state_transition(self) -> None:
-        """
-        Transition works with added states as a `from` state
-        """
+        """Transition works with added states as a `from` state."""
         assert self.post.state.DRAFT
         self.post.submit()  # Change from DRAFT to PENDING
         self.post.publish()  # Change from PENDING to PUBLISHED
@@ -589,9 +567,7 @@ class TestStateManager(AppTestCase):
             self.post.undo()
 
     def test_added_regular_state_transition(self) -> None:
-        """
-        Transitions work with mixed use of regular and added states in the `from` state
-        """
+        """Transitions work with mixed use of regular and added states in the `from` state."""
         assert self.post.state.DRAFT
         self.post.submit()  # Change from DRAFT to PENDING
         assert self.post.state.PENDING
@@ -614,7 +590,7 @@ class TestStateManager(AppTestCase):
             self.post.redraft()
 
     def test_reviewstate_also_changes(self) -> None:
-        """Transitions with two decorators change state on both managers"""
+        """Transitions with two decorators change state on both managers."""
         assert self.post.state.DRAFT
         assert self.post.reviewstate.UNSUBMITTED
         self.post.submit()  # This changes only `state`
@@ -628,7 +604,7 @@ class TestStateManager(AppTestCase):
         assert self.post.reviewstate.PENDING
 
     def test_transition_state_lock(self) -> None:
-        """Both states must be in valid state for a transition to be available"""
+        """Both states must be in valid state for a transition to be available."""
         self.post.submit()
         assert self.post.state.PENDING
         assert self.post.reviewstate.UNSUBMITTED
@@ -648,7 +624,7 @@ class TestStateManager(AppTestCase):
     def test_transition_from_none(self) -> None:
         """Transition from None ignores initial state."""
         assert self.post.state.DRAFT
-        self.post._reviewstate = REVIEW_STATE.LOCKED
+        self.post._reviewstate = REVIEW_STATE.LOCKED  # type: ignore[assignment]
         assert self.post.state.DRAFT
         assert self.post.reviewstate.LOCKED
         self.post.submit()  # submit overrides LOCKED status
@@ -676,7 +652,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PUBLISHED  # state has changed
 
     def test_transition_is_available(self) -> None:
-        """A transition's is_available property is reliable"""
+        """A transition's is_available property is reliable."""
         assert self.post.state.DRAFT
         assert self.post.submit.is_available
         self.post.submit()
@@ -691,7 +667,7 @@ class TestStateManager(AppTestCase):
         assert not self.post.undo.is_available
 
     def test_transition_data(self) -> None:
-        """Additional data defined on a transition works regardless of decorator order"""
+        """Additional data defined on a transition works regardless of decorator order."""
         # Titles are defined on different decorators on these:
         assert self.post.publish.data['title'] == "Publish"
         assert self.post.undo.data['title'] == "Undo"
@@ -700,28 +676,28 @@ class TestStateManager(AppTestCase):
         assert MyPost.undo.data['title'] == "Undo"
 
     def test_transition_data_name_invalid(self) -> None:
-        """The `name` data field on transitions is reserved and cannot be specified"""
+        """The `name` data field on transitions is reserved and cannot be specified."""
         state = MyPost.__dict__['state']
         with pytest.raises(TypeError):
 
             @state.transition(None, state.DRAFT, name='invalid_data_field')
-            def name_test(self):
+            def name_test(self) -> None:
                 pass
 
     def test_duplicate_transition(self) -> None:
-        """Transitions can't be decorated twice with the same state manager"""
+        """Transitions can't be decorated twice with the same state manager."""
         state = MyPost.__dict__['state']
         with pytest.raises(TypeError):
 
             @state.transition(state.DRAFT, state.PENDING)
             @state.transition(state.PENDING, state.PUBLISHED)
-            def dupe_decorator(self):
+            def dupe_decorator(self) -> None:
                 pass
 
         state.transitions.remove('dupe_decorator')
 
     def test_available_transitions(self) -> None:
-        """State managers indicate the currently available transitions"""
+        """State managers indicate the currently available transitions."""
         assert self.post.state.DRAFT
         assert 'submit' in self.post.state.transitions(current=False)
         self.post.state.transitions(current=False)['submit']()
@@ -729,7 +705,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PENDING
 
     def test_available_transitions_order(self) -> None:
-        """State managers maintain the order of transitions from the class definition"""
+        """State managers maintain the order of transitions from the class definition."""
         assert self.post.state.DRAFT
         # `submit` must come before `publish`
         assert list(self.post.state.transitions(current=False).keys())[:2] == [
@@ -738,7 +714,7 @@ class TestStateManager(AppTestCase):
         ]
 
     def test_currently_available_transitions(self) -> None:
-        """State managers indicate the currently available transitions (using current_auth)"""
+        """State managers indicate the currently available transitions (using current_auth)."""
         assert self.post.state.DRAFT
         assert 'submit' not in self.post.state.transitions()
         # Add a user using the string 'author' (see MyPost.roles_for)
@@ -749,7 +725,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PENDING
 
     def test_available_transitions_for(self) -> None:
-        """State managers indicate the currently available transitions (using access_for)"""
+        """State managers indicate the currently available transitions (using access_for)."""
         assert self.post.state.DRAFT
         assert 'submit' not in self.post.state.transitions_for(roles={'reviewer'})
         assert 'submit' in self.post.state.transitions_for(roles={'author'})
@@ -758,7 +734,7 @@ class TestStateManager(AppTestCase):
         assert self.post.state.PENDING
 
     def test_current_states(self) -> None:
-        """All states that are currently active"""
+        """All states that are currently active."""
         current = self.post.state.current()
         assert set(current.keys()) == {'DRAFT', 'UNPUBLISHED', 'REDRAFTABLE'}
         assert current['DRAFT']
@@ -769,23 +745,23 @@ class TestStateManager(AppTestCase):
             MyPost.state.current()
 
     def test_managed_state_wrapper(self) -> None:
-        """ManagedStateWrapper will only wrap a managed state or group"""
+        """ManagedStateWrapper will only wrap a managed state or group."""
         draft = MyPost.__dict__['state'].DRAFT
         wdraft = ManagedStateInstance(draft, self.post)
         assert draft.value == wdraft.value
         assert wdraft  # Object is falsy
-        assert self.post.state.DRAFT == wdraft
+        assert wdraft == self.post.state.DRAFT
         self.post.submit()
         assert not wdraft
         # Object remains the same even if not active
-        assert self.post.state.DRAFT == wdraft
-        assert self.post.state.PENDING != wdraft  # These objects don't match
+        assert wdraft == self.post.state.DRAFT
+        assert wdraft != self.post.state.PENDING  # These objects don't match
 
         with pytest.raises(TypeError):
             ManagedStateInstance(MY_STATE.DRAFT, self.post)  # type: ignore[arg-type]
 
     def test_role_proxy_transitions(self) -> None:
-        """with_roles works on the transition decorator"""
+        """with_roles works on the transition decorator."""
         assert self.post.state.DRAFT
         # Create access proxies for each of these roles
         author = self.post.access_for(roles={'author'})
@@ -824,13 +800,13 @@ class TestStateManager(AppTestCase):
         self.session.commit()
         groups1 = MyPost.state.group(MyPost.query.all())
         # Order is preserved. Draft before Published. No Pending.
-        assert [g.label for g in groups1.keys()] == [
+        assert [g.label for g in groups1] == [
             MY_STATE[MY_STATE.DRAFT],
             MY_STATE[MY_STATE.PUBLISHED],
         ]
         # Order is preserved. Draft before Pending before Published.
         groups2 = MyPost.state.group(MyPost.query.all(), keep_empty=True)
-        assert [g.label for g in groups2.keys()] == [
+        assert [g.label for g in groups2] == [
             MY_STATE[MY_STATE.DRAFT],
             MY_STATE[MY_STATE.PENDING],
             MY_STATE[MY_STATE.PUBLISHED],

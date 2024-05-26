@@ -2,6 +2,8 @@
 
 # pylint: disable=redefined-outer-name,unused-variable
 
+from __future__ import annotations
+
 import pickle  # nosec B403
 from dataclasses import FrozenInstanceError, dataclass
 from enum import Enum
@@ -14,16 +16,22 @@ from coaster.utils import DataclassFromType
 
 @dataclass(frozen=True, eq=False)
 class StringMetadata(DataclassFromType, str):
+    """String with metadata."""
+
     description: str
     extra: Optional[str] = None
 
 
 @dataclass(frozen=True, eq=False)
 class IntMetadata(DataclassFromType, int):
+    """Int with metadata."""
+
     title: str
 
 
 class MetadataEnum(StringMetadata, Enum):
+    """Enum with metadata."""
+
     FIRST = "first", "First string"
     SECOND = "second", "Second string", "Optional extra"
 
@@ -79,7 +87,7 @@ def test_immutable_data_type() -> None:
     """The data type must be immutable."""
 
     class Immutable(DataclassFromType, tuple):  # skipcq: PTC-W0065
-        pass
+        __slots__ = ()
 
     with pytest.raises(TypeError, match="data type must be immutable"):
 
@@ -94,9 +102,9 @@ def test_annotated_str(
     assert a == 'a'
     assert b == 'b'
     assert b2 == 'b'
-    assert 'a' == a
-    assert 'b' == b
-    assert 'b' == b2
+    assert 'a' == a  # noqa: SIM300
+    assert 'b' == b  # noqa: SIM300
+    assert 'b' == b2  # noqa: SIM300
     assert a != b
     assert a != b2
     assert b != a
@@ -133,7 +141,7 @@ def test_dataclass_fields_set(
         a.self = 'b'  # type: ignore[misc]
 
 
-def test_dict_keys(a: StringMetadata, b: StringMetadata, b2: StringMetadata) -> None:
+def test_dict_keys(a: StringMetadata, b: StringMetadata) -> None:
     """DataclassFromType-based dataclasses can be used as dict keys."""
     d: dict[Any, Any] = {a: a.description, b: b.description}
     assert d['a'] == a.description
@@ -151,16 +159,16 @@ def test_dict_overlap(a: StringMetadata) -> None:
     assert len(d1) == 1
     assert d1['a'] == "Overlap"
     assert d2['a'] == "Overlap"
-    assert isinstance(list(d1.keys())[0], str)
-    assert isinstance(list(d2.keys())[0], str)
-    assert not isinstance(list(d1.keys())[0], StringMetadata)  # Retained str
-    assert isinstance(list(d2.keys())[0], StringMetadata)  # Retained StringMetadata
+    assert isinstance(next(iter(d1.keys())), str)
+    assert isinstance(next(iter(d2.keys())), str)
+    assert not isinstance(next(iter(d1.keys())), StringMetadata)  # Retained str
+    assert isinstance(next(iter(d2.keys())), StringMetadata)  # Retained StringMetadata
 
 
 def test_pickle(a: StringMetadata) -> None:
     """Pickle dump and load will reconstruct the full dataclass."""
     p = pickle.dumps(a)
-    a2 = pickle.loads(p)  # nosec B301
+    a2 = pickle.loads(p)  # nosec B301  # noqa: S301
     assert isinstance(a2, StringMetadata)
     assert a2 == a
     assert a2.self == 'a'

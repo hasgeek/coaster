@@ -1,6 +1,7 @@
 """Test ModelBase."""
 
 # pylint: disable=redefined-outer-name
+# spell-checker:ignore backref
 
 from __future__ import annotations
 
@@ -13,14 +14,14 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DynamicMapped, Mapped, mapped_column
 
 from coaster.sqlalchemy import (
+    BackrefWarning,
     DeclarativeBase,
     ModelBase,
-    ModelWarning,
-    Query,
     backref,
     int_pkey,
     relationship,
 )
+from coaster.sqlalchemy.query import Query
 
 
 def test_query_is_query() -> None:
@@ -359,7 +360,7 @@ def test_backref_query_class() -> None:
         __tablename__ = 'related_model'
         pkey: Mapped[int_pkey]
         test_id: Mapped[int] = mapped_column(sa.ForeignKey('test_model.pkey'))
-        with pytest.warns(ModelWarning):
+        with pytest.warns(BackrefWarning):
             test: Mapped[TestModel] = relationship(
                 backref=backref('related', lazy='dynamic')
             )
@@ -385,5 +386,5 @@ def test_backref_warning() -> None:
         __tablename__ = 'related_model'
         pkey: Mapped[int_pkey]
         test_id: Mapped[int] = mapped_column(sa.ForeignKey('test_model.pkey'))
-        with pytest.warns(ModelWarning):
+        with pytest.warns(BackrefWarning):
             test: Mapped[TestModel] = relationship(backref='related')

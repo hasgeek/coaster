@@ -1,12 +1,10 @@
-"""
-Enhanced query and custom comparators
--------------------------------------
-"""
+"""Enhanced query and custom comparators."""
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterator
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, Optional, Union
 from uuid import UUID
 
 import sqlalchemy as sa
@@ -21,9 +19,6 @@ __all__ = [
     'SqlUuidB64Comparator',
     'SqlUuidB58Comparator',
 ]
-
-
-_T = TypeVar('_T', bound=Any)
 
 
 class SplitIndexComparator(Comparator):
@@ -42,23 +37,23 @@ class SplitIndexComparator(Comparator):
     def _decode(self, other: str) -> Any:
         raise NotImplementedError
 
-    def __eq__(self, other: Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
+    def __eq__(self, other: object) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
-            other = self._decode(other)
+            other = self._decode(other)  # type: ignore[arg-type]
         except (ValueError, TypeError):
             # If other could not be decoded, we do not match.
             return sa.sql.expression.false()
-        return self.__clause_element__() == other
+        return self.__clause_element__() == other  # type: ignore[return-value]
 
     is_ = __eq__  # type: ignore[assignment]
 
-    def __ne__(self, other: Any) -> sa.ColumnElement[bool]:  # type: ignore[override]
+    def __ne__(self, other: object) -> sa.ColumnElement[bool]:  # type: ignore[override]
         try:
-            other = self._decode(other)
+            other = self._decode(other)  # type: ignore[arg-type]
         except (ValueError, TypeError):
             # If other could not be decoded, we are not equal.
             return sa.sql.expression.true()
-        return self.__clause_element__() != other
+        return self.__clause_element__() != other  # type: ignore[return-value]
 
     isnot = __ne__  # type: ignore[assignment]
     is_not = __ne__  # type: ignore[assignment]
@@ -68,10 +63,8 @@ class SplitIndexComparator(Comparator):
 
         def errordecode(otherlist: Any) -> Iterator[str]:
             for val in otherlist:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     yield self._decode(val)
-                except (ValueError, TypeError):
-                    pass
 
         valid_values = list(errordecode(other))
         if not valid_values:

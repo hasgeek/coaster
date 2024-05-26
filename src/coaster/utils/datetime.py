@@ -1,8 +1,6 @@
-"""
-Date, time and timezone utilities
----------------------------------
-"""
+"""Date, time and timezone utilities."""
 
+# spell-checker:ignore isoweek
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, tzinfo
@@ -23,13 +21,6 @@ __all__ = [
     'sorted_timezones',
     'ParseError',
 ]
-
-# --- Thread safety fix ----------------------------------------------------------------
-
-# Force import of strptime. This was previously used in :func:`parse_isoformat`,
-# but we have left this in because it could break elsewhere.
-# https://stackoverflow.com/q/16309650/78903
-datetime.strptime('20160816', '%Y%m%d')
 
 
 def utcnow() -> datetime:
@@ -107,8 +98,9 @@ def midnight_to_utc(
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
     >>> midnight_to_utc(datetime(2017, 1, 1), naive=True)
     datetime.datetime(2017, 1, 1, 0, 0)
-    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)),
-    ...   naive=True)
+    >>> midnight_to_utc(
+    ...     pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), naive=True
+    ... )
     datetime.datetime(2016, 12, 31, 18, 30)
     >>> midnight_to_utc(date(2017, 1, 1))
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
@@ -118,16 +110,14 @@ def midnight_to_utc(
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
     >>> midnight_to_utc(datetime(2017, 1, 1), timezone='Asia/Kolkata')
     datetime.datetime(2016, 12, 31, 18, 30, tzinfo=<UTC>)
-    >>> midnight_to_utc(pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)),
-    ...   timezone='UTC')
+    >>> midnight_to_utc(
+    ...     pytz.timezone('Asia/Kolkata').localize(datetime(2017, 1, 1)), timezone='UTC'
+    ... )
     datetime.datetime(2017, 1, 1, 0, 0, tzinfo=<UTC>)
     """
     tz: Union[tzinfo, BaseTzInfo]
     if timezone:
-        if isinstance(timezone, str):
-            tz = pytz.timezone(timezone)
-        else:
-            tz = timezone
+        tz = pytz.timezone(timezone) if isinstance(timezone, str) else timezone
     elif isinstance(dt, datetime) and dt.tzinfo:
         tz = dt.tzinfo
     else:

@@ -1,7 +1,4 @@
-"""
-Helper functions
-----------------
-"""
+"""SQLAlchemy helper functions."""
 
 from __future__ import annotations
 
@@ -9,11 +6,13 @@ from datetime import datetime
 from typing import Any, Optional, TypeVar, Union, cast, overload
 
 import sqlalchemy as sa
+import sqlalchemy.exc as sa_exc
+import sqlalchemy.orm as sa_orm
 from sqlalchemy import inspect
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase
 
-from .model import relationship
+from .query import relationship
 
 __all__ = [
     'make_timestamp_columns',
@@ -32,25 +31,33 @@ T = TypeVar('T')
 # Adapted from https://docs.sqlalchemy.org/en/14/core/compiler.html
 # #utc-timestamp-function
 class UtcNow(sa.sql.functions.GenericFunction):
-    """Provide func.utcnow() that guarantees UTC timestamp."""
+    """Provide ``sqlalchemy.func.utcnow()`` that guarantees UTC timestamp."""
 
-    type = sa.TIMESTAMP()  # noqa: A003
+    type = sa.TIMESTAMP()
     identifier = 'utcnow'
     inherit_cache = True
 
 
 @compiles(UtcNow)
-def _utcnow_default(element: UtcNow, _compiler: Any, **kwargs) -> str:
+def _utcnow_default(_element: UtcNow, _compiler: Any, **_kwargs) -> str:
     return 'CURRENT_TIMESTAMP'
 
 
 @compiles(UtcNow, 'mysql')
-def _utcnow_mysql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
+def _utcnow_mysql(  # pragma: no cover
+    _element: UtcNow,
+    _compiler: Any,
+    **_kwargs,
+) -> str:
     return 'UTC_TIMESTAMP()'
 
 
 @compiles(UtcNow, 'mssql')
-def _utcnow_mssql(element: UtcNow, _compiler: Any, **kwargs) -> str:  # pragma: no cover
+def _utcnow_mssql(  # pragma: no cover
+    _element: UtcNow,
+    _compiler: Any,
+    **_kwargs,
+) -> str:
     return 'SYSUTCDATETIME()'
 
 
@@ -78,7 +85,7 @@ def make_timestamp_columns(
     )
 
 
-session_type = Union[sa.orm.Session, sa.orm.scoped_session]
+session_type = Union[sa_orm.Session, sa_orm.scoped_session]
 
 
 @overload
@@ -134,12 +141,12 @@ def failsafe_add(
         savepoint.commit()
         if filters:
             return __instance
-    except sa.exc.IntegrityError as e:
+    except sa_exc.IntegrityError as e:
         savepoint.rollback()
         if filters:
             try:
                 return __session.query(__instance.__class__).filter_by(**filters).one()
-            except sa.exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
+            except sa_exc.NoResultFound:  # Do not trap the other, MultipleResultsFound
                 raise e from e
     return None
 
@@ -207,7 +214,7 @@ def add_primary_relationship(
             list[sa.Column],
             list(
                 make_timestamp_columns(
-                    timezone=getattr(parent, '__with_timezone__', False)
+                    timezone=getattr(parent, '__with_timezone__', True)
                 )
             ),
         )
@@ -230,6 +237,7 @@ def add_primary_relationship(
     sa.event.listen(
         primary_table,
         'after_create',
+        # spell-checker:ignore parentcol plpgsql
         sa.DDL(
             '''
             CREATE FUNCTION %(function)s() RETURNS TRIGGER AS $$
@@ -283,7 +291,7 @@ def add_primary_relationship(
 
 
 def auto_init_default(
-    column: Union[sa.orm.ColumnProperty, sa.orm.InstrumentedAttribute]
+    column: Union[sa_orm.ColumnProperty, sa_orm.InstrumentedAttribute],
 ) -> None:
     """
     Set the default value of a column on first access.
@@ -292,12 +300,9 @@ def auto_init_default(
     read the value before commit will get None instead of the default value. This
     helper fixes that. Usage::
 
-        class MyModel(Model):
-            column: Mapped[PyType] = sa.orm.mapped_column(SqlType, default="value")
-
         auto_init_default(MyModel.column)
     """
-    if isinstance(column, sa.orm.ColumnProperty):
+    if isinstance(column, sa_orm.ColumnProperty):
         default = column.columns[0].default
     else:
         default = column.default

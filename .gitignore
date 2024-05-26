@@ -19,5 +19,4 @@ __pycache__
 .mypy_cache
 .cache
 .vscode
-coverage/
 monkeytype.sqlite3
