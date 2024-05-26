@@ -12,8 +12,7 @@ from base64 import urlsafe_b64decode, urlsafe_b64encode
 from collections.abc import Collection, Mapping
 from datetime import datetime
 from functools import wraps
-from random import SystemRandom
-from secrets import token_bytes
+from secrets import randbelow, token_bytes
 from typing import Any, Callable, Literal, Optional, TypeVar, Union, overload
 from urllib.parse import urlparse
 
@@ -273,10 +272,9 @@ def newpin(digits: int = 4) -> str:
     >>> newpin(6) != newpin(6)
     True
     """
-    random = SystemRandom()
     pin = '00' * digits
     while len(pin) > digits:
-        randnum = random.randint(0, 10**digits)  # nosec
+        randnum = randbelow(10**digits)
         pin = str(randnum).zfill(digits)
     return pin
 

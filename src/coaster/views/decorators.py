@@ -678,9 +678,10 @@ def render_with(
         ]:
             """Extract status code and headers from the view's return value."""
             if TYPE_CHECKING:
-                # This function does not expect to get a Response object, but we're
-                # not bothering to redefine the complex ReturnRenderWith type minus
-                # the embedded Response type
+                # This function does not expect to get a `Response` object, but we're
+                # not bothering to redefine the complex `ReturnRenderWith` type minus
+                # the embedded `Response` type. Instead, we narrow the type to exclude
+                # `Response` using a type-checking assert
                 assert not isinstance(result, SansIoResponse)  # nosec B101
             headers: Optional[ReturnRenderWithHeaders]
             status_code: Optional[int]
