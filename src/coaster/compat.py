@@ -267,10 +267,8 @@ class QuartFlaskProxy(Generic[_QS, _FS]):
         try:
             return getattr(self._get_active_source(), name)
         except RuntimeError as exc:
-            # getattr/hasattr on magic attributes should not raise RuntimeError. This
-            # set has known extended attributes that are not defined in Werkzeug's
-            # LocalProxy. The set is inline so the Python compiler can optimize it into
-            # a frozenset without global namespace lookup
+            # hasattr/getattr on some magic attributes should not raise RuntimeError.
+            # These do not have fallback implementations in Werkzeug's LocalProxy:
             if name in {'__rich__', '__rich_console__', '__json__'}:
                 raise AttributeError(name) from exc
             raise
