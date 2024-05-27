@@ -444,11 +444,20 @@ class LazyRoleSet(abc.MutableSet):
         #: Has :meth:`_contents` been called?
         self._contents_fully_evaluated = False
 
-    def __repr__(self) -> str:  # pragma: no cover
+    def __repr__(self) -> str:
         return (
             f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self.anchors!r},'
             f' {self._present!r})'
         )
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, Any]]:
+        """Build a rich repr."""
+        yield 'obj', self.obj
+        yield 'actor', self.actor
+        if self.anchors:
+            yield 'anchors', self.anchors
+        if self._present:
+            yield 'initial', self._present
 
     # Base class MutableSet defines this as a classmethod. We need an instance method to
     # get self.obj and self.actor. Pylint doesn't like it and must be silenced
@@ -708,6 +717,13 @@ class DynamicAssociationProxy(Generic[_V, _R]):
     def __repr__(self) -> str:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield None, self.rel
+        yield None, self.attr
+        yield None, self.qattr, None
+        yield 'name', self.name, None
+
     @overload
     def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
@@ -751,6 +767,12 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
 
     def __repr__(self) -> str:
         return f'DynamicAssociationProxyBind({self.obj!r}, {self.rel!r}, {self.attr!r})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield None, self.rel
+        yield None, self.attr
+        yield None, self.qattr, None
 
     def __contains__(self, value: Any) -> bool:
         relattr = self.relattr
@@ -929,6 +951,11 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
 
     def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield 'obj', self._obj
+        yield 'roles', self.current_roles
 
     def current_access(
         self,
