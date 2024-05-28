@@ -45,7 +45,7 @@ from typing import (
     get_origin,
     overload,
 )
-from typing_extensions import Self, TypeVar, get_original_bases
+from typing_extensions import Self, TypedDict, TypeVar, get_original_bases
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
@@ -82,6 +82,7 @@ from .roles import ActorType, RoleMixin, with_roles
 
 __all__ = [
     'PkeyType',
+    'IdentityOptions',
     'IdMixin',
     'TimestampMixin',
     'PermissionMixin',
@@ -107,6 +108,22 @@ PkeyType = TypeVar('PkeyType', int, UUID, default=int)
 
 class PkeyWarning(UserWarning):
     """Warning when the primary key type is not specified as a base class argument."""
+
+
+class IdentityOptions(TypedDict, total=False):
+    """Identity options for primary key."""
+
+    always: bool
+    on_null: Optional[bool]
+    start: Optional[int]
+    increment: Optional[int]
+    minvalue: Optional[int]
+    maxvalue: Optional[int]
+    nominvalue: Optional[bool]
+    nomaxvalue: Optional[bool]
+    cycle: Optional[bool]
+    cache: Optional[int]
+    order: Optional[bool]
 
 
 @declarative_mixin
@@ -141,6 +158,8 @@ class IdMixin(Generic[PkeyType]):
     #: the need to commit to the database. Do not set this directly; pass UUID as a
     #: Generic argument to the base class instead: ``class MyModel(IdMixin[UUID])``.
     __uuid_primary_key__: ClassVar[bool] = False
+    #: Use database-native identity type for integer identity columns
+    __primary_key_identity__: ClassVar[Optional[IdentityOptions]] = None
 
     def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
         # If a generic arg is specified, set `__uuid_primary_key__` from it. Do this
@@ -214,10 +233,14 @@ class IdMixin(Generic[PkeyType]):
             return sa_orm.mapped_column(
                 sa.Uuid, primary_key=True, nullable=False, insert_default=uuid4
             )
-
-        return sa_orm.mapped_column(
-            sa.Integer, sa.Identity(), primary_key=True, nullable=False
-        )
+        if cls.__primary_key_identity__ is not None:
+            return sa_orm.mapped_column(
+                sa.Integer,
+                sa.Identity(**cls.__primary_key_identity__),
+                primary_key=True,
+                nullable=False,
+            )
+        return sa_orm.mapped_column(sa.Integer, primary_key=True, nullable=False)
 
     # Compatibility alias for use in Protocols, as a workaround for Mypy incorrectly
     # considering `id` to be read-only: https://github.com/python/mypy/issues/16709
