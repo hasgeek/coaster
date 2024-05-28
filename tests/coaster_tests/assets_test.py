@@ -5,9 +5,8 @@
 import json
 import logging
 import re
-from io import StringIO
 from typing import Optional
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 
 import pytest
 from flask import Flask
@@ -329,8 +328,9 @@ def test_manifest_disable_substitutions(app1: Flask, app2: Flask) -> None:
 
 def test_compiled_regex_substitutes(app1: Flask) -> None:
     """Substitutions can be specified as compiled regex patterns."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(json.dumps({'test.jpg': 'img/test.jpg'}))
+    with patch(
+        'builtins.open', mock_open(read_data=json.dumps({'test.jpg': 'img/test.jpg'}))
+    ):
         manifest = WebpackManifest(app1, substitutes=[(re.compile(r'\.jpg$'), '.jpeg')])
         with app1.app_context():
             assert set(manifest) == {'test.jpg', 'test.jpeg'}
@@ -339,10 +339,14 @@ def test_compiled_regex_substitutes(app1: Flask) -> None:
 
 def test_multiple_substitutes(app1: Flask) -> None:
     """One asset can have multiple substitute names."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(
-            json.dumps({'test.jpg': 'img/test.jpg', 'test.png': 'img/test.png'})
-        )
+    with patch(
+        'builtins.open',
+        mock_open(
+            read_data=json.dumps(
+                {'test.jpg': 'img/test.jpg', 'test.png': 'img/test.png'}
+            )
+        ),
+    ):
         manifest = WebpackManifest(
             app1,
             substitutes=[
@@ -369,10 +373,14 @@ def test_multiple_substitutes(app1: Flask) -> None:
 
 def test_substitute_overlap_warning(app1: Flask) -> None:
     """If a substitute name is already present, a warning is raised."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(
-            json.dumps({'test.jpg': 'img/test.jpg', 'test.png': 'img/test.png'})
-        )
+    with patch(
+        'builtins.open',
+        mock_open(
+            read_data=json.dumps(
+                {'test.jpg': 'img/test.jpg', 'test.png': 'img/test.png'}
+            )
+        ),
+    ):
         with pytest.warns(RuntimeWarning):
             manifest = WebpackManifest(
                 app1,
@@ -417,28 +425,31 @@ def test_dupe_init_app(app1: Flask) -> None:
 
 def test_manifest_must_be_valid_json(app1: Flask) -> None:
     """The manifest file must be valid JSON."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO('This is not JSON')
-        with pytest.raises(json.JSONDecodeError):
-            WebpackManifest(app1)
+    with (
+        patch('builtins.open', mock_open(read_data='This is not JSON')),
+        pytest.raises(json.JSONDecodeError),
+    ):
+        WebpackManifest(app1)
 
 
 def test_manifest_json_must_be_dict(app1: Flask) -> None:
     """The manifest file must contain a JSON object."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(json.dumps(["This", "is", "a", "list"]))
-        with pytest.raises(
-            ValueError, match='must contain a JSON object at the root level'
-        ):
-            WebpackManifest(app1)
+    with (
+        patch(
+            'builtins.open',
+            mock_open(read_data=json.dumps(["This", "is", "a", "list"])),
+        ),
+        pytest.raises(ValueError, match='must contain a JSON object at the root level'),
+    ):
+        WebpackManifest(app1)
 
 
 def test_legacy_webpack(app1: Flask) -> None:
     """Legacy webpack manifest detection is on by default."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(
-            json.dumps({'assets': {'app': 'js/app.version.js'}})
-        )
+    with patch(
+        'builtins.open',
+        mock_open(read_data=json.dumps({'assets': {'app': 'js/app.version.js'}})),
+    ):
         manifest1 = WebpackManifest(app1)
         with app1.app_context():
             assert len(manifest1) == 1
@@ -448,10 +459,10 @@ def test_legacy_webpack(app1: Flask) -> None:
 
 def test_legacy_no_false_alarm(app1: Flask) -> None:
     """Legacy detection will not be confused by an asset named ``assets``."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(
-            json.dumps({'assets': 'why-is-this-called-assets.css'})
-        )
+    with patch(
+        'builtins.open',
+        mock_open(read_data=json.dumps({'assets': 'why-is-this-called-assets.css'})),
+    ):
         manifest1 = WebpackManifest(app1, urlpath='/test/')
         with app1.app_context():
             assert len(manifest1) == 1
@@ -461,16 +472,18 @@ def test_legacy_no_false_alarm(app1: Flask) -> None:
 
 def test_legacy_detection_disabled_on_legacy_file(app1: Flask) -> None:
     """Legacy detection must not be disabled when processing a legacy manifest."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(
-            json.dumps({'assets': {'app': 'js/app.version.js'}})
-        )
-        # If legacy detection is disabled, WebpackManifest will complain that the value
-        # is not a string
-        with pytest.raises(
+    with (
+        patch(
+            'builtins.open',
+            mock_open(read_data=json.dumps({'assets': {'app': 'js/app.version.js'}})),
+        ),
+        pytest.raises(
             ValueError, match="Expected a string for `static/manifest.json:assets`"
-        ):
-            WebpackManifest(app1, detect_legacy_webpack=False)
+        ),
+    ):
+        # If legacy detection is disabled, WebpackManifest will complain that the
+        # value is not a string
+        WebpackManifest(app1, detect_legacy_webpack=False)
 
 
 # --- Tests for use in Jinja2 templates
@@ -549,8 +562,10 @@ def test_jinja2_global_rename_or_skip(app1: Flask, app2: Flask) -> None:
 
 def test_keyerror_caplog(caplog: pytest.LogCaptureFixture, app1: Flask) -> None:
     """A KeyError under an app context will be logged as an app error."""
-    with patch('flask.app.Flask.open_resource') as mock:
-        mock.return_value = StringIO(json.dumps({'exists.css': 'asset-exists.css'}))
+    with patch(
+        'builtins.open',
+        mock_open(read_data=json.dumps({'exists.css': 'asset-exists.css'})),
+    ):
         manifest = WebpackManifest(app1)
 
     caplog.clear()

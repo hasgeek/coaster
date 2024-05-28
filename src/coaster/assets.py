@@ -18,21 +18,18 @@ be found in your app's static folder, alongside the built assets.
 
 from __future__ import annotations
 
+import os
 import re
 import warnings
 from collections import defaultdict
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Final, Optional, Union
+from typing import Any, Final, Optional, Union
 from urllib.parse import urljoin
 
-from flask import Flask
 from flask_assets import Bundle
 from semantic_version import SimpleSpec, Version
 
-from .compat import current_app, sync_await
-
-if TYPE_CHECKING:
-    from quart import Quart
+from .compat import SansIoApp, current_app
 
 _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
@@ -225,24 +222,40 @@ def _get_assets_for_current_app() -> dict[str, str]:
 
 class WebpackManifest(Mapping):
     """
-    Webpack asset manifest extension for Flask and Jinja2.
+    Webpack asset manifest extension for Flask/Quart and Jinja2.
 
     WebpackManifest loads a ``manifest.json`` file produced by Webpack_ and makes the
-    contents available to Jinja2 templates as ``{{ manifest['asset_name.ext'] }}``. Call
-    syntax is also supported and accepts an optional default for missing assets,
-    defaulting to a browser-friendly empty value ``data:,``. The standard dictionary
+    content available in Jinja2 via a new global var ``manifest`` (customizable).
+
+    Usage::
+
+        app1 = Flask(__name__)
+        app2 = Quart(__name__)
+        manifest = WebpackManifest()
+        manifest.init_app(app1)
+        manifest.init_app(app2)
+
+    In Jinja2 templates:
+
+    .. sourcecode:: jinja
+
+        1. As a callable: {{ manifest('asset_name.ext', optional_default_value) }}
+        2. As a dict: {{ manifest['asset_name.ext'] }}
+        3. Dict get: {{ manifest.get('asset_name.ext', optional_default_value) }}
+
+    Call syntax has a browser-friendly default: ``data:,``. The standard dictionary
     method :meth:`get` defaults to the usual `None` and is not recommended in templates
-    as it will render as a string ``'None'``. All three invocations have slightly
-    different behaviours when an unknown asset is requested:
+    as it will render as a string ``'None'``. The three invocations have different
+    behaviours when an unknown asset is requested:
 
     1. Dict access: raises KeyError, which Jinja2 will remap to an Undefined object,
         which renders as an empty string. This will also log an error with a traceback
         to the current app's logger.
     2. Call access: does not raise KeyError but instead returns the default value
-        ``'data:,'`` or as provided. Also logs to the current app's logger.
+        ``'data:,'`` or as provided. Also logs an error.
     3. :meth:`get` method: returns the default (`None` or as provided) and does not log
         an error. You should only use this method when supplying an explicit default,
-        and do not consider a missing asset to be a log-worthy incident.
+        and when you do not consider a missing asset to be a log-worthy incident.
 
     Webpack plugins and cache can sometimes interfere with asset names. An asset named
     ``app.scss`` may remain ``app.scss`` on a clean build, but turn into ``app.css`` on
@@ -262,11 +275,11 @@ class WebpackManifest(Mapping):
     ``app.extensions['manifest.json']`` during the :meth:`init_app` call, and therefore
     requires an app context at runtime.
 
-    :param app: Flask app, can be supplied later by calling :meth:`init_app`
+    :param app: Flask or Quart app, can be supplied later by calling :meth:`init_app`
     :param filepath: Path to the manifest JSON file relative to the app folder
         (default ``'static/manifest.json'``)
-    :param substitutes: Regex substitutions for asset names as a sequence of tuples of
-        pattern and substitute string
+    :param substitutes: Regex substitutions for asset names as tuples of pattern and
+        replacement
     :param urlpath: Optional URL path to prefix to asset path (typically
         ``'/static'``, but not required if Webpack is configured correctly)
     :param detect_legacy_webpack: Older Webpack versions produce a manifest that has a
@@ -286,7 +299,7 @@ class WebpackManifest(Mapping):
 
     def __init__(
         self,
-        app: Optional[Union[Flask, Quart]] = None,
+        app: Optional[SansIoApp] = None,
         *,
         filepath: str = 'static/manifest.json',
         urlpath: Optional[str] = None,
@@ -303,24 +316,13 @@ class WebpackManifest(Mapping):
         if app is not None:
             self.init_app(app, _warning_stack_level=3)
 
-    def _read_resource(self, app: Flask) -> Union[str, bytes]:
-        with app.open_resource(self.filepath) as resource:
-            return resource.read()
-
-    async def _async_read_resource(self, app: Quart) -> Union[str, bytes]:
-        async with await app.open_resource(self.filepath) as resource:
-            return await resource.read()
-
-    def init_app(self, app: Union[Flask, Quart], _warning_stack_level: int = 2) -> None:
-        """Configure WebpackManifest on a Flask app."""
+    def init_app(self, app: SansIoApp, _warning_stack_level: int = 2) -> None:
+        """Configure WebpackManifest on a Flask or Quart app."""
         # Step 1: Open manifest.json and validate basic structure (incl. legacy check)
-        if isinstance(app, Flask):
-            resource_content = self._read_resource(app)
-        else:
-            resource_content = sync_await(self._async_read_resource(app))
-        # Use ``json.loads`` because a substitute JSON implementation may not
-        # support the ``load`` method (eg: orjson has ``loads`` but not ``load``)
-        assets = app.json.loads(resource_content)
+        with open(os.path.join(app.root_path, self.filepath), 'rb') as resource:
+            # Use ``json.loads`` because a substitute JSON implementation may not
+            # support the ``load`` method (eg: orjson has ``loads`` but not ``load``)
+            assets = app.json.loads(resource.read())
         if not isinstance(assets, dict):
             raise ValueError(
                 f"File `{self.filepath}` must contain a JSON object at the root level"

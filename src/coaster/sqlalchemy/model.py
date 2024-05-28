@@ -107,7 +107,8 @@ bigint: TypeAlias = Annotated[int, mapped_column(sa.BigInteger())]  # noqa: PYI0
 smallint: TypeAlias = Annotated[int, mapped_column(sa.SmallInteger())]  # noqa: PYI042
 int_pkey: TypeAlias = Annotated[int, mapped_column(primary_key=True)]  # noqa: PYI042
 uuid4_pkey: TypeAlias = Annotated[  # noqa: PYI042
-    uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4)
+    uuid.UUID,
+    mapped_column(primary_key=True, insert_default=uuid.uuid4),
 ]
 timestamp: TypeAlias = Annotated[  # noqa: PYI042
     datetime.datetime, mapped_column(sa.TIMESTAMP(timezone=True))
