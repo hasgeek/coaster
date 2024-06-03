@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Optional, Union
+from typing_extensions import deprecated
 
 import sqlalchemy as sa
 from markupsafe import Markup
@@ -170,4 +171,6 @@ def markdown_column(
 
 
 # Compatibility name
-MarkdownColumn = markdown_column
+MarkdownColumn = deprecated("MarkdownColumn has been renamed to markdown_column")(
+    markdown_column
+)

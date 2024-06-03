@@ -20,6 +20,7 @@ from typing import (
     Union,
     cast,
 )
+from typing_extensions import deprecated
 
 import itsdangerous
 from flask.json.provider import DefaultJSONProvider
@@ -217,7 +218,9 @@ class QuartRotatingKeySecureCookieSessionInterface(QuartSecureCookieSessionInter
 
 
 # Flask version is also available with an unprefixed name
-RotatingKeySecureCookieSessionInterface = FlaskRotatingKeySecureCookieSessionInterface
+RotatingKeySecureCookieSessionInterface = deprecated(
+    "Renamed to FlaskRotatingKeySecureCookieSessionInterface"
+)(FlaskRotatingKeySecureCookieSessionInterface)
 
 # --- App init utilities ---------------------------------------------------------------
 
