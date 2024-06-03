@@ -336,7 +336,7 @@ class _LabeledEnumMeta(type):
         name: str,
         bases: tuple[type[Any], ...],
         attrs: dict[str, Any],
-    ) -> type[LabeledEnum]:
+    ) -> _LabeledEnumMeta:
         labels: dict[str, Any] = {}
         names: dict[str, Any] = {}
 
