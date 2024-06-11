@@ -4,12 +4,12 @@ ci:
   skip: ['no-commit-to-branch']
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+    rev: v3.16.0
     hooks:
       - id: pyupgrade
         args: ['--keep-runtime-typing', '--py39-plus']
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.7
+    rev: v0.4.8
     hooks:
       - id: ruff
         args: ['--fix', '--exit-non-zero-on-fix']
@@ -46,7 +46,7 @@ repos:
       - id: python-check-blanket-type-ignore
       - id: python-no-log-warn
   - repo: https://github.com/PyCQA/pylint
-    rev: v3.2.2
+    rev: v3.2.3
     hooks:
       - id: pylint
         args: [
