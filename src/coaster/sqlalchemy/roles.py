@@ -406,9 +406,7 @@ class RoleGrantABC(ABC):
         """Check if a class implements the RoleGrantABC protocol."""
         if cls is RoleGrantABC:
             # Don't use getattr because that'll trigger descriptor __get__ protocol
-            if any('offered_roles' in b.__dict__ for b in subcls.__mro__):
-                return True
-            return False
+            return bool(any('offered_roles' in b.__dict__ for b in subcls.__mro__))
         return NotImplemented  # pragma: no cover
 
 

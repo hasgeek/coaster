@@ -501,11 +501,6 @@ class AsyncRequestWrapper:
         self, cache: bool, as_text: Literal[True], parse_form_data: bool
     ) -> str: ...
 
-    @overload
-    async def get_data(
-        self, cache: bool = True, as_text: bool = False, parse_form_data: bool = False
-    ) -> AnyStr: ...
-
     async def get_data(
         self, cache: bool = True, as_text: bool = False, parse_form_data: bool = False
     ) -> AnyStr:
@@ -647,8 +642,6 @@ def ensure_sync(
         result = func(*args, **kwargs)
         if isawaitable(result):
             return sync_await(result)
-        # The typeguard for `isawaitable` doesn't narrow in the negative context, so we
-        # need a type-ignore here:
-        return result  # type: ignore[return-value]
+        return result
 
     return check_return

@@ -192,7 +192,7 @@ class VersionedAssets(defaultdict):
                         if provided not in asset_versions:
                             asset_versions[provided] = version
                     for req_name, req_version, _req_bundle in req_bundles:
-                        asset_versions[req_name] = req_version
+                        asset_versions[req_name] = req_version  # noqa: PERF403
                     if bundle is not None:
                         bundles.append((name, version, bundle))
             else:
