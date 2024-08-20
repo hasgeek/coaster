@@ -306,7 +306,7 @@ class GetCurrentAuth:
     @classmethod
     def proxy(cls, subcls: type[_CurrentAuthType_co]) -> _CurrentAuthType_co:
         """Create a local proxy using a specific subclass of :class:`CurrentAuth`."""
-        return cast(_CurrentAuthType_co, LocalProxy(cls(subcls)))
+        return cast(_CurrentAuthType_co, LocalProxy(cls(subcls)))  # type: ignore[arg-type]
 
 
 #: A proxy object that hosts state for user authentication, attempting to load

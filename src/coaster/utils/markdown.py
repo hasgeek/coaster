@@ -230,10 +230,6 @@ def markdown(
     ).convert(text)
     if linkify:
         output = linkify_processor(
-            output,
-            # types-bleach specifies `callbacks: Iterable[_Callback]`, but that
-            # _Callback has an incorrect definition for the `attrs` parameter
-            callbacks=LINKIFY_CALLBACKS,  # type: ignore[arg-type]
-            skip_tags=LINKIFY_SKIP_TAGS,
+            output, callbacks=LINKIFY_CALLBACKS, skip_tags=LINKIFY_SKIP_TAGS
         )
     return Markup(output)

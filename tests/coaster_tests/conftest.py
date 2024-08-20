@@ -118,7 +118,7 @@ class CustomEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
 
     def new_event_loop(self) -> asyncio.AbstractEventLoop:
         loop = super().new_event_loop()
-        loop.set_task_factory(self.task_factory)
+        loop.set_task_factory(self.task_factory)  # type: ignore[arg-type]
         return loop
 
 

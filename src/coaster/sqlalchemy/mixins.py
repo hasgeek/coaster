@@ -173,9 +173,7 @@ class IdMixin(Generic[PkeyType]):
                 and issubclass(origin_base, IdMixin)
                 and PkeyType in origin_base.__parameters__  # type: ignore[misc]
             ):
-                pkey_type = get_args(base)[
-                    origin_base.__parameters__.index(PkeyType)  # type: ignore[misc]
-                ]
+                pkey_type = get_args(base)[origin_base.__parameters__.index(PkeyType)]
                 if pkey_type is int:
                     if (
                         '__uuid_primary_key__' in cls.__dict__

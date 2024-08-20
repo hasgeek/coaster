@@ -138,21 +138,15 @@ def test_annotation_in_annotations() -> None:
     for model in (IdOnly, IdUuid, UuidOnly):
         assert issubclass(model, ModelBase)
         for annotation in (immutable, cached):
-            assert (
-                annotation.__name__ in model.__column_annotations__  # type: ignore[attr-defined]
-            )
+            assert annotation.__name__ in model.__column_annotations__
 
 
 def test_attr_in_annotations() -> None:
     """Annotated attributes were discovered and documented."""
     for model in (IdOnly, IdUuid, UuidOnly):
         assert issubclass(model, ModelBase)
-        assert (
-            'is_immutable' in model.__column_annotations__['immutable']  # type: ignore[attr-defined]
-        )
-        assert (
-            'is_cached' in model.__column_annotations__['cached']  # type: ignore[attr-defined]
-        )
+        assert 'is_immutable' in model.__column_annotations__['immutable']
+        assert 'is_cached' in model.__column_annotations__['cached']
 
 
 def test_base_attrs_in_annotations() -> None:
@@ -160,12 +154,7 @@ def test_base_attrs_in_annotations() -> None:
     for model in (IdOnly, IdUuid, UuidOnly):
         assert issubclass(model, ModelBase)
         for attr in ('created_at', 'id'):
-            assert (
-                attr
-                in model.__column_annotations__[  # type: ignore[attr-defined]
-                    'immutable'
-                ]
-            )
+            assert attr in model.__column_annotations__['immutable']
     assert 'uuid' in IdUuid.__column_annotations__['immutable']
 
 

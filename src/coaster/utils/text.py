@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import string
+from collections.abc import Callable
 from functools import partial
 from html import unescape
 from typing import Optional, Union
@@ -139,7 +140,7 @@ def dont_linkify_filenames(
     return attrs
 
 
-LINKIFY_CALLBACKS = [*DEFAULT_CALLBACKS, dont_linkify_filenames]  # type: ignore[list-item]
+LINKIFY_CALLBACKS: list[Callable] = [*DEFAULT_CALLBACKS, dont_linkify_filenames]
 
 
 def sanitize_html(
