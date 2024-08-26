@@ -10,6 +10,7 @@ exclude_lines =
     # Don't complain about missing debug-only code
     def __repr__
     if self\.debug
+    def __rich_repr__
 
     # Don't complain about importerror handlers
     except ImportError

@@ -177,10 +177,6 @@ class RelationshipChild(BaseNameMixin, Model):
         'related': {'name', 'title'},
     }
 
-    def __hash__(self) -> int:
-        # Required when mapped as a dataclass
-        return hash(id(self))
-
 
 class RelationshipParent(BaseNameMixin, Model):
     """Test model for a relationship parent."""
@@ -277,10 +273,6 @@ class RoleUser(BaseMixin, Model):
     """Test model to represent a user who has roles."""
 
     __tablename__ = 'role_user'
-
-    # Required when mapped as a dataclass
-    def __hash__(self) -> int:
-        return hash(id(self))
 
     doc_id: Mapped[Optional[int]] = sa_orm.mapped_column(
         sa.ForeignKey('role_grant_many.id')

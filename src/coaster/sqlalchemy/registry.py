@@ -188,7 +188,7 @@ class Registry:
         if use_property and use_cached_property:
             raise TypeError(
                 f"Only one of property and cached_property can be True."
-                f" Provided: property={property}, cached_property={cached_property}."
+                f" Provided: {property=}, {cached_property=}."
                 f" Registry: property={self._default_property},"
                 f" cached_property={self._default_cached_property}."
                 f" Conflicting registry settings must be explicitly set to False."

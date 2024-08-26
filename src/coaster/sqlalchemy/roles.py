@@ -133,7 +133,7 @@ import dataclasses
 import sys
 from abc import ABC, abstractmethod
 from collections import abc
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Awaitable, Iterable, Iterator, Sequence
 from copy import deepcopy
 from itertools import chain
 from typing import (
@@ -442,11 +442,20 @@ class LazyRoleSet(abc.MutableSet):
         #: Has :meth:`_contents` been called?
         self._contents_fully_evaluated = False
 
-    def __repr__(self) -> str:  # pragma: no cover
+    def __repr__(self) -> str:
         return (
             f'LazyRoleSet({self.obj!r}, {self.actor!r}, {self.anchors!r},'
             f' {self._present!r})'
         )
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, Any]]:
+        """Build a rich repr."""
+        yield 'obj', self.obj
+        yield 'actor', self.actor
+        if self.anchors:
+            yield 'anchors', self.anchors
+        if self._present:
+            yield 'initial', self._present
 
     # Base class MutableSet defines this as a classmethod. We need an instance method to
     # get self.obj and self.actor. Pylint doesn't like it and must be silenced
@@ -706,6 +715,13 @@ class DynamicAssociationProxy(Generic[_V, _R]):
     def __repr__(self) -> str:
         return f'DynamicAssociationProxy({self.rel!r}, {self.attr!r})'
 
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield None, self.rel
+        yield None, self.attr
+        yield None, self.qattr, None
+        yield 'name', self.name, None
+
     @overload
     def __get__(self, obj: None, cls: Optional[type[Any]] = None) -> Self: ...
 
@@ -749,6 +765,12 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
 
     def __repr__(self) -> str:
         return f'DynamicAssociationProxyBind({self.obj!r}, {self.rel!r}, {self.attr!r})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield None, self.rel
+        yield None, self.attr
+        yield None, self.qattr, None
 
     def __contains__(self, value: Any) -> bool:
         relattr = self.relattr
@@ -794,6 +816,16 @@ class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
                 and self.qattr == other.qattr
             )
         return NotImplemented
+
+
+class AwaitableAttrsProxy(Generic[RoleMixinType]):
+    """Provides awaitable access to SQLAlchemy attributes."""
+
+    def __init__(self, proxy: RoleAccessProxy) -> None:
+        self.__proxy = proxy
+
+    def __getattr__(self, name: str) -> Awaitable[Any]:
+        return self.__proxy.__agetattr__(name)
 
 
 class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
@@ -843,7 +875,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         '_no_call',
         '_no_read',
         '_no_write',
-        '_all_read_cache',
+        '_dir_cache',
     )
     _obj: RoleMixinType
     current_roles: InspectableSet[Union[LazyRoleSet, set[str]]]
@@ -858,7 +890,15 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
     _no_call: set[str]
     _no_read: set[str]
     _no_write: set[str]
-    _all_read_cache: Optional[set[str]]
+    _dir_cache: Optional[set[str]]
+
+    # TODO: Recast `self` as an intersection of RoleMixinType and SQLAlchemy's
+    # AsyncAttrs mixin. Since Python typing intersections are not available yet, this
+    # may need to be redefined using protocols and sub-protocols.
+    @property
+    def awaitable_attrs(self) -> AwaitableAttrsProxy[RoleMixinType]:
+        """Provide awaitable access to SQLAlchemy attributes."""
+        return AwaitableAttrsProxy(self)
 
     @property  # type: ignore[override]
     def __class__(self) -> type[RoleMixinType]:
@@ -905,10 +945,15 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         object.__setattr__(self, '_no_call', set())
         object.__setattr__(self, '_no_read', set())
         object.__setattr__(self, '_no_write', set())
-        object.__setattr__(self, '_all_read_cache', None)
+        object.__setattr__(self, '_dir_cache', None)
 
     def __repr__(self) -> str:
         return f'RoleAccessProxy(obj={self._obj!r}, roles={self.current_roles!r})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, ...]]:
+        """Build a rich repr."""
+        yield 'obj', self._obj
+        yield 'roles', self.current_roles
 
     def current_access(
         self,
@@ -990,11 +1035,10 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         absent.add(attr)
         return False
 
-    @property
-    def _all_read(self) -> set[str]:
+    def __dir__(self) -> set[str]:
         """All readable attributes."""
-        if self._all_read_cache is not None:
-            return self._all_read_cache
+        if self._dir_cache is not None:
+            return self._dir_cache
         all_read_attrs = {
             attr
             for roledict in self._obj.__roles__.values()
@@ -1008,7 +1052,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
             attr for attr in all_read_attrs if self.__attr_available(attr, 'read')
         }
         # Save to cache and return
-        object.__setattr__(self, '_all_read_cache', available_read_attrs)
+        object.__setattr__(self, '_dir_cache', available_read_attrs)
         return available_read_attrs
 
     def __getattr__(self, name: str) -> Any:
@@ -1019,6 +1063,32 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
             f"{self._obj.__class__.__qualname__}.{name};"
             f" current roles {self.current_roles!r}"
         )
+
+    # TODO: Type self as a sub-class/intersection of `AsyncAttrs` and `RoleMixinType`
+    async def __agetattr__(self, name: str) -> Any:
+        """Async getattr (non-standard; used via :attr:`awaitable_attrs`)."""
+        # First, check for access
+        if not (
+            self.__attr_available(name, 'read') or self.__attr_available(name, 'call')
+        ):
+            raise AttributeError(
+                f"{self._obj.__class__.__qualname__}.{name};"
+                f" current roles {self.current_roles!r}"
+            )
+        # Get the attr from SQLAlchemy AsyncMixin's `awaitable_attrs` wrapper
+        attr = await getattr(
+            self._obj.awaitable_attrs,  # type: ignore[attr-defined]
+            name,
+        )
+        # Wrap in RoleAccessProxy if necessary
+        if type(attr) is RoleAccessProxy:  # pylint: disable=unidiomatic-typecheck
+            return attr
+        if isinstance(attr, RoleMixin):
+            return attr.access_for(
+                actor=self._actor, anchors=self._anchors, datasets=self._datasets
+            )
+        # Don't process any other type of attr
+        return attr
 
     def __setattr__(self, name: str, value: Any) -> None:
         # See also __setitem__
@@ -1039,7 +1109,7 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         )
 
     def __len__(self) -> int:
-        return len(self._all_read)
+        return len(self.__dir__())
 
     def __contains__(self, key: Any) -> bool:
         return self.__attr_available(key, 'read') or self.__attr_available(key, 'call')
@@ -1054,10 +1124,10 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
         )
 
     def __iter__(self) -> Iterator[str]:
-        yield from self._all_read
+        yield from self.__dir__()
 
     def __json__(self) -> Any:
-        if self._datasets is None and self._obj.__json_datasets__:
+        if self._dataset_attrs is None and self._obj.__json_datasets__:
             # This proxy was created without specifying datasets, so we create a new
             # proxy using the object's default JSON datasets, then convert it to a dict
             return dict(

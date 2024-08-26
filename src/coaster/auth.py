@@ -19,7 +19,7 @@ request processing.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from threading import Lock
 from typing import Any, NoReturn, TypeVar, cast
 
@@ -186,7 +186,21 @@ class CurrentAuth:
         return getattr(self, attr, default)
 
     def __repr__(self) -> str:  # pragma: no cover
-        return f'CurrentAuth(is_placeholder={self.is_placeholder})'
+        return f'{self.__class__.__qualname__}({self.is_placeholder=})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, Any]]:
+        """Build a rich repr."""
+        if self.is_placeholder:
+            yield 'is_placeholder', self.is_placeholder
+        else:
+            if 'user' in self and self.user is not None:
+                yield 'user', self.user
+            elif 'actor' in self and self.actor is not None:
+                yield 'actor', self.actor
+            if self.permissions:
+                yield 'permissions', self.permissions
+            if self.anchors:
+                yield 'anchors', self.anchors
 
     def __getattr__(self, name: str) -> Any:
         """Init :class:`CurrentAuth` on first attribute access."""

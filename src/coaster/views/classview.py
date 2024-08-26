@@ -9,7 +9,6 @@ Group related views into a class for easier management. See :class:`ClassView` a
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Awaitable, Collection, Coroutine
 from functools import partial, update_wrapper, wraps
 from inspect import iscoroutinefunction
@@ -33,6 +32,7 @@ from typing_extensions import (
     Self,
     TypeAlias,
     TypeVar,
+    deprecated,
     get_original_bases,
 )
 
@@ -782,13 +782,9 @@ class ClassView:
         self.view_args = {}
 
     @property
+    @deprecated("current_handler has been renamed to current_method")
     def current_handler(self) -> ViewMethodBind:
         """Deprecated name for :attr:`current_method`."""
-        warnings.warn(
-            "current_handler has been renamed to current_method",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.current_method
 
     def __eq__(self, other: object) -> bool:

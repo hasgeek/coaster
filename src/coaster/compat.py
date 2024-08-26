@@ -11,12 +11,14 @@ from collections.abc import (
     Awaitable,
     Callable,
     Collection,
+    Iterable,
     Iterator,
     Mapping,
     MutableMapping,
 )
 from functools import wraps
 from inspect import isawaitable, iscoroutinefunction
+from operator import attrgetter
 from types import SimpleNamespace
 from typing import (
     IO,
@@ -52,6 +54,7 @@ from flask.json.provider import DefaultJSONProvider
 from flask.sansio.app import App as SansIoApp
 from flask.sansio.blueprints import Blueprint as SansIoBlueprint, BlueprintSetupState
 from werkzeug.datastructures import CombinedMultiDict, MultiDict
+from werkzeug.local import LocalProxy
 from werkzeug.sansio.request import Request as SansIoRequest
 from werkzeug.sansio.response import Response as SansIoResponse
 
@@ -160,11 +163,52 @@ class JSONProvider(DefaultJSONProvider):
         return DefaultJSONProvider.default(o)
 
 
+class UnboundLocalProxy:
+    """Repr stand-in for an unbound LocalProxy."""
+
+    def __init__(self, local: Any, getter: Callable) -> None:
+        self.local = local
+        self.name: Optional[str] = None
+        # Name extraction is fragile as it depends on LocalProxy's private
+        # implementation. This may need periodic revision.
+        if getter.__closure__:
+            internal_callable = getter.__closure__[0].cell_contents
+            if isinstance(internal_callable, attrgetter):
+                # Extract name from attrgetter's repr since there is no
+                # other way to access the name.
+                # Given: `operator.attrgetter('app')`
+                # Extract: `app`
+                self.name = (
+                    repr(internal_callable).split('(', 1)[1][1:].rsplit(')', 1)[0][:-1]
+                )
+
+    def __repr__(self) -> str:
+        if self.name:
+            return f'LocalProxy({self.local!r}, {self.name!r})'
+        return f'LocalProxy({self.local!r})'
+
+    def __rich_repr__(self) -> Iterable[tuple[Any, Any]]:
+        """Build a rich repr."""
+        yield None, self.local
+        if self.name:
+            yield None, self.name
+
+
+def _lp_repr(source: Any) -> Any:
+    """Replace an unbound LocalProxy with a dummy object offering a better repr."""
+    if source.__class__ is LocalProxy:  # Check unbound fallback for __class__
+        return UnboundLocalProxy(
+            source.__wrapped__,
+            source._get_current_object,  # pylint: disable=protected-access
+        )
+    return source
+
+
 _QS = TypeVar('_QS', bound=Any)
 _FS = TypeVar('_FS', bound=Any)
 
 
-class QuartFlaskWrapper(Generic[_QS, _FS]):
+class QuartFlaskProxy(Generic[_QS, _FS]):
     """
     Proxy to Quart or Flask source objects.
 
@@ -183,108 +227,118 @@ class QuartFlaskWrapper(Generic[_QS, _FS]):
         object.__setattr__(self, '_quart_source', quart_source)
         object.__setattr__(self, '_flask_source', flask_source)
 
-    def __bool__(self) -> bool:
-        return bool(self._quart_source or self._flask_source)
-
     def __repr__(self) -> str:
         return (
-            f'{self.__class__.__qualname__}'
-            f'({self.__name__!r}, {self._quart_source!r}, {self._flask_source!r})'
+            f'{self.__class__.__qualname__}({self.__name__!r},'
+            f' {_lp_repr(self._quart_source)!r}, {_lp_repr(self._flask_source)!r})'
         )
 
+    def __rich_repr__(self) -> Iterable[tuple[Any, Any]]:
+        """Build a rich repr."""
+        yield None, self.__name__
+        yield None, _lp_repr(self._quart_source)
+        yield None, _lp_repr(self._flask_source)
+
+    def _get_active_source(self) -> Union[_QS, _FS]:
+        """Get active source (direct object for Quart or proxy for Flask)."""
+        # pylint: disable=protected-access
+        if (qs := self._quart_source) is not None:
+            try:
+                return qs._get_current_object()
+            except RuntimeError:
+                pass
+        # Return proxy for fallback implementations when there is no current object
+        return self._flask_source
+
+    def _get_current_object(self) -> Union[_QS, _FS]:
+        """Get active source object from Quart or Flask (may raise RuntimeError)."""
+        # pylint: disable=protected-access
+        if (qs := self._quart_source) is not None:
+            try:
+                return qs._get_current_object()
+            except RuntimeError:
+                pass
+        return self._flask_source._get_current_object()
+
+    def __bool__(self) -> bool:
+        return bool(self._get_active_source())
+
     def __getattr__(self, name: str) -> Any:
-        if qs := self._quart_source:
-            return getattr(qs, name)
-        return getattr(self._flask_source, name)
+        try:
+            return getattr(self._get_active_source(), name)
+        except RuntimeError as exc:
+            # hasattr/getattr on some magic attributes should not raise RuntimeError.
+            # These do not have fallback implementations in Werkzeug's LocalProxy:
+            if name in {'__rich__', '__rich_console__', '__json__'}:
+                raise AttributeError(name) from exc
+            raise
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if qs := self._quart_source:
-            setattr(qs, name, value)
-        setattr(self._flask_source, name, value)
+        setattr(self._get_active_source(), name, value)
 
     def __delattr__(self, name: str) -> None:
-        if qs := self._quart_source:
-            delattr(qs, name)
-        delattr(self._flask_source, name)
+        delattr(self._get_active_source(), name)
 
 
-class QuartFlaskCollectionWrapper(QuartFlaskWrapper[_QS, _FS]):
+class QuartFlaskCollectionProxy(QuartFlaskProxy[_QS, _FS]):
     """Proxy to Quart or Flask source object with Iterable API."""
 
     def __contains__(self, item: str) -> bool:
-        if qs := self._quart_source:
-            return item in qs
-        return item in self._flask_source
+        return item in self._get_active_source()
 
     def __iter__(self) -> Iterator[str]:
-        if qs := self._quart_source:
-            return iter(qs)
-        return iter(self._flask_source)
+        return iter(self._get_active_source())
 
     def __len__(self) -> int:
-        if qs := self._quart_source:
-            return len(qs)
-        return len(self._flask_source)
+        return len(self._get_active_source())
 
 
-Collection.register(QuartFlaskCollectionWrapper)
+Collection.register(QuartFlaskCollectionProxy)
 
 
-class QuartFlaskDictWrapper(QuartFlaskCollectionWrapper[_QS, _FS]):
+class QuartFlaskDictProxy(QuartFlaskCollectionProxy[_QS, _FS]):
     """Proxy to Quart or Flask source objects with a MutableMapping API."""
 
     def __getitem__(self, key: Any) -> Any:
-        if qs := self._quart_source:
-            return qs[key]
-        return self._flask_source[key]
+        return self._get_active_source()[key]
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        if qs := self._quart_source:
-            qs[key] = value
-        else:
-            self._flask_source[key] = value
+        self._get_active_source()[key] = value
 
     def __delitem__(self, key: Any) -> None:
-        if qs := self._quart_source:
-            del qs[key]
-        else:
-            del self._flask_source[key]
+        del self._get_active_source()[key]
 
     def __eq__(self, other: object) -> bool:
         # Don't return NotImplemented as we should not exist for any reverse operator
-        if qs := self._quart_source:
-            return qs == other
-        return self._flask_source == other
+        return self._get_active_source() == other
 
     def __ne__(self, other: object) -> bool:
         # Don't return NotImplemented as we should not exist for any reverse operator
-        if qs := self._quart_source:
-            return qs != other
-        return self._flask_source != other
+        return self._get_active_source() != other
 
 
-MutableMapping.register(QuartFlaskDictWrapper)
+MutableMapping.register(QuartFlaskDictProxy)
 
 current_app: Union[Flask, Quart]
-current_app = QuartFlaskWrapper(  # type: ignore[assignment]
+current_app = QuartFlaskProxy(  # type: ignore[assignment]
     'current_app', quart_current_app, flask_current_app
 )
 app_ctx: Union[FlaskAppContext, QuartAppContext]
-app_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
+app_ctx = QuartFlaskProxy(  # type: ignore[assignment]
     'app_ctx', quart_app_ctx, flask_app_ctx
 )
 g: Union[FlaskAppCtxGlobals, QuartAppCtxGlobals]
-g = QuartFlaskCollectionWrapper('g', quart_g, flask_g)  # type: ignore[assignment]
+g = QuartFlaskCollectionProxy('g', quart_g, flask_g)  # type: ignore[assignment]
 request_ctx: Union[FlaskRequestContext, QuartRequestContext]
-request_ctx = QuartFlaskWrapper(  # type: ignore[assignment]
+request_ctx = QuartFlaskProxy(  # type: ignore[assignment]
     'request_ctx', quart_request_ctx, flask_request_ctx
 )
 request: Union[FlaskRequest, QuartRequest]
-request = QuartFlaskWrapper(  # type: ignore[assignment]
+request = QuartFlaskProxy(  # type: ignore[assignment]
     'request', quart_request, flask_request
 )
 session: SessionMixin
-session = QuartFlaskDictWrapper(  # type: ignore[assignment]
+session = QuartFlaskDictProxy(  # type: ignore[assignment]
     'session', quart_session, flask_session
 )
 
