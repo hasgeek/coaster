@@ -341,7 +341,10 @@ class _LabeledEnumMeta(type):
         names: dict[str, Any] = {}
 
         for key, value in tuple(attrs.items()):
-            if key != '__order__' and isinstance(value, tuple):
+            if key.startswith('__') and key.endswith('__'):
+                # Skip dunders
+                continue
+            if isinstance(value, tuple):
                 # value = tuple of actual value (0), label/name (1), optional title (2)
                 if len(value) == 2:
                     labels[value[0]] = value[1]
@@ -357,7 +360,7 @@ class _LabeledEnumMeta(type):
                     attrs[key] = names[key] = value[0]
                 else:  # pragma: no cover
                     raise AttributeError(f"Unprocessed attribute {key}")
-            elif key != '__order__' and isinstance(value, set):
+            elif isinstance(value, set):
                 # value = set of other unprocessed values
                 attrs[key] = names[key] = {
                     v[0] if isinstance(v, tuple) else v for v in value
