@@ -249,18 +249,18 @@ from ..utils import LabeledEnum, NameTitle, is_collection
 from .roles import RoleAccessProxy, RoleMixin
 
 __all__ = [
-    'StateManager',
+    'AbortTransition',
     'ManagedState',
     'ManagedStateGroup',
-    'StateTransition',
-    'StateManagerInstance',
     'ManagedStateInstance',
-    'StateTransitionWrapper',
+    'StateManager',
+    'StateManagerInstance',
+    'StateTransition',
     'StateTransitionError',
-    'AbortTransition',
-    'transition_error',
-    'transition_before',
+    'StateTransitionWrapper',
     'transition_after',
+    'transition_before',
+    'transition_error',
     'transition_exception',
 ]
 
@@ -805,8 +805,8 @@ class StateManager(Generic[_SG]):
     ) -> StateManagerInstance[_SM, _T]: ...
 
     def __get__(
-        self: _SM, obj: Optional[_T], cls: Optional[type[_T]] = None
-    ) -> Union[_SM, StateManagerInstance[_SM, _T]]:
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
+    ) -> Union[Self, StateManagerInstance[Self, _T]]:
         if obj is None:
             return self
         # Cache for subsequent accesses to avoid re-constructing the wrapper
