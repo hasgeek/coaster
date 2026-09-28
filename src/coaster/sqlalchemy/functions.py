@@ -15,11 +15,11 @@ from sqlalchemy.orm import DeclarativeBase
 from .query import relationship
 
 __all__ = [
-    'make_timestamp_columns',
-    'failsafe_add',
     'add_primary_relationship',
     'auto_init_default',
+    'failsafe_add',
     'idfilters',
+    'make_timestamp_columns',
 ]
 
 T = TypeVar('T')

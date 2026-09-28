@@ -48,13 +48,14 @@ from typing import (
     final,
     overload,
 )
+from typing_extensions import Self
 
 import sqlalchemy as sa
 from sqlalchemy.orm import declarative_mixin
 
 from ..typing import ReturnDecorator, WrappedFunc
 
-__all__ = ['Registry', 'InstanceRegistry', 'RegistryMixin']
+__all__ = ['InstanceRegistry', 'Registry', 'RegistryMixin']
 
 
 @final
@@ -225,8 +226,8 @@ class Registry:
     ) -> InstanceRegistry[_RT, _T]: ...
 
     def __get__(
-        self: _RT, obj: Optional[_T], cls: Optional[type[_T]] = None
-    ) -> Union[_RT, InstanceRegistry[_RT, _T]]:
+        self, obj: Optional[_T], cls: Optional[type[_T]] = None
+    ) -> Union[Self, InstanceRegistry[Self, _T]]:
         """Access at runtime."""
         if obj is None:
             return self
