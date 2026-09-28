@@ -24,11 +24,11 @@ from typing_extensions import Self
 
 __all__ = [
     'DataclassFromType',
-    'NameTitle',
-    'LabeledEnum',
     'InspectableSet',
-    'classproperty',
+    'LabeledEnum',
+    'NameTitle',
     'classmethodproperty',
+    'classproperty',
 ]
 
 _T = TypeVar('_T')
@@ -332,7 +332,7 @@ class _LabeledEnumMeta(type):
     """Construct labeled enumeration."""
 
     def __new__(
-        mcs: type[Any],  # noqa: N804
+        mcs: type[Any],
         name: str,
         bases: tuple[type[Any], ...],
         attrs: dict[str, Any],
