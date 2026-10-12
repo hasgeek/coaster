@@ -617,7 +617,7 @@ class AsyncViewMethod(ViewMethod[_P, _R_co]):
 class ViewMethodBind(Generic[_P, _R_co]):
     """Wrapper for :class:`ViewMethod` binding it to an instance of the view class."""
 
-    __slots__ = ('__weakref__', '_view_method', '__self__')
+    __slots__ = ('__self__', '__weakref__', '_view_method')
 
     # Provide type hints for proxied attributes
     __name__: str

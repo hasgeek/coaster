@@ -57,7 +57,7 @@ from sqlalchemy.schema import SchemaItem
 
 from ..signals import coaster_signals
 
-__all__ = ['annotations_configured', 'annotation_wrapper']
+__all__ = ['annotation_wrapper', 'annotations_configured']
 
 # Global dictionary for temporary storage of annotations until the
 # mapper_configured events
