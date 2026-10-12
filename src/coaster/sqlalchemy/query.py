@@ -33,15 +33,15 @@ from ..compat import abort
 from .pagination import QueryPagination
 
 __all__ = [
+    'AppenderQuery',
     'BackrefWarning',
+    'DynamicMapped',
     'ModelWarning',
     'Query',
-    'AppenderQuery',
     'QueryProperty',
-    'DynamicMapped',
     'Relationship',
-    'relationship',
     'backref',
+    'relationship',
 ]
 
 _T = TypeVar('_T', bound=Any)
