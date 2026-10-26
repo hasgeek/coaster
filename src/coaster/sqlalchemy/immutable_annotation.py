@@ -10,7 +10,7 @@ from sqlalchemy.orm.attributes import NEVER_SET, NO_VALUE
 
 from .annotations import annotation_wrapper, annotations_configured
 
-__all__ = ['immutable', 'cached', 'ImmutableColumnError']
+__all__ = ['ImmutableColumnError', 'cached', 'immutable']
 
 
 immutable = annotation_wrapper(

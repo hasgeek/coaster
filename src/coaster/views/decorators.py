@@ -48,18 +48,18 @@ from ..compat import (
 from ..utils import InspectableSet, is_collection
 
 __all__ = [
-    'ReturnRenderWith',
+    'Redirect',
     'RequestTypeError',
     'RequestValueError',
-    'Redirect',
-    'requestargs',
-    'requestvalues',
-    'requestform',
-    'requestbody',
+    'ReturnRenderWith',
+    'cors',
     'load_model',
     'load_models',
     'render_with',
-    'cors',
+    'requestargs',
+    'requestbody',
+    'requestform',
+    'requestvalues',
     'requires_permission',
 ]
 
