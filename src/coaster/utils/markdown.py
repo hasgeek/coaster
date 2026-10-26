@@ -35,11 +35,11 @@ from .text import (
 )
 
 __all__ = [
-    'markdown',
     'MARKDOWN_HTML_TAGS',
-    'default_markdown_extensions_html',
-    'default_markdown_extensions',
     'default_markdown_extension_configs',
+    'default_markdown_extensions',
+    'default_markdown_extensions_html',
+    'markdown',
 ]
 
 
