@@ -13,13 +13,13 @@ from aniso8601.exceptions import ISOFormatError as ParseError
 from pytz import BaseTzInfo, utc
 
 __all__ = [
-    'utcnow',
-    'parse_isoformat',
-    'parse_duration',
+    'ParseError',
     'isoweek_datetime',
     'midnight_to_utc',
+    'parse_duration',
+    'parse_isoformat',
     'sorted_timezones',
-    'ParseError',
+    'utcnow',
 ]
 
 

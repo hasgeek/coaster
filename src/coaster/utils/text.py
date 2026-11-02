@@ -16,9 +16,9 @@ from bleach.sanitizer import Cleaner
 from markupsafe import Markup
 
 __all__ = [
-    'VALID_TAGS',
-    'LINKIFY_SKIP_TAGS',
     'LINKIFY_CALLBACKS',
+    'LINKIFY_SKIP_TAGS',
+    'VALID_TAGS',
     'compress_whitespace',
     'deobfuscate_email',
     'normalize_spaces',
