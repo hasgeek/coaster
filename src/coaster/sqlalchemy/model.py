@@ -90,15 +90,15 @@ if TYPE_CHECKING:
     from flask_sqlalchemy import SQLAlchemy as FlaskSQLAlchemy
 
 __all__ = [
+    'DeclarativeBase',  # From SQLAlchemy, re-exported for convenience
+    'ModelBase',
     'bigint',
-    'smallint',
     'int_pkey',
-    'uuid4_pkey',
+    'jsonb',
+    'smallint',
     'timestamp',
     'timestamp_now',
-    'jsonb',
-    'ModelBase',
-    'DeclarativeBase',  # From SQLAlchemy, re-exported for convenience
+    'uuid4_pkey',
 ]
 
 # --- SQLAlchemy type aliases ----------------------------------------------------------

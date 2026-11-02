@@ -35,11 +35,11 @@ _VERSION_SPECIFIER_RE = re.compile('[<=>!*]')
 
 # Version is not used here but is made available for others to import from
 __all__ = [
-    'Version',
-    'SimpleSpec',
-    'VersionedAssets',
     'AssetNotFound',
     'AssetNotFoundError',
+    'SimpleSpec',
+    'Version',
+    'VersionedAssets',
     'WebpackManifest',
 ]
 
