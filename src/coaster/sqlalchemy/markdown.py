@@ -12,7 +12,7 @@ from sqlalchemy.orm import Composite, composite
 
 from ..utils import markdown as markdown_processor
 
-__all__ = ['MarkdownComposite', 'MarkdownColumn', 'markdown_column']
+__all__ = ['MarkdownColumn', 'MarkdownComposite', 'markdown_column']
 
 
 class MarkdownComposite(MutableComposite):
