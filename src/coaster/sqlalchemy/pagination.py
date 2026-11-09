@@ -22,7 +22,7 @@ _O = TypeVar('_O', bound=object)
 
 MAX_PER_PAGE_DEFAULT: Final[int] = 100
 
-__all__ = ['SelectPagination', 'QueryPagination']
+__all__ = ['QueryPagination', 'SelectPagination']
 
 
 class Pagination(Generic[_O]):

@@ -31,10 +31,10 @@ from .utils import InspectableSet
 __all__ = [
     'CurrentAuth',
     'GetCurrentAuth',
-    'add_auth_attribute',
     'add_auth_anchor',
-    'request_has_auth',
+    'add_auth_attribute',
     'current_auth',
+    'request_has_auth',
 ]
 
 

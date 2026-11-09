@@ -81,24 +81,24 @@ from .registry import RegistryMixin
 from .roles import ActorType, RoleMixin, with_roles
 
 __all__ = [
-    'PkeyType',
-    'IdentityOptions',
-    'IdMixin',
-    'TimestampMixin',
-    'PermissionMixin',
-    'UrlDict',
-    'UrlForMixin',
-    'NoIdMixin',
+    'BaseIdNameMixin',
     'BaseMixin',
     'BaseNameMixin',
-    'BaseScopedNameMixin',
-    'BaseIdNameMixin',
     'BaseScopedIdMixin',
     'BaseScopedIdNameMixin',
+    'BaseScopedNameMixin',
     'CoordinatesMixin',
-    'UuidMixin',
-    'RoleMixin',
+    'IdMixin',
+    'IdentityOptions',
+    'NoIdMixin',
+    'PermissionMixin',
+    'PkeyType',
     'RegistryMixin',
+    'RoleMixin',
+    'TimestampMixin',
+    'UrlDict',
+    'UrlForMixin',
+    'UuidMixin',
 ]
 
 PkeyType = TypeVar('PkeyType', int, UUID, default=int)
@@ -703,7 +703,9 @@ class BaseNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check', tablename, "name <> ''"
+            )
     """
 
     #: Prevent use of these reserved names
@@ -834,7 +836,9 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('organizer.id'))
+            organizer_id: Mapped[int] = sa_orm.mapped_column(
+                sa.ForeignKey('organizer.id')
+            )
             organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa_orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'name'),)
@@ -851,7 +855,9 @@ class BaseScopedNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check', tablename, "name <> ''"
+            )
     """
 
     #: Prevent use of these reserved names
@@ -1022,7 +1028,9 @@ class BaseIdNameMixin(BaseMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check', tablename, "name <> ''"
+            )
     """
 
     #: Allow blank names after all?
@@ -1208,7 +1216,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
 
         class Event(BaseScopedIdNameMixin, Model):
             __tablename__ = 'event'
-            organizer_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('organizer.id'))
+            organizer_id: Mapped[int] = sa_orm.mapped_column(
+                sa.ForeignKey('organizer.id')
+            )
             organizer: Mapped[Organizer] = relationship(Organizer)
             parent = sa_orm.synonym('organizer')
             __table_args__ = (sa.UniqueConstraint('organizer_id', 'url_id'),)
@@ -1225,7 +1235,9 @@ class BaseScopedIdNameMixin(BaseScopedIdMixin[PkeyType, ActorType]):
             # Drop CHECK constraint first in case it was already present
             op.drop_constraint(tablename + '_name_check', tablename)
             # Create CHECK constraint
-            op.create_check_constraint(tablename + '_name_check', tablename, "name <> ''")
+            op.create_check_constraint(
+                tablename + '_name_check', tablename, "name <> ''"
+            )
     """
 
     #: Allow blank names after all?
