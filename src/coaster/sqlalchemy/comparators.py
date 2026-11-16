@@ -15,9 +15,9 @@ from ..utils import uuid_from_base58, uuid_from_base64
 __all__ = [
     'SplitIndexComparator',
     'SqlSplitIdComparator',
-    'SqlUuidHexComparator',
-    'SqlUuidB64Comparator',
     'SqlUuidB58Comparator',
+    'SqlUuidB64Comparator',
+    'SqlUuidHexComparator',
 ]
 
 

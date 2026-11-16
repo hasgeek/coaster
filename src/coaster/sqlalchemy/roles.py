@@ -181,15 +181,15 @@ from .functions import idfilters
 
 __all__ = [
     'ActorType',
-    'RoleGrantABC',
+    'ConditionalRole',
+    'DynamicAssociationProxy',
     'LazyRoleSet',
     'RoleAccessProxy',
-    'DynamicAssociationProxy',
+    'RoleGrantABC',
     'RoleMixin',
     'WithRoles',
-    'ConditionalRole',
-    'with_roles',
     'role_check',
+    'with_roles',
 ]
 
 # Global dictionary for temporary storage of roles until the mapper_configured events
@@ -414,13 +414,13 @@ class LazyRoleSet(abc.MutableSet):
     """Set that provides lazy evaluations for whether a role is present."""
 
     __slots__ = (
-        'obj',
+        '_contents_fully_evaluated',
+        '_not_present',
+        '_present',
+        '_scanned_granted_by',
         'actor',
         'anchors',
-        '_present',
-        '_not_present',
-        '_scanned_granted_by',
-        '_contents_fully_evaluated',
+        'obj',
     )
 
     def __init__(
@@ -695,7 +695,7 @@ class DynamicAssociationProxy(Generic[_V, _R]):
         when the relationship includes joins
     """
 
-    __slots__ = ('rel', 'attr', 'qattr', 'name')
+    __slots__ = ('attr', 'name', 'qattr', 'rel')
     name: Optional[str]
 
     def __init__(
@@ -750,7 +750,7 @@ class DynamicAssociationProxy(Generic[_V, _R]):
 class DynamicAssociationProxyBind(abc.Mapping, Generic[_T, _V, _R]):
     """:class:`DynamicAssociationProxy` bound to an instance."""
 
-    __slots__ = ('obj', 'rel', 'relattr', 'attr', 'qattr')
+    __slots__ = ('attr', 'obj', 'qattr', 'rel', 'relattr')
     relattr: QueryBase
     qattr: Optional[QueryableAttribute]
 
@@ -862,20 +862,20 @@ class RoleAccessProxy(abc.Mapping, Generic[RoleMixinType]):
     """
 
     __slots__ = (
-        '_obj',
-        'current_roles',
-        '_roles',
         '_actor',
         '_anchors',
-        '_datasets',
-        '_dataset_attrs',
         '_call',
-        '_read',
-        '_write',
+        '_dataset_attrs',
+        '_datasets',
+        '_dir_cache',
         '_no_call',
         '_no_read',
         '_no_write',
-        '_dir_cache',
+        '_obj',
+        '_read',
+        '_roles',
+        '_write',
+        'current_roles',
     )
     _obj: RoleMixinType
     current_roles: InspectableSet[Union[LazyRoleSet, set[str]]]
@@ -1271,7 +1271,9 @@ def with_roles(
             user_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('user.id'))
             user: Mapped[UserModel] = relationship(UserModel)
 
-            document_id: Mapped[int] = sa_orm.mapped_column(sa.ForeignKey('document.id'))
+            document_id: Mapped[int] = sa_orm.mapped_column(
+                sa.ForeignKey('document.id')
+            )
             document: Mapped[DocumentModel] = relationship(DocumentModel)
 
 
@@ -1481,7 +1483,7 @@ class ConditionalRole(Generic[_CRM, _CRA]):
 class ConditionalRoleBind(abc.Container, abc.Iterable, Generic[_CRM, _CRA]):
     """Wrapper for :class:`ConditionalRole` bound to an instance of the host class."""
 
-    __slots__ = ('__weakref__', '__self__', '_rolecheck')
+    __slots__ = ('__self__', '__weakref__', '_rolecheck')
 
     def __init__(self, __cr: ConditionalRole[_CRM, _CRA], __obj: _CRM) -> None:
         self._rolecheck = __cr
