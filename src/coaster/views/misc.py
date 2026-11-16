@@ -21,7 +21,7 @@ from ..compat import (
     url_for,
 )
 
-__all__ = ['get_current_url', 'get_next_url', 'jsonp', 'endpoint_for']
+__all__ = ['endpoint_for', 'get_current_url', 'get_next_url', 'jsonp']
 
 __jsoncallback_re = re.compile(r'^[a-z$_][0-9a-z$_]*$', re.I)
 
